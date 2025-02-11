@@ -29,9 +29,6 @@ You should run the client on port 3000 for Google oAuth to work.
 ## Studio Creator
 Can be used to create and edit movie, narrative, and music videos.
 
-![Studio Screenshot](https://samsar-resources.s3.us-west-2.amazonaws.com/landing/Screenshot+2025-02-11+at+11.02.07%E2%80%AFAM.png)
-
-
 Supported Features- 
 1. Image Creating and Editing
 2. Video Creation via Text to video and Img To Video  
