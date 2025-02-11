@@ -1,8 +1,8 @@
 # SamsarOne Generative Workflow Creation Suite
 
-This is the client code for SamsarOne generative suite.
+Client side code for SamsarOne generative video creation suite.
 
-It is built primarily using ReactJS over CanvasJS.
+It is built primarily using CanvasJS over ReactJS.
 
 You can choose between one of four workflows.
 
@@ -10,7 +10,7 @@ You will need to create an account and get credits to send model requests.
 
 Hosted version is available [here](https://app.samsar.one).
 
-To install
+To install - 
 
 Leave the API values as is.
 
