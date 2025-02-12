@@ -124,8 +124,6 @@ export default function VideoEditorContainer(props) {
       return;
     }
 
-
-
     if (currentLayer.hasLipSyncVideoLayer && currentLayer.lipSyncVideoLayer) {
       setAiVideoLayer(getLipSyncVideoLink());
       setAiVideoLayerType('lip_sync');
@@ -140,23 +138,34 @@ export default function VideoEditorContainer(props) {
       setAiVideoLayerType(null);
     }
 
+    console.log("SETTING NOW");
+    console.log(currentLayer);
+
 
     if (currentLayer.lipSyncGenerationPending) {
-
       setAiVideoPollType('lip_sync');
-      startAIVideoLayerGenerationPoll();
+
     } else if (currentLayer.soundEffectGenerationPending) {
       setAiVideoPollType('sound_effect');
-      startAIVideoLayerGenerationPoll();
+  
     } else if (currentLayer.aiVideoGenerationPending) {
-
       setAiVideoPollType('ai_video');
-      startAIVideoLayerGenerationPoll();
+
     }
 
   }, [currentLayer]);
 
 
+  useEffect(() => {
+    if (!aiVideoPollType) {
+      // No poll type means nothing to do
+      return;
+    }
+    // If aiVideoPollType is set, then start polling
+    startAIVideoLayerGenerationPoll();
+  }, [aiVideoPollType]);
+
+  console.log("AI POLL TYPE " + aiVideoPollType);
 
   // Preload hidden <video> once we set aiVideoLayer
   useEffect(() => {
@@ -1717,11 +1726,9 @@ export default function VideoEditorContainer(props) {
         (l) => l._id.toString() === layer._id.toString()
       );
       updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
-
-
-
       setAiVideoPollType('lip_sync');
-      startAIVideoLayerGenerationPoll();
+  
+
       toast.success(
         <div>
           <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
@@ -2061,10 +2068,17 @@ export default function VideoEditorContainer(props) {
     const pollRes = pollResData.data;
     if (pollRes.status === 'COMPLETED') {
       const sessionData = pollRes.session;
+
+      console.log("FINISHED POLLING");
+
       setIsAIVideoGenerationPending(false);
       const layerData = sessionData.layers.find(
         (layer) => layer._id.toString() === selectedLayerId
       );
+
+      console.log("LAYER DATA");
+      console.log(layerData);
+
       const newLayers = sessionData.layers;
       const updatedLayerIndex = newLayers.findIndex(
         (layer) => layer._id.toString() === selectedLayerId
@@ -2132,8 +2146,7 @@ export default function VideoEditorContainer(props) {
        );
        updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
 
-      
-        startAIVideoLayerGenerationPoll();
+
 
 
         
