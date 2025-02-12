@@ -63,6 +63,21 @@ export default function ListVideoSessions() {
     });
   };
 
+  const createNewVidGPTSession = () => {
+    const headers = getHeaders();
+    const payload = {
+      prompts: [],
+    };
+    axios.post(`${PROCESSOR_API}/video_sessions/create_video_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('videoSessionId', sessionId);
+
+      navigate(`/vidgpt/${session._id}`);
+    });
+  }
+  
+
   const handleImportClick = (session, editorType) => {
 
 
@@ -132,6 +147,7 @@ export default function ListVideoSessions() {
             <ShowNewUserIntroDisplay
               createNewStudioSession={createNewStudioSession}
               createNewQuickSession={createNewQuickSession}
+              createNewVidGPTSession={createNewVidGPTSession}
               handleImportClick={handleImportClick}
             />
           </div>

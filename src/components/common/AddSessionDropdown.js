@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import { FaPlus, FaStar } from 'react-icons/fa';
 import { useColorMode } from '../../contexts/ColorMode.js';
 import { FaFastForward } from "react-icons/fa";
 import { MdExplore } from "react-icons/md";
@@ -36,6 +36,7 @@ function AddSessionDropdown(props) {
   const bgColor = colorMode === 'dark' ? 'bg-gray-900 hover:bg-gray-700' : 'bg-neutral-200 hover:bg-neutral-300';
   const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-700';
 
+  const text2Color = colorMode === 'dark' ? 'text-neutral-200' : 'text-neutral-800';
 
   const borderColor = colorMode === 'dark' ? 'border-gray-600 border-2' : 'border-gray-300 border-2';
   const toggleDropdown = () => {
@@ -111,27 +112,20 @@ function AddSessionDropdown(props) {
             </button>
             <button
               onClick={showAddNewExpressSession}
-              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}}`}
+              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}} hover:${text2Color}`}
               role="menuitem"
             >
-              <FaFastForward className='inline-flex ' /> Express Create
+              <FaFastForward className='inline-flex mb-1' /> Express Create
             </button>
             <button
               onClick={showAddNewVidGPTSession}
-              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}}`}
+              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
               role="menuitem"
             >
-              <FaFastForward className='inline-flex ' /> VideoGPT
+              <FaStar className='inline-flex mb-1' /> VideoGPT
             </button>  
 
-            {betaOptionVisible && ( 
-            <button
-              onClick={showAddNewMovieMakerSession}
-              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}}`}
-              role="menuitem"
-            >
-              <FaFastForward className='inline-flex ' /> Movie Maker
-            </button>) }      
+      
             <button
               onClick={viewSessions}
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}}`}

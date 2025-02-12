@@ -4,12 +4,16 @@ import { useColorMode } from '../../../contexts/ColorMode.js';
 import { getHeaders } from '../../../utils/web';
 import { useNavigate } from 'react-router-dom';
 
-import { FaVideo, FaForward } from "react-icons/fa";
+import { FaVideo, FaForward, FaStar, FaQuestionCircle } from "react-icons/fa";
+
+// 1) Import react-tooltip
+import 'react-tooltip/dist/react-tooltip.css';
+import { Tooltip } from 'react-tooltip';
 
 const API_SERVER = process.env.REACT_APP_PROCESSOR_API;
 
 export default function ShowNewUserIntroDisplay(props) {
-  const { createNewStudioSession, createNewQuickSession, handleImportClick } = props;
+  const { createNewStudioSession, createNewQuickSession, createNewVidGPTSession, handleImportClick } = props;
 
   const [introSessionList, setIntroSessionList] = useState([]);
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(null);
@@ -33,50 +37,8 @@ export default function ShowNewUserIntroDisplay(props) {
     setSelectedSessionIndex(index === selectedSessionIndex ? null : index);
   };
 
-
-
   let introSessionsListDisplay = <span />;
-  if (introSessionList.length > 0) {
-    introSessionsListDisplay = (
-      <div className={`bg-gray-800  mb-2 pt-2 pb-2 pl-4 pr-4`}>
-        <div className='text-lg font-bold pb-4  mb-2'>
-          Import project from Template
-        </div>
-        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center'>
-          {introSessionList.map((session, index) => {
-            const isSelected = index === selectedSessionIndex;
-            return (
-              <div key={index} className="w-full">
-                <div
-                  className={`cursor-pointer p-4 border rounded-lg ${isSelected ? 'bg-blue-900 text-white' : 'bg-gray-900 text-neutral-100'}`}
-                  onClick={() => handleSessionClick(index)}
-                >
-                  <div className='text-center mb-2'>{session.sessionName}</div>
-                  <img src={`${API_SERVER}${session.sessionFrameImage}`} alt={session.sessionName} className="w-64 h-64 object-cover rounded-lg mx-auto" />
-                </div>
-                {isSelected && (
-                  <div className="flex justify-between mt-2">
-                    <button
-                      onClick={() => handleImportClick(session, 'express')}
-                      className="bg-green-800 hover:bg-green-700 text-white py-2 px-4 rounded-lg w-full mr-2"
-                    >
-                      Import in Express Editor
-                    </button>
-                    <button
-                      onClick={() => handleImportClick(session, 'studio')}
-                      className="bg-blue-900 hover:bg-blue-800 text-white py-2 px-4 rounded-lg w-full"
-                    >
-                      Import in Studio Editor
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div>
@@ -87,27 +49,64 @@ export default function ShowNewUserIntroDisplay(props) {
             Create New Project
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 justify-items-center  ">
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 justify-items-center">
+            {/* Studio Session */}
             <div
               onClick={() => createNewStudioSession()}
               className="flex flex-col items-center justify-center cursor-pointer"
             >
               <FaVideo className="text-4xl mb-2" />
-              <span> Studio Session</span>
+              <span className="flex items-center">
+                Studio Session
+                {/* 2) Add FaQuestionCircle with tooltip props */}
+                <FaQuestionCircle
+                  data-tooltip-id="studioSessionTooltip"
+                  data-tooltip-content="Studio creator and editor. Create And Edit."
+                  className="ml-2"
+                />
+              </span>
             </div>
+
+            {/* Express Session */}
             <div
               onClick={() => createNewQuickSession()}
               className="flex flex-col items-center justify-center cursor-pointer"
             >
               <FaForward className="text-4xl mb-2" />
-              <span> Express Session</span>
+              <span className="flex items-center">
+                Express Session
+                <FaQuestionCircle
+                  data-tooltip-id="expressSessionTooltip"
+                  data-tooltip-content="Narrative video creator. Edit in Studio."
+                  className="ml-2"
+                />
+              </span>
+            </div>
+
+            {/* VidGPT Session */}
+            <div
+              onClick={() => createNewVidGPTSession()}
+              className="flex flex-col items-center justify-center cursor-pointer"
+            >
+              <FaStar className="text-4xl mb-2" />
+              <span className="flex items-center">
+                VidGPT Session
+                <FaQuestionCircle
+                  data-tooltip-id="vidgptSessionTooltip"
+                  data-tooltip-content="1-Shot Feature film creator. Edit in Studio."
+                  className="ml-2"
+                />
+              </span>
             </div>
           </div>
         </div>
-
-
+        {introSessionsListDisplay}
       </div>
+
+      {/* 3) Render the Tooltip components, each with its matching ID */}
+      <Tooltip id="studioSessionTooltip" place="top" effect="solid" />
+      <Tooltip id="expressSessionTooltip" place="top" effect="solid" />
+      <Tooltip id="vidgptSessionTooltip" place="top" effect="solid" />
     </div>
   );
 }

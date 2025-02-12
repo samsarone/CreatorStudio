@@ -113,6 +113,9 @@ export default function FrameToolbar(props) {
 
   const [dragAmount, setDragAmount] = useState(0);
 
+  const [clipStart, setClipStart] = useState(false);
+
+
 
   const [showTextTrackAnimations, setShowTextTrackAnimations] = useState(false);
 
@@ -722,20 +725,24 @@ export default function FrameToolbar(props) {
     setDurationChanged(true);
   };
 
+
   const onUpdateDuration = () => {
     const newDuration = pendingDuration;
     setLayerDuration(newDuration, selectedLayerIndex);
     let layer = layers[selectedLayerIndex];
     layer.duration = newDuration;
-    updateSessionLayer(layer);
-
+  
+    // Here is where we now include clipStart
+    updateSessionLayer(layer, clipStart);  // <--- pass it along
+  
     if (pendingDuration != null) {
       setPendingDuration(null);
       setDurationChanged(false);
       setOpenPopupLayerIndex(null);
     }
   };
-
+  
+  
   const onClosePopup = () => {
     setPendingDuration(null);
     setDurationChanged(false);
@@ -750,25 +757,30 @@ export default function FrameToolbar(props) {
     setOpenPopupLayerIndex(null); // Close the popup when layer is removed
   };
 
+
   const setSelectedLayerDurationRange = (val) => {
-
-    // Since invert={true}, val[0] is start, val[1] is end
-    const newDurationInFrames = val[1] - val[0];
-    const newDuration = newDurationInFrames / 30;
-
-    // Ensure newDuration is not negative
-    if (newDuration < 0) {
-      // Swap the values if necessary
-      [val[0], val[1]] = [val[1], val[0]];
-      newDurationInFrames = val[1] - val[0];
-      newDuration = newDurationInFrames / 30;
+    // val[0] is the new start frame, val[1] is the new end frame
+  
+    // If the start frame changed, set clipStart = true
+    // Otherwise if the end frame changed, set clipStart = false
+    const newStartFrame = val[0];
+    const newEndFrame = val[1];
+  
+    // Compare with previous state (e.g. startSelectDurationInFrames, endSelectDurationInFrames)
+    if (newStartFrame !== startSelectDurationInFrames) {
+      setClipStart(true);
+    } else if (newEndFrame !== endSelectDurationInFrames) {
+      setClipStart(false);
     }
-
-
+  
+    const newDurationInFrames = newEndFrame - newStartFrame;
+    const newDuration = newDurationInFrames / 30;
+  
     setPendingDuration(newDuration);
     setDurationChanged(true);
   };
 
+  
 
 
   useEffect(() => {

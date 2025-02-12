@@ -976,6 +976,10 @@ export default function VideoHome(props) {
       audioLayers: audioLayers,
       audioLayerId: layerId
     };
+
+
+    console.log("FEEE MEEE SEEE GEEEE");
+    
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then(() => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
@@ -1136,7 +1140,7 @@ export default function VideoHome(props) {
     });
   };
 
-  const updateSessionLayer = (newLayer) => {
+  const updateSessionLayer = (newLayer, clipStart = false) => {
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1145,7 +1149,8 @@ export default function VideoHome(props) {
 
     const reqPayload = {
       sessionId: id,
-      layer: newLayer
+      layer: newLayer,
+      clipStart: clipStart,
     };
 
 
