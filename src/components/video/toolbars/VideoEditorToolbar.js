@@ -19,6 +19,8 @@ import SecondaryButton from '../../common/SecondaryButton.tsx';
 import SoundSelectToolbar from './audio/SoundSelectToolbar.js';
 import SpeechProviderSelect from './audio/SpeechProviderSelect.js';
 import LayerSpeechPreview from './audio/LayerSpeechPreview.js';
+import MovieSpeechProviderSelect from './audio/MovieSpeechProviderSelect.js';
+
 
 import { toast } from 'react-toastify';
 import './editorToolbar.css';
@@ -51,6 +53,7 @@ import { useAlertDialog } from '../../../contexts/AlertDialogContext.js';
 
 import  VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.js';
 import  VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.js';
+import DefaultSpeechProviderSelect from './audio/DefaultSpeechProviderSelect.js';
 
 export default function VideoEditorToolbar(props: any) {
   const {
@@ -117,7 +120,8 @@ export default function VideoEditorToolbar(props: any) {
     submitAddBatchTrackToProject,
     currentLayer,
     isSelectButtonDisabled,
-
+    movieSoundList,
+    movieGenSpeakers,
     
   } = props;
 
@@ -796,29 +800,22 @@ export default function VideoEditorToolbar(props: any) {
     submitGenerateMusicRequest(body);
   };
 
-  const submitGenerateSpeech = (evt) => {
-    evt.preventDefault();
+  const submitGenerateSpeech = (payload) => {
 
-    const formData = new FormData(evt.target);
-    const promptText = formData.get('promptText');
-    const speaker = speakerType.value;
-    const textAnimationOptions = formData.get('textAnimationOptions');
-    const ttsProviderValue = speakerType.provider;
-    const speechOptionValue = speechOption.value;
-    const subtitleOptionValue = subtitleOption.value;
+    payload.aspectRatio = aspectRatio;
 
-    const body = {
-      prompt: promptText,
-      generationType: 'speech',
-      speaker: speaker,
-      textAnimationOptions: textAnimationOptions,
-      addSubtitles: addSubtitles,
-      ttsProvider: ttsProviderValue,
-      aspectRatio: aspectRatio,
-      subtitleOption: subtitleOptionValue
-    };
+    const speechOptionValue = payload.speechOptionValue;
 
-    if (speechOptionValue === 'SPEECH_LAYER_LINES') {
+    if (speechOptionValue && speechOptionValue === 'SPEECH_LAYER_LINES') {
+
+
+      const promptText = payload.promptText;
+      const speaker = payload.speaker;
+      const textAnimationOptions = payload.textAnimationOptions;
+      const subtitleOptionValue = payload.subtitleOptionValue;
+      const ttsProviderValue = payload.ttsProviderValue;
+
+
       const promptList = promptText.split('\n').filter(prompt => prompt && prompt.trim().length > 0);
       const layeredSpeechBody = {
         generationType: 'speech',
@@ -834,7 +831,7 @@ export default function VideoEditorToolbar(props: any) {
       setNumberOfSpeechLayersRequested(promptList.length);
       submitGenerateLayeredSpeechRequest(layeredSpeechBody);
     } else {
-      submitGenerateMusicRequest(body);
+      submitGenerateMusicRequest(payload);
     }
   };
 
@@ -1119,6 +1116,55 @@ export default function VideoEditorToolbar(props: any) {
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY) {
       let advancedAudioSpeechOptionsDisplay = <span />;
+
+      let audioSubOptionsForSession = (
+        <DefaultSpeechProviderSelect 
+        submitGenerateSpeech={submitGenerateSpeech}
+        ttsProvider={ttsProvider}
+        handleTtsProviderChange={handleTtsProviderChange}
+        speakerType={speakerType}
+        handleSpeakerChange={handleSpeakerChange}
+        playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
+        currentlyPlayingSpeaker={currentlyPlayingSpeaker}
+        audioGenerationPending={audioGenerationPending}
+        bgColor={bgColor}
+        text2Color={text2Color}
+        advancedAudioSpeechOptionsDisplay={advancedAudioSpeechOptionsDisplay}
+        showAdvancedOptions={showAdvancedOptions}
+        setShowAdvancedOptions={setShowAdvancedOptions}
+        colorMode={colorMode}
+        speechOption={speechOption}
+        subtitleOption={subtitleOption}
+        addSubtitles={addSubtitles}
+
+        
+        />
+      )
+      if (sessionDetails.isMovieGen && movieSoundList) {
+        audioSubOptionsForSession = (
+          <MovieSpeechProviderSelect 
+          movieSoundList={movieSoundList}
+          movieGenSpeakers={movieGenSpeakers}
+          submitGenerateSpeech={submitGenerateSpeech}
+
+          ttsProvider={ttsProvider}
+          handleTtsProviderChange={handleTtsProviderChange}
+          speakerType={speakerType}
+          handleSpeakerChange={handleSpeakerChange}
+          playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
+          currentlyPlayingSpeaker={currentlyPlayingSpeaker}
+          audioGenerationPending={audioGenerationPending}
+          bgColor={bgColor}
+          text2Color={text2Color}
+          advancedAudioSpeechOptionsDisplay={advancedAudioSpeechOptionsDisplay}
+          showAdvancedOptions={showAdvancedOptions}
+          setShowAdvancedOptions={setShowAdvancedOptions}
+          colorMode={colorMode}
+
+          />
+        )
+      }
+
       if (showAdvancedOptions) {
         advancedAudioSpeechOptionsDisplay = (
           <div>
@@ -1137,44 +1183,7 @@ export default function VideoEditorToolbar(props: any) {
       }
       audioSubOptionsDisplay = (
         <div>
-          <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateSpeech}>
-            <div>
-              <div className='text-xs block text-white w-full text-right'>
-                <div className='cursor-pointer hover:text-neutral-200 mb-1' onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}>
-                  Advanced  <FaChevronDown className='inline-flex' />
-                </div>
-              </div>
-            </div>
-            <div>
-              {advancedAudioSpeechOptionsDisplay}
-            </div>
-            <div className="basis-full mb-1">
-              <SpeechProviderSelect
-                ttsProvider={ttsProvider}
-                onTtsProviderChange={handleTtsProviderChange}
-                speakerType={speakerType}
-                onSpeakerChange={handleSpeakerChange}
-                playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
-                currentlyPlayingSpeaker={currentlyPlayingSpeaker}
-                colorMode={colorMode}
-              />
-            </div>
-            <TextareaAutosize
-              name="promptText"
-              placeholder="Enter speech prompt text here"
-              className={`w-full h-20 ${bgColor} ${text2Color} p-1`}
-              minRows={3}
-            />
-            <div className="flex flex-col">
-              <div className="basis-full m-auto mt-1">
-                <div>
-                  <CommonButton type="submit" isPending={audioGenerationPending}>
-                    Generate
-                  </CommonButton>
-                </div>
-              </div>
-            </div>
-          </form>
+          {audioSubOptionsForSession}
         </div>
       );
     }

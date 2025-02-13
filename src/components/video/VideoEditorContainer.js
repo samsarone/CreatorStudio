@@ -74,6 +74,23 @@ export default function VideoEditorContainer(props) {
   const [aiVideoLayer, setAiVideoLayer] = useState(null);
   const [aiVideoLayerType, setAiVideoLayerType] = useState(null);
 
+  const [movieSoundList, setMovieSoundList] = useState([]);
+
+  const [movieVisualList, setMovieVisualList] = useState([]);
+  const [movieGenSpeakers, setMovieGenSpeakers] = useState([]);
+
+  useEffect(() => {
+
+    if (videoSessionDetails && videoSessionDetails.movieResourceList) {
+      const { scenes, sounds } = videoSessionDetails.movieResourceList;
+      setMovieSoundList(sounds);
+      setMovieVisualList(scenes);
+      setMovieGenSpeakers(videoSessionDetails.movieGenSpeakers);
+
+    }
+  }, [videoSessionDetails]);
+
+
   let { id } = useParams();
   if (!id) {
     id = props.id;
@@ -93,7 +110,7 @@ export default function VideoEditorContainer(props) {
 
 
   const [aiVideoPollType, setAiVideoPollType] = useState(null);
-  
+
   // Helpers to return full video URLs based on which link is available
   const getAIVideoLink = () => {
     if (!currentLayer || !currentLayer.aiVideoLayer) return null;
@@ -138,17 +155,13 @@ export default function VideoEditorContainer(props) {
       setAiVideoLayerType(null);
     }
 
-    console.log("SETTING NOW");
-    console.log(currentLayer);
-
-
     if (currentLayer.lipSyncGenerationPending) {
       setAiVideoPollType('lip_sync');
 
     } else if (currentLayer.soundEffectGenerationPending) {
       setAiVideoPollType('sound_effect');
-  
-    } else if (currentLayer.aiVideoGenerationPending) {
+
+    } else if (currentLayer.aiVideoGenerationPending && currentLayer.layerAiVideoType === 'ai_video') {
       setAiVideoPollType('ai_video');
 
     }
@@ -162,10 +175,12 @@ export default function VideoEditorContainer(props) {
       return;
     }
     // If aiVideoPollType is set, then start polling
+
     startAIVideoLayerGenerationPoll();
   }, [aiVideoPollType]);
 
-  console.log("AI POLL TYPE " + aiVideoPollType);
+  console.log("AI VIDEO POLL TYPE " + aiVideoPollType);
+
 
   // Preload hidden <video> once we set aiVideoLayer
   useEffect(() => {
@@ -295,14 +310,14 @@ export default function VideoEditorContainer(props) {
     if (currentLayer && videoSessionDetails) {
       const currentLayerStartTime = currentLayer.durationOffset;
       const currentLayerEndTime = currentLayer.durationOffset + currentLayer.duration;
-  
+
       const { audioLayers } = videoSessionDetails;
       const audioSpeechLayerOverlaps = audioLayers.some((audioLayer) => {
         const audioLayerStartTime = audioLayer.startTime;
         const audioLayerEndTime = audioLayer.endTime;
-        
+
         // Check if there's any overlap
-        const ovelapAudio =  (
+        const ovelapAudio = (
           audioLayerStartTime < currentLayerEndTime &&
           audioLayerEndTime > currentLayerStartTime && audioLayer.generationType === 'speech'
         );
@@ -313,7 +328,7 @@ export default function VideoEditorContainer(props) {
       setCurrentLayerHasSpeechLayer(audioSpeechLayerOverlaps);
     }
   }, [currentLayer, videoSessionDetails]);
-  
+
 
   // Example showing usage for uploading images
   const setUploadURL = useCallback(
@@ -1587,7 +1602,7 @@ export default function VideoEditorContainer(props) {
       layerId: currentLayer._id.toString(),
       aiVideoLayerType, // pass the currently active AI video layer type
     };
-    
+
     const responseData = await axios.post(`${PROCESSOR_API_URL}/video_sessions/remove_ai_video_layer`, payload, headers);
     const removeResponse = responseData.data;
     if (removeResponse) {
@@ -1715,7 +1730,7 @@ export default function VideoEditorContainer(props) {
       model: selectedModel
     };
 
-    
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/request_lip_sync_to_speech`, payload, headers).then((resData) => {
 
       const response = resData.data;
@@ -1727,7 +1742,7 @@ export default function VideoEditorContainer(props) {
       );
       updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
       setAiVideoPollType('lip_sync');
-  
+
 
       toast.success(
         <div>
@@ -2040,7 +2055,7 @@ export default function VideoEditorContainer(props) {
 
   // Poll for AI video generation
   const startAIVideoLayerGenerationPoll = async () => {
-    console.log("STARTING POLL");
+
 
     const selectedLayerId = currentLayer._id.toString();
     const payload = {
@@ -2057,7 +2072,7 @@ export default function VideoEditorContainer(props) {
       return;
     }
     if (!aiVideoPollType) {
-     // setIsAIVideoGenerationPending(false);
+      // setIsAIVideoGenerationPending(false);
       return;
     }
     const pollResData = await axios.post(
@@ -2069,15 +2084,11 @@ export default function VideoEditorContainer(props) {
     if (pollRes.status === 'COMPLETED') {
       const sessionData = pollRes.session;
 
-      console.log("FINISHED POLLING");
 
       setIsAIVideoGenerationPending(false);
       const layerData = sessionData.layers.find(
         (layer) => layer._id.toString() === selectedLayerId
       );
-
-      console.log("LAYER DATA");
-      console.log(layerData);
 
       const newLayers = sessionData.layers;
       const updatedLayerIndex = newLayers.findIndex(
@@ -2137,19 +2148,19 @@ export default function VideoEditorContainer(props) {
       .then((resData) => {
         const response = resData.data;
 
-       setAiVideoPollType('ai_video');
+        setAiVideoPollType('ai_video');
 
-       const { session, layer } = response;
-       const newLayers = session.layers;
-       const currentLayerIndex = newLayers.findIndex(
-         (l) => l._id.toString() === layer._id.toString()
-       );
-       updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
-
-
+        const { session, layer } = response;
+        const newLayers = session.layers;
+        const currentLayerIndex = newLayers.findIndex(
+          (l) => l._id.toString() === layer._id.toString()
+        );
+        updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
 
 
-        
+
+
+
         toast.success(
           <div>
             <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
@@ -2199,10 +2210,6 @@ export default function VideoEditorContainer(props) {
         startAIVideoLayerGenerationPoll();
       });
   };
-
-
-  console.log("AI VIDEO LAYER TYOPE " , aiVideoLayerType);
-
 
 
   let viewDisplay = <span />;
@@ -2300,9 +2307,9 @@ export default function VideoEditorContainer(props) {
               selectedGenerationModel={selectedGenerationModel}
               setSelectedGenerationModel={setSelectedGenerationModel}
               generationError={generationError}
-           
+
               submitGenerateNewRequest={submitGenerateNewRequest}
- 
+
 
             />
           </div>
@@ -2310,9 +2317,6 @@ export default function VideoEditorContainer(props) {
       }
     }
   }
-
-  // Minimal vs. full toolbar
-  const movieGenSpeakers = videoSessionDetails.movieGenSpeakers;
 
 
 
@@ -2421,6 +2425,9 @@ export default function VideoEditorContainer(props) {
       isSelectButtonDisabled={isSelectButtonDisabled}
       currentLayerHasSpeechLayer={currentLayerHasSpeechLayer}
       requestAddSyncedSoundEffect={requestAddSyncedSoundEffect}
+
+      movieSoundList={movieSoundList}
+      movieVisualList={movieVisualList}
       movieGenSpeakers={movieGenSpeakers}
     />
   )
