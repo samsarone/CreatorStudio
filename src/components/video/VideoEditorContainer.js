@@ -14,14 +14,11 @@ import {
   IMAGE_EDIT_MODEL_TYPES
 } from '../../constants/Types.ts';
 import { STAGE_DIMENSIONS } from '../../constants/Image.js';
-import SelectTemplate from '../editor/SelectTemplate.tsx';
 import UploadImageDialog from '../editor/utils/UploadImageDialog.js';
 import VideoCanvasContainer from './editor/VideoCanvasContainer.js';
 import VideoEditorToolbar from './toolbars/VideoEditorToolbar.js'
 import LoadingImage from './util/LoadingImage.js';
 import LoadingImageTransparent from './util/LoadingImageTransparent.js';
-import ImageLibrary from './util/ImageLibrary.js';
-
 import { getTextConfigForCanvas } from '../../constants/TextConfig.js';
 
 import LibraryHome from '../library/LibraryHome.js';
@@ -1790,6 +1787,10 @@ export default function VideoEditorContainer(props) {
   const addSelectedAiVideoToLayer = (payload) => {
     setIsSelectButtonDisabled(true);
     const { video, trimScene } = payload;
+
+    console.log("ADD VIDEO");
+    console.log(video);
+    
     const videoURL = video.url;
 
     const requestPayload = {

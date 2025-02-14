@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext.js';
 import { getHeaders } from '../../utils/web.js';
-import SecondaryButton from './SecondaryButton.tsx';
-import { FaChevronDown, FaChevronUp , FaTimes } from 'react-icons/fa';
+
+import { FaChevronDown, FaChevronUp, FaTimes } from 'react-icons/fa';
 
 import { useAlertDialog } from '../../contexts/AlertDialogContext.js';
 
@@ -46,10 +46,10 @@ export default function UpgradePlan() {
       const headers = getHeaders();
       const { data } = await axios.post(
         `${PROCESSOR_SERVER}/users/upgrade_plan`,
-        payload, 
-        headers 
+        payload,
+        headers
       );
-  
+
       window.open(data.url, '_blank');
     } catch (error) {
       console.error('Upgrade plan error:', error);
@@ -95,7 +95,7 @@ export default function UpgradePlan() {
   return (
     <div className="max-w-4xl mx-auto p-6 text-neutral-100 rounded-lg shadow-lg">
 
-<FaTimes className={`absolute top-2 right-2 cursor-pointer z-100`} onClick={closeAlertDialog} />
+      <FaTimes className={`absolute top-2 right-2 cursor-pointer z-100`} onClick={closeAlertDialog} />
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold">Choose Your Plan</h1>
         <p className="text-lg mt-2">Unlock all features and enjoy premium benefits.</p>
@@ -104,9 +104,8 @@ export default function UpgradePlan() {
       <div className="flex flex-col md:flex-row justify-center items-start space-y-6 md:space-y-0 md:space-x-6 mb-8">
         {/* Premium Plan */}
         <div
-          className={`flex-1 border rounded-lg p-6 cursor-pointer transform transition-transform hover:scale-105 ${
-            selectedPlan === 'Premium' ? 'border-blue-500 shadow-lg' : 'border-gray-700'
-          }`}
+          className={`flex-1 border rounded-lg p-6 cursor-pointer transform transition-transform hover:scale-105 ${selectedPlan === 'Premium' ? 'border-blue-500 shadow-lg' : 'border-gray-700'
+            }`}
           onClick={() => setSelectedPlan('Premium')}
         >
           <h2 className="text-2xl font-bold mb-4">Premium</h2>
@@ -128,9 +127,8 @@ export default function UpgradePlan() {
 
         {/* Professional Plan */}
         <div
-          className={`flex-1 border rounded-lg p-6 cursor-pointer transform transition-transform hover:scale-105 ${
-            selectedPlan === 'Professional' ? 'border-blue-500 shadow-lg' : 'border-gray-700'
-          }`}
+          className={`flex-1 border rounded-lg p-6 cursor-pointer transform transition-transform hover:scale-105 ${selectedPlan === 'Professional' ? 'border-blue-500 shadow-lg' : 'border-gray-700'
+            }`}
           onClick={() => setSelectedPlan('Professional')}
         >
           <h2 className="text-2xl font-bold mb-4">Professional</h2>

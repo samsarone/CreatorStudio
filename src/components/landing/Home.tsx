@@ -30,6 +30,7 @@ import RegisterPage from "../auth/pages/RegisterPage.js";
 
 import PaymentsSuccess from "../payments/PaymentsSuccess.js";
 import PaymentsFailure from "../payments/PaymentsFailure.js";
+import CreatePayment from "../payments/CreatePayment.js";
 import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.js";
 import { useColorMode } from "../../contexts/ColorMode.js";
 
@@ -123,12 +124,14 @@ export default function Home() {
         <Route path="/movie_maker/:id" element={<MovieGeneratorContainer />} />
 
         <Route path="/my_sessions" element={<ListVideoSessions />} />
+        <Route path="/create_payment" element={<CreatePayment />} />
         <Route path="/account" element={<UserAccount />} />
         <Route path="/publication/:id" element={<PublicationHome />} />
         <Route path="/verify" element={<VerificationHome />} />
         <Route path="/verify_email" element={<EmailVerificationHome />} />
         <Route path="/payment_success" element={<PaymentsSuccess />} />
         <Route path="/payment_cancel" element={<PaymentsFailure />} />
+
 
 
         {/* Add more routes as needed */}

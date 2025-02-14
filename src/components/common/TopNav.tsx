@@ -204,13 +204,9 @@ export default function TopNav(props) {
   }
 
   const upgradeToPremiumTier = () => {
+    console.log("UPGRADE TO PREMIUM TIER");
 
-    const alertDialogComponent = <UpgradePlan />;
-    openAlertDialog(
-      <div>
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        {alertDialogComponent}
-      </div>);
+    navigate('/create_payment');
   };
 
   const createNewSession = (aspectRatio = '1:1') => {
@@ -300,7 +296,7 @@ export default function TopNav(props) {
     }
 
     userProfile = (
-      <div className="flex items-center justify-end cursor-pointer" onClick={gotoUserAccount}>
+      <div className="flex items-center justify-end cursor-pointer" >
         <div className="flex flex-col text-left mr-2">
           <div className="text-md max-w-[90px] whitespace-nowrap overflow-hidden text-ellipsis">
             <h1 className='text-center '>{user.username ? user.username : user.email}</h1>
@@ -309,7 +305,7 @@ export default function TopNav(props) {
             {userTierDisplay}
           </div>
         </div>
-        <FaCog className='inline-flex text-2lg ' />
+        <FaCog className='inline-flex text-2lg ' onClick={gotoUserAccount}/>
       </div>
     );
 

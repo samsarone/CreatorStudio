@@ -1,7 +1,6 @@
 import VideoCanvas from "./VideoCanvas";
 import React, { forwardRef, useEffect, useState, useRef } from "react";
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
-import { STAGE_DIMENSIONS } from '../../../constants/Image.js';
 import { generateCursor, generatePencilCursor } from "../util/GenerateSVG.js";
 import Konva from 'konva';
 
