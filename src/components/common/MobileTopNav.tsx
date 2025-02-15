@@ -9,7 +9,7 @@ import ToggleButton from './ToggleButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.js';
 import { IoMdWallet } from 'react-icons/io';
 import Login from '../auth/Login.tsx';
-import UpgradePlan from './UpgradePlan.tsx';
+import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.js';
 import './common.css';
 import { FaTwitter, FaStar } from 'react-icons/fa6';

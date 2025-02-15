@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaGoogle } from 'react-icons/fa6';
 import LoginButton from './LoginButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.js';
-import axios from 'axios';
-import './styles.css'; // Import the custom styles
-
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+import './styles.css'; // Optional: remove if not needed
 
 export default function Register(props) {
   const {
@@ -19,8 +16,10 @@ export default function Register(props) {
   } = props;
 
   const { colorMode } = useColorMode();
-  const formBgColor = colorMode === 'light' ? 'bg-neutral-50' : 'bg-neutral-900';
-  const formTextColor = colorMode === 'light' ? 'text-neutral-900' : 'text-neutral-50';
+  const formBgColor = colorMode === 'light' ? 'bg-white' : 'bg-neutral-900';
+  const formTextColor = colorMode === 'light' ? 'text-neutral-800' : 'text-neutral-50';
+  const inputBg = colorMode === 'light' ? 'bg-neutral-100' : 'bg-neutral-800';
+
   const [error, setError] = useState(null);
   const [isTermsChecked, setIsTermsChecked] = useState(true);
   const [captchaQuestion, setCaptchaQuestion] = useState('');
@@ -48,176 +47,174 @@ export default function Register(props) {
   const submitUserRegister = (evt) => {
     evt.preventDefault();
     if (!isTermsChecked) {
-      setError('You must agree to the terms and conditions');
+      setError('You must agree to the terms and conditions.');
       return;
     }
-    const email = evt.target.email.value;
+    const email = evt.target.email.value.trim();
     const password = evt.target.password.value;
     const confirmPassword = evt.target.confirmPassword.value;
-    const username = evt.target.username.value;
-    const captchaInput = evt.target.captcha.value;
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (!email || !password || !username) {
-      setError('All fields are required');
-      return;
-    }
-    if (!captchaInput) {
-      setError('Please solve the CAPTCHA');
-      return;
-    }
-    if (captchaInput !== captchaAnswer) {
-      setError('CAPTCHA answer is incorrect');
-      generateCaptcha(); // Generate a new CAPTCHA
-      return;
-    }
-    const payload = { email, password, username };
+    const username = evt.target.username.value.trim();
 
+    if (!email || !username || !password || !confirmPassword) {
+      setError('All fields are required.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+
+    const payload = { email, password, username };
     registerUserWithEmail(payload);
 
+    // Example usage: you can remove if not used
     localStorage.setItem('isPaymentPopupVisible', 'true');
   };
 
   const handleRegisterWithGoogle = () => {
     if (!isTermsChecked) {
-      alert('You must agree to the terms and conditions');
+      alert('You must agree to the terms and conditions.');
       return;
     }
     registerWithGoogle();
   };
 
   return (
-    <div>
-      <div>
-        <div className="mt-2 mb-4 text-center font-bold text-2xl">Create a new Account</div>
-        {error && <div className="text-red-500 text-center">{error}</div>}
+    <div className={`flex items-center justify-center  p-4 ${formBgColor} ${formTextColor}`}>
+      <div className="w-full max-w-md rounded-lg shadow-lg p-6 pt-2">
+        <h2 className="text-2xl font-bold text-center mb-6">Create a new Account</h2>
 
-        {/* Terms and Conditions centered with checkbox and text on the same line */}
-        <div className="mt-2 mb-4 text-center m-auto">
-          <div className="flex flex-row items-center justify-center m-auto text-sm text-center">
-            <input
-              type="checkbox"
-              name="terms"
-              className="custom-register-checkbox w-[30px] h-[30px]"
-              checked={isTermsChecked}
-              onChange={() => setIsTermsChecked(!isTermsChecked)}
-            />
-            <div className="pl-2 text-left">
-              <p>
-                By registering you agree to our&nbsp;
-                <a
-                  href="https://samsar.one/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  terms
-                </a>
-                </p>
-
-                <p>
-                &nbsp;and our&nbsp;
-                <a
-                  href="https://samsar.one/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline"
-                >
-                  privacy policy
-                </a>
-                .
-              </p>
-            </div>
+        {error && (
+          <div className="text-red-500 text-center mb-4">
+            {error}
           </div>
-        </div>
+        )}
 
-        {/* Google Register Button */}
-        <div className="flex flex-row text-center mb-4">
-          <div className="basis-full pl-4 pr-4">
-            <div
-              className="bg-neutral-900 text-neutral-100 p-2 rounded-lg cursor-pointer h-[50px] text-center m-auto"
-              onClick={handleRegisterWithGoogle}
-            >
-              <div className="text-center text-lg font-bold pt-[2px]">
-                <FaGoogle className="inline-block mr-2 mb-1 text-green-600" />
-                <div className="inline-block">Register with Google</div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Separator */}
-        <div className="flex items-center justify-center mb-4">
-          <hr className="w-1/4 border-neutral-300" />
-          <span className="mx-2 text-neutral-500">OR</span>
-          <hr className="w-1/4 border-neutral-300" />
+        {/* Register with Google */}
+        <button
+          type="button"
+          onClick={handleRegisterWithGoogle}
+          className="flex items-center justify-center w-full bg-neutral-900
+           text-neutral-100 py-3 rounded-lg mb-4 hover:bg-neutral-800 transition-colors
+           border-2 border-neutral-600"
+        >
+          <FaGoogle className="mr-2 text-green-500" />
+          <span className="font-semibold">Register with Google</span>
+        </button>
+
+        {/* OR separator */}
+        <div className="flex items-center my-4">
+          <hr className="flex-grow border-neutral-300" />
+          <span className="px-2 text-sm text-neutral-500">OR</span>
+          <hr className="flex-grow border-neutral-300" />
         </div>
 
         {/* Email Registration Form */}
-        <form onSubmit={submitUserRegister} className="w-[250px] m-auto">
-          <div className="form-group">
-            <div className="text-xs text-left font-bold pl-1">User Name</div>
+        <form onSubmit={submitUserRegister}>
+          <div className="mb-4">
+            <label className="block mb-1 text-sm font-bold" htmlFor="username">
+              Username
+            </label>
             <input
+              id="username"
               type="text"
               name="username"
-              className={`form-control mb-2 mt-2 rounded-lg p-1 pl-4 h-[45px] w-full ${formBgColor} ${formTextColor}`}
-              placeholder="User Name"
+              className={`w-full rounded-md px-3 py-2 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              placeholder="Your username"
             />
           </div>
-          <div className="form-group">
-            <div className="text-xs text-left font-bold pl-1">Email</div>
+
+          <div className="mb-4">
+            <label className="block mb-1 text-sm font-bold" htmlFor="email">
+              Email
+            </label>
             <input
+              id="email"
               type="email"
               name="email"
-              className={`form-control mb-2 mt-2 rounded-lg p-1 pl-4 h-[45px] w-full ${formBgColor} ${formTextColor}`}
-              placeholder="Email"
+              className={`w-full rounded-md px-3 py-2 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              placeholder="you@example.com"
             />
           </div>
-          <div>
-            <div className="text-xs text-left font-bold pl-1">Password</div>
+
+          <div className="mb-4">
+            <label className="block mb-1 text-sm font-bold" htmlFor="password">
+              Password
+            </label>
             <input
+              id="password"
               type="password"
               name="password"
-              className={`form-control mb-2 mt-2 rounded-lg p-1 pl-4 h-[45px] w-full ${formBgColor} ${formTextColor}`}
-              placeholder="Password"
+              className={`w-full rounded-md px-3 py-2 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              placeholder="••••••••"
             />
           </div>
-          <div>
+
+          <div className="mb-4">
+            <label className="block mb-1 text-sm font-bold" htmlFor="confirmPassword">
+              Confirm Password
+            </label>
             <input
+              id="confirmPassword"
               type="password"
               name="confirmPassword"
-              className={`form-control mb-2 mt-2 rounded-lg p-1 pl-4 h-[45px] w-full ${formBgColor} ${formTextColor}`}
-              placeholder="Confirm Password"
+              className={`w-full rounded-md px-3 py-2 ${inputBg} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              placeholder="••••••••"
             />
           </div>
-          <div className="form-group">
-            <div className="text-xs text-left font-bold pl-1">
-              CAPTCHA: Solve {captchaQuestion}
-            </div>
+
+
+          {/* Terms & Conditions */}
+          <div className="flex items-center justify-center mt-4">
             <input
-              type="text"
-              name="captcha"
-              className={`form-control mb-2 mt-2 rounded-lg p-1 pl-4 h-[45px] w-full ${formBgColor} ${formTextColor}`}
-              placeholder="Your Answer"
+              type="checkbox"
+              id="terms-checkbox"
+              className="w-4 h-4 mr-2 "
+              checked={isTermsChecked}
+              onChange={() => setIsTermsChecked(!isTermsChecked)}
             />
+            <label htmlFor="terms-checkbox" className="text-sm leading-tight ">
+              Check {' '}
+              <a
+                href="https://samsar.one/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline "
+              >
+                terms
+              </a>{' '}
+              and {' '}
+              <a
+                href="https://samsar.one/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                privacy policy
+              </a>
+              .
+            </label>
           </div>
-          <div>
-            <LoginButton type="submit">Register</LoginButton>
+
+          <div className='mt-2'>
+
+
+            <LoginButton type="submit" className="w-full ">
+              Register
+            </LoginButton>
           </div>
         </form>
+
+        {/* Switch to Login */}
         {showLoginButton && (
-        <div>
-          <div className="mt-4 mb-4 text-center font-bold">
-            Already have an account?
-          </div>
-          <div className="text-center">
+          <div className="text-center mt-6">
+            <p className="text-sm mb-2">Already have an account?</p>
             <LoginButton onClick={() => setCurrentLoginView('login')}>
               Login
             </LoginButton>
           </div>
-        </div>
         )}
       </div>
     </div>

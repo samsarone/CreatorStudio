@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaChevronCircleDown, FaSpinner } from 'react-icons/fa';
+import { FaChevronCircleDown, FaSpinner, FaTimes } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext.js';
 import { useColorMode } from '../../contexts/ColorMode.js';
 import SingleSelect from '../common/SingleSelect.js';
@@ -15,9 +15,7 @@ import {
   IMAGE_GENERAITON_MODEL_TYPES,
   VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
-import {
-  getOperationExpectedPricing
-} from '../../constants/pricing/VidGPTPricing.js';
+import { getOperationExpectedPricing } from '../../constants/pricing/VidGPTPricing.js';
 import ProgressIndicator from '../quick_editor/ProgressIndicator.js';
 import { FaYoutube } from 'react-icons/fa6';
 import AssistantHome from '../assistant/AssistantHome.js';
@@ -53,9 +51,38 @@ export default function OneshotEditor() {
 
   // Polling refs
   const pollIntervalRef = useRef(null);
-  const pollErrorCountRef = useRef(0);           // Tracks consecutive network failures for generation
+  const pollErrorCountRef = useRef(0);
   const assistantPollRef = useRef(null);
-  const assistantErrorCountRef = useRef(0);      // Tracks consecutive network failures for assistant
+  const assistantErrorCountRef = useRef(0);
+
+  const [latestVideos, setLatestVideos] = useState([]);
+  const [error, setError] = useState('');
+
+  // State to track which video is expanded for inline playback
+  const [expandedVideoId, setExpandedVideoId] = useState(null);
+
+  useEffect(() => {
+    fetchLatestVideos();
+  }, []);
+
+  const fetchLatestVideos = async () => {
+    try {
+      const headers = getHeaders();
+      const response = await axios.get(`${API_SERVER}/vidgpt/latest_videos`, headers);
+      // The route returns { items: [...] }
+      if (response?.data?.items) {
+        setLatestVideos(response.data.items);
+      }
+    } catch (err) {
+      console.error("Error fetching latest videos:", err);
+      setError('Failed to fetch latest videos.');
+    }
+  };
+
+  // When a thumbnail is clicked, toggle the iframe view
+  const handleToggleVideo = (videoId) => {
+    setExpandedVideoId((prev) => (prev === videoId ? null : videoId));
+  };
 
   // Filter out “Express” models
   const expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
@@ -206,8 +233,6 @@ export default function OneshotEditor() {
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
             setIsAssistantQueryGenerating(false);
-            // Optionally set an error message or handle as you like:
-            // setErrorMessage({ error: 'Failed to fetch assistant query after multiple retries.' });
           }
         });
     }, 1000);
@@ -308,10 +333,8 @@ export default function OneshotEditor() {
         }
       } catch (error) {
         console.error('Error fetching generation status:', error);
-        // Increment our error count
         pollErrorCountRef.current += 1;
 
-        // If we've failed 3 times consecutively, stop & show error
         if (pollErrorCountRef.current >= 3) {
           clearInterval(pollIntervalRef.current);
           setIsGenerationPending(false);
@@ -420,7 +443,7 @@ export default function OneshotEditor() {
         "
       >
         <div className="xs-hidden text-lg font-bold text-white pl-2 mt-[-6px]">
-          VidGPT Editor 
+          VidGPT Editor
         </div>
 
         {/* Right-Side Toolbar */}
@@ -572,23 +595,58 @@ export default function OneshotEditor() {
       </form>
 
       {/* Divider */}
-      <div className="my-4 flex justify-center">
+      <div className="my-8 flex justify-center">
         <div className="w-full max-w-4xl h-0.5 bg-gradient-to-r from-gray-800 via-blue-500 to-gray-800 opacity-70"></div>
       </div>
 
       <div className={`${textColor}`}>
-        <div className="font-bold">Gallery-</div>
         <div className="my-2">
-          <a
-            href="https://www.youtube.com/@samsar_one"
-            target="_blank"
-            rel="noreferrer noopener"
-            className="text-blue-500"
-          >
-            <CommonButton>
-              <FaYoutube />
-            </CommonButton>
-          </a>
+          <h2 className="text-xl font-bold my-4">Latest Videos from Gallery</h2>
+          {error && <div className="text-red-500">{error}</div>}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {latestVideos.map((video) => {
+              const { videoId } = video.id || {};
+              const { title, thumbnails } = video.snippet || {};
+              const isExpanded = expandedVideoId === videoId;
+
+              return (
+                <div key={videoId} className="bg-gray-800 p-2 rounded">
+                  {isExpanded ? (
+                    // Show the iframe when expanded
+                    <div className="relative overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+                      <iframe
+                        className="absolute top-0 left-0 w-full h-full"
+                        src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1`}
+                        title={title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                      <FaTimes
+                        onClick={() => handleToggleVideo(videoId)}
+                        className="absolute top-2 right-2 text-black px-2 py-1 rounded"
+                      />
+                  
+                    </div>
+                  ) : (
+                    // Show the thumbnail when collapsed
+                    <>
+                      <img
+                        src={thumbnails?.medium?.url}
+                        alt={title}
+                        className="w-full rounded cursor-pointer"
+                        onClick={() => handleToggleVideo(videoId)}
+                      />
+                      <p className="mt-2 text-sm text-white font-semibold">
+                        {title}
+                      </p>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 

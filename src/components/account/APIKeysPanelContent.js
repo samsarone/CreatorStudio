@@ -10,7 +10,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useUser } from '../../contexts/UserContext.js';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.js';
-import UpgradePlan from '../common/UpgradePlan.tsx';
+import UpgradePlan from '../payments/UpgradePlan.tsx';
 
 const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
 

@@ -11,7 +11,7 @@ import { useUser } from "../../contexts/UserContext.js";
 import SecondaryButton from "../common/SecondaryButton.tsx";
 import { useAlertDialog } from "../../contexts/AlertDialogContext.js";
 import AddCreditsDialog from "./AddCreditsDialog.js";
-import UpgradePlan from "../common/UpgradePlan.tsx";
+import UpgradePlan from "../payments/UpgradePlan.tsx";
 import { getHeaders } from "../../utils/web.js";
 import MusicPanelContent from "./MusicPanelContent.js";
 import ImagePanelContent from "./ImagePanelContent.js";

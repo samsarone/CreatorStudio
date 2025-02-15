@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
-import UpgradePlan from '../common/UpgradePlan.tsx';
+import UpgradePlan from './UpgradePlan.tsx';
 import AddCreditsDialog from '../account/AddCreditsDialog.js';
 import { useColorMode } from '../../contexts/ColorMode.js';
 
