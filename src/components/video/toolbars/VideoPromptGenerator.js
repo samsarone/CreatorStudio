@@ -24,8 +24,7 @@ export default function VideoPromptGenerator(props) {
   const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
   const textBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200 border-gray-600 border-2";
 
-  console.log("AI VIDEO GENERATION PENDING " + aiVideoGenerationPending);
-  
+ 
 
   const modelOptionMap = VIDEO_GENERATION_MODEL_TYPES.map(function (model) {
     if (aspectRatio && aspectRatio !== '16:9') {

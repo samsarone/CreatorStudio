@@ -1786,7 +1786,7 @@ export default function VideoEditorContainer(props) {
   // Add selected AI video to layer
   const addSelectedAiVideoToLayer = (payload) => {
     setIsSelectButtonDisabled(true);
-    const { video, trimScene } = payload;
+    const { video, trimScene, model } = payload;
 
     console.log("ADD VIDEO");
     console.log(video);
@@ -1798,6 +1798,7 @@ export default function VideoEditorContainer(props) {
       videoURL,
       trimScene,
       layerId: currentLayer._id.toString(),
+      videoModel: video.model,
     };
     const headers = getHeaders();
     if (!headers) {
