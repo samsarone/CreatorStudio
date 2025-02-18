@@ -14,6 +14,9 @@ import VideoUnderlay from '../util/VideoUnderlay.js';
 import CanvasToolbar from "./CanvasToolbar.js";
 import { ActiveRenderItem } from './CanvasUtils.js';
 import VideoCanvasOverlay from './overlay/VideoCanvasOverlay.js';
+import CanvasLoaderTransparent from '../util/loader/CanvasLoaderTransparent.js';
+
+import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.js';
 
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.js';
 import './videoCanvas.css';
@@ -53,7 +56,7 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
     promptText, setPromptText, selectedGenerationModel, setSelectedGenerationModel,
     requestLipSyncToSpeech, aiVideoLayerType,
     generationError, currentDefaultPrompt, submitGenerateNewRequest,
-    isGenerationPending,
+    isGenerationPending, isUpdateLayerPending,
   } = props;
 
 
@@ -690,6 +693,19 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
   }
 
 
+
+    let canvasInternalLoading = <span />;
+    if (isUpdateLayerPending) {
+      console.log("UPDATE LAYER PENDING");
+  
+      const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
+      canvasInternalLoading = (
+        <div className={`absolute t-0 w-full pt-[150px]   z-10`}>
+          <CanvasLoaderTransparent />
+        </div>
+      );
+    }
+ 
   return (
     <div className={`m-auto relative  ${textColor} pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0`}
       style={{
@@ -700,7 +716,7 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
 
       {canvasVideoUnderlay}
 
-
+      {canvasInternalLoading}
 
       <Stage width={canvasDimensions.width} height={canvasDimensions.height} ref={ref} id="samsar-konva-stage"
         onMouseMove={debouncedHandleMouseOver} onClick={handleCanvasClick}

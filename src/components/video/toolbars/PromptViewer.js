@@ -33,7 +33,7 @@ export default function PromptViewer(props) {
   });
 
   useEffect(() => {
-    let storageModel = localStorage.getItem('defaultModel');
+    let storageModel = localStorage.getItem('defaultImageModel');
     if (storageModel && storageModel !== undefined) {
       setSelectedModel(storageModel);
     }
@@ -59,7 +59,7 @@ export default function PromptViewer(props) {
   const handleModelChange = (e) => {
     const newModel = e.target.value;
     setSelectedModel(newModel);
-    localStorage.setItem('defaultModel', newModel);
+    localStorage.setItem('defaultImageModel', newModel);
   };
 
   const handleImageStyleChange = (e) => {

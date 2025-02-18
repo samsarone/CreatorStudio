@@ -139,12 +139,15 @@ export default function OneshotEditor() {
   useEffect(() => {
     if (selectedImageModel?.value) {
       localStorage.setItem('defaultVidGPTImageGenerationModel', selectedImageModel.value);
+      localStorage.setItem('defaultImageModel', selectedImageModel.value);
+
     }
   }, [selectedImageModel]);
 
   useEffect(() => {
     if (selectedVideoModel?.value) {
       localStorage.setItem('defaultVIdGPTVideoGenerationModel', selectedVideoModel.value);
+      localStorage.setItem('defaultVideoModel', selectedVideoModel.value);
     }
   }, [selectedVideoModel]);
 

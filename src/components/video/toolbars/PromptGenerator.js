@@ -63,7 +63,7 @@ export default function PromptGenerator(props) {
   const setSelectedModelDisplay = (evt) => {
     const newModel = evt.target.value;
     setSelectedGenerationModel(newModel);
-    localStorage.setItem("defaultModel", newModel);
+    localStorage.setItem("defaultImageModel", newModel);
   };
 
   // Handle style selection for RECRAFT

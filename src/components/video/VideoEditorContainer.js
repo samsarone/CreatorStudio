@@ -62,6 +62,7 @@ export default function VideoEditorContainer(props) {
     updateCurrentLayerInSessionList,
     updateCurrentLayerAndLayerList,
     totalDuration,
+    isUpdateLayerPending,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -2213,6 +2214,42 @@ export default function VideoEditorContainer(props) {
       });
   };
 
+  const updateMovieGenSpeakers = (updatedSpeakers) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    const payload = {
+      sessionId: id,
+      speakers: updatedSpeakers,
+    };
+    axios
+      .post(`${PROCESSOR_API_URL}/video_sessions/update_movie_gen_speakers`, payload, headers)
+      .then(() => {
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> MovieGen speakers updated successfully!
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      })
+      .catch(() => {
+        toast.error(
+          <div>
+            <FaTimes /> Failed to update MovieGen speakers.
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      });
+  }
+
 
   let viewDisplay = <span />;
   if (currentLayer && currentLayer.imageSession && currentLayer.imageSession.activeItemList) {
@@ -2311,6 +2348,7 @@ export default function VideoEditorContainer(props) {
               generationError={generationError}
 
               submitGenerateNewRequest={submitGenerateNewRequest}
+              isUpdateLayerPending={isUpdateLayerPending}
 
 
             />
@@ -2431,6 +2469,7 @@ export default function VideoEditorContainer(props) {
       movieSoundList={movieSoundList}
       movieVisualList={movieVisualList}
       movieGenSpeakers={movieGenSpeakers}
+      updateMovieGenSpeakers={updateMovieGenSpeakers}
     />
   )
 

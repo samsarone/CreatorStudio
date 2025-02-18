@@ -64,6 +64,10 @@ export default function VideoHome(props) {
 
   const { user, getUserAPI } = useUser();
 
+  const [isUpdateLayerPending, setIsUpdateLayerPending] = useState(false);
+
+
+
   useEffect(() => {
     // Reset all state variables
     setVideoSessionDetails(null);
@@ -157,7 +161,7 @@ export default function VideoHome(props) {
     }
   }, [currentLayerToBeUpdated]);
 
-  
+
   const showLoginDialog = () => {
     const loginComponent = (
       <AuthContainer />
@@ -188,8 +192,8 @@ export default function VideoHome(props) {
 
   useEffect(() => {
     if (layerListRequestAdded) {
-      if (!videoSessionDetails.isExpressGeneration) {
-        pollForLayersUpdate();
+      if (videoSessionDetails && !videoSessionDetails.isExpressGeneration) {
+      //  pollForLayersUpdate();
       }
     }
   }, [layerListRequestAdded, layers]);
@@ -882,7 +886,7 @@ export default function VideoHome(props) {
     const { selectedTrackId, newStartTime } = payload;
 
     const selectedAudioTrack = audioLayers.find(audioLayer => audioLayer._id.toString() === selectedTrackId.toString());
- 
+
     const newDuration = selectedAudioTrack.endTime - newStartTime;
 
     const updatedAudioLayer = {
@@ -920,7 +924,7 @@ export default function VideoHome(props) {
     };
 
     setAudioLayers(audioLayers.map(audioLayer => {
-      
+
       if (audioLayer._id.toString() === updatedAudioLayer._id.toString()) {
         return updatedAudioLayer;
       }
@@ -979,7 +983,7 @@ export default function VideoHome(props) {
 
 
     console.log("FEEE MEEE SEEE GEEEE");
-    
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then(() => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
@@ -1141,6 +1145,7 @@ export default function VideoHome(props) {
   };
 
   const updateSessionLayer = (newLayer, clipStart = false) => {
+    setIsUpdateLayerPending(true);
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1154,9 +1159,10 @@ export default function VideoHome(props) {
     };
 
 
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layer`, reqPayload, headers).then((response) => {
       const resData = response.data;
-      const {session, layer } = resData;
+      const { session, layer } = resData;
 
 
       const layers = session.layers;
@@ -1166,6 +1172,8 @@ export default function VideoHome(props) {
 
 
       updateCurrentLayerAndLayerList(layers, newLayerIndex);
+
+      setIsUpdateLayerPending(false);
 
       setIsCanvasDirty(true);
     });
@@ -1448,6 +1456,7 @@ export default function VideoHome(props) {
 
 
 
+
   if (minimalToolbarDisplay) {
     frameToolbarDisplay = (
       <div className='w-[2%] inline-block'>
@@ -1519,6 +1528,7 @@ export default function VideoHome(props) {
           <div className='block'>
             {frameToolbarDisplay}
             <div className='w-[98%] bg-cyber-black inline-block'>
+
               <VideoEditorContainer
                 selectedLayerIndex={selectedLayerIndex}
                 layers={layers}
@@ -1555,6 +1565,7 @@ export default function VideoHome(props) {
                 updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
                 updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
                 totalDuration={totalDuration}
+                isUpdateLayerPending={isUpdateLayerPending}
               />
             </div>
             <AssistantHome
@@ -1568,8 +1579,11 @@ export default function VideoHome(props) {
     )
   }
 
+
+
   return (
     <CommonContainer>
+
       <div className='m-auto'>
         <div className='block'>
           <div className='w-[10%] inline-block'>
@@ -1627,6 +1641,7 @@ export default function VideoHome(props) {
             />
           </div>
           <div className='w-[90%] bg-cyber-black inline-block'>
+
             <VideoEditorContainer
               selectedLayerIndex={selectedLayerIndex}
               layers={layers}
@@ -1663,6 +1678,7 @@ export default function VideoHome(props) {
               updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
               updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
               totalDuration={totalDuration}
+              isUpdateLayerPending={isUpdateLayerPending}
             />
           </div>
           <AssistantHome

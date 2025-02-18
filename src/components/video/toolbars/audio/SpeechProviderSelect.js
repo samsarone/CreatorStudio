@@ -29,10 +29,6 @@ export default function SpeechProviderSelect(props) {
       playMusicPreviewForSpeaker(evt, speaker);
     };
 
-
-
-  
-
      const IconComponent = isPlaying ? <FaPause /> : <FaPlay />;
 
  

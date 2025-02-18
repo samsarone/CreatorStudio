@@ -143,7 +143,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
 
 
   {
-    name: 'Luma AI',
+    name: 'Luma Ray2',
     key: 'LUMA',
     isExpressModel: true,
     isTransitionModel: true,

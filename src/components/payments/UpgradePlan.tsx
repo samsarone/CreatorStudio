@@ -140,7 +140,7 @@ export default function UpgradePlan() {
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold">Upgrade to Creators Plan</h1>
         <p className="mt-2 text-gray-300">
-          Take your creativity to the next level with our comprehensive plan.
+          Priced at $49.99/month.
         </p>
       </div>
 

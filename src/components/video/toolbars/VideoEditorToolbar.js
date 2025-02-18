@@ -122,6 +122,7 @@ export default function VideoEditorToolbar(props: any) {
     isSelectButtonDisabled,
     movieSoundList,
     movieGenSpeakers,
+    updateMovieGenSpeakers,
     
   } = props;
 
@@ -1145,6 +1146,7 @@ export default function VideoEditorToolbar(props: any) {
           <MovieSpeechProviderSelect 
           movieSoundList={movieSoundList}
           movieGenSpeakers={movieGenSpeakers}
+          updateMovieGenSpeakers={updateMovieGenSpeakers}
           submitGenerateSpeech={submitGenerateSpeech}
 
           ttsProvider={ttsProvider}

@@ -19,7 +19,7 @@ To install:
 
    yarn install
 
-   yarn
+   yarn start
    ```
 3. Run the client on port 3000 for Google OAuth to work.
 
@@ -65,7 +65,7 @@ Generate images standalone or as starting frame images for scenes.
 ---
 
 ## Video Creation
-Create generative videos via text-to-image and image-to-video workflows. These base videos can be further lip-synced or aligned with sound effects.
+Create generative videos via text-to-video or image-to-video workflows. These base videos can be further lip-synced or aligned with sound effects.
 
 ![Samsar.one Studio Video generator preview](https://samsar-github.s3.us-west-2.amazonaws.com/video.png)
 
@@ -73,7 +73,7 @@ Create generative videos via text-to-image and image-to-video workflows. These b
 |-------------------------|----------------------|--------------------|-----------------------|
 | Runway Gen-3           | RUNWAYML             | true               | true                  |
 | Kling 1.6 Pro          | KLINGIMGTOVIDPRO     | true               | -                     |
-| Luma AI                | LUMA                 | -                  | -                     |
+| Luma Ray2              | LUMA                 | true               | true                  |
 | SD Video               | SDVIDEO              | -                  | -                     |
 | Hailuo Minimax O1-Live | HAILUO               | -                  | -                     |
 | Haiper 2.0             | HAIPER2.0            | -                  | -                     |

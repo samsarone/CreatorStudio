@@ -109,7 +109,6 @@ export default function OverlayPromptGenerator(props) {
     <div className="text-red-500 text-center text-sm">{generationError}</div>
   );
 
-  console.log("IS GENERATION PENDING" + isGenerationPending);
 
   return (
     <div>
