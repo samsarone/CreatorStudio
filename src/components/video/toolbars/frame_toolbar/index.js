@@ -783,25 +783,54 @@ export default function FrameToolbar(props) {
   
 
 
+
   useEffect(() => {
     if (openPopupLayerIndex !== null) {
-
+      // Identify which layer is selected in the *entire* layers array
       const popupLayerId = layers[openPopupLayerIndex]._id.toString();
-
+  
+      // Find that same layer inside the visibleLayers array.
+      const foundIndexInVisibleLayers = visibleLayers.findIndex(
+        (vl) => vl._id.toString() === popupLayerId
+      );
+  
+      // If it’s not found, we can’t position properly
+      if (foundIndexInVisibleLayers === -1) return;
+  
+      // Get the DOM rect of the clicked layer
       const layerElement = layerRefs.current[popupLayerId];
-      if (layerElement) {
+      if (!layerElement) return;
+  
+      const rect = layerElement.getBoundingClientRect();
+  
+      // By default, position “next to” the layer. For instance:
+      const defaultLeft = rect.right + 10; 
+      // Or any offset that makes sense for “next to”
+      const defaultTop = rect.top + window.scrollY; 
+  
+      // Decide if the layer is among the last two in the *visible* list
+      const isLast =
+        foundIndexInVisibleLayers >= visibleLayers.length - 1;
 
-        // Get the bounding rectangle of the layer element
-        const rect = layerElement.getBoundingClientRect();
-
-        // Calculate the top position for the popup
-        const popupTop = rect.top + window.scrollY;
-
-        // Update the popupPosition state
-        setPopupPosition({ top: `${popupTop}px`, transform: 'translateY(0)' });
+      if (isLast) {
+        // For the last two, align the portal to the top of the layer.
+        setPopupPosition({
+          top: `${defaultTop - 50}px`,
+          left: `${defaultLeft}px`,
+          transform: 'translateY(0)',
+        });
+      } else {
+        // For everything else, position the popup “next to” the layer.
+        setPopupPosition({
+          top: `${defaultTop}px`,
+          left: `${defaultLeft}px`,
+          transform: 'translateY(0)',
+        });
       }
     }
-  }, [openPopupLayerIndex]);
+  }, [openPopupLayerIndex, visibleLayers, layers]);
+
+  
 
 
   const setSelectedLayerToBeDragged = () => {

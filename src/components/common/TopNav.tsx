@@ -84,9 +84,6 @@ export default function TopNav(props) {
       }
     }
 
-    if (plan) {
-      console.log(`Selected plan: ${plan}`);
-    }
 
 
     if (user && !user.isPremiumUser) {
@@ -204,7 +201,6 @@ export default function TopNav(props) {
   }
 
   const upgradeToPremiumTier = () => {
-    console.log("UPGRADE TO PREMIUM TIER");
 
     navigate('/create_payment');
   };

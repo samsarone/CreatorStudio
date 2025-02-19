@@ -177,8 +177,6 @@ export default function VideoEditorContainer(props) {
     startAIVideoLayerGenerationPoll();
   }, [aiVideoPollType]);
 
-  console.log("AI VIDEO POLL TYPE " + aiVideoPollType);
-
 
   // Preload hidden <video> once we set aiVideoLayer
   useEffect(() => {

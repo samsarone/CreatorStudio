@@ -291,7 +291,14 @@ export default function OneshotEditor() {
       }
       // If completed, set up the final video link
       if (!response.videoGenerationPending && response.videoLink) {
-        setVideoLink(response.videoLink);
+        let videoActualLink;
+        if (response.remoteURL && response.remoteURL.length > 0) {
+          videoActualLink = response.remoteURL;
+        } else if (response.videoLink) {
+          videoActualLink = `${API_SERVER}/${response.videoLink}`;
+        }
+
+        setVideoLink(videoActualLink);
         setShowResultDisplay(true);
         setExpressGenerationStatus(response.expressGenerationStatus);
       }
@@ -326,7 +333,15 @@ export default function OneshotEditor() {
         if (resData.status === 'COMPLETED') {
           clearInterval(pollIntervalRef.current);
           setIsGenerationPending(false);
-          setVideoLink(resData.videoLink);
+          let videoActualLink;
+          if (resData.remoteURL && resData.remoteURL.length > 0) {
+            videoActualLink = resData.remoteURL;
+          } else if (resData.videoLink) {
+            videoActualLink = `${API_SERVER}/${videoLink}`;
+          }
+
+
+          setVideoLink(videoActualLink);
         } else if (resData.status === 'FAILED') {
           clearInterval(pollIntervalRef.current);
           setIsGenerationPending(false);
@@ -426,8 +441,12 @@ export default function OneshotEditor() {
     resetForm();
   };
 
+
+
+
   // For downloading final video
-  const downloadVideoHref = videoLink ? `${API_SERVER}/${videoLink}` : '#';
+  const downloadVideoHref = videoLink ;
+
 
   // "Disable" the text area and the submit if not idle or user lacks credits
   const isFormDisabled = renderState !== 'idle' || isDisabled;

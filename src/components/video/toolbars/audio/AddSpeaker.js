@@ -48,6 +48,7 @@ export default function AddSpeaker(props) {
 
   /** Called by <SpeechProviderSelect/> when speaker/voice changes */
   const handleSpeakerChange = (selectedOption) => {
+    setTtsProvider(selectedOption.provider);
     setSpeakerType(selectedOption);
   };
 
@@ -78,8 +79,9 @@ export default function AddSpeaker(props) {
       actor: speakerName,        // display name in your UI
       speakerCharacterName: speakerName,
       subType: 'character',
-      provider: ttsProvider.value,     // e.g. 'OPENAI','ELEVEN','AZURE', etc.
+      provider: ttsProvider,     // e.g. 'OPENAI','ELEVEN','AZURE', etc.
     };
+
 
     // 3) Optionally, call API to persist to server here
     // try {
@@ -91,22 +93,20 @@ export default function AddSpeaker(props) {
 
     // 4) Return to parent
 
-    console.log(newSpeaker);
 
-    console.log("GEEE");
 
     onAddNewSpeaker(newSpeaker);
   };
 
   return (
     <div className={`border p-2 mt-3 rounded ${bgColor} ${text2Color}`}>
-      <h3 className="text-sm font-bold">Add New Speaker</h3>
+ 
 
       {error && <div className="text-red-500 text-xs mt-1 mb-2">{error}</div>}
 
       {/* Speaker name field */}
       <div className="mb-2">
-        <label className="block text-xs mb-1">Speaker Name</label>
+        <label className="block text-xs mb-1">New Speaker Name</label>
         <input
           type="text"
           className={`w-full p-1 rounded ${bgColor} ${text2Color}`}
@@ -138,7 +138,7 @@ export default function AddSpeaker(props) {
 
       <div className="flex justify-end space-x-2 mt-3">
         <CommonButton type="button" onClick={onCancel}>
-          Cancel
+          Back
         </CommonButton>
         <CommonButton type="button" onClick={handleSave}>
           Save

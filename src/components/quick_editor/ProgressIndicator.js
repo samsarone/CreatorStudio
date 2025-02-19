@@ -85,6 +85,10 @@ export default function ProgressIndicator(props) {
     );
   };
 
+  let videoActualLink = videoLink;
+  if (!videoLink.startsWith('http')) { 
+    videoActualLink = `${PROCESSOR_API_URL}/${videoLink}`;
+  }
   return (
     <div className="bg-stone-950 p-4 pt-1 rounded text-white">
 
@@ -132,7 +136,7 @@ export default function ProgressIndicator(props) {
         <div className="mt-5 clear-both">
 
           <video controls className="md:w-[512px] w-full mx-auto max-h-[300px]">
-            <source src={`${PROCESSOR_API_URL}/${videoLink}`} type="video/mp4" />
+            <source src={`${videoActualLink}`} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
 

@@ -143,8 +143,6 @@ export default function MovieGenerator() {
 
     let isValidUser = user.isPremiumUser || user.isAdminUser;
 
-    console.log("IS VALID USER " + isValidUser);
-
     if (!user._id || (!isValidUser)) {
       setIsDisabled(true);
     } else {

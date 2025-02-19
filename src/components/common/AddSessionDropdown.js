@@ -66,7 +66,6 @@ function AddSessionDropdown(props) {
   }
 
   const handleAspectRatioChange = (selectedOption) => {
-    console.log(selectedOption);
     localStorage.setItem('defaultAspectRatio', selectedOption.value);
     setAspectRatio(selectedOption);
 

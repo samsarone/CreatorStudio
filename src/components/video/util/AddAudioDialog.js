@@ -31,7 +31,6 @@ export default function AddAudioDialog(props) {
   const handleSubmit = () => {
     if (file) {
       props.addAudioToProject(file);
-      console.log('File submitted:', file);
     } else {
       console.error('No file to submit.');
     }

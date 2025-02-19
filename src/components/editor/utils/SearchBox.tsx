@@ -9,8 +9,7 @@ const SearchBox = (props) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Handle form submission, e.g., send search query to an API
-    console.log('Search query:', searchQuery);
+
     submitSearch(searchQuery);
   };
 

@@ -9,8 +9,7 @@ export default function ShapeToolbar(props) {
     activeItemList,
   } = props;
 
-  console.log(props);
-  
+
 
   const [selectedFilter, setSelectedFilter] = useState(null);
   const [filterValue, setFilterValue] = useState(0);

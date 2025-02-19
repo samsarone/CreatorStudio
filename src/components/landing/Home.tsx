@@ -100,7 +100,6 @@ export default function Home() {
   };
 
   let bodyBGColor = "bg-stone-100";
-  console.log(colorMode);
   
   if (colorMode === 'dark') {
     bodyBGColor = "bg-gray-900";

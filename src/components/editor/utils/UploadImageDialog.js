@@ -63,8 +63,6 @@ export default function UploadImageDialog({ setUploadURL, aspectRatio }) {
       let imageWidth = img.width;
       let imageHeight = img.height;
 
-      console.log('aspectRatio', aspectRatio);
-
       const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
   
       // Ensure width and height are within the bounds of 128 and 1024

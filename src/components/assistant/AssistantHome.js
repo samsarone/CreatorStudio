@@ -56,7 +56,6 @@ export default function AssistantHome(props) {
       await axios.post(`${PROCESSOR_SERVER}/users/update`, payload, headers);
       // Optionally re-fetch user if you want updated context
       getUserAPI();
-      console.log("Updated user model to:", newModelValue);
     } catch (error) {
       console.error("Failed to update user’s assistant model", error);
     }
@@ -96,7 +95,7 @@ export default function AssistantHome(props) {
   // Copy to clipboard helper
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text).then(() => {
-      console.log('Copied to clipboard:', text);
+      
     }).catch(err => {
       console.error('Failed to copy:', err);
     });

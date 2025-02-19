@@ -1,7 +1,6 @@
 
 function decode(rleObj) {
-  console.log(rleObj);
-  
+
   const { size, counts } = rleObj;
   const [height, width] = size;
   const mask = new Uint8Array(height * width);

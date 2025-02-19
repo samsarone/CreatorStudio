@@ -696,8 +696,7 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
 
     let canvasInternalLoading = <span />;
     if (isUpdateLayerPending) {
-      console.log("UPDATE LAYER PENDING");
-  
+
       const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
       canvasInternalLoading = (
         <div className={`absolute t-0 w-full pt-[150px]   z-10`}>

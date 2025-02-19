@@ -981,9 +981,6 @@ export default function VideoHome(props) {
       audioLayerId: layerId
     };
 
-
-    console.log("FEEE MEEE SEEE GEEEE");
-
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then(() => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
@@ -1105,7 +1102,6 @@ export default function VideoHome(props) {
       const videoSessionDetails = resData.videoSession;
       const newLayers = videoSessionDetails.layers;
       const newLayerIndex = newLayers.length - 1;
-      console.log("NEW LAYER INDEX", newLayerIndex);
 
       updateCurrentLayerAndLayerList(newLayers, newLayerIndex);
       setIsCanvasDirty(true);
