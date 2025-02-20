@@ -86,7 +86,7 @@ export default function ProgressIndicator(props) {
   };
 
   let videoActualLink = videoLink;
-  if (!videoLink.startsWith('http')) { 
+  if (videoLink && !videoLink.startsWith('http')) { 
     videoActualLink = `${PROCESSOR_API_URL}/${videoLink}`;
   }
   return (

@@ -1,12 +1,11 @@
-# SamsarOne Generative Workflow Creation Suite
+# Generative Workflow Creation Suite
 
-Easy-to-use Generative Image and Video Creation/Edit Workflows
 
 ReactJS Canvas implementation for the studio.
 
 You can choose between one of three workflow creators: **Studio**, **Express**, and **VidGPT**.
 
-You must create an account and obtain credits to send model requests.
+You can create an account and signup for a paid-plan/free-trial to send model requests.
 
 A hosted version is available [here](https://app.samsar.one).
 

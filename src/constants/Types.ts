@@ -163,6 +163,11 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'HAIPER2.0'
   },
 
+  {
+    name: 'Skyreels-i2v',
+    key: 'SKYREELSI2V',
+  }
+
 
 ]
 

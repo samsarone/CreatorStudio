@@ -461,6 +461,20 @@ export const VIDEO_MODEL_PRICES = [
     ]
   },
   {
+    key: 'SKYREELSI2V',
+    prices: [
+      {
+        aspectRatio: '16:9',
+        price: 60
+      },
+      {
+        aspectRatio: '9:16',
+        price: 60
+      },
+    ],
+  },
+
+  {
     key: 'SYNCLIPSYNC',
     prices: [
       {
