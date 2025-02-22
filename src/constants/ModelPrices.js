@@ -308,10 +308,6 @@ export const VIDEO_MODEL_PRICES = [
     key: 'LUMA',
     prices: [
       {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
         aspectRatio: '16:9',
         price: 60
       },
@@ -397,10 +393,7 @@ export const VIDEO_MODEL_PRICES = [
   {
     "key": "RUNWAYML",
     "prices": [
-      {
-        "aspectRatio": "1:1",
-        "price": 60
-      },
+
       {
         "aspectRatio": "16:9",
         "price": 60
@@ -470,6 +463,19 @@ export const VIDEO_MODEL_PRICES = [
       {
         aspectRatio: '9:16',
         price: 60
+      },
+    ],
+  },
+  {
+    key: 'VEO',
+    prices: [
+      {
+        aspectRatio: '16:9',
+        price: 500
+      },
+      {
+        aspectRatio: '9:16',
+        price: 500
       },
     ],
   },

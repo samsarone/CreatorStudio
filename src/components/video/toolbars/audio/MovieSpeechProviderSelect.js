@@ -71,8 +71,10 @@ export default function MovieSpeechProviderSelect(props) {
       speaker: speakerValue,
       addSubtitles: true,
       ttsProvider: speakerData.provider,
-      subtitleOption: 'SUBTITLE_WORD_HIGHLIGHT'
+      subtitleOption: 'SUBTITLE_WORD_HIGHLIGHT',
+      speakerCharacterName: speakerData.speakerCharacterName,
     };
+
 
     submitGenerateSpeech(body);
   };

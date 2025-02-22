@@ -56,11 +56,12 @@ export default function VideoAiVideoOptionsViewer(props) {
   };
 
   // 4) Conditionally render lip sync UI if this is a character
-  let lipSyncOptionViewer = null;
-  if (currentLayer.layerBaseAiImageType === "character") {
-    lipSyncOptionViewer = currentLayerHasSpeechLayer ? (
-      <div className="mb-2 flex flex-col items-center">
+  const lipSyncOptionViewer = currentLayerHasSpeechLayer ? (
+      <div className="mb-4 flex flex-col items-center">
         {/* SingleSelect for lip sync type */}
+        <div className='text-sm mb-2'>
+          Lip Sync
+        </div>
         <div className="w-48 mb-2">
           <SingleSelect
             options={lipSyncOptions}
@@ -73,7 +74,7 @@ export default function VideoAiVideoOptionsViewer(props) {
 
         {/* Request Lip Sync button */}
         <SecondaryButton onClick={handleRequestLipSync}>
-          Request Lip Sync
+          Request Lip Sync 
         </SecondaryButton>
       </div>
     ) : (
@@ -82,7 +83,7 @@ export default function VideoAiVideoOptionsViewer(props) {
         <p>to generate lipsync</p>
       </div>
     );
-  }
+
 
   return (
     <div className="flex flex-col items-center justify-center mt-2 mx-auto">

@@ -133,12 +133,14 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     name: 'Kling 1.6 Pro',
     key: 'KLINGIMGTOVIDPRO',
     isExpressModel: true,
+    isImgToVidModel: true,
   },
   {
     name: 'Runway Gen-3',
     key: 'RUNWAYML',
     isExpressModel: true,
     isTransitionModel: true,
+    isImgToVidModel: true,
   },
 
 
@@ -147,25 +149,39 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'LUMA',
     isExpressModel: true,
     isTransitionModel: true,
+    isImgToVidModel: true,
   },
 
 
   {
     name: 'SD Video',
-    key: 'SDVIDEO'
+    key: 'SDVIDEO',
+    isImgToVidModel: true,
   },
   {
     name: 'Hailuo Minimax O1-Live',
-    key: 'HAILUO'
+    key: 'HAILUO',
+    isImgToVidModel: true,
   },
   {
     name: 'Haiper 2.0',
-    key: 'HAIPER2.0'
+    key: 'HAIPER2.0',
+    isImgToVidModel: true,
   },
 
   {
     name: 'Skyreels-i2v',
     key: 'SKYREELSI2V',
+    isTextToVidModel: false,
+    isImgToVidModel: true,
+  },
+
+  {
+    name: 'Veo',
+    key: 'VEO',
+    isTextToVidModel: true,
+    isImgToVidModel: false,
+
   }
 
 

@@ -80,8 +80,12 @@ export default function AddSpeaker(props) {
       speakerCharacterName: speakerName,
       subType: 'character',
       provider: ttsProvider,     // e.g. 'OPENAI','ELEVEN','AZURE', etc.
+      
     };
 
+
+    console.log("NEW SPEAKER");
+    console.log(newSpeaker);
 
     // 3) Optionally, call API to persist to server here
     // try {

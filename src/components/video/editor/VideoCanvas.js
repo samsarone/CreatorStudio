@@ -692,8 +692,6 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
 
   }
 
-
-
     let canvasInternalLoading = <span />;
     if (isUpdateLayerPending) {
 

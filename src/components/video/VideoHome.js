@@ -1085,23 +1085,38 @@ export default function VideoHome(props) {
 
 
 
-  const addLayerToComposition = () => {
+  const addLayerToComposition = (position) => {
+
+    console.log("ADD COMP LAYER TO POST " + position);
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
       return;
     }
 
+
+    const currentLayerIndex = layers.findIndex(layer => layer._id === currentLayer._id);
+
+    console.log("CURRENT LAYER INDEX " + currentLayerIndex);
+
+
     const payload = {
       sessionId: id,
       duration: videoSessionDetails.defaultSceneDuration ? videoSessionDetails.defaultSceneDuration : 2,
+      position: position,
+      currentLayerIndex: currentLayerIndex,
     };
+
+
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/add_layer`, payload, headers).then((dataRes) => {
       const resData = dataRes.data;
 
-      const videoSessionDetails = resData.videoSession;
+      const videoSessionDetails = resData.session;
       const newLayers = videoSessionDetails.layers;
-      const newLayerIndex = newLayers.length - 1;
+      const newLayer = resData.layer;
+      const newLayerIndex = newLayers.findIndex(layer => layer._id === newLayer._id);
 
       updateCurrentLayerAndLayerList(newLayers, newLayerIndex);
       setIsCanvasDirty(true);

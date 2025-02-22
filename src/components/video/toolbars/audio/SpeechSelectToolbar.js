@@ -44,6 +44,7 @@ const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOpt
   // Assuming that speech audio is stored in audioLayer.localAudioLinks[0]
   const audioUrl = `${PROCESSOR_API_URL}/${audioLayer.localAudioLinks[0]}`;
 
+
   const handleSubmit = (evt) => {
     evt.preventDefault();
     const payload = {
@@ -53,8 +54,9 @@ const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOpt
       endTime: parseFloat(startTime) + parseFloat(duration),
      // selectedSubtitleOption: selectedSubtitleOption.value,
       addSubtitles: addSubtitles,
-    };
+      speakerCharacterName: audioLayer.speakerCharacterName,
 
+    };
 
     submitAddTrackToProject(0, payload); // Pass 0 as index
   };

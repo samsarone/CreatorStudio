@@ -1415,6 +1415,8 @@ export default function VideoEditorContainer(props) {
     const pollStatus = pollStatusData.data;
 
     if (pollStatus.generationStatus === 'COMPLETED') {
+
+      
       setVideoSessionDetails(pollStatus.videoSession);
       setAudioGenerationPending(false);
       const { generationType } = pollStatus;
@@ -1452,7 +1454,7 @@ export default function VideoEditorContainer(props) {
     } else {
       audioGenerationPollIntervalRef.current = setTimeout(() => {
         startAudioGenerationPoll();
-      }, 1000);
+      }, 2000);
     }
   };
 
@@ -1467,6 +1469,8 @@ export default function VideoEditorContainer(props) {
       sessionId,
       audioLayers: payload,
     };
+
+
     axios
       .post(`${PROCESSOR_API_URL}/audio/add_track_list_to_project`, requestPayload, headers)
       .then((response) => {
@@ -1505,6 +1509,10 @@ export default function VideoEditorContainer(props) {
       showLoginDialog();
       return;
     }
+
+    console.log("GONNA ADD TRACK");
+    console.log(payload);
+
     const sessionId = id;
     const audioLayers = videoSessionDetails.audioLayers;
     const latestAudioLayer = audioLayers[audioLayers.length - 1];
@@ -1518,6 +1526,10 @@ export default function VideoEditorContainer(props) {
     if (!requestPayload.audioLayerId) {
       requestPayload.audioLayerId = layerId;
     }
+
+    console.log("GONNA ADD TRACK");
+    console.log(requestPayload);
+
 
     axios
       .post(`${PROCESSOR_API_URL}/audio/add_track_to_project`, requestPayload, headers)
@@ -1726,6 +1738,7 @@ export default function VideoEditorContainer(props) {
       model: selectedModel
     };
 
+    setAiVideoPollType(null);
 
     axios.post(`${PROCESSOR_API_URL}/video_sessions/request_lip_sync_to_speech`, payload, headers).then((resData) => {
 
@@ -2144,6 +2157,8 @@ export default function VideoEditorContainer(props) {
       showLoginDialog();
       return;
     }
+    setAiVideoPollType(null);
+
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/request_generate_custom_video`, payload, headers)
       .then((resData) => {
@@ -2157,11 +2172,6 @@ export default function VideoEditorContainer(props) {
           (l) => l._id.toString() === layer._id.toString()
         );
         updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
-
-
-
-
-
         toast.success(
           <div>
             <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
@@ -2203,6 +2213,8 @@ export default function VideoEditorContainer(props) {
       model: 'MMAUDIOV2',
       ...payload,
     };
+    setAiVideoPollType(null);
+
     setIsAIVideoGenerationPending(true);
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/add_synced_sound_effect`, reqPayload, headers)
@@ -2213,6 +2225,9 @@ export default function VideoEditorContainer(props) {
   };
 
   const updateMovieGenSpeakers = (updatedSpeakers) => {
+    console.log("FEE GOO");
+    console.log(updatedSpeakers);
+    
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -2222,6 +2237,13 @@ export default function VideoEditorContainer(props) {
       sessionId: id,
       speakers: updatedSpeakers,
     };
+
+    console.log("GONNA UPDATE MOVIE GEN SPEAKERS");
+    console.log(movieGenSpeakers);
+
+    console.log("GEEEEEEEEEEE");
+
+
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/update_movie_gen_speakers`, payload, headers)
       .then(() => {

@@ -891,8 +891,9 @@ export default function FrameToolbar(props) {
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {/* Audio Type (uppercase + bold) */}
     
+              <div>
 
-              <span className="uppercase font-bold text-blue-300">
+              <span className="uppercase font-bold text-blue-300 text-xs block">
                 {selectedAudioTrack.generationType}
               </span>
 
@@ -902,11 +903,11 @@ export default function FrameToolbar(props) {
                   {selectedAudioTrack.speakerCharacterName}
                 </span>
               )}
-
+              </div>
 
               {/* Short Prompt */}
               {shortPrompt && (
-                <span className="text-neutral-200">"{shortPrompt}"</span>
+                <span className="text-neutral-200 text-xs w-16">"{shortPrompt}"</span>
               )}
 
        
@@ -923,7 +924,7 @@ export default function FrameToolbar(props) {
             <input
               type="number"
               value={selectedAudioTrack.startTime}
-              className={`w-[50px] ${bgColor} rounded-sm p-1`}
+              className={`w-[40px] ${bgColor} rounded-sm p-1`}
               onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
             />
 
@@ -932,7 +933,7 @@ export default function FrameToolbar(props) {
             <input
               type="number"
               value={selectedAudioTrack.endTime}
-              className={`w-[50px] ${bgColor} rounded-sm p-1`}
+              className={`w-[40px] ${bgColor} rounded-sm p-1`}
               onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
             />
 
@@ -941,7 +942,7 @@ export default function FrameToolbar(props) {
             <input
               type="number"
               defaultValue={selectedAudioTrack.volume}
-              className={`w-[50px] ${bgColor} rounded-sm p-1`}
+              className={`w-[40px] ${bgColor} rounded-sm p-1`}
               onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
             />
 

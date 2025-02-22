@@ -1,77 +1,92 @@
-# Generative Workflow Creation Suite
 
+# Creative Suite for Generative Image and Video Synthesis Workflows
 
-ReactJS Canvas implementation for the studio.
+![React](https://img.shields.io/badge/React-20232a?style=for-the-badge&logo=react&logoColor=61dafb)
+![KonvaJS](https://img.shields.io/badge/KonvaJS-FF6F00?style=for-the-badge&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38b2ac?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)
+
 
 You can choose between one of three workflow creators: **Studio**, **Express**, and **VidGPT**.
 
-You can create an account and signup for a paid-plan/free-trial to send model requests.
+You can create an account and sign up for a paid plan/free trial to send model requests.
 
 A hosted version is available [here](https://app.samsar.one).
 
-To install:
+## Installation
 
 1. Leave the API values as is.  
-2. In the terminal, run:
-   ```
+2. Run the following in the terminal:
+
+   ```sh
    cp .env.example .env
 
    yarn install
 
    yarn start
    ```
+
 3. Run the client on port 3000 for Google OAuth to work.
 
-## Studio Creator
-Use the Studio Creator to create and edit movie, narrative, and music videos. You can also create and edit images.
+---
 
-## Add Theme
+## Studio Creator
+
+Use the **Studio Creator** to create and edit movies, narratives, and music videos. You can also create and edit images.
+
+### Add Theme
+
 Define a theme to constrain the visual style of your story.
 
-![Samsar.one Studio Theme creator preview](https://samsar-github.s3.us-west-2.amazonaws.com/theme.png)
+![Studio Theme Creator](https://samsar-github.s3.us-west-2.amazonaws.com/theme.png)
 
-## Adding Scenes
-Create scenes with the "Add Scenes" button on the left toolbar. Drag to re-arrange scenes and click to change duration or remove scenes.
+### Adding Scenes
 
-![Samsar.one Studio Add Scene creator preview](https://samsar-github.s3.us-west-2.amazonaws.com/scenes.png)
+Create scenes using the "Add Scenes" button on the left toolbar. Drag to rearrange scenes and click to change duration or remove scenes.
 
-## Iterate with the Assistant
+![Studio Add Scene](https://samsar-github.s3.us-west-2.amazonaws.com/scenes.png)
+
+### Iterate with the Assistant
+
 Use the assistant for brainstorming or refining ideas.
 
-## Image Creating and Editing
+### Image Creation & Editing
+
 Generate images standalone or as starting frame images for scenes.
 
-![Samsar.one Studio Image generator preview](https://samsar-github.s3.us-west-2.amazonaws.com/image.png)
+![Image Generator](https://samsar-github.s3.us-west-2.amazonaws.com/image.png)
 
-### Supported Image Models
+#### Supported Image Models
 
-| **Name**                    | **Key**          | **isExpressModel** |
-|-----------------------------|------------------|--------------------|
-| Flux-1.1 Pro               | FLUX1.1PRO       | true               |
-| Google Imagen3             | IMAGEN3          | true               |
-| Dall-E 3                   | DALLE3           | -                  |
-| Flux-1 Pro                 | FLUX1PRO         | -                  |
-| Flux 1.1 Ultra             | FLUX1.1ULTRA     | -                  |
-| Flux-1 Dev                 | FLUX1DEV         | -                  |
-| Recraft V3                 | RECRAFTV3        | -                  |
-| Stable Diffusion V3.5      | SDV3.5           | -                  |
-| Nvidia Sana                | SANA             | -                  |
-| Recraft 20B                | RECRAFT20B       | -                  |
-| Lumalabs Photon            | PHOTON           | -                  |
-| Lumalabs Photon Flash      | PHOTONFLASH      | -                  |
-| Google Imagen3 Flash       | IMAGEN3FLASH     | -                  |
+| **Name**                 | **Key**         | **isExpressModel** |
+|--------------------------|----------------|--------------------|
+| Flux-1.1 Pro            | FLUX1.1PRO      | true               |
+| Google Imagen3          | IMAGEN3         | true               |
+| Dall-E 3                | DALLE3          | -                  |
+| Dall-E 3 HD             | DALLE3HD        | -                  |
+| Flux-1 Pro              | FLUX1PRO        | -                  |
+| Flux 1.1 Ultra          | FLUX1.1ULTRA    | -                  |
+| Flux-1 Dev              | FLUX1DEV        | -                  |
+| Recraft V3              | RECRAFTV3       | -                  |
+| Stable Diffusion V3.5   | SDV3.5          | -                  |
+| Nvidia Sana             | SANA            | -                  |
+| Recraft 20B             | RECRAFT20B      | -                  |
+| Lumalabs Photon         | PHOTON          | -                  |
+| Lumalabs Photon Flash   | PHOTONFLASH     | -                  |
+| Google Imagen3 Flash    | IMAGEN3FLASH    | -                  |
 
 ---
 
 ## Video Creation
+
 Create generative videos via text-to-video or image-to-video workflows. These base videos can be further lip-synced or aligned with sound effects.
 
-![Samsar.one Studio Video generator preview](https://samsar-github.s3.us-west-2.amazonaws.com/video.png)
+![Video Generator](https://samsar-github.s3.us-west-2.amazonaws.com/video.png)
 
 | **Name**                | **Key**              | **isExpressModel** | **isTransitionModel** |
 |-------------------------|----------------------|--------------------|-----------------------|
 | Runway Gen-3           | RUNWAYML             | true               | true                  |
-| Kling 1.6 Pro          | KLINGIMGTOVIDPRO     | true               | -                     |
+| Kling 1.6 Pro (Img2Vid) | KLINGIMGTOVIDPRO     | true               | -                     |
 | Luma Ray2              | LUMA                 | true               | true                  |
 | SD Video               | SDVIDEO              | -                  | -                     |
 | Hailuo Minimax O1-Live | HAILUO               | -                  | -                     |
@@ -79,86 +94,91 @@ Create generative videos via text-to-video or image-to-video workflows. These ba
 
 ---
 
-## Subtitle/Audio/Speech Generation and Alignment
-Create subtitled speech, sound effects, or backing music from the Audio tab in the right toolbar.
+## Subtitle/Audio/Speech Generation & Alignment
 
-![Samsar.one speaker preview](https://samsar-github.s3.us-west-2.amazonaws.com/audio.png)
+Create subtitled speech, sound effects, or background music from the **Audio** tab.
 
-See [here](https://docs.samsar.one/docs/speakers) for a list of supported TTS speakers.
+![Audio Generator](https://samsar-github.s3.us-west-2.amazonaws.com/audio.png)
+
+More details: [TTS Speakers](https://docs.samsar.one/docs/speakers).
 
 ### Additional Features
-- Add Shapes and Text
-- Canvas Animations and Image Editing
-- Add/Remove/Stack Layers
-- Add/Remove/Re-align Audio (Music/Speech/Sound Effects) Layers
-- Add Lip-Sync Video-to-Video Flow
-- Add Sound-Effect Video-to-Video Flow
-- Export Frame Image
-- Export Session Video
-- Manage Multiple Projects
-- Audio/Video/Image Library to Re-use/Export Previously Generated Assets
+
+- Add Shapes and Text  
+- Canvas Animations and Image Editing  
+- Add/Remove/Stack Layers  
+- Add/Re-align Audio Layers (Music, Speech, Sound Effects)  
+- Add Lip-Sync Video-to-Video Flow  
+- Add Sound-Effect Video-to-Video Flow  
+- Export Frame Images  
+- Export Session Videos  
+- Manage Multiple Projects  
+- Asset Library for Audio/Video/Image Reuse  
+
+---
 
 ## Express Creator
+
 A one-shot narrative video creation pipeline.  
-Edit in Studio for post-processing or to add/remove scenes.
+Edit in **Studio** for post-processing or to add/remove scenes.
 
 ## VidGPT
+
 A one-shot, full-feature film creation pipeline.  
-Edit in Studio for post-processing or to add/remove scenes.
+Edit in **Studio** for post-processing or to add/remove scenes.
 
-### For API-Only Use-Cases
-Documentation is available [here](https://docs.samsar.one).
+### API Documentation
 
-## Supported Models
-
-### Video Models
-*(Listed above)*
-
-### Image Edit Models
-
-| **Name**                      | **Key**                 | **editType** |
-|-------------------------------|-------------------------|-------------|
-| Flux-1 Pro Fill              | FLUX1PROFILL           | inpaint     |
-| Flux-1.1 Pro Ultra Redux     | FLUX1.1PROULTRAREDUX   | prompt      |
-| Flux-1.1 Pro Redux           | FLUX1.1PROREDUX        | prompt      |
+[Available here](https://docs.samsar.one).
 
 ---
 
-### Assistant Models
+## Model Pricing
 
-| **Model**  |
-|------------|
-| GPT4O      |
-| GPTO1      |
-| GPTO3MINI  |
+### Image Model Prices
+
+| **Model**     | **1:1** | **16:9** | **9:16** |
+|--------------|--------:|--------:|--------:|
+| DALLE3      | 10      | 15      | 15      |
+| DALLE3HD    | 15      | 18      | 18      |
+| FLUX1PRO    | 10      | 15      | 15      |
+| FLUX1.1PRO  | 10      | 15      | 15      |
+| FLUX1DEV    | 5       | 10      | 10      |
+
+### Video Model Prices
+
+| **Model**     | **1:1** | **16:9** | **9:16** | **Units** |
+|--------------|--------:|--------:|--------:|:--------:|
+| LUMA        | -      | 60      | 60      | 5, 9      |
+| RUNWAYML    | -      | 60      | 60      | 5, 10     |
+| HAIPER2.0   | 30     | 30      | 30      | 4, 8      |
+
+### Assistant Model Prices
+
+| **Model** | **Operation Type** | **Tokens** | **Price** |
+|-----------|--------------------|-----------:|----------:|
+| GPT4O     | words              | 1000       | 1         |
+| GPTO1     | words              | 1000       | 6         |
+
+### Speech Model Prices
+
+| **Key**  | **Operation Type** | **Tokens** | **Price** |
+|---------|--------------------|-----------:|----------:|
+| TTS     | words             | 1000       | 1         |
+| TTSHD   | words             | 400        | 1         |
+
+### Music Model Prices
+
+| **Key**    | **Operation Type** | **Price** |
+|-----------|--------------------|----------:|
+| AUDIOCRAFT | generate_song      | 2         |
 
 ---
 
-### Inference Models
+## Community & Support
 
-| **Model**         | 
-|-------------------|
-| GPT O3 Mini (H)   |
-| GPT 4O            | 
-| GPT O1            | 
+- **[Join Discord](https://discord.gg/2tbhKwRy)**
+- **[View the Gallery](https://www.youtube.com/@samsar_one)**
+- **Follow on [X](https://x.com/samsar_one) or [Threads](https://www.threads.net/@samsar_one_videos)**
 
----
-
-### TTS Providers
-
-| **Model**   |
-|-------------|
-| OPENAI      |
-| PLAYAI      |
-| ELEVENLABS  |
-
----
-
-This list is subject to updates as more models are added (or removed).
-
-Contributions and pull requests are welcome.
-
-For questions or suggestions, join the [Discord](https://discord.gg/2tbhKwRy).  
-Check out the [Gallery](https://www.youtube.com/@samsar_one) for inspiration, and follow on [X](https://x.com/samsar_one) or [Threads](https://www.threads.net/@samsar_one_videos) for news and updates.
-
----
+**Contributions and pull requests are welcome!**
