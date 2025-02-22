@@ -2159,6 +2159,10 @@ export default function VideoEditorContainer(props) {
     }
     setAiVideoPollType(null);
 
+
+    console.log("PAYLOAD");
+    console.log(payload);
+    
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/request_generate_custom_video`, payload, headers)
       .then((resData) => {

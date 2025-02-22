@@ -61,6 +61,9 @@ export default function OneshotEditor() {
   // State to track which video is expanded for inline playback
   const [expandedVideoId, setExpandedVideoId] = useState(null);
 
+  // -------------------------------------
+  //  Fetching & Lifecycle
+  // -------------------------------------
   useEffect(() => {
     fetchLatestVideos();
   }, []);
@@ -91,7 +94,12 @@ export default function OneshotEditor() {
 
   const expressVideoModels = VIDEO_GENERATION_MODEL_TYPES
     .filter((m) => m.isExpressModel)
-    .map((m) => ({ label: m.name, value: m.key }));
+    .map((m) => ({
+      label: m.name,
+      value: m.key,
+      // Pass through the whole model object so we can access modelSubTypes below:
+      ...m,
+    }));
 
   // Aspect Ratio
   const aspectRatioOptions = [
@@ -114,6 +122,8 @@ export default function OneshotEditor() {
     return found || expressImageModels[0];
   });
 
+  // Because we also want the full object (including modelSubTypes),
+  // let's store it that way:
   const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
     const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
     const found = expressVideoModels.find((m) => m.value === saved);
@@ -135,12 +145,25 @@ export default function OneshotEditor() {
     return found || durationOptions[0];
   });
 
+  // We'll store the user's selected subType (if any) in state:
+  const [selectedVideoModelSubType, setSelectedVideoModelSubType] = useState(null);
+
+  // As soon as the user selects a new model, reset the subType if needed
+  useEffect(() => {
+    if (selectedVideoModel?.modelSubTypes) {
+      // If model has subTypes, pick the first by default or handle as you see fit:
+      const firstSub = selectedVideoModel.modelSubTypes[0];
+      setSelectedVideoModelSubType({ label: firstSub, value: firstSub });
+    } else {
+      setSelectedVideoModelSubType(null);
+    }
+  }, [selectedVideoModel]);
+
   // Save preferences to localStorage
   useEffect(() => {
     if (selectedImageModel?.value) {
       localStorage.setItem('defaultVidGPTImageGenerationModel', selectedImageModel.value);
       localStorage.setItem('defaultImageModel', selectedImageModel.value);
-
     }
   }, [selectedImageModel]);
 
@@ -339,8 +362,6 @@ export default function OneshotEditor() {
           } else if (resData.videoLink) {
             videoActualLink = `${API_SERVER}/${videoLink}`;
           }
-
-
           setVideoLink(videoActualLink);
         } else if (resData.status === 'FAILED') {
           clearInterval(pollIntervalRef.current);
@@ -380,12 +401,15 @@ export default function OneshotEditor() {
     setVideoLink(null);
     setExpressGenerationStatus(null);
 
+    // Add modelSubType if the model has subTypes
     const payload = {
       prompt: promptText,
       sessionID: id,
       aspectRatio: selectedAspectRatioOption?.value,
       imageModel: selectedImageModel?.value,
       videoGenerationModel: selectedVideoModel?.value,
+      // If user selected a subType, add it to the payload:
+      modelSubType: selectedVideoModelSubType?.value || null,
       duration: selectedDurationOption?.value,
     };
 
@@ -441,12 +465,8 @@ export default function OneshotEditor() {
     resetForm();
   };
 
-
-
-
   // For downloading final video
-  const downloadVideoHref = videoLink ;
-
+  const downloadVideoHref = videoLink;
 
   // "Disable" the text area and the submit if not idle or user lacks credits
   const isFormDisabled = renderState !== 'idle' || isDisabled;
@@ -496,12 +516,35 @@ export default function OneshotEditor() {
           <div className="flex flex-col items-center">
             <SingleSelect
               value={selectedVideoModel}
-              onChange={setSelectedVideoModel}
-              options={expressVideoModels}
+              onChange={(newVal) => setSelectedVideoModel(newVal)}
+              // Pull the 'label' and 'value' from expressVideoModels,
+              // but keep the rest of the keys so we still have modelSubTypes
+              options={expressVideoModels.map((m) => ({
+                label: m.label,
+                value: m.value,
+                // Keep the entire object under some property:
+                ...m,
+              }))}
               className="w-40"
             />
             <p className="text-white text-xs mt-1">Video Model</p>
           </div>
+
+          {/* SingleSelect: Video Model SubType (only show if model has subTypes) */}
+          {selectedVideoModel?.modelSubTypes && selectedVideoModel.modelSubTypes.length > 0 && (
+            <div className="flex flex-col items-center">
+              <SingleSelect
+                value={selectedVideoModelSubType}
+                onChange={setSelectedVideoModelSubType}
+                options={selectedVideoModel.modelSubTypes.map((sub) => ({
+                  label: sub,
+                  value: sub,
+                }))}
+                className="w-40"
+              />
+              <p className="text-white text-xs mt-1">Video Style</p>
+            </div>
+          )}
 
           {/* SingleSelect: Duration */}
           <div className="flex flex-col items-center">
@@ -636,7 +679,10 @@ export default function OneshotEditor() {
                 <div key={videoId} className="bg-gray-800 p-2 rounded">
                   {isExpanded ? (
                     // Show the iframe when expanded
-                    <div className="relative overflow-hidden" style={{ paddingBottom: '56.25%' }}>
+                    <div
+                      className="relative overflow-hidden"
+                      style={{ paddingBottom: '56.25%' }}
+                    >
                       <iframe
                         className="absolute top-0 left-0 w-full h-full"
                         src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1`}
@@ -649,7 +695,6 @@ export default function OneshotEditor() {
                         onClick={() => handleToggleVideo(videoId)}
                         className="absolute top-2 right-2 text-black px-2 py-1 rounded"
                       />
-                  
                     </div>
                   ) : (
                     // Show the thumbnail when collapsed

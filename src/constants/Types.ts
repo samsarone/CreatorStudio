@@ -182,7 +182,20 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isTextToVidModel: true,
     isImgToVidModel: false,
 
-  }
+  },
+
+  {
+    name: 'PixVerseV3.5',
+    key: 'PIXVERSEI2V',
+    isTextToVidModel: false,
+    isImgToVidModel: true,
+    isExpressModel: true,
+    modelSubTypes: [
+      'anime', '3d_animation', 'clay', 'comic', 'cyberpunk'
+    ]
+    
+  },
+
 
 
 ]

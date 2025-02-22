@@ -300,7 +300,28 @@ export const IMAGE_EDIT_MODEL_PRICES = [
       },
     ]
 
-  }
+  },
+
+  {
+    key: 'PIXVERSEI2V',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ],
+    units: [5, 8]
+  },
+
+
 ]
 
 export const VIDEO_MODEL_PRICES = [
@@ -478,6 +499,24 @@ export const VIDEO_MODEL_PRICES = [
         price: 500
       },
     ],
+  },
+  {
+    key: 'PIXVERSEI2V',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 60
+      },
+      {
+        aspectRatio: '16:9',
+        price: 60
+      },
+      {
+        aspectRatio: '9:16',
+        price: 60
+      },
+    ],
+    units: [5, 8]
   },
 
   {
