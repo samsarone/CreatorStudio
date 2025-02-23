@@ -487,18 +487,20 @@ export const VIDEO_MODEL_PRICES = [
       },
     ],
   },
+
   {
     key: 'VEO',
     prices: [
       {
         aspectRatio: '16:9',
-        price: 500
+        price: 200
       },
       {
         aspectRatio: '9:16',
-        price: 500
+        price: 200
       },
     ],
+    units: [5, 8]
   },
   {
     key: 'PIXVERSEI2V',
