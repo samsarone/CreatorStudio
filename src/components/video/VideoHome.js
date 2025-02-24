@@ -1087,8 +1087,6 @@ export default function VideoHome(props) {
 
   const addLayerToComposition = (position) => {
 
-    console.log("ADD COMP LAYER TO POST " + position);
-
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1097,9 +1095,6 @@ export default function VideoHome(props) {
 
 
     const currentLayerIndex = layers.findIndex(layer => layer._id === currentLayer._id);
-
-    console.log("CURRENT LAYER INDEX " + currentLayerIndex);
-
 
     const payload = {
       sessionId: id,

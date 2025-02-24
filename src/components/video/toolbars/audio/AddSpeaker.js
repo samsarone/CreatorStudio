@@ -84,9 +84,6 @@ export default function AddSpeaker(props) {
     };
 
 
-    console.log("NEW SPEAKER");
-    console.log(newSpeaker);
-
     // 3) Optionally, call API to persist to server here
     // try {
     //   await api.saveSpeaker(newSpeaker);

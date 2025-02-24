@@ -265,10 +265,6 @@ export default function VideoPromptGenerator(props) {
     }
 
 
-
-    console.log("PAYLOAD");
-    console.log(payload);
-
      submitGenerateNewVideoRequest(payload);
   };
 

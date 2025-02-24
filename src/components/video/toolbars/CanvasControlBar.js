@@ -22,6 +22,7 @@ export default function CanvasControlBar(props) {
     requestRealignToAiVideoAndLayers,
     canvasActualDimensions,
     totalEffectiveDuration,
+    regenerateVideoSessionSubtitles,
   } = props;
 
 
@@ -60,6 +61,7 @@ export default function CanvasControlBar(props) {
   }
 
   let subtitlesTextDisplay = null;
+
   if (isExpressGeneration) {
     subtitlesTextDisplay = (
       <div>
@@ -68,6 +70,14 @@ export default function CanvasControlBar(props) {
         </SecondaryButton>
       </div>
     );
+  } else {
+    subtitlesTextDisplay = (
+      <div>
+        <SecondaryButton onClick={regenerateVideoSessionSubtitles}>
+          Regenerate Subs 
+        </SecondaryButton>  
+      </div>
+    )
   }
 
   let expandButtonText = (
@@ -106,7 +116,7 @@ export default function CanvasControlBar(props) {
                 {totalEffectiveDuration ? totalEffectiveDuration.toFixed(2) : '-'}
               </div>
               <div className="">
-                Duration 
+                Duration
               </div>
             </div>
           </div>
@@ -142,7 +152,7 @@ export default function CanvasControlBar(props) {
 }
 
 const AddSubtitlesDialog = (props) => {
-  const { requestRegenerateSubtitles, requestRegenerateAnimations, closeAlertDialog, requestRealignLayers ,
+  const { requestRegenerateSubtitles, requestRegenerateAnimations, closeAlertDialog, requestRealignLayers,
     requestRealignToAiVideoAndLayers
   } = props;
   const requestRegenerateAndClose = () => {

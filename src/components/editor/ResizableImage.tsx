@@ -68,7 +68,6 @@ export default function ResizableImage({
       }
     } catch (e) {
       console.log(e);
-      console.log("**");
     }
   }, [img, status]);
 

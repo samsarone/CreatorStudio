@@ -83,8 +83,12 @@ export default function VideoEditorContainer(props) {
       const { scenes, sounds } = videoSessionDetails.movieResourceList;
       setMovieSoundList(sounds);
       setMovieVisualList(scenes);
-      setMovieGenSpeakers(videoSessionDetails.movieGenSpeakers);
 
+
+    }
+
+    if (videoSessionDetails && videoSessionDetails.movieGenSpeakers) {
+      setMovieGenSpeakers(videoSessionDetails.movieGenSpeakers);
     }
   }, [videoSessionDetails]);
 
@@ -1510,8 +1514,6 @@ export default function VideoEditorContainer(props) {
       return;
     }
 
-    console.log("GONNA ADD TRACK");
-    console.log(payload);
 
     const sessionId = id;
     const audioLayers = videoSessionDetails.audioLayers;
@@ -1526,9 +1528,6 @@ export default function VideoEditorContainer(props) {
     if (!requestPayload.audioLayerId) {
       requestPayload.audioLayerId = layerId;
     }
-
-    console.log("GONNA ADD TRACK");
-    console.log(requestPayload);
 
 
     axios
@@ -1800,8 +1799,6 @@ export default function VideoEditorContainer(props) {
     setIsSelectButtonDisabled(true);
     const { video, trimScene, model } = payload;
 
-    console.log("ADD VIDEO");
-    console.log(video);
     
     const videoURL = video.url;
 
@@ -2160,9 +2157,6 @@ export default function VideoEditorContainer(props) {
     setAiVideoPollType(null);
 
 
-    console.log("PAYLOAD");
-    console.log(payload);
-    
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/request_generate_custom_video`, payload, headers)
       .then((resData) => {
@@ -2229,8 +2223,7 @@ export default function VideoEditorContainer(props) {
   };
 
   const updateMovieGenSpeakers = (updatedSpeakers) => {
-    console.log("FEE GOO");
-    console.log(updatedSpeakers);
+
     
     const headers = getHeaders();
     if (!headers) {
@@ -2242,10 +2235,6 @@ export default function VideoEditorContainer(props) {
       speakers: updatedSpeakers,
     };
 
-    console.log("GONNA UPDATE MOVIE GEN SPEAKERS");
-    console.log(movieGenSpeakers);
-
-    console.log("GEEEEEEEEEEE");
 
 
     axios

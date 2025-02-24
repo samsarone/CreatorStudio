@@ -1113,36 +1113,12 @@ export default function VideoEditorToolbar(props: any) {
       );
     }
 
-    
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY) {
       let advancedAudioSpeechOptionsDisplay = <span />;
 
-      let audioSubOptionsForSession = (
-        <DefaultSpeechProviderSelect 
-        submitGenerateSpeech={submitGenerateSpeech}
-        ttsProvider={ttsProvider}
-        handleTtsProviderChange={handleTtsProviderChange}
-        speakerType={speakerType}
-        handleSpeakerChange={handleSpeakerChange}
-        playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
-        currentlyPlayingSpeaker={currentlyPlayingSpeaker}
-        audioGenerationPending={audioGenerationPending}
-        bgColor={bgColor}
-        text2Color={text2Color}
-        advancedAudioSpeechOptionsDisplay={advancedAudioSpeechOptionsDisplay}
-        showAdvancedOptions={showAdvancedOptions}
-        setShowAdvancedOptions={setShowAdvancedOptions}
-        colorMode={colorMode}
-        speechOption={speechOption}
-        subtitleOption={subtitleOption}
-        addSubtitles={addSubtitles}
 
-        
-        />
-      )
-      if (sessionDetails.isMovieGen && movieSoundList) {
-        audioSubOptionsForSession = (
+     const  audioSubOptionsForSession = (
           <MovieSpeechProviderSelect 
           movieSoundList={movieSoundList}
           movieGenSpeakers={movieGenSpeakers}
@@ -1165,24 +1141,9 @@ export default function VideoEditorToolbar(props: any) {
 
           />
         )
-      }
+      
 
-      if (showAdvancedOptions) {
-        advancedAudioSpeechOptionsDisplay = (
-          <div>
-            <SingleSelect
-              options={speechOptions}
-              value={speechOption}
-              onChange={handleSpeechOptionChange}
-            />
-            <SingleSelect
-              options={speechSubtitleOptions}
-              value={subtitleOption}
-              onChange={handleSubtitleOptionChange}
-            />
-          </div>
-        )
-      }
+
       audioSubOptionsDisplay = (
         <div>
           {audioSubOptionsForSession}

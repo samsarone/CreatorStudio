@@ -435,6 +435,38 @@ export default function TopNav(props) {
     }
   }
 
+
+
+  const showRegenerateSubtitles = () => {
+
+    openAlertDialog(
+      <div className='relative'>
+        <div className="absolute top-2 right-2">
+          <FaTimes className="cursor-pointer" onClick={closeAlertDialog} />
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-bold">Regenerate Subtitles</div>
+          <div className="text-sm">This will regenerate the subtitles for the current video</div>
+          <CommonButton onClick={requestRegenerateSubtitles}>Regenerate</CommonButton>
+        </div>
+      </div>
+    );
+
+  }
+
+
+  const regenerateVideoSessionSubtitles = () => {
+
+    const headers = getHeaders();
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/regenerate_subtitles_for_video_session`, { sessionId: sessionId }, headers).then(function (response) {
+      console.log("Regenerate Subtitles Response", response
+      );
+    });
+
+
+
+  }
+
   let controlbarView = <span />;
   if (location.pathname.includes('/video/')) {
     controlbarView = (
@@ -451,6 +483,8 @@ export default function TopNav(props) {
         canvasActualDimensions={canvasActualDimensions}
         totalEffectiveDuration={totalEffectiveDuration}
         requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
+        showRegenerateSubtitles={showRegenerateSubtitles}
+        regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
       />
     );
   } else if (location.pathname.includes('/quick_video/')) {
