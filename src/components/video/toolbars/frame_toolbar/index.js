@@ -146,7 +146,10 @@ export default function FrameToolbar(props) {
 
   // ... other state and code
 
-  const onAnimationSelect = (animation) => {
+  const onAnimationSelect = (animation, textItemLayer) => {
+
+    
+    setTextTrackDisplayAsSelected(textItemLayer);
 
     // This sets the selected animation state when a TextAnimationTrackDisplay is clicked.
     setSelectedAnimation(animation);

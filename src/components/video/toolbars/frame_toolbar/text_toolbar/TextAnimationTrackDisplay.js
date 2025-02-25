@@ -9,7 +9,8 @@ export default function TextAnimationTrackDisplay(props) {
     selectedAnimation,
     onAnimationSelect, 
     updateTrackAnimationBoundaries,
-    selectedAnimationInTextTrack
+    selectedAnimationInTextTrack,
+    textItemLayer
   } = props;
 
   const [min, max] = selectedFrameRange;
@@ -17,8 +18,6 @@ export default function TextAnimationTrackDisplay(props) {
   const [isDragging, setIsDragging] = useState(false);
 
   const isAnimationSelected = selectedAnimationInTextTrack === selectedAnimation;
-
-
 
   useEffect(() => {
     if (selectedAnimation) {

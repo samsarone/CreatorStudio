@@ -63,7 +63,7 @@ const TextTrackDisplay = (props) => {
     }
     // Clear any selected animation since user clicked on main text track
     if (onAnimationSelect) {
-      onAnimationSelect(null);
+      onAnimationSelect(null, textItemLayer);
     }
   };
 
@@ -104,7 +104,7 @@ const TextTrackDisplay = (props) => {
           // When an animation is clicked, select it
           setSelectedAnimationInTextTrack(animation);
           if (onAnimationSelect) {
-            onAnimationSelect(animation);
+            onAnimationSelect(animation, textItemLayer);
           }
         }}
       />
