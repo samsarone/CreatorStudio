@@ -122,11 +122,6 @@ export default function VideoHome(props) {
     }));
   }, [id]);
 
-
-
-
-
-
   useEffect(() => {
     if (layers && layers.length > 0) {
       const hiddenContainer = document.getElementById('hidden-video-container');
@@ -141,12 +136,8 @@ export default function VideoHome(props) {
           video.preload = 'auto';
           video.style.display = 'none'; // Hide the video
 
-
-
           hiddenContainer.appendChild(video);
         }
-
-
       });
 
     }

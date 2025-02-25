@@ -50,15 +50,7 @@ export default function CanvasControlBar(props) {
     );
   };
 
-  if (isExpressGeneration && sessionId) {
-    expressGenerationLink = (
-      <div>
-        <SecondaryButton onClick={routeToExpress}>
-          <TbArrowBackUp className="inline-flex text-xs" /> Express Mode
-        </SecondaryButton>
-      </div>
-    );
-  }
+
 
   let subtitlesTextDisplay = null;
 

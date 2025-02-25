@@ -57,6 +57,11 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
     requestLipSyncToSpeech, aiVideoLayerType,
     generationError, currentDefaultPrompt, submitGenerateNewRequest,
     isGenerationPending, isUpdateLayerPending,
+    submitGenerateNewVideoRequest, aiVideoGenerationPending,
+    selectedVideoGenerationModel, setSelectedVideoGenerationModel,
+    videoPromptText, setVideoPromptText, promptTextVideo, setPromptTextVideo,
+  
+
   } = props;
 
 
@@ -128,6 +133,7 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
     }
 
   }, [aspectRatio]);
+
 
   useEffect(() => {
     setRequestRealignToAiVideoAndLayers(() => requestRealignToAiVideoAndLayers);
@@ -683,6 +689,16 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
       submitGenerateNewRequest={submitGenerateNewRequest}
       aspectRatio={aspectRatio}
 
+      videoPromptText={videoPromptText}
+      setVideoPromptText={setVideoPromptText}
+
+      aiVideoGenerationPending={aiVideoGenerationPending}
+      selectedVideoGenerationModel={selectedVideoGenerationModel}
+      setSelectedVideoGenerationModel={setSelectedVideoGenerationModel}
+
+      submitGenerateNewVideoRequest={submitGenerateNewVideoRequest}
+
+ 
 
       onCloseOverlay={() => {
         setShowOverlayPromptGenerator(false);

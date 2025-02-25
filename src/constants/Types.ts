@@ -135,6 +135,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     isImgToVidModel: true,
   },
+  
   {
     name: 'Runway Gen-3',
     key: 'RUNWAYML',
@@ -150,6 +151,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     isTransitionModel: true,
     isImgToVidModel: true,
+    isTextToVidModel: true,
   },
 
 
@@ -187,7 +189,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'PixVerseV3.5',
     key: 'PIXVERSEI2V',
-    isTextToVidModel: false,
     isImgToVidModel: true,
     isExpressModel: true,
     modelSubTypes: [
@@ -195,6 +196,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
     
   },
+
+
 
 
 

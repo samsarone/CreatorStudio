@@ -219,6 +219,7 @@ export default function VideoEditorContainer(props) {
 
   const [promptText, setPromptText] = useState("");
   const [videoPromptText, setVideoPromptText] = useState("");
+
   const [selectedVideoGenerationModel, setSelectedVideoGenerationModel] = useState('LUMA');
   const [selectedChain, setSelectedChain] = useState('');
   const [selectedAllocation, setSelectedAllocation] = useState(300);
@@ -2362,6 +2363,13 @@ export default function VideoEditorContainer(props) {
 
               submitGenerateNewRequest={submitGenerateNewRequest}
               isUpdateLayerPending={isUpdateLayerPending}
+              setSelectedVideoGenerationModel={setSelectedVideoGenerationModel}
+              selectedVideoGenerationModel={selectedVideoGenerationModel}
+              submitGenerateNewVideoRequest={submitGenerateNewAIVideoRequest}
+
+              videoPromptText={videoPromptText}
+              setVideoPromptText={setVideoPromptText}
+              
 
 
             />
