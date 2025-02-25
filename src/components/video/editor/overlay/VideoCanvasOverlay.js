@@ -53,7 +53,7 @@ export default function VideoCanvasOverlay(props) {
 
   // If the activeItemList is empty, show our tabbed prompt overlay
   if (!activeItemList || activeItemList.length === 0) {
-    let topH = "top-[50vh]";
+    let topH = "top-[40vh]";
     if (aspectRatio === "9:16") {
       topH = "top-[60vh]";
     }
@@ -83,14 +83,14 @@ export default function VideoCanvasOverlay(props) {
         <div className="flex space-x-4 mb-2">
           <button
             className={`px-4 py-1 rounded 
-               ${selectedTab === "image" ? "bg-blue-800 text-white shadow-xs" : "bg-gray-800 shadow-none"}`}
+               ${selectedTab === "image" ? "bg-stone-800 text-white shadow-sm shadow-neutral-600" : "bg-gray-800 shadow-none"}`}
             onClick={() => setSelectedTab("image")}
           >
             Generate Image
           </button>
           <button
             className={`px-4 py-1 rounded 
-               ${selectedTab === "video" ? "bg-blue-800 text-white shadow-xs" : "bg-gray-800 shadow-none"}`}
+               ${selectedTab === "video" ? "bg-stone-800 text-white shadow-sm shadow-neutral-600" : "bg-gray-800 shadow-none"}`}
             onClick={() => setSelectedTab("video")}
           >
             Generate Video

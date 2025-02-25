@@ -49,9 +49,6 @@ export default function TopNav(props) {
     totalEffectiveDuration,
   } = useContext(NavCanvasControlContext);
 
- 
-
-
   let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
 
   if (colorMode === 'light') {

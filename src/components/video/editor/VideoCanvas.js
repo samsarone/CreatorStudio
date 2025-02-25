@@ -3,7 +3,8 @@ import { Stage, Layer, Group, Line, Image as KonvaImage, Rect } from 'react-konv
 
 import { useColorMode } from '../../../contexts/ColorMode.js';
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
-import { STAGE_DIMENSIONS } from '../../../constants/Image.js';
+
+import { getStageDimensions } from '../../../constants/Image.js';
 import DraggableToolbarRectangle from "../toolbars/toolbar_shapes/DraggableToolbarRectangle.js";
 import DraggableToolbarCircle from "../toolbars/toolbar_shapes/DraggableToolbarCircle.js";
 import { generateCursor } from "../util/GenerateSVG.js";
@@ -17,6 +18,7 @@ import VideoCanvasOverlay from './overlay/VideoCanvasOverlay.js';
 import CanvasLoaderTransparent from '../util/loader/CanvasLoaderTransparent.js';
 
 import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.js';
+import VideoCanvasGridOverlay from './overlay/VideoCanvasGridOverlay.js'; // Make sure the path is correct
 
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.js';
 import './videoCanvas.css';
@@ -64,6 +66,10 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
 
   } = props;
 
+  const [stageDimensions, setStageDimensions] = useState(null);
+
+
+
 
 
   const durationOffset = currentLayer.durationOffset;
@@ -103,8 +109,18 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
     setRequestRealignToAiVideoAndLayers,
     expressGenerativeVideoRequired,
 
+    showGridOverlay,
+
   } = useContext(NavCanvasControlContext);
 
+
+  console.log("SHOW GRI OVERLAY", showGridOverlay);
+
+
+  useEffect(() => {
+    const newDimensions = getStageDimensions(aspectRatio);
+    setStageDimensions(newDimensions);
+  }, [aspectRatio]);
 
   useEffect(() => {
     setTotalEffectiveDuration(totalDuration);
@@ -709,6 +725,12 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
   }
 
     let canvasInternalLoading = <span />;
+
+    let canvasGridOverlay = <span />;
+    if (showGridOverlay) {
+      canvasGridOverlay = <VideoCanvasGridOverlay canvasDimensions={canvasDimensions} />;
+
+    }
     if (isUpdateLayerPending) {
 
       const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
@@ -726,11 +748,9 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
         boxSizing: 'border-box',
       }}
     >
-
       {canvasVideoUnderlay}
-
       {canvasInternalLoading}
-
+      {canvasGridOverlay}
       <Stage width={canvasDimensions.width} height={canvasDimensions.height} ref={ref} id="samsar-konva-stage"
         onMouseMove={debouncedHandleMouseOver} onClick={handleCanvasClick}
         style={{
@@ -778,8 +798,8 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
               image={overlayImage}
               x={0}
               y={0}
-              width={STAGE_DIMENSIONS.width}
-              height={STAGE_DIMENSIONS.height}
+              width={stageDimensions.width}
+              height={stageDimensions.height}
               opacity={0.6}
             />
           )}

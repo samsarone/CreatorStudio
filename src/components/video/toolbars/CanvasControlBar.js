@@ -5,6 +5,15 @@ import { FaExpandArrowsAlt, FaDownload, FaTimes } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.js";
 import SingleSelect from "../../common/SingleSelect.js";
 import { TbArrowBackUp } from "react-icons/tb";
+import { IoMdGrid } from "react-icons/io";
+
+import { NavCanvasControlContext } from "../../../contexts/NavCanvasControlContext.js";
+import { useContext } from "react";
+import { useEffect } from "react";
+
+import { 
+  FaPlay, FaPause
+} from 'react-icons/fa';
 
 
 
@@ -24,6 +33,9 @@ export default function CanvasControlBar(props) {
     totalEffectiveDuration,
     regenerateVideoSessionSubtitles,
   } = props;
+
+
+  const { showGridOverlay, toggleShowGridOverlay } = useContext(NavCanvasControlContext);
 
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
@@ -72,6 +84,7 @@ export default function CanvasControlBar(props) {
     )
   }
 
+
   let expandButtonText = (
     <div className="flex">
       <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> Expand
@@ -83,6 +96,18 @@ export default function CanvasControlBar(props) {
         <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> Collapse
       </div>
     );
+  }
+
+
+
+  const showGridView = () => {
+    // Simply toggle the grid overlay on/off
+    toggleShowGridOverlay();
+  };
+
+  
+  const showPlayPause = () => {
+
   }
 
   let canvasDimensionsDisplay = null;
@@ -137,7 +162,29 @@ export default function CanvasControlBar(props) {
             <FaDownload className="text-xs inline-flex mr-1" /> Frame
           </SecondaryButton>
         </div>
+
+        <div>
+          <SecondaryButton onClick={showGridView}>
+            <IoMdGrid className="text-xs inline-flex mr-1" /> Grid
+          </SecondaryButton>
+        </div>
+        
         {subtitlesTextDisplay}
+
+
+
+        {/* <div>
+          <SecondaryButton onClick={showPlayPause}>
+            <FaPlay className="text-xs inline-flex mr-1" /> Play
+          </SecondaryButton>
+        </div> */}
+
+
+
+
+        <div>
+
+        </div>
       </div>
     </div>
   );

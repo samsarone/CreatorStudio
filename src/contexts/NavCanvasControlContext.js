@@ -18,10 +18,15 @@ export const NavCanvasControlProvider = ({ children }) => {
   const [requestRealignLayers, setRequestRealignLayers] = useState(() => () => {});
   const [ requestRealignToAiVideoAndLayers, setRequestRealignToAiVideoAndLayers] = useState(() => () => {});
 
+  const [showGridOverlay, setShowGridOverlay] = useState(false);
+
+
   const [canvasActualDimensions, setCanvasActualDimensions] = useState({ width: 1024, height: 1024 });
 
   const [totalEffectiveDuration, setTotalEffectiveDuration] = useState(0);
 
+
+  const toggleShowGridOverlay = () => setShowGridOverlay(prev => !prev);
 
 
   return (
@@ -52,6 +57,8 @@ export const NavCanvasControlProvider = ({ children }) => {
         requestRealignToAiVideoAndLayers,
         setRequestRealignToAiVideoAndLayers,
         expressGenerativeVideoRequired,
+        showGridOverlay,
+        toggleShowGridOverlay
       }}
     >
       {children}
