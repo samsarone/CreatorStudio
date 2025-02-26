@@ -28,7 +28,7 @@ import { FaCog, FaTimes } from 'react-icons/fa';
 const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
 
 export default function TopNav(props) {
-  const { resetCurrentSession, addCustodyAddress } = props;
+  const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying } = props;
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const location = useLocation();
@@ -47,6 +47,7 @@ export default function TopNav(props) {
     requestRealignToAiVideoAndLayers,
     canvasActualDimensions,
     totalEffectiveDuration,
+
   } = useContext(NavCanvasControlContext);
 
   let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
@@ -482,6 +483,8 @@ export default function TopNav(props) {
         requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
         showRegenerateSubtitles={showRegenerateSubtitles}
         regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+        isVideoPreviewPlaying={isVideoPreviewPlaying}
+        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       />
     );
   } else if (location.pathname.includes('/quick_video/')) {

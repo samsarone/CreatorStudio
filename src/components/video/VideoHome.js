@@ -17,6 +17,7 @@ import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.js';
 import { useUser } from '../../contexts/UserContext.js';
 import { FaCheck } from 'react-icons/fa';
 
+
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -60,13 +61,19 @@ export default function VideoHome(props) {
   const [toggleUpdateCurrentLayer, setToggleUpdateCurrentLayer] = useState(false);
   const [currentLayerToBeUpdated, setCurrentLayerToBeUpdated] = useState(-1);
 
+  const [ isVideoPreviewPlaying, setIsVideoPreviewPlaying ] = useState(false);
+
   let { id } = useParams();
 
   const { user, getUserAPI } = useUser();
 
   const [isUpdateLayerPending, setIsUpdateLayerPending] = useState(false);
 
+  const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
+  const STATIC_CDN_URL = process.env.REACT_APP_STATIC_CDN_URL;
+  
 
+  
 
   useEffect(() => {
     // Reset all state variables
@@ -142,6 +149,50 @@ export default function VideoHome(props) {
 
     }
   }, [layers]);
+
+
+  useEffect(() => {
+    if (!layers || layers.length === 0) return;
+
+    const hiddenContainer = document.getElementById('hidden-video-container');
+    if (!hiddenContainer) return;
+
+    layers.forEach((layer) => {
+      // 1) AI video
+      if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
+        const videoURL = layer.aiVideoRemoteLink
+          ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
+          : `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
+        preloadVideo(videoURL, hiddenContainer);
+      }
+
+      // 2) Lip-sync video
+      if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
+        const videoURL = layer.lipSyncRemoteLink
+          ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
+          : `${PROCESSOR_API_URL}/${layer.lipSyncVideoLayer}`;
+        preloadVideo(videoURL, hiddenContainer);
+      }
+
+      // 3) Sound-effect video
+      if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
+        const videoURL = layer.soundEffectRemoteLink
+          ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
+          : `${PROCESSOR_API_URL}/${layer.soundEffectVideoLayer}`;
+        preloadVideo(videoURL, hiddenContainer);
+      }
+    });
+  }, [layers]);
+
+  // Helper to create a hidden <video> with preload="auto"
+  const preloadVideo = (src, container) => {
+    const videoEl = document.createElement('video');
+    videoEl.src = src;
+    videoEl.preload = 'auto';
+    videoEl.style.display = 'none';
+    container.appendChild(videoEl);
+  };
+
 
   useEffect(() => {
 
@@ -1452,6 +1503,8 @@ export default function VideoHome(props) {
   let frameToolbarDisplay = null;
 
 
+  console.log("IS VIDEO PREVIEW PLAYING "   , isVideoPreviewPlaying);
+
 
 
   if (minimalToolbarDisplay) {
@@ -1520,7 +1573,10 @@ export default function VideoHome(props) {
   }
   if (displayZoomType === 'fill') {
     return (
-      <CommonContainer>
+      <CommonContainer
+      isVideoPreviewPlaying={isVideoPreviewPlaying}
+      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+      >
         <div className='m-auto'>
           <div className='block'>
             {frameToolbarDisplay}
@@ -1536,6 +1592,7 @@ export default function VideoHome(props) {
                 toggleFrameDisplayType={toggleFrameDisplayType}
                 setFrameEditDisplay={setFrameEditDisplay}
                 currentLayer={currentLayer}
+                setCurrentLayerSeek={setCurrentLayerSeek}
                 updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
                 updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
                 activeItemList={activeItemList}
@@ -1579,7 +1636,10 @@ export default function VideoHome(props) {
 
 
   return (
-    <CommonContainer>
+    <CommonContainer
+    isVideoPreviewPlaying={isVideoPreviewPlaying}
+    setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+    >
 
       <div className='m-auto'>
         <div className='block'>
@@ -1649,6 +1709,7 @@ export default function VideoHome(props) {
               toggleFrameDisplayType={toggleFrameDisplayType}
               setFrameEditDisplay={setFrameEditDisplay}
               currentLayer={currentLayer}
+              setCurrentLayerSeek={setCurrentLayerSeek}
               updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
               updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
               activeItemList={activeItemList}
@@ -1676,6 +1737,7 @@ export default function VideoHome(props) {
               updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
               totalDuration={totalDuration}
               isUpdateLayerPending={isUpdateLayerPending}
+              isVideoPreviewPlaying={isVideoPreviewPlaying}
             />
           </div>
           <AssistantHome

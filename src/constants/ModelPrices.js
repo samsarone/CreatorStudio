@@ -572,6 +572,20 @@ export const VIDEO_MODEL_PRICES = [
       },
     ],
     units: [5, 10]
+  },
+  {
+    key: 'WANI2V',
+    prices: [
+
+      {
+        aspectRatio: '16:9',
+        price: 60
+      },
+      {
+        aspectRatio: '9:16',
+        price: 60
+      },
+    ]
   }
 ]
 

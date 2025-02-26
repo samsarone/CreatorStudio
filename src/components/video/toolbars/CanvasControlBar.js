@@ -11,7 +11,7 @@ import { NavCanvasControlContext } from "../../../contexts/NavCanvasControlConte
 import { useContext } from "react";
 import { useEffect } from "react";
 
-import { 
+import {
   FaPlay, FaPause
 } from 'react-icons/fa';
 
@@ -32,10 +32,14 @@ export default function CanvasControlBar(props) {
     canvasActualDimensions,
     totalEffectiveDuration,
     regenerateVideoSessionSubtitles,
+    setIsVideoPreviewPlaying,
+    isVideoPreviewPlaying,
   } = props;
 
 
-  const { showGridOverlay, toggleShowGridOverlay } = useContext(NavCanvasControlContext);
+  const {  toggleShowGridOverlay, toggleIsVideoPreviewPlaying } = useContext(NavCanvasControlContext);
+
+
 
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
@@ -78,8 +82,8 @@ export default function CanvasControlBar(props) {
     subtitlesTextDisplay = (
       <div>
         <SecondaryButton onClick={regenerateVideoSessionSubtitles}>
-          Regenerate Subs 
-        </SecondaryButton>  
+          Regenerate Subs
+        </SecondaryButton>
       </div>
     )
   }
@@ -105,9 +109,10 @@ export default function CanvasControlBar(props) {
     toggleShowGridOverlay();
   };
 
-  
-  const showPlayPause = () => {
 
+  const showPlayPause = () => {
+   // toggleIsVideoPreviewPlaying();
+   isVideoPreviewPlaying ? setIsVideoPreviewPlaying(false) : setIsVideoPreviewPlaying(true);
   }
 
   let canvasDimensionsDisplay = null;
@@ -168,16 +173,16 @@ export default function CanvasControlBar(props) {
             <IoMdGrid className="text-xs inline-flex mr-1" /> Grid
           </SecondaryButton>
         </div>
-        
+
         {subtitlesTextDisplay}
 
 
 
-        {/* <div>
+        <div>
           <SecondaryButton onClick={showPlayPause}>
-            <FaPlay className="text-xs inline-flex mr-1" /> Play
+            {isVideoPreviewPlaying ? <><FaPause className="text-xs inline-flex mr-1" /> Pause</> : <><FaPlay className="text-xs inline-flex mr-1" /> Play</>}
           </SecondaryButton>
-        </div> */}
+        </div>
 
 
 

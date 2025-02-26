@@ -1,5 +1,6 @@
 // NavCanvasControlContext.js
 import React, { createContext, useState } from 'react';
+import { useContext } from 'react';
 
 export const NavCanvasControlContext = createContext();
 
@@ -20,6 +21,8 @@ export const NavCanvasControlProvider = ({ children }) => {
 
   const [showGridOverlay, setShowGridOverlay] = useState(false);
 
+  const [ isVideoPreviewPlaying, setIsVideoPreviewPlaying ] = useState(false);
+
 
   const [canvasActualDimensions, setCanvasActualDimensions] = useState({ width: 1024, height: 1024 });
 
@@ -27,6 +30,10 @@ export const NavCanvasControlProvider = ({ children }) => {
 
 
   const toggleShowGridOverlay = () => setShowGridOverlay(prev => !prev);
+
+  const toggleIsVideoPreviewPlaying = () => setIsVideoPreviewPlaying(prev => !prev);
+
+  // isVideoPreviewPlaying, toggleIsVideoPreviewPlaying 
 
 
   return (
@@ -58,10 +65,13 @@ export const NavCanvasControlProvider = ({ children }) => {
         setRequestRealignToAiVideoAndLayers,
         expressGenerativeVideoRequired,
         showGridOverlay,
-        toggleShowGridOverlay
+        toggleShowGridOverlay,
+        isVideoPreviewPlaying,
+        toggleIsVideoPreviewPlaying,
       }}
     >
       {children}
     </NavCanvasControlContext.Provider>
   );
 };
+

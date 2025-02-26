@@ -1,6 +1,7 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useMediaQuery } from 'react-responsive';
 import TopNav from "./TopNav.tsx";
+
 import MobileTopNav from "./MobileTopNav.tsx";
 import { AlertDialog } from "./AlertDialog.tsx";
 import { useUser } from "../../contexts/UserContext";
@@ -21,6 +22,8 @@ export default function OverflowContainer(props) {
 
 
 
+
+
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
   return (
@@ -34,6 +37,8 @@ export default function OverflowContainer(props) {
         <TopNav
           resetCurrentSession={resetCurrentSession}
           addCustodyAddress={addCustodyAddress}
+
+
         />
       )}
       <div>

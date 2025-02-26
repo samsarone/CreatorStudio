@@ -29,6 +29,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.js';
+import VideoPreview from './VideoPreview.js';
 
 const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
 const STATIC_CDN_URL = process.env.REACT_APP_STATIC_CDN_URL;
@@ -63,6 +64,8 @@ export default function VideoEditorContainer(props) {
     updateCurrentLayerAndLayerList,
     totalDuration,
     isUpdateLayerPending,
+    isVideoPreviewPlaying,
+    setIsVideoPreviewPlaying,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -76,6 +79,7 @@ export default function VideoEditorContainer(props) {
 
   const [movieVisualList, setMovieVisualList] = useState([]);
   const [movieGenSpeakers, setMovieGenSpeakers] = useState([]);
+
 
   useEffect(() => {
 
@@ -180,6 +184,40 @@ export default function VideoEditorContainer(props) {
 
     startAIVideoLayerGenerationPoll();
   }, [aiVideoPollType]);
+
+
+  useEffect(() => {
+    if (!isVideoPreviewPlaying) return;
+
+    const fps = 30;
+    let frame = currentLayerSeek;                  // Start from current position
+    const endFrame = Math.floor(totalDuration * fps);
+
+    const intervalId = setInterval(() => {
+      // If we've reached or exceeded the total frames, stop.
+      if (frame >= endFrame) {
+        clearInterval(intervalId);
+        if (setIsVideoPreviewPlaying) {
+          setIsVideoPreviewPlaying(false);           // Turn off preview
+        }
+        return;
+      }
+      // Otherwise, increment
+      frame++;
+      // Update parent's "currentLayerSeek"
+      // (Make sure you have a setter for that in the props)
+      props.setCurrentLayerSeek(frame);
+    }, 1000 / fps);
+
+    // Cleanup on unmount or if `isVideoPreviewPlaying` changes
+    return () => clearInterval(intervalId);
+  }, [
+    isVideoPreviewPlaying,
+    currentLayerSeek,
+    totalDuration,
+    props,
+    setIsVideoPreviewPlaying
+  ]);
 
 
   // Preload hidden <video> once we set aiVideoLayer
@@ -1421,7 +1459,7 @@ export default function VideoEditorContainer(props) {
 
     if (pollStatus.generationStatus === 'COMPLETED') {
 
-      
+
       setVideoSessionDetails(pollStatus.videoSession);
       setAudioGenerationPending(false);
       const { generationType } = pollStatus;
@@ -1800,7 +1838,7 @@ export default function VideoEditorContainer(props) {
     setIsSelectButtonDisabled(true);
     const { video, trimScene, model } = payload;
 
-    
+
     const videoURL = video.url;
 
     const requestPayload = {
@@ -2225,7 +2263,7 @@ export default function VideoEditorContainer(props) {
 
   const updateMovieGenSpeakers = (updatedSpeakers) => {
 
-    
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -2266,6 +2304,10 @@ export default function VideoEditorContainer(props) {
 
 
   let viewDisplay = <span />;
+
+
+
+
   if (currentLayer && currentLayer.imageSession && currentLayer.imageSession.activeItemList) {
     if (currentLayer.imageSession.generationStatus === 'PENDING') {
       viewDisplay = <LoadingImage />;
@@ -2369,7 +2411,7 @@ export default function VideoEditorContainer(props) {
 
               videoPromptText={videoPromptText}
               setVideoPromptText={setVideoPromptText}
-              
+
 
 
             />
@@ -2378,6 +2420,8 @@ export default function VideoEditorContainer(props) {
       }
     }
   }
+
+
 
 
 

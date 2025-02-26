@@ -135,7 +135,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     isImgToVidModel: true,
   },
-  
+
   {
     name: 'Runway Gen-3',
     key: 'RUNWAYML',
@@ -194,12 +194,14 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     modelSubTypes: [
       'anime', '3d_animation', 'clay', 'comic', 'cyberpunk'
     ]
-    
+
   },
-
-
-
-
+  {
+    name: 'Wan I2V',
+    key: 'WANI2V',
+    isImgToVidModel: true,
+    isExpressModel: true,
+  }
 
 ]
 

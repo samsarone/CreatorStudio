@@ -39,6 +39,7 @@ export default function ListVideoSessions() {
     const headers = getHeaders();
     const payload = {
       prompts: [],
+      aspectRatio: '16:9',
     };
     axios.post(`${PROCESSOR_API}/video_sessions/create_video_session`, payload, headers).then(function (response) {
       const session = response.data;

@@ -11,6 +11,155 @@ import { applyBloomEffect } from '../../../utils/frame_animation/BloomUtils.js';
 
 
 
+export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset) {
+  if (!item.animations) return;
+
+  const FPS = 30; // Frames per second, same as in backend
+  const totalLayerDuration = duration * 1000; // Convert to milliseconds
+
+  item.animations.forEach(animation => {
+    const { type, params, frameDuration, frameOffset } = animation;
+
+    if (!params || !type) return;
+
+    // Determine animation start and end times
+    let startTime, endTime;
+
+    if (frameOffset !== undefined && frameDuration !== undefined) {
+      const durationOffsetEffective = durationOffset * 1000;
+      startTime = durationOffsetEffective + (frameOffset * (1000 / FPS));
+      endTime = startTime + (frameDuration * (1000 / FPS));
+    } else {
+      // Use default layer duration
+      startTime = durationOffset * 1000;
+      endTime = startTime + totalLayerDuration;
+    }
+
+    const animationElapsed = elapsedTime - startTime;
+    const totalAnimationDuration = endTime - startTime;
+
+    // Only process animation if current time is within animation boundaries
+    if (animationElapsed >= 0 && animationElapsed <= totalAnimationDuration) {
+      const t = animationElapsed / totalAnimationDuration; // Progress ratio [0,1]
+
+      switch (type) {
+        case 'zoom':
+          // Apply zoom animation
+          const { startScale = 100, endScale = 100 } = params;
+          const scale = (startScale + (endScale - startScale) * t) / 100;
+          node.scaleX(scale);
+          node.scaleY(scale);
+          break;
+
+        case 'slide':
+          // Apply slide animation
+          const { startX = node.x(), endX = node.x(), startY = node.y(), endY = node.y() } = params;
+          const translateX = startX + (endX - startX) * t;
+          const translateY = startY + (endY - startY) * t;
+          node.x(translateX);
+          node.y(translateY);
+          break;
+
+        case 'rotate':
+          // Apply rotate animation
+          const { startAngle = 0, endAngle = 360, rotationSpeed } = params;
+          let angle;
+          if (rotationSpeed) {
+            // Continuous rotation based on rotation speed
+            angle = t * rotationSpeed * 360;
+          } else {
+            // Rotation from startAngle to endAngle
+            angle = startAngle + (endAngle - startAngle) * t;
+          }
+          node.rotation(angle);
+          break;
+
+        case 'fade':
+          // Apply fade animation
+          const { startFade = 100, endFade = 100 } = params;
+          const opacity = (startFade + (endFade - startFade) * t) / 100;
+          node.opacity(opacity);
+          break;
+
+        case 'orbit':
+          // Apply orbit animation
+          const { centerX, centerY, radius, startAngle: orbitStartAngle = 0, endAngle: orbitEndAngle = 360 } = params;
+          const currentAngle = orbitStartAngle + (orbitEndAngle - orbitStartAngle) * t;
+          const radians = (currentAngle * Math.PI) / 180;
+          const orbitX = centerX + radius * Math.cos(radians);
+          const orbitY = centerY + radius * Math.sin(radians);
+          node.x(orbitX);
+          node.y(orbitY);
+          break;
+        // Add other custom animations here (e.g., snowfall, light_transition)
+        default:
+          applyCustomAnimation(node, animation, t);
+          break;
+      }
+    } else {
+      // Handle static animations if needed
+      applyStaticAnimation(node, type, params);
+    }
+  });
+}
+
+
+function applyCustomAnimation(node, animation, t) {
+  const { type, params } = animation;
+
+  switch (type) {
+    case 'glitch':
+      applyGlitchEffect(node, params, t);
+      break;
+    case 'bloom':
+      applyBloomEffect(node, params, t);
+      break;
+    case 'snowfall':
+    case 'light_transition':
+    case 'hologram':
+    case 'nebula':
+    case 'particle':
+    case 'lens_flare':
+      console.warn(`Unsupported custom animation type: ${type}`);
+      break;
+    default:
+      console.warn(`Unknown custom animation type: ${type}`);
+      break;
+  }
+}
+
+
+
+
+function applyStaticAnimation(node, type, params) {
+  switch (type) {
+    case 'zoom':
+      const { endScale = 100 } = params;
+      node.scaleX(endScale / 100);
+      node.scaleY(endScale / 100);
+      break;
+
+    case 'rotate':
+      const { endAngle = 0 } = params;
+      node.rotation(endAngle);
+      break;
+
+    case 'slide':
+      const { endX = node.x(), endY = node.y() } = params;
+      node.x(endX);
+      node.y(endY);
+      break;
+
+    case 'fade':
+      const { endFade = 100 } = params;
+      node.opacity(endFade / 100);
+      break;
+
+    default:
+      break;
+  }
+}
+
 const VideoCanvasContainer = forwardRef((props, ref) => {
   const { sessionDetails, activeItemList, setActiveItemList, currentView,
     setCurrentView, editBrushWidth, editMasklines, setEditMaskLines, currentCanvasAction,
@@ -402,153 +551,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   };
 
 
-  function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset) {
-    if (!item.animations) return;
-  
-    const FPS = 30; // Frames per second, same as in backend
-    const totalLayerDuration = duration * 1000; // Convert to milliseconds
-  
-    item.animations.forEach(animation => {
-      const { type, params, frameDuration, frameOffset } = animation;
-  
-      if (!params || !type) return;
-  
-      // Determine animation start and end times
-      let startTime, endTime;
-  
-      if (frameOffset !== undefined && frameDuration !== undefined) {
-        const durationOffsetEffective = durationOffset * 1000;
-        startTime = durationOffsetEffective + (frameOffset * (1000 / FPS));
-        endTime = startTime + (frameDuration * (1000 / FPS));
-      } else {
-        // Use default layer duration
-        startTime = durationOffset * 1000;
-        endTime = startTime + totalLayerDuration;
-      }
-  
-      const animationElapsed = elapsedTime - startTime;
-      const totalAnimationDuration = endTime - startTime;
-  
-      // Only process animation if current time is within animation boundaries
-      if (animationElapsed >= 0 && animationElapsed <= totalAnimationDuration) {
-        const t = animationElapsed / totalAnimationDuration; // Progress ratio [0,1]
-  
-        switch (type) {
-          case 'zoom':
-            // Apply zoom animation
-            const { startScale = 100, endScale = 100 } = params;
-            const scale = (startScale + (endScale - startScale) * t) / 100;
-            node.scaleX(scale);
-            node.scaleY(scale);
-            break;
-  
-          case 'slide':
-            // Apply slide animation
-            const { startX = node.x(), endX = node.x(), startY = node.y(), endY = node.y() } = params;
-            const translateX = startX + (endX - startX) * t;
-            const translateY = startY + (endY - startY) * t;
-            node.x(translateX);
-            node.y(translateY);
-            break;
-  
-          case 'rotate':
-            // Apply rotate animation
-            const { startAngle = 0, endAngle = 360, rotationSpeed } = params;
-            let angle;
-            if (rotationSpeed) {
-              // Continuous rotation based on rotation speed
-              angle = t * rotationSpeed * 360;
-            } else {
-              // Rotation from startAngle to endAngle
-              angle = startAngle + (endAngle - startAngle) * t;
-            }
-            node.rotation(angle);
-            break;
-  
-          case 'fade':
-            // Apply fade animation
-            const { startFade = 100, endFade = 100 } = params;
-            const opacity = (startFade + (endFade - startFade) * t) / 100;
-            node.opacity(opacity);
-            break;
-  
-          case 'orbit':
-            // Apply orbit animation
-            const { centerX, centerY, radius, startAngle: orbitStartAngle = 0, endAngle: orbitEndAngle = 360 } = params;
-            const currentAngle = orbitStartAngle + (orbitEndAngle - orbitStartAngle) * t;
-            const radians = (currentAngle * Math.PI) / 180;
-            const orbitX = centerX + radius * Math.cos(radians);
-            const orbitY = centerY + radius * Math.sin(radians);
-            node.x(orbitX);
-            node.y(orbitY);
-            break;
-          // Add other custom animations here (e.g., snowfall, light_transition)
-          default:
-            applyCustomAnimation(node, animation, t);
-            break;
-        }
-      } else {
-        // Handle static animations if needed
-        applyStaticAnimation(node, type, params);
-      }
-    });
-  }
 
-  function applyCustomAnimation(node, animation, t) {
-    const { type, params } = animation;
-  
-    switch (type) {
-      case 'glitch':
-        applyGlitchEffect(node, params, t);
-        break;
-      case 'bloom':
-        applyBloomEffect(node, params, t);
-        break;
-      case 'snowfall':
-      case 'light_transition':
-      case 'hologram':
-      case 'nebula':
-      case 'particle':
-      case 'lens_flare':
-        console.warn(`Unsupported custom animation type: ${type}`);
-        break;
-      default:
-        console.warn(`Unknown custom animation type: ${type}`);
-        break;
-    }
-  }
-
-  
-  
-  
-  function applyStaticAnimation(node, type, params) {
-    switch (type) {
-      case 'zoom':
-        const { endScale = 100 } = params;
-        node.scaleX(endScale / 100);
-        node.scaleY(endScale / 100);
-        break;
-  
-      case 'rotate':
-        const { endAngle = 0 } = params;
-        node.rotation(endAngle);
-        break;
-  
-      case 'slide':
-        const { endX = node.x(), endY = node.y() } = params;
-        node.x(endX);
-        node.y(endY);
-        break;
-  
-      case 'fade':
-        const { endFade = 100 } = params;
-        node.opacity(endFade / 100);
-        break;
-  
-      default:
-        break;
-    }
-  }
   
   const replaceTopLayer = () => {
     const stage = ref.current.getStage();
