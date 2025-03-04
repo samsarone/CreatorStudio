@@ -134,6 +134,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'KLINGIMGTOVIDPRO',
     isExpressModel: true,
     isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1',
+    ]
   },
 
   {
@@ -142,6 +145,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     isTransitionModel: true,
     isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
   },
 
 
@@ -152,6 +158,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isTransitionModel: true,
     isImgToVidModel: true,
     isTextToVidModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ]
   },
 
 
@@ -164,6 +173,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     name: 'Hailuo Minimax O1-Live',
     key: 'HAILUO',
     isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ]
   },
   {
     name: 'Haiper 2.0',
@@ -193,6 +205,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     modelSubTypes: [
       'anime', '3d_animation', 'clay', 'comic', 'cyberpunk'
+    ],
+    supportedAspectRatios: [
+      '16:9', '9:16'
     ]
 
   },
@@ -201,38 +216,61 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'WANI2V',
     isImgToVidModel: true,
     isExpressModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ]
   }
 
-]
+];
+
+
 
 
 export const IMAGE_EDIT_MODEL_TYPES = [
+  {
+    name: 'Bria Eraser',
+    key: 'BRIA_ERASER',
+    editType: 'inpaint',
+    isPromptEnabled: false
+  },
+  {    
+    name: 'Bria GenFill',
+    key: 'BRIA_GENFILL',
+    editType: 'inpaint',
+    isPromptEnabled: true
+
+  },
 
   {
     name: 'Flux-1 Pro Fill',
     key: 'FLUX1PROFILL',
-    editType: 'inpaint'
+    editType: 'inpaint',
+    isPromptEnabled: true
   },
 
 
   {
     name: 'Flux-1.1 Pro Ultra Redux',
     key: 'FLUX1.1PROULTRAREDUX',
-    editType: 'prompt'
+    editType: 'prompt',
+    isPromptEnabled: true
   },
 
 
   {
     name: 'Flux-1.1 Pro Redux',
     key: 'FLUX1.1PROREDUX',
-    editType: 'prompt'
-  }
+    editType: 'prompt',
+    isPromptEnabled: true
+  },
+
 ]
 
 
 
 
 export const ASSISTANT_MODEL_TYPES = [
+  'GPT4.5O',
   'GPT4O',
   'GPTO1',
   'GPTO3MINI'
@@ -240,6 +278,10 @@ export const ASSISTANT_MODEL_TYPES = [
 
 
 export const INFERENCE_MODEL_TYPES = [
+  {
+    label: 'GPT 4.5O',
+    value: 'GPT4.5O',
+  },
   {
     label: 'GPT O3 Mini (H)',
     value: 'GPTO3MINI',
@@ -251,7 +293,8 @@ export const INFERENCE_MODEL_TYPES = [
   {
     label: 'GPT O1',
     value: 'GPTO1',
-  }
+  },
+
 ]
 
 

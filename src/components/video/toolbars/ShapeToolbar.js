@@ -10,7 +10,6 @@ export default function ShapeToolbar(props) {
   } = props;
 
 
-
   const [selectedFilter, setSelectedFilter] = useState(null);
   const [filterValue, setFilterValue] = useState(0);
   const [xValue, setXValue] = useState(0);
@@ -19,14 +18,23 @@ export default function ShapeToolbar(props) {
   const [heightValue, setHeightValue] = useState(0);
 
   useEffect(() => {
+
+
     // Fetch current item properties to initialize the input values
     if (activeItemList) {
+
       const currentItem = activeItemList.find(item => item.id === itemId);
-      if (currentItem) {
-        setXValue(currentItem.x);
-        setYValue(currentItem.y);
-        setWidthValue(currentItem.width);
-        setHeightValue(currentItem.height);
+
+      if (!currentItem) {
+        return;
+      }
+      
+      const itemConfig = currentItem.config;
+      if (itemConfig) {
+        setXValue(itemConfig.x);
+        setYValue(itemConfig.y);
+        setWidthValue(itemConfig.width);
+        setHeightValue(itemConfig.height);
       }
     }
   }, [itemId, activeItemList]);
@@ -54,6 +62,8 @@ export default function ShapeToolbar(props) {
 
   const handleInputChange = (e, type) => {
     const value = parseInt(e.target.value, 10);
+
+    
     switch (type) {
       case 'x':
         setXValue(value);
@@ -79,7 +89,8 @@ export default function ShapeToolbar(props) {
       width: widthValue,
       height: heightValue,
     };
-    updateTargetActiveLayerConfig(itemId, newConfig);
+
+     updateTargetActiveLayerConfig(itemId, newConfig);
   };
 
   const iconColor = colorMode === 'dark' ? 'text-neutral-200' : 'text-grey-800';

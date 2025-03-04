@@ -1,10 +1,20 @@
 import React, { useState } from "react";
 import CommonButton from "../../../common/CommonButton.tsx";
+import SecondaryButton from "../../../common/SecondaryButton.tsx";
 
 const AudioOptionsDialog = ({
   onSubmit,
   initialDucking = false,
-  closeDialog,
+
+  isExpressGeneration,
+  showAddSubtitlesDialog,
+
+
+
+
+  regenerateVideoSessionSubtitles,
+
+
 }) => {
   const [isAudioDucking, setIsAudioDucking] = useState(initialDucking);
   const [syncAnimations, setSyncAnimations] = useState(false);
@@ -58,12 +68,39 @@ const AudioOptionsDialog = ({
   };
 
 
+  let subtitlesTextDisplay = null;
+            
+  if (isExpressGeneration) {
+    subtitlesTextDisplay = (
+      <div>
+        <SecondaryButton onClick={showAddSubtitlesDialog}>
+          Express Ops
+        </SecondaryButton>
+      </div>
+    );
+  } else {
+    subtitlesTextDisplay = (
+      <div>
+        <SecondaryButton onClick={regenerateVideoSessionSubtitles}>
+          Regenerate Subs
+        </SecondaryButton>
+      </div>
+    )
+  }
+
+
 
   return (
     <form onSubmit={handleSubmit}>
 
 
       <div className="mb-4">
+
+        <div>
+          <div className="mb-4 mt-4">
+            {subtitlesTextDisplay}
+          </div>
+        </div>
         <label className="block mb-2">Beat Synchronization</label>
         <div className="flex items-center">
           <label className="flex items-center mr-4">

@@ -42,6 +42,7 @@ export default function CanvasToolbar(props) {
     resetPaintImage,
 
     updateTargetImageActiveLayerConfig,
+    updateTargetShapeActiveLayerConfigNoScale,
   } = props;
 
   return (
@@ -67,7 +68,7 @@ export default function CanvasToolbar(props) {
             />
           );
         } else if (selectedLayerType === 'shape') {
-
+          
           return (
             <ShapeToolbar 
             key={pos.id}
@@ -79,7 +80,8 @@ export default function CanvasToolbar(props) {
             colorMode={colorMode}
             removeItem={removeSelectedItem}
             itemId={selectedId}
-            updateTargetActiveLayerConfig={updateTargetShapeActiveLayerConfig}
+            updateTargetActiveLayerConfig={updateTargetShapeActiveLayerConfigNoScale}
+            activeItemList={activeItemList}
             />
           )
 

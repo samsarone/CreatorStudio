@@ -166,6 +166,7 @@ export default function Register(props) {
           </div>
 
 
+
           {/* Terms & Conditions */}
           <div className="flex items-center justify-center mt-4">
             <input
@@ -176,7 +177,7 @@ export default function Register(props) {
               onChange={() => setIsTermsChecked(!isTermsChecked)}
             />
             <label htmlFor="terms-checkbox" className="text-sm leading-tight ">
-              Check {' '}
+              Agree to our {' '}
               <a
                 href="https://samsar.one/terms"
                 target="_blank"

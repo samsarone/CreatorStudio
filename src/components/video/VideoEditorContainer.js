@@ -596,109 +596,7 @@ export default function VideoEditorContainer(props) {
     return canvas.toDataURL('image/png');
   }
 
-  // Download current frame
-  const downloadCurrentFrame = async () => {
-    const isPremiumUser = user.isPremiumUser;
-    const waterMarkImage = 'wm.png';
 
-    const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
-    const canvas = document.createElement('canvas');
-    canvas.width = stageDimensions.width;
-    canvas.height = stageDimensions.height;
-    const ctx = canvas.getContext('2d');
-
-    const loadLocalImage = (src) =>
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = (err) => reject(err);
-        img.src = `/${src}`;
-      });
-
-    const loadImage = (src) =>
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
-      });
-
-    // Draw each item
-    for (const item of currentLayer.imageSession.activeItemList || []) {
-      ctx.save();
-      const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.translate(x, y);
-      if (rotation) {
-        ctx.translate(width / 2, height / 2);
-        ctx.rotate((rotation * Math.PI) / 180);
-        ctx.translate(-width / 2, -height / 2);
-      }
-      if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
-        try {
-          const img = await loadImage(imgSrc);
-          ctx.drawImage(img, 0, 0, width, height);
-        } catch (error) {
-          console.error('Error loading image:', error);
-        }
-      } else if (item.type === 'text') {
-        const fontSize = item.config.fontSize || 40;
-        ctx.fillStyle = item.config.fillColor || '#000000';
-        ctx.font = `${fontSize}px ${item.config.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config.align || 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(item.text, 0, 0);
-      } else if (item.type === 'shape') {
-        const config = item.config;
-        const shapeX = config.x || 0;
-        const shapeY = config.y || 0;
-        const shapeWidth = config.width || 0;
-        const shapeHeight = config.height || 0;
-        const radius = config.radius || 0;
-        const strokeWidth = config.strokeWidth || 1;
-
-        ctx.fillStyle = config.fillColor || '#000000';
-        ctx.strokeStyle = config.strokeColor || '#000000';
-        ctx.lineWidth = strokeWidth;
-        if (item.shape === 'rectangle') {
-          ctx.fillRect(shapeX, shapeY, shapeWidth, shapeHeight);
-          ctx.strokeRect(shapeX, shapeY, shapeWidth, shapeHeight);
-        } else if (item.shape === 'circle') {
-          ctx.beginPath();
-          ctx.arc(shapeX + radius, shapeY + radius, radius, 0, 2 * Math.PI);
-          ctx.fill();
-          ctx.stroke();
-        }
-      }
-      ctx.restore();
-    }
-
-    // Non-premium: add watermark
-    if (!isPremiumUser) {
-      try {
-        const watermarkImg = await loadLocalImage(waterMarkImage);
-        const padding = 16;
-        const x = canvas.width - watermarkImg.width - padding / 2;
-        const y = canvas.height - watermarkImg.height - padding;
-        ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
-      } catch (error) {
-        console.error('Error loading watermark image:', error);
-      }
-    }
-
-    const dataURL = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = dataURL;
-    link.download = 'frame.png';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Export a masked version of the group if inpaint is used, converting lines to black/white.
   async function exportMaskedGroupAsBlackAndWhite() {
@@ -850,6 +748,9 @@ export default function VideoEditorContainer(props) {
     if (pollStatus.status === 'COMPLETED') {
       const layerData = pollStatus.layer;
       const layerList = pollStatus.layers;
+
+      updateCurrentLayerInSessionList(layerData);
+
       const updatedLayerIndex = layerList.findIndex(
         (layer) => layer._id.toString() === layerData._id.toString()
       );
@@ -881,6 +782,9 @@ export default function VideoEditorContainer(props) {
           height: stageDimensions.height,
         },
       ];
+
+      
+
 
       setActiveItemList(nImageList);
       setIsGenerationPending(false);
@@ -932,10 +836,19 @@ export default function VideoEditorContainer(props) {
       `${PROCESSOR_API_URL}/video_sessions/edit_status?id=${id}&layerId=${selectedLayerId}`,
       headers
     );
-    const pollStatus = pollStatusData.data;
+    const pollStatusDataResponse = pollStatusData.data;
 
-    if (pollStatus.status === 'COMPLETED') {
-      const layerData = pollStatus.layer;
+
+
+
+    if (pollStatusDataResponse.status === 'COMPLETED') {
+
+      const updatedLayer = pollStatusDataResponse.layer;
+
+
+      updateCurrentLayerInSessionList(updatedLayer);
+
+      const layerData = pollStatusDataResponse.layer;
       const imageSession = layerData.imageSession;
       const newActiveItemList = imageSession.activeItemList;
       const generatedImageUrlName = imageSession.activeEditedImage;
@@ -955,7 +868,7 @@ export default function VideoEditorContainer(props) {
         },
       ];
 
-      const generationImages = pollStatus.generationImages;
+      const generationImages = pollStatusDataResponse.generationImages;
       if (generationImages && generationImages.length > 0) {
         setGenerationImages(generationImages);
       }
@@ -974,7 +887,7 @@ export default function VideoEditorContainer(props) {
       );
       getUserAPI();
       return;
-    } else if (pollStatus.status === 'FAILED') {
+    } else if (pollStatusDataResponse.status === 'FAILED') {
       setIsOutpaintPending(false);
       setOutpaintError('Failed to generate outpaint');
       toast.error(
@@ -994,6 +907,114 @@ export default function VideoEditorContainer(props) {
       }, 1000);
     }
   }
+
+
+
+  const downloadCurrentFrame = async () => {
+    const isPremiumUser = user.isPremiumUser;
+    const waterMarkImage = 'wm.png';
+
+    const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+    const canvas = document.createElement('canvas');
+    canvas.width = stageDimensions.width;
+    canvas.height = stageDimensions.height;
+    const ctx = canvas.getContext('2d');
+
+    const loadLocalImage = (src) =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = (err) => reject(err);
+        img.src = `/${src}`;
+      });
+
+    const loadImage = (src) =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'Anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = (err) => reject(err);
+        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
+      });
+
+
+    // Draw each item
+    for (const item of currentLayer.imageSession.activeItemList || []) {
+      ctx.save();
+      const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.translate(x, y);
+      if (rotation) {
+        ctx.translate(width / 2, height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.translate(-width / 2, -height / 2);
+      }
+      if (item.type === 'image') {
+        const imgSrc = item.src.startsWith('data:')
+          ? item.src
+          : `${PROCESSOR_API_URL}/${item.src}`;
+        try {
+          const img = await loadImage(imgSrc);
+          ctx.drawImage(img, 0, 0, width, height);
+        } catch (error) {
+          console.error('Error loading image:', error);
+        }
+      } else if (item.type === 'text') {
+        const fontSize = item.config.fontSize || 40;
+        ctx.fillStyle = item.config.fillColor || '#000000';
+        ctx.font = `${fontSize}px ${item.config.fontFamily || 'Arial'}`;
+        ctx.textAlign = item.config.align || 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(item.text, 0, 0);
+      } else if (item.type === 'shape') {
+        const config = item.config;
+        const shapeX = config.x || 0;
+        const shapeY = config.y || 0;
+        const shapeWidth = config.width || 0;
+        const shapeHeight = config.height || 0;
+        const radius = config.radius || 0;
+        const strokeWidth = config.strokeWidth || 1;
+
+        ctx.fillStyle = config.fillColor || '#000000';
+        ctx.strokeStyle = config.strokeColor || '#000000';
+        ctx.lineWidth = strokeWidth;
+        if (item.shape === 'rectangle') {
+          ctx.fillRect(shapeX, shapeY, shapeWidth, shapeHeight);
+          ctx.strokeRect(shapeX, shapeY, shapeWidth, shapeHeight);
+        } else if (item.shape === 'circle') {
+          ctx.beginPath();
+          ctx.arc(shapeX + radius, shapeY + radius, radius, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+    }
+
+    // Non-premium: add watermark
+    if (!isPremiumUser) {
+      try {
+        const watermarkImg = await loadLocalImage(waterMarkImage);
+        const padding = 16;
+        const x = canvas.width - watermarkImg.width - padding / 2;
+        const y = canvas.height - watermarkImg.height - padding;
+        ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
+      } catch (error) {
+        console.error('Error loading watermark image:', error);
+      }
+    }
+
+    const dataURL = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataURL;
+    const dateStr = new Date().toISOString().replace(/:/g, '-');
+    link.download = `frame_${dateStr}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   // SMART selection (mask generation)
   useEffect(() => {
@@ -2391,7 +2412,7 @@ export default function VideoEditorContainer(props) {
               requestRealignLayers={requestReAlignLayersToSpeechAndRegenerateSubtitles}
               totalDuration={totalDuration}
               selectedEditModelValue={selectedEditModelValue}
-              downloadCurrentFrame={downloadCurrentFrame}
+
               createTextLayer={createTextLayer}
               requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
               requestLipSyncToSpeech={requestLipSyncToSpeech}
@@ -2411,6 +2432,8 @@ export default function VideoEditorContainer(props) {
 
               videoPromptText={videoPromptText}
               setVideoPromptText={setVideoPromptText}
+
+              downloadCurrentFrame={downloadCurrentFrame}
 
 
 

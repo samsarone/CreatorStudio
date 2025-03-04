@@ -325,7 +325,7 @@ export default function VideoPromptGenerator(props) {
               </label>
 
               {/* End Frame Checkbox (Hidden for SDVIDEO, but shown for other imgToVid models) */}
-              {selectedVideoGenerationModel !== "SDVIDEO" && (
+              {selectedVideoGenerationModel === "RUNWAYML" && (
                 <label className="inline-flex items-center text-sm mr-4">
                   <input
                     type="checkbox"
@@ -339,16 +339,7 @@ export default function VideoPromptGenerator(props) {
             </>
           )}
 
-          {/* Clip Layer to Video Duration Checkbox (always visible) */}
-          <label className="inline-flex items-center text-sm mr-4">
-            <input
-              type="checkbox"
-              checked={clipLayerToAiVideo}
-              onChange={handleClipLayerChange}
-              className="form-checkbox h-4 w-4 text-blue-600"
-            />
-            <span className="ml-2 text-xs">Trim Scene</span>
-          </label>
+
 
           {/* Optimize Prompt Checkbox for HAILUO and HAIPER2.0 */}
           {(selectedVideoGenerationModel === "HAILUO" ||

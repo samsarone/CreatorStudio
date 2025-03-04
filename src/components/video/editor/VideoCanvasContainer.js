@@ -290,6 +290,21 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     }
   }, [currentView, currentCanvasAction, selectedEditModelValue]);
 
+
+  useEffect(() => {
+    if (
+      currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY &&
+      selectedEditModelValue &&
+      selectedEditModelValue.editType === 'inpaint'
+    ) {
+      const stage = ref.current.getStage();
+      const container = stage.container();
+      container.style.cursor = generateCursor(editBrushWidth);
+    }
+  }, [editBrushWidth, currentView, selectedEditModelValue]);
+
+  
+
   useEffect(() => {
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
       const stage = ref.current.getStage();
@@ -1006,6 +1021,39 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   }
 
 
+  const updateTargetShapeActiveLayerConfigNoScale = (id, newConfig) => {
+
+
+
+    const newWidth = newConfig.width / stageZoomScale;
+
+    let scaledNewConfig = {
+      ...newConfig,
+      x: newConfig.x,
+      y: newConfig.y ,
+      width: newConfig.width,
+      height: newConfig.height,
+    }
+
+
+    const newActiveItemList = activeItemList.map((item) => {
+      if (item.id === id) {
+        return {
+          ...item,
+          config: {
+            ...item.config,
+            ...scaledNewConfig,
+          },
+        };
+      }
+      return item;
+    });
+
+    setActiveItemList(newActiveItemList);
+    updateSessionActiveItemList(newActiveItemList);
+  }
+
+
 
   const updateTargetTextActiveLayerConfig = (id, newConfig) => {
 
@@ -1165,6 +1213,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         isExpressGeneration={isExpressGeneration}
         createTextLayer={createTextLayer}
         updateTargetImageActiveLayerConfig={updateTargetImageActiveLayerConfig}
+        updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
         requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
         requestLipSyncToSpeech={requestLipSyncToSpeech}
       />

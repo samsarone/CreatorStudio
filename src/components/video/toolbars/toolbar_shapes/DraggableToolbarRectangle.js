@@ -1,7 +1,9 @@
 import React, { useRef, useEffect } from 'react';
 import { Rect, Transformer } from 'react-konva';
 
-const DraggableToolbarRectangle = ({ shapeProps, setShapeProps, isDrawing, id, shapeSet, transformerRef }) => {
+const DraggableToolbarRectangle = (props) => {
+  const { shapeProps, setShapeProps, isDrawing, id, shapeSet, transformerRef } = props;
+
   const shapeRef = useRef();
 
   useEffect(() => {

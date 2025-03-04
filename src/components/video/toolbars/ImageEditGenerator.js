@@ -1,4 +1,4 @@
-import React , { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import { IMAGE_EDIT_MODEL_TYPES } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.js";
@@ -9,7 +9,7 @@ export default function ImageEditGenerator(props) {
     selectedEditModel, setSelectedEditModel,
     selectedEditModelValue,
     isOutpaintPending, outpaintError,
-    editBrushWidth, setEditBrushWidth 
+    editBrushWidth, setEditBrushWidth
   } = props;
   const { colorMode } = useColorMode();
 
@@ -32,7 +32,7 @@ export default function ImageEditGenerator(props) {
   let editOptionsDisplay = <span />;
 
   const formElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800 ";
-  const textElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800 border-gray-600 border-2"; 
+  const textElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800 border-gray-600 border-2";
 
 
 
@@ -46,65 +46,73 @@ export default function ImageEditGenerator(props) {
 
     editOptionsDisplay = (<div className="grid grid-cols-3 gap-1">
       <div>
-        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="guidanceScale" defaultValue={5}/>
+        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="guidanceScale" defaultValue={5} />
         <div className="text-xs ">
-            Guidance 
-         </div> 
+          Guidance
+        </div>
       </div>
       <div>
-        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="numInferenceSteps" defaultValue={30}/>
+        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="numInferenceSteps" defaultValue={30} />
         <div className="text-xs">
           Inference
-        </div>  
+        </div>
       </div>
       <div>
 
         <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="strength" defaultValue={0.99} />
         <div className="text-xs">
           Strength
-        </div>  
+        </div>
       </div>
 
     </div>);
   }
-  
+
   const errorDisplay = outpaintError ? (
     <div className="text-red-500 text-center text-sm">
       {outpaintError}
     </div>
   ) : null;
 
+  let promptTextArea = null;
+
+
+
+  if (selectedEditModelValue.isPromptEnabled) {
+    promptTextArea = <textarea name="promptText" onChange={(evt) => setPromptText((evt.target.value))}
+      className={`${textElementBG} w-full m-auto p-4 rounded-lg`} />
+  }
+
   return (
     <div>
       <form onSubmit={submitOutpaintRequest}>
-      <div className=" w-full mt-2 mb-2">
-        <div className="block">
-          <div className="text-xs font-bold">
-            Model
+        <div className=" w-full mt-2 mb-2">
+          <div className="block">
+            <div className="text-xs font-bold">
+              Model
+            </div>
+            <select onChange={setSelectedModelDisplay} className={`${formElementBG} inline-flex w-[75%]`}>
+              {modelOptionMap}
+            </select>
           </div>
-          <select onChange={setSelectedModelDisplay}  className={`${formElementBG} inline-flex w-[75%]`}>
-            {modelOptionMap}
-          </select>
+          <div>
+
+          </div>
+          <div className="block">
+            {editOptionsDisplay}
+          </div>
         </div>
+
         <div>
-       
-        </div>
-        <div className="block">
-          {editOptionsDisplay}
-        </div>
-      </div>
 
-      <div>
-        
-      </div>
+        </div>
 
-      <textarea name="promptText" onChange={(evt) => setPromptText((evt.target.value))}
-        className={`${textElementBG} w-full m-auto p-4 rounded-lg`} />
-      <div className="text-center">
-        <CommonButton type="submit"  isPending={isOutpaintPending}>
-          Submit
-        </CommonButton>
-      </div>
+        {promptTextArea}
+        <div className="text-center">
+          <CommonButton type="submit" isPending={isOutpaintPending}>
+            Submit
+          </CommonButton>
+        </div>
       </form>
       {errorDisplay}
     </div>

@@ -16,7 +16,7 @@ import { getImagePreloaderWorker } from './workers/imagePreloaderWorkerSingleton
 import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.js';
 import { useUser } from '../../contexts/UserContext.js';
 import { FaCheck } from 'react-icons/fa';
-
+import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.js';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -140,7 +140,7 @@ export default function VideoHome(props) {
           const videoSrc = `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
           const video = document.createElement('video');
           video.src = videoSrc;
-          video.preload = 'auto';
+          video.preload = 'none';
           video.style.display = 'none'; // Hide the video
 
           hiddenContainer.appendChild(video);
@@ -151,38 +151,89 @@ export default function VideoHome(props) {
   }, [layers]);
 
 
-  useEffect(() => {
-    if (!layers || layers.length === 0) return;
 
+
+  useEffect(() => {
+    if (!currentLayer) return;
+  
+    // Create a hidden container if not existing
+    let hiddenContainer = document.getElementById('hidden-video-container');
+    if (!hiddenContainer) {
+      hiddenContainer = document.createElement('div');
+      hiddenContainer.id = 'hidden-video-container';
+      hiddenContainer.style.display = 'none';
+      document.body.appendChild(hiddenContainer);
+    }
+  
+
+    preloadLayerAiVideoLayer(currentLayer);
+
+  }, [currentLayer]);
+
+
+
+
+  useEffect(() => {
+    if (!layers || layers.length === 0 || !('requestIdleCallback' in window)) return;
+
+  
+    const otherLayers = layers.filter(layer => layer._id !== currentLayer?._id);
+    let index = 0;
+  
+    function scheduleLoad() {
+      if (index >= otherLayers.length) return;
+  
+      requestIdleCallback(() => {
+
+        const layer = otherLayers[index];
+        preloadLayerAiVideoLayer(layer);
+        index++;
+        scheduleLoad(); // schedule the next
+      });
+    }
+  
+    scheduleLoad();
+  }, [layers, currentLayer]);
+
+
+  function preloadLayerAiVideoLayer(layer) {
     const hiddenContainer = document.getElementById('hidden-video-container');
     if (!hiddenContainer) return;
+    if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
+      const videoURL = layer.aiVideoRemoteLink
+        ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
+        : `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
+      preloadVideo(videoURL, hiddenContainer);
+    }
 
-    layers.forEach((layer) => {
-      // 1) AI video
-      if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
-        const videoURL = layer.aiVideoRemoteLink
-          ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
-          : `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
-        preloadVideo(videoURL, hiddenContainer);
-      }
+    // 2) Lip-sync video
+    if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
+      const videoURL = layer.lipSyncRemoteLink
+        ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
+        : `${PROCESSOR_API_URL}/${layer.lipSyncVideoLayer}`;
+      preloadVideo(videoURL, hiddenContainer);
+    }
 
-      // 2) Lip-sync video
-      if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
-        const videoURL = layer.lipSyncRemoteLink
-          ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
-          : `${PROCESSOR_API_URL}/${layer.lipSyncVideoLayer}`;
-        preloadVideo(videoURL, hiddenContainer);
-      }
+    if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
+      const videoURL = layer.soundEffectRemoteLink
+        ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
+        : `${PROCESSOR_API_URL}/${layer.soundEffectVideoLayer}`;
+      preloadVideo(videoURL, hiddenContainer);
+    }
+  }
 
-      // 3) Sound-effect video
-      if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
-        const videoURL = layer.soundEffectRemoteLink
-          ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
-          : `${PROCESSOR_API_URL}/${layer.soundEffectVideoLayer}`;
-        preloadVideo(videoURL, hiddenContainer);
-      }
-    });
-  }, [layers]);
+
+  // useEffect(() => {
+  //   if (!layers || layers.length === 0) return;
+
+  //   const hiddenContainer = document.getElementById('hidden-video-container');
+  //   if (!hiddenContainer) return;
+
+  //   layers.forEach((layer) => {
+  //     // 1) AI video
+
+  //   });
+  // }, [layers]);
 
   // Helper to create a hidden <video> with preload="auto"
   const preloadVideo = (src, container) => {
@@ -883,13 +934,18 @@ export default function VideoHome(props) {
       sessionId: id,
       audioLayers: audioLayers,
     };
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then(() => {
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then((response) => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
       toast.success(<div>Audio layer updated!</div>, {
         position: "bottom-center",
         className: "custom-toast",
       });
+
+      const resData = response.data;
+
+      const { audioLayers } = resData;
+      setAudioLayers(audioLayers);
     });
 
   }
@@ -994,9 +1050,17 @@ export default function VideoHome(props) {
       audioLayers: updatedAudioLayers,
       audioLayerId: audioLayerId
     };
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then(() => {
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then((response) => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
+
+      const resData = response.data;
+
+
+      const { audioLayers } = resData;
+      setAudioLayers(audioLayers);
+
+
       toast.success(<div>Audio layer removed!</div>, {
         position: "bottom-center",
         className: "custom-toast",
@@ -1023,9 +1087,15 @@ export default function VideoHome(props) {
       audioLayerId: layerId
     };
 
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then(() => {
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then((response) => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
+
+      const resData = response.data;
+
+      const { audioLayers } = resData;
+      setAudioLayers(audioLayers);
+
       toast.success(<div>Audio layers updated!</div>, {
         position: "bottom-center",
         className: "custom-toast",
@@ -1253,6 +1323,9 @@ export default function VideoHome(props) {
 
   const updateCurrentActiveLayer = (imageItem) => {
 
+    // stripe any query params from the image src
+    const src = imageItem.src.split('?')[0];
+    const imageItemNew = { ...imageItem, src: src };
     const newActiveItemList = activeItemList.concat(imageItem);
     debouncedUpdateSessionLayerActiveItemList();
   }
@@ -1500,11 +1573,21 @@ export default function VideoHome(props) {
     });
 
   }
+
+
+
+  const regenerateVideoSessionSubtitles = () => {
+    const headers = getHeaders();
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/request_regenerate_subtitles`, { sessionId: id, realignAudio: true }, headers).then((response) => {
+      const videoSessionData = response.data;
+      setVideoSessionDetails(videoSessionData);
+      setIsCanvasDirty(true);
+    });
+  }
+
+
+
   let frameToolbarDisplay = null;
-
-
-  console.log("IS VIDEO PREVIEW PLAYING "   , isVideoPreviewPlaying);
-
 
 
   if (minimalToolbarDisplay) {
@@ -1566,6 +1649,9 @@ export default function VideoHome(props) {
           onLayersOrderChange={updateSessionLayersOrder}
           updateSessionLayersOnServer={updateSessionLayersOnServer}
           updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
+
+          regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+
 
         />
       </div>
@@ -1639,6 +1725,7 @@ export default function VideoHome(props) {
     <CommonContainer
     isVideoPreviewPlaying={isVideoPreviewPlaying}
     setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+
     >
 
       <div className='m-auto'>
@@ -1693,6 +1780,7 @@ export default function VideoHome(props) {
               applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
               onLayersOrderChange={updateSessionLayersOrder}
               updateSessionLayersOnServer={updateSessionLayersOnServer}
+              regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
 
 
             />
@@ -1738,6 +1826,8 @@ export default function VideoHome(props) {
               totalDuration={totalDuration}
               isUpdateLayerPending={isUpdateLayerPending}
               isVideoPreviewPlaying={isVideoPreviewPlaying}
+
+            
             />
           </div>
           <AssistantHome

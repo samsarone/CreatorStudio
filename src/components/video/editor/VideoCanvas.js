@@ -62,6 +62,7 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
     submitGenerateNewVideoRequest, aiVideoGenerationPending,
     selectedVideoGenerationModel, setSelectedVideoGenerationModel,
     videoPromptText, setVideoPromptText, promptTextVideo, setPromptTextVideo,
+    updateTargetShapeActiveLayerConfigNoScale,
   
 
   } = props;
@@ -112,10 +113,6 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
     showGridOverlay,
 
   } = useContext(NavCanvasControlContext);
-
-
-  console.log("SHOW GRI OVERLAY", showGridOverlay);
-
 
   useEffect(() => {
     const newDimensions = getStageDimensions(aspectRatio);
@@ -761,7 +758,10 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
           backgroundColor: '#111827',
         }}
       >
-        <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove} onMouseUp={handleLayerMouseUp}>
+        <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove}
+         onMouseUp={handleLayerMouseUp}
+         onMouseLeave={handleLayerMouseUp}
+         >
           <Group id="baseGroup">
             {imageStackList}
           </Group>
@@ -852,6 +852,7 @@ const VideoCanvas = forwardRef((props: any, ref: any) => {
         addPaintImage={addPaintImage}
         resetPaintImage={resetPaintImage}
         updateTargetImageActiveLayerConfig={updateTargetImageActiveLayerConfig}
+        updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
       />
       {showAddRemoveMaskedItemButton && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white p-2 rounded-lg shadow-lg z-50">

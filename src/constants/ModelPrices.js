@@ -266,6 +266,7 @@ export const IMAGE_EDIT_MODEL_PRICES = [
       },
     ]
   },
+
   {
     key: 'FLUX1.1PROULTRAREDUX',
     prices: [
@@ -301,9 +302,8 @@ export const IMAGE_EDIT_MODEL_PRICES = [
     ]
 
   },
-
   {
-    key: 'PIXVERSEI2V',
+    key: 'BRIA_ERASER',
     prices: [
       {
         aspectRatio: '1:1',
@@ -317,12 +317,29 @@ export const IMAGE_EDIT_MODEL_PRICES = [
         aspectRatio: '9:16',
         price: 15
       },
-    ],
-    units: [5, 8]
+    ]
+  },
+  {
+    key: 'BRIA_GENFILL',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
   },
 
-
 ]
+
+
 
 export const VIDEO_MODEL_PRICES = [
   {
@@ -579,10 +596,6 @@ export const VIDEO_MODEL_PRICES = [
 
       {
         aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
         price: 60
       },
     ]

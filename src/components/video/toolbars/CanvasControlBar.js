@@ -36,11 +36,7 @@ export default function CanvasControlBar(props) {
     isVideoPreviewPlaying,
   } = props;
 
-
   const {  toggleShowGridOverlay, toggleIsVideoPreviewPlaying } = useContext(NavCanvasControlContext);
-
-
-
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
@@ -68,25 +64,6 @@ export default function CanvasControlBar(props) {
 
 
 
-  let subtitlesTextDisplay = null;
-
-  if (isExpressGeneration) {
-    subtitlesTextDisplay = (
-      <div>
-        <SecondaryButton onClick={showAddSubtitlesDialog}>
-          Express Ops
-        </SecondaryButton>
-      </div>
-    );
-  } else {
-    subtitlesTextDisplay = (
-      <div>
-        <SecondaryButton onClick={regenerateVideoSessionSubtitles}>
-          Regenerate Subs
-        </SecondaryButton>
-      </div>
-    )
-  }
 
 
   let expandButtonText = (
@@ -174,7 +151,7 @@ export default function CanvasControlBar(props) {
           </SecondaryButton>
         </div>
 
-        {subtitlesTextDisplay}
+
 
 
 

@@ -51,6 +51,7 @@ export default function UserAccount() {
   useEffect(() => {
     if (user) {
 
+
       const userInferenceModel = user.selectedInferenceModel || "GPT4O";
       const userInferenceModelOption = INFERENCE_MODEL_TYPES.find((model) => model.value === userInferenceModel);
       setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
@@ -248,6 +249,7 @@ export default function UserAccount() {
   };
 
   const handleInferenceModelChange = (newVal) => {
+
     setInferenceModel(newVal);
     updateUserDetails({ selectedInferenceModel: newVal.value });
   };
@@ -295,6 +297,9 @@ export default function UserAccount() {
     );
   }
 
+
+  console.log(INFERENCE_MODEL_TYPES);
+  
   return (
     <OverflowContainer>
       {/* Toast container */}
@@ -400,9 +405,6 @@ export default function UserAccount() {
                         onChange={handleInferenceModelChange}
                       />
                     </div>
-
-
-
 
                   </div>
 

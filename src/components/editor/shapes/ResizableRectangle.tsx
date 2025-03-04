@@ -9,6 +9,7 @@ export default function ResizableRectangle(props) {
   const rectangleTransformerRef = useRef();
   const rectangleRef = useRef();
 
+  
 
 
   useEffect(() => {

@@ -11,6 +11,7 @@ import AuthContainer from '../auth/AuthContainer.js';
 import axios from 'axios';
 import { getHeaders } from '../../utils/web.js';
 
+
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
   VIDEO_GENERATION_MODEL_TYPES,
@@ -19,6 +20,7 @@ import { getOperationExpectedPricing } from '../../constants/pricing/VidGPTPrici
 import ProgressIndicator from '../quick_editor/ProgressIndicator.js';
 import { FaYoutube } from 'react-icons/fa6';
 import AssistantHome from '../assistant/AssistantHome.js';
+import { VIDEO_MODEL_PRICES } from '../../constants/ModelPrices.js';
 
 // Make sure your environment variables are correct
 const API_SERVER = process.env.REACT_APP_PROCESSOR_API;
@@ -87,25 +89,47 @@ export default function OneshotEditor() {
     setExpandedVideoId((prev) => (prev === videoId ? null : videoId));
   };
 
-  // Filter out “Express” models
-  const expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
-    .filter((m) => m.isExpressModel)
-    .map((m) => ({ label: m.name, value: m.key }));
-
-  const expressVideoModels = VIDEO_GENERATION_MODEL_TYPES
-    .filter((m) => m.isExpressModel)
-    .map((m) => ({
-      label: m.name,
-      value: m.key,
-      // Pass through the whole model object so we can access modelSubTypes below:
-      ...m,
-    }));
-
   // Aspect Ratio
   const aspectRatioOptions = [
     { label: '16:9 (Landscape)', value: '16:9' },
     { label: '9:16 (Portrait)', value: '9:16' },
   ];
+
+
+
+
+  // Filter out “Express” models
+  const expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
+    .filter((m) => m.isExpressModel)
+    .map((m) => ({ label: m.name, value: m.key }));
+
+  const [selectedAspectRatioOption, setSelectedAspectRatioOption] = useState(() => {
+    const storedAspectRatioValue = localStorage.getItem('defaultVidGPTAspectRatio');
+    const foundAspectRatio = aspectRatioOptions.find(
+      (option) => option.value === storedAspectRatioValue
+    );
+    return foundAspectRatio || aspectRatioOptions[0];
+  });
+
+
+
+
+
+  const expressVideoModels = useMemo(() => {
+    return VIDEO_GENERATION_MODEL_TYPES
+      .filter(
+        (m) =>
+          m.isExpressModel &&
+          m.supportedAspectRatios?.includes(selectedAspectRatioOption.value)
+      )
+      .map((m) => ({
+        label: m.name,
+        value: m.key,
+        // Keep entire object so we can access modelSubTypes, etc.:
+        ...m,
+      }));
+  }, [selectedAspectRatioOption]);
+
 
   // Duration options
   const durationOptions = [
@@ -130,13 +154,6 @@ export default function OneshotEditor() {
     return found || expressVideoModels[0];
   });
 
-  const [selectedAspectRatioOption, setSelectedAspectRatioOption] = useState(() => {
-    const storedAspectRatioValue = localStorage.getItem('defaultVidGPTAspectRatio');
-    const foundAspectRatio = aspectRatioOptions.find(
-      (option) => option.value === storedAspectRatioValue
-    );
-    return foundAspectRatio || aspectRatioOptions[0];
-  });
 
   const [selectedDurationOption, setSelectedDurationOption] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTDuration');
@@ -226,6 +243,38 @@ export default function OneshotEditor() {
     const loginComponent = <AuthContainer />;
     openAlertDialog(loginComponent);
   };
+
+
+
+  async function handleDownloadVideo() {
+    try {
+      if (!videoLink) return;
+      const headers = getHeaders();  // If you need authenticated headers
+
+      // Fetch the file as a Blob
+      const response = await axios.get(videoLink, {
+        responseType: 'blob',
+        headers,
+      });
+
+      // Create a Blob URL
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'video/mp4' }));
+
+      // Create a temporary link element, append it, and click it
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', 'generated_video.mp4'); // the filename you want
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error downloading video:', error);
+    }
+  }
+
 
   // Polling function for assistant queries
   const startAssistantQueryPoll = () => {
@@ -472,6 +521,7 @@ export default function OneshotEditor() {
   const isFormDisabled = renderState !== 'idle' || isDisabled;
   const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
 
+  const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
   return (
     <div className="mt-[20px] relative">
       {/* Top Bar (header) */}
@@ -568,13 +618,17 @@ export default function OneshotEditor() {
           {/* Show "Download/Studio/RenderAgain" if completed */}
           {renderState === 'complete' && (
             <div className="flex items-center space-x-2">
-              <a
-                href={downloadVideoHref}
-                download="generated_video.mp4"
+              <button
                 className="bg-blue-600 px-3 py-1 rounded text-white"
+             
               >
-                Download Video
-              </a>
+             <a           href={videoLink}
+          download={`Rendition_${dateNowStr}.mp4`}
+          className='text-xs underline mt-2 mb-1 ml-2'>
+              Download Video
+            
+            </a> 
+              </button>
               <button
                 className="bg-blue-600 px-3 py-1 rounded text-white"
                 onClick={viewInStudio}

@@ -76,6 +76,7 @@ export default function FrameToolbar(props) {
     applyAudioTrackVisualizerToProject,
     selectedLayerIndex,
     setSelectedLayerIndex,
+    regenerateVideoSessionSubtitles,
   } = props;
 
   const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
@@ -219,6 +220,8 @@ export default function FrameToolbar(props) {
   const portalNodeRef = useRef(null);
 
 
+
+  
   useEffect(() => {
     if (frameToolbarView !== FRAME_TOOLBAR_VIEW.EXPANDED) {
       setIsGridVisible(false);
@@ -1728,11 +1731,12 @@ export default function FrameToolbar(props) {
   let prevDownloadLink = <span />;
 
   if (downloadLink) {
+    const dateNowStr = new Date().toISOString().replace(/:/g, '-');
     prevDownloadLink = (
       <SecondaryButton>
         <a
           href={downloadLink}
-          download={`${sessionId}.mp4`}
+          download={`Rendition_${dateNowStr}.mp4`}
           className='text-xs underline mt-2 mb-1 ml-2'
         >
           <FaDownload className='inline-flex' /> Previous
@@ -1794,6 +1798,7 @@ export default function FrameToolbar(props) {
           onSubmit={handleAudioOptionsSubmit}
           initialDucking={isAudioDuckingEnabled}
           closeDialog={closeAlertDialog}
+          regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
         />
       </div>
     );

@@ -456,11 +456,13 @@ export default function TopNav(props) {
   const regenerateVideoSessionSubtitles = () => {
 
     const headers = getHeaders();
-    axios.post(`${PROCESSOR_SERVER}/video_sessions/regenerate_subtitles_for_video_session`, { sessionId: sessionId }, headers).then(function (response) {
-      console.log("Regenerate Subtitles Response", response
-      );
-    });
 
+    
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: sessionId }, headers).then(function (response) {
+      console.log("Regenerate Subtitles Response", response);
+
+
+    });
 
 
   }
