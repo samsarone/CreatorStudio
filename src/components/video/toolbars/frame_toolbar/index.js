@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fa';
 import AudioOptionsDialog from '../audio/AudioOptionsDialog.js';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import CommonDropdownButton from "../../../common/CommonDropdownButton.tsx";
 
 import ReactDOM from 'react-dom';
 
@@ -33,6 +34,7 @@ import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaEye } from 'react-icons/fa6';
 import { FaRedo } from 'react-icons/fa';
 import SelectedTextToolbarDisplay from './text_toolbar/SelectedTextToolbarDisplay.js';
+import PublishOptionsDialog from './PublishOptionsDialog.js';
 import _ from 'lodash';
 const MAX_VISIBLE_LAYERS = 10;
 const MIN_LAYER_HEIGHT = 20; // in pixels
@@ -77,7 +79,13 @@ export default function FrameToolbar(props) {
     selectedLayerIndex,
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
+    publishVideoSession,
+    generateMeta,
+
+    sessionMetadata,
+
   } = props;
+
 
   const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
 
@@ -144,12 +152,15 @@ export default function FrameToolbar(props) {
   const [pendingLayerUpdates, setPendingLayerUpdates] = useState([]);
 
 
+  const [renderDropdownOpen, setRenderDropdownOpen] = useState(false);
+
+
 
   // ... other state and code
 
   const onAnimationSelect = (animation, textItemLayer) => {
 
-    
+
     setTextTrackDisplayAsSelected(textItemLayer);
 
     // This sets the selected animation state when a TextAnimationTrackDisplay is clicked.
@@ -221,7 +232,7 @@ export default function FrameToolbar(props) {
 
 
 
-  
+
   useEffect(() => {
     if (frameToolbarView !== FRAME_TOOLBAR_VIEW.EXPANDED) {
       setIsGridVisible(false);
@@ -737,18 +748,18 @@ export default function FrameToolbar(props) {
     setLayerDuration(newDuration, selectedLayerIndex);
     let layer = layers[selectedLayerIndex];
     layer.duration = newDuration;
-  
+
     // Here is where we now include clipStart
     updateSessionLayer(layer, clipStart);  // <--- pass it along
-  
+
     if (pendingDuration != null) {
       setPendingDuration(null);
       setDurationChanged(false);
       setOpenPopupLayerIndex(null);
     }
   };
-  
-  
+
+
   const onClosePopup = () => {
     setPendingDuration(null);
     setDurationChanged(false);
@@ -766,27 +777,26 @@ export default function FrameToolbar(props) {
 
   const setSelectedLayerDurationRange = (val) => {
     // val[0] is the new start frame, val[1] is the new end frame
-  
+
     // If the start frame changed, set clipStart = true
     // Otherwise if the end frame changed, set clipStart = false
     const newStartFrame = val[0];
     const newEndFrame = val[1];
-  
+
     // Compare with previous state (e.g. startSelectDurationInFrames, endSelectDurationInFrames)
     if (newStartFrame !== startSelectDurationInFrames) {
       setClipStart(true);
     } else if (newEndFrame !== endSelectDurationInFrames) {
       setClipStart(false);
     }
-  
+
     const newDurationInFrames = newEndFrame - newStartFrame;
     const newDuration = newDurationInFrames / 30;
-  
+
     setPendingDuration(newDuration);
     setDurationChanged(true);
   };
 
-  
 
 
 
@@ -794,26 +804,26 @@ export default function FrameToolbar(props) {
     if (openPopupLayerIndex !== null) {
       // Identify which layer is selected in the *entire* layers array
       const popupLayerId = layers[openPopupLayerIndex]._id.toString();
-  
+
       // Find that same layer inside the visibleLayers array.
       const foundIndexInVisibleLayers = visibleLayers.findIndex(
         (vl) => vl._id.toString() === popupLayerId
       );
-  
+
       // If it’s not found, we can’t position properly
       if (foundIndexInVisibleLayers === -1) return;
-  
+
       // Get the DOM rect of the clicked layer
       const layerElement = layerRefs.current[popupLayerId];
       if (!layerElement) return;
-  
+
       const rect = layerElement.getBoundingClientRect();
-  
+
       // By default, position “next to” the layer. For instance:
-      const defaultLeft = rect.right + 10; 
+      const defaultLeft = rect.right + 10;
       // Or any offset that makes sense for “next to”
-      const defaultTop = rect.top + window.scrollY; 
-  
+      const defaultTop = rect.top + window.scrollY;
+
       // Decide if the layer is among the last two in the *visible* list
       const isLast =
         foundIndexInVisibleLayers >= visibleLayers.length - 1;
@@ -836,7 +846,7 @@ export default function FrameToolbar(props) {
     }
   }, [openPopupLayerIndex, visibleLayers, layers]);
 
-  
+
 
 
   const setSelectedLayerToBeDragged = () => {
@@ -896,8 +906,8 @@ export default function FrameToolbar(props) {
         <form onSubmit={updateChangesToActiveAudioLayers} className="w-full">
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {/* Audio Type (uppercase + bold) */}
-    
-              <div>
+
+            <div>
 
               <span className="uppercase font-bold text-blue-300 text-xs block">
                 {selectedAudioTrack.generationType}
@@ -909,14 +919,14 @@ export default function FrameToolbar(props) {
                   {selectedAudioTrack.speakerCharacterName}
                 </span>
               )}
-              </div>
+            </div>
 
-              {/* Short Prompt */}
-              {shortPrompt && (
-                <span className="text-neutral-200 text-xs w-16">"{shortPrompt}"</span>
-              )}
+            {/* Short Prompt */}
+            {shortPrompt && (
+              <span className="text-neutral-200 text-xs w-16">"{shortPrompt}"</span>
+            )}
 
-       
+
 
             {/* Hidden input to pass the layer ID */}
             <input
@@ -1750,6 +1760,78 @@ export default function FrameToolbar(props) {
     renderButtonExtraClasss = '!pl-4 !pr-4';
   }
 
+
+
+
+
+  const extraProps = {
+    sessionId: sessionId,
+  }
+
+  const showPublishOptionsDialog = () => {
+
+    openAlertDialog(
+      <div>
+
+        <div>
+          <FaTimes
+            className='absolute right-2 top-2 cursor-pointer'
+            onClick={closeAlertDialog}
+          />
+        </div>
+        <PublishOptionsDialog
+          onClose={closeAlertDialog}
+
+          onSubmit={(payload) => {
+            // On form submit, close the dialog
+            closeAlertDialog();
+
+            // Then call your publish logic with these values
+            publishVideoSession(payload);
+          }}
+          extraProps={extraProps}
+        />
+      </div>
+    );
+  };
+
+  let additionalActionToolbar = <span />;
+  if (downloadLink) {
+    additionalActionToolbar = (
+      <div className='mt-2'>
+        <div >
+          <SecondaryButton onClick={publishVideoSession} >
+            Publish
+          </SecondaryButton>
+        </div>
+      </div>
+    )
+  }
+
+  const dropdownItems = [];
+  if (downloadLink) {
+    dropdownItems.push({
+      label: "Download",
+      onClick: () => {
+        // e.g., force a programmatic download or do nothing 
+        // Typically you'd just do an <a href> but if you want a manual approach:
+        const a = document.createElement('a');
+        a.href = downloadLink;
+        a.download = `Rendition_${new Date().toISOString()}.mp4`;
+        a.click();
+      },
+    });
+  }
+
+  dropdownItems.push({
+    label: "Publish",
+    onClick: () => {
+      // open your Publish dialog
+      showPublishOptionsDialog();
+    },
+  });
+
+
   let submitRenderDisplay = (
     <div>
       <CommonButton onClick={submitRenderVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
@@ -1757,16 +1839,25 @@ export default function FrameToolbar(props) {
       </CommonButton>
     </div>
   );
-
-  if (downloadVideoDisplay && renderedVideoPath && !isCanvasDirty) {
+  if (downloadLink) {
     submitRenderDisplay = (
-      <div>
-        <a href={renderedVideoPath} download={`${sessionId}.mp4`}>
-          <CommonButton>Download</CommonButton>
-        </a>
+      <div className="relative inline-block text-left">
+        {/* The primary Render/Download button itself */}
+
+        <CommonDropdownButton
+          mainLabel="Render"
+          onMainClick={submitRenderVideo}
+          isPending={isVideoGenerating}
+          dropdownItems={dropdownItems}
+          extraClasses="my-extra-class-names"
+        />
+
+
       </div>
     );
+
   }
+
 
   let submitRenderFullActionDisplay = submitRenderDisplay;
 

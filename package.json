@@ -3,6 +3,7 @@
   "version": "0.2.1",
   "private": false,
   "dependencies": {
+    "@headlessui/react": "^2.2.0",
     "@stripe/stripe-js": "^3.4.1",
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow/tfjs": "^4.20.0",

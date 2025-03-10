@@ -52,6 +52,8 @@ export default function VideoHome(props) {
   const [displayZoomType, setDisplayZoomType] = useState('fit'); // fit or fill
   const [stageZoomScale, setStageZoomScale] = useState(1);
 
+  const [ sessionMetadata, setSessionMetadata ] = useState(null);
+
   const [minimalToolbarDisplay, setMinimalToolbarDisplay] = useState(true);
   const [aspectRatio, setAspectRatio] = useState(null);
 
@@ -170,6 +172,24 @@ export default function VideoHome(props) {
 
   }, [currentLayer]);
 
+
+
+   
+    const generateMeta = async () => {
+
+      const payload = {
+        sessionId: id,  
+      };
+
+      const headers = getHeaders();
+  
+      const resData  = await axios.post(`${PROCESSOR_API_URL}/video_sessions/generate_meta`, payload, headers);
+
+      const sessionMeta = resData.data;
+
+      setSessionMetadata(sessionMeta);
+    }
+   
 
 
 
@@ -1321,6 +1341,25 @@ export default function VideoHome(props) {
     });
   }
 
+  const publishVideoSession = (payload) => {
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+
+    const payloadTags = payload.tags.split(',');
+    payload.tags = payloadTags;
+    payload.aspectRatio = aspectRatio;
+    
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/publish_session`, payload, headers).then((dataRes) => {
+      const sessionData = dataRes.data;
+      setVideoSessionDetails(sessionData);
+    });
+  }
+
   const updateCurrentActiveLayer = (imageItem) => {
 
     // stripe any query params from the image src
@@ -1651,6 +1690,10 @@ export default function VideoHome(props) {
           updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
 
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+          publishVideoSession={publishVideoSession}
+          generateMeta={generateMeta}
+
+          sessionMetadata={sessionMetadata}
 
 
         />
@@ -1706,6 +1749,7 @@ export default function VideoHome(props) {
                 updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
                 totalDuration={totalDuration}
                 isUpdateLayerPending={isUpdateLayerPending}
+
               />
             </div>
             <AssistantHome
@@ -1781,6 +1825,13 @@ export default function VideoHome(props) {
               onLayersOrderChange={updateSessionLayersOrder}
               updateSessionLayersOnServer={updateSessionLayersOnServer}
               regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+
+              publishVideoSession={publishVideoSession}
+              generateMeta={generateMeta}
+
+              sessionMetadata={sessionMetadata}
+
+
 
 
             />

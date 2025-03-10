@@ -201,7 +201,6 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
 
   const isDraggable = SELECTABLE_TYPES.includes(currentView) ? true : false;
   const flipImageHorizontal = (id) => {
-    console.log(id);
     const stage = ref.current.getStage();
     const image = stage.findOne(`#${id}`);
     const scaleX = image.scaleX() * -1;

@@ -11,6 +11,10 @@ const AlertDialogContext = createContext({
   setAlertComponentHTML: (data) => {},
   isAlertActionPending: false,
   setIsAlertActionPending: (data) => {},
+
+  dialogOptions: {},
+
+
   useXL: false,
 
 });
@@ -22,14 +26,18 @@ export const AlertDialogProvider = ({ children }) => {
   const [isAlertActionPending, setIsAlertActionPending] = useState(false);
   const [alertComponentData, setAlertComponentData] = useState(<span />);
 
+  const [dialogOptions, setDialogOptions] = useState({});
+
   const [useXL, setUseXL] = useState(false);
 
-  const openAlertDialog = (content, onsubmit, useXLValue = false) => {
+  const openAlertDialog = (content, onsubmit, useXLValue = false, ...rest
+  ) => {
 
     setDialogContent(content);
     setAlertDialogSubmit(onsubmit);
     setUseXL(useXLValue);
     setIsAlertDialogOpen(true);
+    setDialogOptions({ ...rest });
   };
 
   const closeAlertDialog = () => {
@@ -44,7 +52,8 @@ export const AlertDialogProvider = ({ children }) => {
 
   return (
     <AlertDialogContext.Provider value={{ isAlertDialogOpen, alertDialogContent, openAlertDialog,
-     closeAlertDialog,  setAlertComponentHTML , isAlertActionPending, setIsAlertActionPending,   useXL, }}>
+     closeAlertDialog,  setAlertComponentHTML , isAlertActionPending, setIsAlertActionPending,   useXL,
+     dialogOptions, }}>
       {children}
     </AlertDialogContext.Provider>
   );
