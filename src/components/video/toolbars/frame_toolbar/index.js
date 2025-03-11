@@ -255,10 +255,7 @@ export default function FrameToolbar(props) {
 
   const updateHighlightBoundary = (selectedLayerId) => {
 
-
     const selectedLayerElement = layerRefs.current[selectedLayerId];
-
-
 
     if (selectedLayerElement) {
       const parentElement = parentRef.current;
@@ -1832,6 +1829,7 @@ export default function FrameToolbar(props) {
   });
 
 
+
   let submitRenderDisplay = (
     <div>
       <CommonButton onClick={submitRenderVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
@@ -1839,11 +1837,18 @@ export default function FrameToolbar(props) {
       </CommonButton>
     </div>
   );
-  if (downloadLink) {
+  if (downloadVideoDisplay && renderedVideoPath && !isCanvasDirty) {
+
+    submitRenderDisplay = (
+      <div>
+        <a href={downloadLink} download={`${downloadLink}`}>
+          <CommonButton>Download</CommonButton>
+        </a>
+      </div>
+    );
+  } else if (downloadLink) {
     submitRenderDisplay = (
       <div className="relative inline-block text-left">
-        {/* The primary Render/Download button itself */}
-
         <CommonDropdownButton
           mainLabel="Render"
           onMainClick={submitRenderVideo}
@@ -1851,8 +1856,6 @@ export default function FrameToolbar(props) {
           dropdownItems={dropdownItems}
           extraClasses="my-extra-class-names"
         />
-
-
       </div>
     );
 

@@ -65,6 +65,8 @@ export default function VideoHome(props) {
 
   const [ isVideoPreviewPlaying, setIsVideoPreviewPlaying ] = useState(false);
 
+  const [downloadLink, setDownloadLink ] = useState(null);
+
   let { id } = useParams();
 
   const { user, getUserAPI } = useUser();
@@ -407,6 +409,9 @@ export default function VideoHome(props) {
         startVideoRenderPoll();
       }
 
+      const downloadLink = sessionDetails.remoteURL ? `${PROCESSOR_API_URL}/${sessionDetails.videoLink}` : null;
+
+      setDownloadLink(downloadLink);
 
       let totalDuration = 0;
       layers.forEach(layer => {
@@ -640,11 +645,22 @@ export default function VideoHome(props) {
         const renderStatus = renderData.status;
         if (renderStatus === 'COMPLETED') {
           clearInterval(timer);
-          const videoLink = renderData.session.videoLink;
-          setRenderedVideoPath(`${PROCESSOR_API_URL}/${videoLink}`);
+          const sessionData = renderData.session;
+
+          let videoLink;
+          if (sessionData.remoteURL) {
+            videoLink = sessionData.remoteURL;
+          } else {
+            videoLink = `${PROCESSOR_API_URL}/${sessionData.videoLink}`;
+          }
+ 
+
+          setRenderedVideoPath(`${videoLink}`);
           setDownloadVideoDisplay(true);
           setIsVideoGenerating(false);
           setIsCanvasDirty(false);
+          setDownloadLink(videoLink);
+        
         }
       });
     }, 3000);
@@ -1586,7 +1602,6 @@ export default function VideoHome(props) {
   }
 
 
-  const downloadLink = videoSessionDetails.videoLink ? `${PROCESSOR_API_URL}/${videoSessionDetails.videoLink}` : null;
 
   const onToggleMinimalFrameToolbarDisplay = () => {
     setMinimalToolbarDisplay(!minimalToolbarDisplay);
