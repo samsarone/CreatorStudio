@@ -1828,8 +1828,6 @@ export default function FrameToolbar(props) {
     },
   });
 
-
-
   let submitRenderDisplay = (
     <div>
       <CommonButton onClick={submitRenderVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
@@ -1837,12 +1835,20 @@ export default function FrameToolbar(props) {
       </CommonButton>
     </div>
   );
-  if (downloadVideoDisplay && renderedVideoPath && !isCanvasDirty) {
 
+  if (renderedVideoPath && !isCanvasDirty) {
+
+    
     submitRenderDisplay = (
       <div>
         <a href={downloadLink} download={`${downloadLink}`}>
-          <CommonButton>Download</CommonButton>
+        <CommonDropdownButton
+          mainLabel="Download"
+          onMainClick={submitRenderVideo}
+          isPending={isVideoGenerating}
+          dropdownItems={dropdownItems}
+          extraClasses="my-extra-class-names"
+        />
         </a>
       </div>
     );

@@ -118,15 +118,6 @@ function AddSessionDropdown(props) {
             </button>  
 
             <button
-              onClick={showAddNewExpressSession}
-              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}} hover:${text2Color}`}
-              role="menuitem"
-            >
-              <FaFastForward className='inline-flex mb-1' /> Express Create
-            </button>
-
-      
-            <button
               onClick={viewSessions}
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}}`}
               role="menuitem"

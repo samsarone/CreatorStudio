@@ -522,6 +522,43 @@ export default function OneshotEditor() {
   const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
+
+  let pricingInfoDisplay = (
+    <div className="relative">
+    <div
+      className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
+      onClick={togglePricingDetailsDisplay}
+    >
+      10 Credits / second of video
+      <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
+    </div>
+    {pricingDetailsDisplay && (
+      <div className="mt-1 text-sm w-full text-right">
+        <div>The total price will be shown at completion.</div>
+        <div>For example, a 60s video will cost 600 credits.</div>
+      </div>
+    )}
+  </div>
+  );
+  if (selectedVideoModel.value === 'VEOI2V') {
+    pricingInfoDisplay = (
+      <div className="relative">
+      <div
+        className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
+        onClick={togglePricingDetailsDisplay}
+      >
+        60 Credits / second of video
+        <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
+      </div>
+      {pricingDetailsDisplay && (
+        <div className="mt-1 text-sm w-full text-right">
+          <div>The total price will be shown at completion.</div>
+          <div>For example, a 60s video will cost 3600 credits.</div>
+        </div>
+      )}
+    </div>
+    );
+  }
   return (
     <div className="mt-[20px] relative">
       {/* Top Bar (header) */}
@@ -694,21 +731,7 @@ export default function OneshotEditor() {
 
           {/* Pricing Info */}
           <div className="md:absolute md:right-0 top-0 text-white p-2 bg-gray-900 rounded text-center mt-4 md:mt-0 w-full md:w-auto">
-            <div className="relative">
-              <div
-                className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
-                onClick={togglePricingDetailsDisplay}
-              >
-                10 Credits / second of video
-                <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
-              </div>
-              {pricingDetailsDisplay && (
-                <div className="mt-1 text-sm w-full text-right">
-                  <div>The total price will be shown at completion.</div>
-                  <div>For example, a 60s video will cost 600 credits.</div>
-                </div>
-              )}
-            </div>
+              {pricingInfoDisplay}
           </div>
         </div>
       </form>

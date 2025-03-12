@@ -199,6 +199,20 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
+    name: 'Veo Img2Vid',
+    key: 'VEOI2V',
+    isTextToVidModel: false,
+    isImgToVidModel: true,
+
+    isExpressModel: true, 
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
+    
+
+  },
+
+  {
     name: 'PixVerseV3.5',
     key: 'PIXVERSEI2V',
     isImgToVidModel: true,

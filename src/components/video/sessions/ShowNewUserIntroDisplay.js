@@ -67,23 +67,7 @@ export default function ShowNewUserIntroDisplay(props) {
               </span>
             </div>
 
-            {/* Express Session */}
-            <div
-              onClick={() => createNewQuickSession()}
-              className="flex flex-col items-center justify-center cursor-pointer"
-            >
-              <FaForward className="text-4xl mb-2" />
-              <span className="flex items-center">
-                Express Session
-                <FaQuestionCircle
-                  data-tooltip-id="expressSessionTooltip"
-                  data-tooltip-content="Narrative video creator. Edit in Studio."
-                  className="ml-2"
-                />
-              </span>
-            </div>
 
-            {/* VidGPT Session */}
             <div
               onClick={() => createNewVidGPTSession()}
               className="flex flex-col items-center justify-center cursor-pointer"

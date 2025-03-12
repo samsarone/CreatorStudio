@@ -122,15 +122,35 @@ export default function ListVideoSessions() {
   };
 
   const createNewStudioSession = () => {
-    // ... your existing code ...
+    const headers = getHeaders();
+    const payload = {
+      prompts: [],
+    };
+    axios.post(`${PROCESSOR_API}/video_sessions/create_video_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('videoSessionId', sessionId);
+
+      navigate(`/video/${session._id}`);
+    });
+
   };
 
-  const createNewQuickSession = () => {
-    // ... your existing code ...
-  };
+
 
   const createNewVidGPTSession = () => {
-    // ... your existing code ...
+    const headers = getHeaders();
+    const payload = {
+      prompts: [],
+    };
+    axios.post(`${PROCESSOR_API}/video_sessions/create_video_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('videoSessionId', sessionId);
+
+      navigate(`/vidgpt/${session._id}`);
+    });
+
   };
 
   const handleImportClick = (session, editorType) => {
@@ -266,7 +286,6 @@ export default function ListVideoSessions() {
         <div className="w-full mt-8">
           <ShowNewUserIntroDisplay
             createNewStudioSession={createNewStudioSession}
-            createNewQuickSession={createNewQuickSession}
             createNewVidGPTSession={createNewVidGPTSession}
             handleImportClick={handleImportClick}
           />
