@@ -18,7 +18,7 @@ export default function MobileProgressIndicator(props) {
     setShowResultDisplay
   } = props;
 
-  console.log(props);
+
 
   const progressPercentage = expressGenerationStatus ? getProgressPercentage(expressGenerationStatus) : 0;
 

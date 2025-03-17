@@ -26,6 +26,19 @@ import SingleSelect from "../common/SingleSelect.js";
 import { INFERENCE_MODEL_TYPES } from "../../constants/Types.ts";
 const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
 
+// Add Montserrat or any additional fonts to the list:
+const fontOptions = [
+  { value: "Arial", label: "Arial" },
+  { value: "Times New Roman", label: "Times New Roman" },
+  { value: "Roboto", label: "Roboto" },
+  { value: "Neonderthaw", label: "Neonderthaw" },
+  { value: "Monoton", label: "Monoton" },
+  { value: "Bungee Outline", label: "Bungee Outline" },
+  { value: "Orbitron", label: "Orbitron" },
+  { value: "Rampart One", label: "Rampart One" },
+  { value: "Montserrat", label: "Montserrat" }, // Example addition
+];
+
 export default function UserAccount() {
   const { colorMode } = useColorMode();
   const { user, resetUser, getUserAPI } = useUser();
@@ -41,25 +54,45 @@ export default function UserAccount() {
   // Panel state
   const [displayPanel, setDisplayPanel] = useState("account");
 
-  // 1) Local states for new form fields
-  //    Initialize them from user model if `user` is available
+  // Local states for new form fields
   const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
   const [inferenceModel, setInferenceModel] = useState(INFERENCE_MODEL_TYPES[0]);
-
   const [assistantModel, setAssistantModel] = useState(INFERENCE_MODEL_TYPES[0]);
+
+  // Font states
+  const [speakerFont, setSpeakerFont] = useState(fontOptions[0]);
+  const [textFont, setTextFont] = useState(fontOptions[0]);
 
   useEffect(() => {
     if (user) {
-
-
+      // Inference model
       const userInferenceModel = user.selectedInferenceModel || "GPT4O";
-      const userInferenceModelOption = INFERENCE_MODEL_TYPES.find((model) => model.value === userInferenceModel);
-      setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
+      const userInferenceModelOption = INFERENCE_MODEL_TYPES.find(
+        (model) => model.value === userInferenceModel
+      );
       setInferenceModel(userInferenceModelOption);
 
+      // Assistant model
       const userAssistantModel = user.selectedAssistantModel || "GPT4O";
-      const userAssistantModelOption = INFERENCE_MODEL_TYPES.find((model) => model.value === userAssistantModel);
+      const userAssistantModelOption = INFERENCE_MODEL_TYPES.find(
+        (model) => model.value === userAssistantModel
+      );
       setAssistantModel(userAssistantModelOption);
+
+      // Notify on completion
+      setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
+
+      // Speaker font
+      const userSpeakerFont = user.expressGenerationSpeakerFont || "Arial";
+      const speakerFontOption =
+        fontOptions.find((f) => f.value === userSpeakerFont) || fontOptions[0];
+      setSpeakerFont(speakerFontOption);
+
+      // Text font
+      const userTextFont = user.expressGenerationTextFont || "Arial";
+      const textFontOption =
+        fontOptions.find((f) => f.value === userTextFont) || fontOptions[0];
+      setTextFont(textFontOption);
     }
   }, [user]);
 
@@ -96,7 +129,7 @@ export default function UserAccount() {
         toast.success("User details updated successfully!", {
           position: "bottom-center",
         });
-        // Optionally, re-fetch updated user details so the context is current
+        // Re-fetch updated user details so the context is current
         getUserAPI();
       })
       .catch(function (error) {
@@ -139,7 +172,6 @@ export default function UserAccount() {
 
   const requestApplyCreditsCoupon = (couponCode) => {
     const headers = getHeaders();
-
     axios
       .post(
         `${PROCESSOR_SERVER}/users/apply_credits_coupon`,
@@ -241,7 +273,7 @@ export default function UserAccount() {
   };
   // ====== END: Endpoint Calls ======
 
-  // 2) Change handlers for our fields
+  // Handlers for toggles & single selects
   const handleNotifyOnCompletionChange = (event) => {
     const newVal = event.target.checked;
     setNotifyOnCompletion(newVal);
@@ -249,7 +281,6 @@ export default function UserAccount() {
   };
 
   const handleInferenceModelChange = (newVal) => {
-
     setInferenceModel(newVal);
     updateUserDetails({ selectedInferenceModel: newVal.value });
   };
@@ -257,8 +288,20 @@ export default function UserAccount() {
   const handleAssistantModelChange = (newVal) => {
     setAssistantModel(newVal);
     updateUserDetails({ selectedAssistantModel: newVal.value });
-  }
+  };
 
+  // Font preference change handlers
+  const handleSpeakerFontChange = (newVal) => {
+    setSpeakerFont(newVal);
+    // Important: pass the correct key to the server
+    updateUserDetails({ expressGenerationSpeakerFont: newVal.value });
+  };
+
+  const handleTextFontChange = (newVal) => {
+    setTextFont(newVal);
+    // Important: pass the correct key to the server
+    updateUserDetails({ expressGenerationTextFont: newVal.value });
+  };
 
   // Render label for current panel in the header
   let currentPageLabel = "Account Information";
@@ -278,7 +321,7 @@ export default function UserAccount() {
     currentPageLabel = "Settings";
   }
 
-  // 3) Render the "Notify on completion" checkbox only if the user is verified
+  // Render the "Notify on completion" checkbox only if the user is verified
   let confirmationEmailActions = <span />;
   if (user.isEmailVerified) {
     confirmationEmailActions = (
@@ -297,14 +340,9 @@ export default function UserAccount() {
     );
   }
 
-
-  console.log(INFERENCE_MODEL_TYPES);
-  
   return (
     <OverflowContainer>
-      {/* Toast container */}
       <ToastContainer />
-
       <div className={`pt-[50px] ${bgColor} ${textColor}`}>
         <div className="flex min-h-[100vh]">
           {/* Left Navigation */}
@@ -378,7 +416,7 @@ export default function UserAccount() {
 
                 {/* Account Details */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
-                  {/* Account Type */}
+                  {/* Column 1: Account Type & Models */}
                   <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
                     <h3 className="text-lg font-semibold mb-2">Account Type</h3>
                     <p>{accountType}</p>
@@ -389,38 +427,56 @@ export default function UserAccount() {
                     <div className="mt-4">
                       <div className="text-sm font-bold mt-2 mb-2">Assistant Model</div>
                       <SingleSelect
-                        options={INFERENCE_MODEL_TYPES} // Replace with Assistant Model options
-                        value={assistantModel} // Pass the current selected value
-                        onChange={handleAssistantModelChange} // Handle changes
+                        options={INFERENCE_MODEL_TYPES}
+                        value={assistantModel}
+                        onChange={handleAssistantModelChange}
                       />
                     </div>
-                    
+
                     <div className="mt-4">
                       <div className="text-sm font-bold mt-2 mb-2">Inference Model</div>
                       <SingleSelect
                         options={INFERENCE_MODEL_TYPES}
-                        // Pass the current selected value
                         value={inferenceModel}
-                        // Handle changes
                         onChange={handleInferenceModelChange}
                       />
                     </div>
-
                   </div>
 
-                  {/* Credits Remaining */}
+                  {/* Column 2: Credits + Next Refill */}
                   <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
                     <h3 className="text-lg font-semibold mb-2">Credits Remaining</h3>
                     <p>{user.generationCredits}</p>
                     <div className="mt-4">
                       <SecondaryButton onClick={showPurchaseCreditsAction}>Purchase Credits</SecondaryButton>
                     </div>
+
+                    {/* Next Credit Refill */}
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold mb-2">Next Credit Refill</h3>
+                      <p>{user.nextCreditRefill || "N/A"}</p>
+                    </div>
                   </div>
 
-                  {/* Next Credit Refill */}
+                  {/* Column 3: Speaker font & Text Font */}
                   <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
-                    <h3 className="text-lg font-semibold mb-2">Next Credit Refill</h3>
-                    <p>{user.nextCreditRefill || "N/A"}</p>
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-2">Speaker Font</h3>
+                      <SingleSelect
+                        options={fontOptions}
+                        value={speakerFont}
+                        onChange={handleSpeakerFontChange}
+                      />
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Text Font</h3>
+                      <SingleSelect
+                        options={fontOptions}
+                        value={textFont}
+                        onChange={handleTextFontChange}
+                      />
+                    </div>
                   </div>
                 </div>
 

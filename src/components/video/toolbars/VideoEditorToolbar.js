@@ -4,74 +4,73 @@ import PromptGenerator from './PromptGenerator.js';
 import ImageEditGenerator from '../toolbars/ImageEditGenerator.js';
 
 import AddText from './text_toolbar/AddText.tsx';
-import { FaChevronDown, FaRobot, FaPlay, FaPause, FaChevronLeft, FaChevronRight, 
-  FaChevronCircleRight, FaChevronCircleDown, FaExpandArrowsAlt, FaTimes } from 'react-icons/fa';
+import {
+  FaChevronDown,
+  FaChevronLeft,
+  FaChevronRight,
+  FaChevronCircleRight,
+  FaTimes
+} from 'react-icons/fa';
 import AddShapeDisplay from '../../editor/utils/AddShapeDisplay.tsx';
 import { useColorMode } from '../../../contexts/ColorMode.js';
 import LayersDisplay from '../../editor/toolbar/LayersDisplay.tsx';
 import Select from 'react-select';
 import {
-  CURRENT_EDITOR_VIEW, CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW,
-  SPEECH_SELECT_TYPES, MUSIC_PROVIDERS
+  CURRENT_TOOLBAR_VIEW,
+  TOOLBAR_ACTION_VIEW,
+  SPEECH_SELECT_TYPES,
+  MUSIC_PROVIDERS,
+  SPEAKER_TYPES,
+  TTS_COMBINED_SPEAKER_TYPES
 } from '../../../constants/Types.ts';
-import CommonButton from '../../common/CommonButton.tsx';
 import SecondaryButton from '../../common/SecondaryButton.tsx';
 import SoundSelectToolbar from './audio/SoundSelectToolbar.js';
-import SpeechProviderSelect from './audio/SpeechProviderSelect.js';
 import LayerSpeechPreview from './audio/LayerSpeechPreview.js';
 import MovieSpeechProviderSelect from './audio/MovieSpeechProviderSelect.js';
-
 
 import { toast } from 'react-toastify';
 import './editorToolbar.css';
 import 'react-toastify/dist/ReactToastify.css';
 import { AiOutlineSound } from "react-icons/ai";
 import { PiSelectionAll } from "react-icons/pi";
-import { HiTemplate } from "react-icons/hi";
 import { MdOutlineRectangle } from "react-icons/md";
-import { IoTriangleOutline } from "react-icons/io5";
 import { FaPencilAlt, FaEraser, FaCrosshairs, FaUpload } from 'react-icons/fa';
-import { HiRefresh } from "react-icons/hi";
 import { FaRegCircle } from "react-icons/fa";
-import { GrRadialSelected } from "react-icons/gr";
 import { FaMusic } from 'react-icons/fa6';
 import { RiSpeakLine } from "react-icons/ri";
 import MusicSelectToolbar from './audio/MusicSelectToolbar.js';
 import SpeechSelectToolbar from './audio/SpeechSelectToolbar.js';
 import { LuCombine } from "react-icons/lu";
 import { TbLibraryPhoto } from "react-icons/tb";
-import { GrObjectUngroup } from "react-icons/gr";
-import { SPEAKER_TYPES, TTS_COMBINED_SPEAKER_TYPES } from '../../../constants/Types.ts';
 import TextareaAutosize from 'react-textarea-autosize';
 import PromptViewer from './PromptViewer.js';
 import VideoEditorDefaultsViewer from './VideoEditorDefaultsViewer.js';
 import VideoPromptGenerator from './VideoPromptGenerator.js';
 import SingleSelect from '../../common/SingleSelect.js';
-import AudioSelect from '../../common/AudioSelect.js';
 
 import { useAlertDialog } from '../../../contexts/AlertDialogContext.js';
+import VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.js';
+import VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.js';
 
-import  VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.js';
-import  VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.js';
-import DefaultSpeechProviderSelect from './audio/DefaultSpeechProviderSelect.js';
-
-export default function VideoEditorToolbar(props: any) {
+export default function VideoEditorToolbar(props) {
   const {
-    showAttestationDialog,
     sessionDetails,
     addTextBoxToCanvas,
-    showMask, setShowMask,
-    editBrushWidth, setEditBrushWidth,
-    setCurrentViewDisplay, currentViewDisplay,
-    textConfig, setTextConfig,
-    activeItemList, setActiveItemList,
-    selectedGenerationModel, setSelectedGenerationModel,
-    editMasklines, setEditMaskLines,
+    editBrushWidth,
+    setEditBrushWidth,
+    setCurrentViewDisplay,
+    currentViewDisplay,
+    textConfig,
+    setTextConfig,
+    activeItemList,
+    setActiveItemList,
     setSelectedShape,
-    isOutpaintPending,
-    fillColor, setFillColor,
-    strokeColor, setStrokeColor,
-    strokeWidthValue, setStrokeWidthValue,
+    fillColor,
+    setFillColor,
+    strokeColor,
+    setStrokeColor,
+    strokeWidthValue,
+    setStrokeWidthValue,
     selectedId,
     exportAnimationFrames,
     setSelectedId,
@@ -90,13 +89,11 @@ export default function VideoEditorToolbar(props: any) {
     setCurrentCanvasAction,
     setSelectedLayerSelectShape,
     updateSessionLayerActiveItemList,
-    updateSessionLayerActiveItemListAnimation,
     submitGenerateMusicRequest,
     audioLayers,
     audioGenerationPending,
     submitAddTrackToProject,
     combineCurrentLayerItems,
-    showAddAudioToProjectDialog,
     submitUpdateSessionDefaults,
     isUpdateDefaultsPending,
     hideItemInLayer,
@@ -104,68 +101,43 @@ export default function VideoEditorToolbar(props: any) {
     applyAnimationToAllLayers,
     submitGenerateLayeredSpeechRequest,
     currentDefaultPrompt,
-    submitGenerateNewRequest,
     submitGenerateRecreateRequest,
     showCreateNewPrompt,
     showCreateNewPromptDisplay,
-    aiVideoGenerationPending,
     aspectRatio,
     onToggleDisplay,
     showToggleCollapseToolbar,
     subtitlesGenerationPending,
-    submitGenerateSubtitlesRequest,
-    setAdvancedSessionTheme,
     submitGenerateSubtitles,
-    requestAddAudioLayerFromLibrary,
+    setAdvancedSessionTheme,
     submitAddBatchTrackToProject,
     currentLayer,
-    isSelectButtonDisabled,
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
-    
   } = props;
-
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
   const [selectedAnimationOption, setSelectedAnimationOption] = useState(null);
-  const [animationParams, setAnimationParams] = useState({});
   const [addText, setAddText] = useState('');
   const [animateAllLayersSelected, setAnimateAllLayersSelected] = useState(false);
 
-  const [addSubtitles, setAddSubtitles] = useState(true);
-  const [currentSpeechSelectDisplay, setCurrentSpeechSelectDisplay] = useState(SPEECH_SELECT_TYPES.SPEECH_LAYER);
-
-  const [isPromptGenerated, setIsPromptGenerated] = useState(false);
+  // We only read this value; never update it, so we can just store `true`.
+  const addSubtitles = true;
 
   const [currentlyPlayingSpeaker, setCurrentlyPlayingSpeaker] = useState(null);
-
   const [isExpandedView, setIsExpandedView] = useState(false);
   const [containerWidth, setContainerWidth] = useState('w-[16%]');
-
   const audioSampleRef = useRef(null);
-
   const [numberOfSpeechLayersRequested, setNumberOfSpeechLayersRequested] = useState(0);
-
   const [selectedMusicProvider, setSelectedMusicProvider] = useState(MUSIC_PROVIDERS[0]);
   const [isInstrumental, setIsInstrumental] = useState(false);
 
   // Duration state for AUDIOCRAFT
   const [musicDuration, setMusicDuration] = useState(10);
 
-  const handleMusicProviderChange = (selectedOption) => {
-    const selectedProvider = MUSIC_PROVIDERS.find(provider => provider.key === selectedOption.value);
-    setSelectedMusicProvider(selectedProvider);
-    if (selectedOption.value === 'AUDIOCRAFT') {
-      setIsInstrumental(true);
-    } else {
-      setIsInstrumental(false);
-    }
-  };
-
   const [ttsProvider, setTtsProvider] = useState({ value: 'OPENAI', label: 'OpenAI' });
-
   const [speakerType, setSpeakerType] = useState(() => {
     const storedSpeakerName = localStorage.getItem('defaultSpeaker');
     const storedSpeaker = TTS_COMBINED_SPEAKER_TYPES.find(speaker => speaker.value === storedSpeakerName);
@@ -178,40 +150,26 @@ export default function VideoEditorToolbar(props: any) {
     }
   }, [speakerType]);
 
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-
-  // Define the options arrays
-  const speechOptions = [
-    { value: 'SPEECH_LAYER', label: 'Speech Layer' },
-    { value: 'SPEECH_LAYER_LINES', label: 'Speech Layer Lines' },
-  ];
-
-  const speechSubtitleOptions = [
-    { value: 'SUBTITLE_WORD_HIGHLIGHT', label: 'Highlight Word' },
-    { value: 'SUBTITLE_WORD', label: 'Word' },
-    { value: 'SUBTITLE_BLOCK', label: 'Block' },
-  ];
-
-  const [speechOption, setSpeechOption] = useState(() => {
-    const storedOption = localStorage.getItem('defaultSpeechOption');
-    return storedOption ? JSON.parse(storedOption) : speechOptions[0];
-  });
-
-  const [subtitleOption, setSubtitleOption] = useState(() => {
-    const storedOption = localStorage.getItem('defaultSubtitleOption');
-    return storedOption ? JSON.parse(storedOption) : speechSubtitleOptions[0];
-  });
-
   const { colorMode } = useColorMode();
+
+  const handleMusicProviderChange = (selectedOption) => {
+    const selectedProvider = MUSIC_PROVIDERS.find(provider => provider.key === selectedOption.value);
+    setSelectedMusicProvider(selectedProvider);
+    // Force instrumental if AUDIOCRAFT
+    if (selectedOption.value === 'AUDIOCRAFT') {
+      setIsInstrumental(true);
+    } else {
+      setIsInstrumental(false);
+    }
+  };
 
   const handleTtsProviderChange = (selectedOption) => {
     setTtsProvider(selectedOption);
-    setSpeakerType(null); // Reset speaker when provider changes
+    setSpeakerType(null);
   };
 
   const handleSpeakerChange = (selectedOption) => {
     setSpeakerType(selectedOption);
-    // Stop any playing audio
     if (audioSampleRef.current) {
       audioSampleRef.current.pause();
       audioSampleRef.current = null;
@@ -219,21 +177,19 @@ export default function VideoEditorToolbar(props: any) {
     setCurrentlyPlayingSpeaker(null);
   };
 
-  const [layeredSpeechAudioLayers, setLayeredSpeechAudioLayers] = useState([]);
-
   const handleAddAllSpeechLayers = () => {
     const speechAudioLayers = audioLayers.slice(-numberOfSpeechLayersRequested);
 
-    const batchPayload = speechAudioLayers.map((layer, index) => {
+    const batchPayload = speechAudioLayers.map((layer) => {
       return {
         startTime: layer.startTime || 0,
         duration: layer.duration || 5,
-        endTime: layer.startTime + (layer.duration || 5),
+        endTime: (layer.startTime || 0) + (layer.duration || 5),
         volume: layer.volume || 100,
         addSubtitles: addSubtitles,
-        selectedSubtitleOption: subtitleOption.value,
+        selectedSubtitleOption: 'SUBTITLE_WORD',
         audioLayerId: layer._id.toString(),
-      }
+      };
     });
 
     submitAddBatchTrackToProject(batchPayload);
@@ -245,8 +201,6 @@ export default function VideoEditorToolbar(props: any) {
   };
 
   const playMusicPreviewForSpeaker = (evt, speaker) => {
-
-
     evt.stopPropagation();
     if (currentlyPlayingSpeaker && currentlyPlayingSpeaker.value === speaker.value) {
       if (audioSampleRef.current) {
@@ -259,10 +213,7 @@ export default function VideoEditorToolbar(props: any) {
         audioSampleRef.current.pause();
         audioSampleRef.current = null;
       }
-
       let speakerMusicLink = speaker.previewURL;
-
-
       if (speakerMusicLink) {
         const audio = new Audio(speakerMusicLink);
         audio.play();
@@ -288,22 +239,18 @@ export default function VideoEditorToolbar(props: any) {
 
   const submitAddText = () => {
     let textConfigCopy = { ...textConfig };
-
     if (textConfig.fontSize) {
       textConfigCopy.fontSize = parseInt(textConfig.fontSize, 10);
     }
     if (textConfig.strokeWidth) {
       textConfigCopy.strokeWidth = parseInt(textConfig.strokeWidth, 10);
     }
-
-    textConfigCopy.textAlign = 'center'; // hardcode remove later
-
+    textConfigCopy.textAlign = 'center'; // example default
     const payload = {
       type: 'text',
       text: addText,
       config: textConfigCopy
     };
-
     addTextBoxToCanvas(payload);
   };
 
@@ -352,7 +299,6 @@ export default function VideoEditorToolbar(props: any) {
       setActiveItemList(newActiveItemList);
       updateSessionLayerActiveItemListAnimations(newActiveItemList);
       exportAnimationFrames(newActiveItemList);
-
     } else {
       applyAnimationToAllLayers(formValues, animationType);
     }
@@ -365,10 +311,7 @@ export default function VideoEditorToolbar(props: any) {
       return;
     }
 
-    let animationParams = null;
-    if (selectedItem) {
-      animationParams = selectedItem.animations;
-    }
+    let animationParams = selectedItem?.animations;
 
     if (selectedOption === 'fade') {
       let startFade = 100;
@@ -385,16 +328,23 @@ export default function VideoEditorToolbar(props: any) {
           <form onSubmit={submitApplyAnimationToLayer} key="fadeForm">
             <div className='grid grid-cols-2 gap-2 m-auto text-center'>
               <div>
-                <input type='text' placeholder='Start Fade'
-                  name="startFade" defaultValue={startFade}
-                  className={`w-full ${bgColor} ${text2Color} p-4`}
+                <input
+                  type='text'
+                  placeholder='Start Fade'
+                  name="startFade"
+                  defaultValue={startFade}
+                  className='w-full'
                 />
                 <div>Start Fade</div>
               </div>
               <div>
-                <input type='text' placeholder='End Fade'
-                  name="endFade" defaultValue={endFade}
-                  className={`w-full ${bgColor} ${text2Color} p-4`} />
+                <input
+                  type='text'
+                  placeholder='End Fade'
+                  name="endFade"
+                  defaultValue={endFade}
+                  className='w-full'
+                />
                 <div>End Fade</div>
                 <input type="hidden" name="type" value="fade" />
               </div>
@@ -417,7 +367,6 @@ export default function VideoEditorToolbar(props: any) {
         endX = selectedItem.x;
         endY = selectedItem.y;
       }
-
       if (animationParams) {
         let slideAnimationParams = animationParams.find(animation => animation.type === 'slide');
         if (slideAnimationParams) {
@@ -433,27 +382,43 @@ export default function VideoEditorToolbar(props: any) {
           <form onSubmit={submitApplyAnimationToLayer} key="slideForm">
             <div className='grid grid-cols-2 gap-2 m-auto text-center'>
               <div>
-                <input type='text' name="startX" placeholder='Start X' defaultValue={startX}
-                  className={`w-full ${bgColor} ${text2Color} p-4`} />
+                <input
+                  type='text'
+                  name="startX"
+                  placeholder='Start X'
+                  defaultValue={startX}
+                  className='w-full'
+                />
                 <div>Start X</div>
               </div>
               <div>
-                <input type='text' name="startY" placeholder='Start Y' defaultValue={startY}
-                  className={`w-full ${bgColor} ${text2Color} p-4`} />
+                <input
+                  type='text'
+                  name="startY"
+                  placeholder='Start Y'
+                  defaultValue={startY}
+                  className='w-full'
+                />
                 <div>Start Y</div>
               </div>
               <div>
-                <input type='text' placeholder='End X'
+                <input
+                  type='text'
+                  placeholder='End X'
                   name="endX"
                   defaultValue={endX}
-                  className={`w-full ${bgColor} ${text2Color} p-4`} />
+                  className='w-full'
+                />
                 <div>End X</div>
               </div>
               <div>
-                <input type='text' placeholder='End Y'
+                <input
+                  type='text'
+                  placeholder='End Y'
                   name='endY'
                   defaultValue={endY}
-                  className={`w-full ${bgColor} ${text2Color} p-4`} />
+                  className='w-full'
+                />
                 <div>End Y</div>
               </div>
             </div>
@@ -479,18 +444,22 @@ export default function VideoEditorToolbar(props: any) {
           <form onSubmit={submitApplyAnimationToLayer} key="zoomForm">
             <div className='grid grid-cols-2 gap-2 m-auto text-center'>
               <div>
-                <input type='text' placeholder='Start Scale'
+                <input
+                  type='text'
+                  placeholder='Start Scale'
                   name="startScale"
-                  className={`w-full ${bgColor} ${text2Color} p-4`}
                   defaultValue={startScale}
+                  className='w-full'
                 />
                 <div>Start Scale</div>
               </div>
               <div>
-                <input type='text' placeholder='End Scale'
+                <input
+                  type='text'
+                  placeholder='End Scale'
                   name="endScale"
-                  className={`w-full ${bgColor} ${text2Color} p-4`}
                   defaultValue={endScale}
+                  className='w-full'
                 />
                 <div>End Scale</div>
               </div>
@@ -505,9 +474,9 @@ export default function VideoEditorToolbar(props: any) {
     } else if (selectedOption === 'rotate') {
       let startRotate = 0;
       if (animationParams) {
-        const startRotateParams = animationParams.find(animation => animation.type === 'rotate');
-        if (startRotateParams) {
-          startRotate = startRotateParams.params.startRotate;
+        const rotateParams = animationParams.find(animation => animation.type === 'rotate');
+        if (rotateParams) {
+          startRotate = rotateParams.params.startRotate;
         }
       }
       return (
@@ -515,9 +484,12 @@ export default function VideoEditorToolbar(props: any) {
           <form onSubmit={submitApplyAnimationToLayer} key="rotateForm">
             <div className='grid grid-cols-2 gap-2 m-auto text-center'>
               <div>
-                <input type='text' name="startRotate" defaultValue={startRotate}
+                <input
+                  type='text'
+                  name="startRotate"
+                  defaultValue={startRotate}
                   placeholder='Rotations / second'
-                  className={`w-full ${bgColor} ${text2Color} p-4`}
+                  className='w-full'
                 />
                 <div>Rotations/second</div>
               </div>
@@ -535,24 +507,24 @@ export default function VideoEditorToolbar(props: any) {
   let generateDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY) {
     if (currentDefaultPrompt && !showCreateNewPromptDisplay) {
-      generateDisplay = <PromptViewer {...props}
-        showCreateNewPrompt={showCreateNewPrompt}
-        submitGenerateRecreateRequest={submitGenerateRecreateRequest}
-      />;
+      generateDisplay = (
+        <PromptViewer
+          {...props}
+          showCreateNewPrompt={showCreateNewPrompt}
+          submitGenerateRecreateRequest={submitGenerateRecreateRequest}
+        />
+      );
     } else {
       generateDisplay = <PromptGenerator {...props} />;
     }
   }
 
   let generateVideoDisplay = <span />;
-
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY) {
-
     if (currentLayer.hasLipSyncVideoLayer) {
       generateVideoDisplay = <VideoLipSyncOptionsViewer {...props} />;
     } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoGenerationStatus === "COMPLETED") {
-      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props}
-       />;
+      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
     } else {
       generateVideoDisplay = <VideoPromptGenerator {...props} />;
     }
@@ -566,7 +538,6 @@ export default function VideoEditorToolbar(props: any) {
         submitAddText={submitAddText}
         textConfig={textConfig}
         addText={addText}
-        setAddText={setAddText}
         setTextConfig={setTextConfig}
       />
     );
@@ -576,7 +547,8 @@ export default function VideoEditorToolbar(props: any) {
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY) {
     editDisplay = (
       <div>
-        <ImageEditGenerator {...props}
+        <ImageEditGenerator
+          {...props}
           editBrushWidth={editBrushWidth}
           setEditBrushWidth={setEditBrushWidth}
         />
@@ -587,18 +559,18 @@ export default function VideoEditorToolbar(props: any) {
   let layersDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_LAYERS_DISPLAY) {
     layersDisplay = (
-      <div>
-        <LayersDisplay activeItemList={activeItemList} setActiveItemList={setActiveItemList}
-          updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
-          hideItemInLayer={hideItemInLayer}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
-        />
-      </div>
+      <LayersDisplay
+        activeItemList={activeItemList}
+        setActiveItemList={setActiveItemList}
+        updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
+        hideItemInLayer={hideItemInLayer}
+        selectedId={selectedId}
+        setSelectedId={setSelectedId}
+      />
     );
   }
 
-  const toggleCurrentViewDisplay = (view: string) => {
+  const toggleCurrentViewDisplay = (view) => {
     setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
     if (view === currentViewDisplay) {
       setCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
@@ -609,16 +581,20 @@ export default function VideoEditorToolbar(props: any) {
 
   const submitGenerateSound = (evt) => {
     evt.preventDefault();
-
     const formData = new FormData(evt.target);
     const promptText = formData.get('promptText');
     const secondsTotal = parseInt(formData.get('secondsTotal'), 10);
 
     if (isNaN(secondsTotal) || secondsTotal < 2 || secondsTotal > 40) {
-      toast.error(<div><FaTimes className="inline-flex mr-2" /> Please enter a duration between 2 and 40 seconds.</div>, {
-        position: "bottom-center",
-        className: "custom-toast",
-      });
+      toast.error(
+        <div>
+          <FaTimes className="inline-flex mr-2" /> Please enter a duration between 2 and 40 seconds.
+        </div>,
+        {
+          position: "bottom-center",
+          className: "custom-toast",
+        }
+      );
       return;
     }
 
@@ -628,7 +604,6 @@ export default function VideoEditorToolbar(props: any) {
       model: 'SDAUDIO',
       secondsTotal: secondsTotal,
     };
-
     submitGenerateMusicRequest(body);
   };
 
@@ -677,22 +652,18 @@ export default function VideoEditorToolbar(props: any) {
   if (colorMode === 'light') {
     bgColor = "bg-neutral-50 text-neutral-900";
   }
-
   let buttonBgcolor = "bg-gray-900 text-white";
   if (colorMode === 'light') {
     buttonBgcolor = "bg-stone-200 text-neutral-900";
   }
-
   let textInnerColor = colorMode === 'dark' ? 'text-neutral-900' : 'text-white';
   const text2Color = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
-
   let formSelectBgColor = colorMode === 'dark' ? '#030712' : '#f3f4f6';
   let formSelectTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
   let formSelectSelectedTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
   let formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
 
   let animateOptionsDisplay = <span />;
-
   const animationOptions = [
     { value: 'fade', label: 'Fade' },
     { value: 'slide', label: 'Slide' },
@@ -702,15 +673,14 @@ export default function VideoEditorToolbar(props: any) {
 
   const setAnimateAllLayersSelectedFunc = () => {
     setAnimateAllLayersSelected(true);
-  }
+  };
 
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_ANIMATE_DISPLAY) {
-    let animationOptionMeta = <span />;
     if ((!selectedId || selectedId === -1) && !animateAllLayersSelected) {
       animateOptionsDisplay = (
         <div className={`${text2Color} pl-2`}>
           <div>
-            <div className=' block mb-4 t-0 text-xs r-0 pr-2 align-right mt-2'>
+            <div className='block mb-4 text-xs mt-2'>
               <SecondaryButton onClick={setAnimateAllLayersSelectedFunc}>
                 Animate all layers
               </SecondaryButton>
@@ -722,6 +692,7 @@ export default function VideoEditorToolbar(props: any) {
         </div>
       );
     } else {
+      let animationOptionMeta = <span />;
       if (selectedAnimationOption) {
         animationOptionMeta = getAnimationBoundariesDisplay(selectedAnimationOption);
       }
@@ -730,7 +701,9 @@ export default function VideoEditorToolbar(props: any) {
         <div>
           Select animation
           <div>
-            <Select options={animationOptions} onChange={handleAnimationChange}
+            <Select
+              options={animationOptions}
+              onChange={handleAnimationChange}
               styles={{
                 menu: (provided) => ({
                   ...provided,
@@ -747,7 +720,9 @@ export default function VideoEditorToolbar(props: any) {
                   '&:hover': {
                     borderColor: state.isFocused ? '#007BFF' : '#ced4da'
                   },
-                  boxShadow: state.isFocused ? '0 0 0 0.2rem rgba(0, 123, 255, 0.25)' : null,
+                  boxShadow: state.isFocused
+                    ? '0 0 0 0.2rem rgba(0, 123, 255, 0.25)'
+                    : null,
                   minHeight: '38px',
                   height: '38px'
                 }),
@@ -772,17 +747,21 @@ export default function VideoEditorToolbar(props: any) {
 
   const submitGenerateMusic = (evt) => {
     evt.preventDefault();
-
     const formData = new FormData(evt.target);
     const promptText = formData.get('promptText');
 
     if (selectedMusicProvider.key === 'AUDIOCRAFT') {
       // Validate musicDuration
       if (isNaN(musicDuration) || musicDuration < 1 || musicDuration > 120) {
-        toast.error(<div><FaTimes className="inline-flex mr-2" /> Duration must be between 1 and 120 seconds.</div>, {
-          position: "bottom-center",
-          className: "custom-toast",
-        });
+        toast.error(
+          <div>
+            <FaTimes className="inline-flex mr-2" /> Duration must be between 1 and 120 seconds.
+          </div>,
+          {
+            position: "bottom-center",
+            className: "custom-toast",
+          }
+        );
         return;
       }
     }
@@ -793,31 +772,28 @@ export default function VideoEditorToolbar(props: any) {
       isInstrumental: isInstrumental,
       model: selectedMusicProvider.key,
     };
-
     if (selectedMusicProvider.key === 'AUDIOCRAFT') {
       body.duration = Number(musicDuration);
     }
-
     submitGenerateMusicRequest(body);
   };
 
   const submitGenerateSpeech = (payload) => {
-
     payload.aspectRatio = aspectRatio;
-
     const speechOptionValue = payload.speechOptionValue;
 
-    if (speechOptionValue && speechOptionValue === 'SPEECH_LAYER_LINES') {
-
-
+    // "SPEECH_LAYER_LINES" means multiple lines => multiple speech layers
+    if (speechOptionValue === 'SPEECH_LAYER_LINES') {
       const promptText = payload.promptText;
       const speaker = payload.speaker;
       const textAnimationOptions = payload.textAnimationOptions;
       const subtitleOptionValue = payload.subtitleOptionValue;
       const ttsProviderValue = payload.ttsProviderValue;
 
+      const promptList = promptText
+        .split('\n')
+        .filter(prompt => prompt && prompt.trim().length > 0);
 
-      const promptList = promptText.split('\n').filter(prompt => prompt && prompt.trim().length > 0);
       const layeredSpeechBody = {
         generationType: 'speech',
         speaker: speaker,
@@ -827,158 +803,18 @@ export default function VideoEditorToolbar(props: any) {
         subtitleOption: subtitleOptionValue,
         ttsProvider: ttsProviderValue,
         aspectRatio: aspectRatio
-      }
+      };
 
       setNumberOfSpeechLayersRequested(promptList.length);
       submitGenerateLayeredSpeechRequest(layeredSpeechBody);
     } else {
+      // single speech
       submitGenerateMusicRequest(payload);
     }
   };
 
-  const showTemplateAction = () => {
-    setCursorSelectOptionVisible(false);
-    setCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_TEMPLATES_DISPLAY);
-  };
-
-  let bgSelectedColor = colorMode === 'dark' ? "bg-gray-800" : "bg-gray-200";
-  let actionsOptionsDisplay = <span />;
-  let actionsSubOptionsDisplay = <span />;
-
-  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_ACTIONS_DISPLAY) {
-    if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
-      actionsSubOptionsDisplay = (
-        <div>
-          <div className="static mt-2 rounded shadow-lg">
-            <label className="block mb-2">Width:</label>
-            <input type="range" min="1" max="50"
-              className="w-full" value={pencilWidth} onChange={(e) => setPencilWidth(e.target.value)} />
-            <label className="block mt-2 mb-2">Color:</label>
-            <input type="color" value={pencilColor} onChange={(e) => setPencilColor(e.target.value)} />
-          </div>
-        </div>
-      );
-    } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
-      actionsSubOptionsDisplay = (
-        <div>
-          <div className="static mt-2 rounded shadow-lg ">
-            <label className="block mb-2">Width:</label>
-            <input type="range" min="1" max="100" className="w-full"
-              value={eraserWidth} onChange={(e) => setEraserWidth(e.target.value)} />
-          </div>
-        </div>
-      );
-    }
-
-    actionsOptionsDisplay = (
-      <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
-        <div className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${pencilOptionsVisible ? bgSelectedColor : bgColor} transition-colors duration-300`}>
-          <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}>
-            <FaPencilAlt className="text-2xl m-auto cursor-pointer" />
-            <div className="text-[10px] tracking-tight m-auto text-center">
-              Pencil
-            </div>
-          </div>
-        </div>
-
-        <div className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${eraserOptionsVisible ? bgSelectedColor : bgColor} transition-colors duration-300`}>
-          <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}>
-            <FaEraser className="text-2xl m-auto cursor-pointer" />
-            <div className="text-[10px] tracking-tight m-auto text-center">
-              Eraser
-            </div>
-          </div>
-        </div>
-
-        <div className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${cursorSelectOptionVisible ? bgSelectedColor : bgColor} transition-colors duration-300`} onClick={() => setCursorSelectOptionVisible(!cursorSelectOptionVisible)}>
-          <div onClick={() => combineCurrentLayerItems()}>
-            <LuCombine className="text-2xl m-auto cursor-pointer" />
-            <div className="text-[10px] tracking-tight m-auto text-center">
-              Combine
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  let selectOptionsDisplay = <span />;
-  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_SELECT_DISPLAY) {
-    selectOptionsDisplay = (
-      <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
-        <div>
-          <div className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${cursorSelectOptionVisible ? bgSelectedColor : bgColor} transition-colors duration-300`}
-            onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY)}>
-            <FaCrosshairs className="text-2xl m-auto cursor-pointer" />
-            <div className="text-[10px] tracking-tight m-auto text-center">
-              Select Layer
-            </div>
-          </div>
-        </div>
-        <div className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${bgColor} transition-colors duration-300`}
-          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY)} >
-          <PiSelectionAll className="text-2xl m-auto cursor-pointer" />
-          <div className="text-[10px] tracking-tight m-auto text-center">
-            Select Shape
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  let selectSubObjectionsDisplay = <span />;
-  if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY &&
-    currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_SELECT_DISPLAY
-  ) {
-    selectSubObjectionsDisplay = (
-      <div>
-        <div className={`grid grid-cols-2 w-full ${text2Color} h-auto transition-all duration-300`}>
-          <div className="text-center m-auto align-center p-1 h-[50px] rounded-sm">
-            <button onClick={() => setSelectedLayerSelectShape('rectangle')}>
-              <div className="text-2xl m-auto cursor-pointer">
-                <MdOutlineRectangle />
-                <div className='text-xs'>
-                  Rectangle
-                </div>
-              </div>
-            </button>
-          </div>
-          <div className="text-center m-auto align-center p-1 h-[50px] rounded-sm">
-            <button onClick={() => setSelectedLayerSelectShape('circle')}>
-              <div className="text-2xl m-auto cursor-pointer">
-                <FaRegCircle />
-                <div className='text-xs'>
-                  Circle
-                </div>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const handleAddSingleSpeechLayer = () => {
-    setCurrentSpeechSelectDisplay(SPEECH_SELECT_TYPES.SPEECH_LAYER);
-  };
-
-  const handleAddSpeechPerScene = () => {
-    setCurrentSpeechSelectDisplay(SPEECH_SELECT_TYPES.SPEECH_PER_SCENE);
-  };
-
-  const handleSpeechOptionChange = (selectedOption) => {
-    setSpeechOption(selectedOption);
-    localStorage.setItem('defaultSpeechOption', JSON.stringify(selectedOption));
-  };
-
-  const handleSubtitleOptionChange = (selectedOption) => {
-    setSubtitleOption(selectedOption);
-    localStorage.setItem('defaultSubtitleOption', JSON.stringify(selectedOption));
-  };
-
   let audioOptionsDisplay = <span />;
   let audioSubOptionsDisplay = <span />;
-
   const highlightedBgColor = colorMode === 'dark' ? 'bg-blue-800' : 'bg-neutral-800';
 
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_AUDIO_DISPLAY) {
@@ -990,10 +826,11 @@ export default function VideoEditorToolbar(props: any) {
           onClick={() => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY);
           }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY)
-            ? highlightedBgColor
-            : ''
-            } p-2 rounded`}
+          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${
+            isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY)
+              ? highlightedBgColor
+              : ''
+          } p-2 rounded`}
         >
           <RiSpeakLine />
           <div className="text-xs">Speech</div>
@@ -1002,10 +839,11 @@ export default function VideoEditorToolbar(props: any) {
           onClick={() => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY);
           }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)
-            ? highlightedBgColor
-            : ''
-            } p-2 rounded`}
+          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${
+            isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)
+              ? highlightedBgColor
+              : ''
+          } p-2 rounded`}
         >
           <FaMusic />
           <div className="text-xs">Music</div>
@@ -1014,77 +852,74 @@ export default function VideoEditorToolbar(props: any) {
           onClick={() => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY);
           }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY)
-            ? highlightedBgColor
-            : ''
-            } p-2 rounded`}
+          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${
+            isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY)
+              ? highlightedBgColor
+              : ''
+          } p-2 rounded`}
         >
           <AiOutlineSound />
-          <div className="text-xs">Effect </div>
+          <div className="text-xs">Effect</div>
         </div>
       </div>
     );
-
-    let musicDurationSelect = <span />;
-    if (selectedMusicProvider.key === 'AUDIOCRAFT') {
-      musicDurationSelect = (
-        <div className="mb-2">
-          <label className={`text-xs ${text2Color}`} htmlFor="musicDuration">Duration</label>
-          <input
-            type="number"
-            name="musicDuration"
-            min="1"
-            max="120"
-            value={musicDuration}
-            onChange={(e) => setMusicDuration(e.target.value)}
-            className={`w-full ${bgColor} ${text2Color} p-1`}
-          />
-        </div>
-      );
-    }
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY) {
       audioSubOptionsDisplay = (
         <div className="transition-all duration-300 ease-in-out">
           <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateMusic}>
-            {/* Conditional layout based on provider */}
+            {/* Provider & optional duration */}
             {selectedMusicProvider.key === 'AUDIOCRAFT' ? (
               <div className="mb-2 grid grid-cols-4 gap-2 items-center">
                 <div className="col-span-3">
-                <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicProvider">Provider:</label>
+                  <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicProvider">
+                    Provider:
+                  </label>
                   <SingleSelect
                     name="musicProvider"
-                    options={MUSIC_PROVIDERS.map(provider => ({ value: provider.key, label: provider.name }))}
-                    value={{ value: selectedMusicProvider.key, label: selectedMusicProvider.name }}
+                    options={MUSIC_PROVIDERS.map(provider => ({
+                      value: provider.key,
+                      label: provider.name
+                    }))}
+                    value={{
+                      value: selectedMusicProvider.key,
+                      label: selectedMusicProvider.name
+                    }}
                     onChange={handleMusicProviderChange}
                   />
                 </div>
                 <div className="col-span-1 relative">
-                  <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicDuration">Seconds</label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      name="musicDuration"
-                      min="1"
-                      max="120"
-                      value={musicDuration}
-                      onChange={(e) => setMusicDuration(e.target.value)}
-                      className={`w-full ${bgColor} ${text2Color} p-1 `}
-                    />
-                  </div>
+                  <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicDuration">
+                    Seconds
+                  </label>
+                  <input
+                    type="number"
+                    name="musicDuration"
+                    min="1"
+                    max="120"
+                    value={musicDuration}
+                    onChange={(e) => setMusicDuration(e.target.value)}
+                    className={`w-full ${bgColor} ${text2Color} p-1`}
+                  />
                 </div>
               </div>
             ) : (
               <div className="mb-2">
                 <SingleSelect
                   name="musicProvider"
-                  options={MUSIC_PROVIDERS.map(provider => ({ value: provider.key, label: provider.name }))}
-                  value={{ value: selectedMusicProvider.key, label: selectedMusicProvider.name }}
+                  options={MUSIC_PROVIDERS.map(provider => ({
+                    value: provider.key,
+                    label: provider.name
+                  }))}
+                  value={{
+                    value: selectedMusicProvider.key,
+                    label: selectedMusicProvider.name
+                  }}
                   onChange={handleMusicProviderChange}
                 />
               </div>
             )}
-    
+
             <TextareaAutosize
               name="promptText"
               placeholder="Add prompt text here"
@@ -1113,88 +948,74 @@ export default function VideoEditorToolbar(props: any) {
       );
     }
 
-
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY) {
-      let advancedAudioSpeechOptionsDisplay = <span />;
-
-
-     const  audioSubOptionsForSession = (
-          <MovieSpeechProviderSelect 
-          movieSoundList={movieSoundList}
-          movieGenSpeakers={movieGenSpeakers}
-          updateMovieGenSpeakers={updateMovieGenSpeakers}
-          submitGenerateSpeech={submitGenerateSpeech}
-
-          ttsProvider={ttsProvider}
-          handleTtsProviderChange={handleTtsProviderChange}
-          speakerType={speakerType}
-          handleSpeakerChange={handleSpeakerChange}
-          playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
-          currentlyPlayingSpeaker={currentlyPlayingSpeaker}
-          audioGenerationPending={audioGenerationPending}
-          bgColor={bgColor}
-          text2Color={text2Color}
-          advancedAudioSpeechOptionsDisplay={advancedAudioSpeechOptionsDisplay}
-          showAdvancedOptions={showAdvancedOptions}
-          setShowAdvancedOptions={setShowAdvancedOptions}
-          colorMode={colorMode}
-
-          />
-        )
-      
-
-
       audioSubOptionsDisplay = (
         <div>
-          {audioSubOptionsForSession}
+          <MovieSpeechProviderSelect
+            movieSoundList={movieSoundList}
+            movieGenSpeakers={movieGenSpeakers}
+            updateMovieGenSpeakers={updateMovieGenSpeakers}
+            submitGenerateSpeech={submitGenerateSpeech}
+            ttsProvider={ttsProvider}
+            handleTtsProviderChange={handleTtsProviderChange}
+            speakerType={speakerType}
+            handleSpeakerChange={handleSpeakerChange}
+            playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
+            currentlyPlayingSpeaker={currentlyPlayingSpeaker}
+            audioGenerationPending={audioGenerationPending}
+            bgColor={bgColor}
+            text2Color={text2Color}
+            showAdvancedOptions={false}
+            setShowAdvancedOptions={() => {}}
+            colorMode={colorMode}
+          />
         </div>
       );
     }
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PREVIEW_SOUND_DISPLAY) {
-      if (audioLayers.length === 0) {
-        return;
-      }
-      const latestAudioLayer = audioLayers[audioLayers.length - 1];
-      if (latestAudioLayer) {
-        audioOptionsDisplay = (
-          <SoundSelectToolbar
-            audioLayer={latestAudioLayer}
-            submitAddTrackToProject={submitAddTrackToProject}
-            setCurrentCanvasAction={setCurrentCanvasAction}
-
-          />
-        );
+      if (audioLayers.length > 0) {
+        const latestAudioLayer = audioLayers[audioLayers.length - 1];
+        if (latestAudioLayer) {
+          audioOptionsDisplay = (
+            <SoundSelectToolbar
+              audioLayer={latestAudioLayer}
+              submitAddTrackToProject={submitAddTrackToProject}
+              setCurrentCanvasAction={setCurrentCanvasAction}
+            />
+          );
+        }
       }
       audioSubOptionsDisplay = <span />;
     }
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PREVIEW_MUSIC_DISPLAY) {
-      if (audioLayers.length === 0) {
-        return;
+      if (audioLayers.length > 0) {
+        const latestAudioLayer = audioLayers[audioLayers.length - 1];
+        audioOptionsDisplay = (
+          <MusicSelectToolbar
+            audioLayer={latestAudioLayer}
+            submitAddTrackToProject={submitAddTrackToProject}
+            setCurrentCanvasAction={setCurrentCanvasAction}
+          />
+        );
       }
-      const latestAudioLayer = audioLayers[audioLayers.length - 1];
-      audioOptionsDisplay = <MusicSelectToolbar audioLayer={latestAudioLayer}
-        submitAddTrackToProject={submitAddTrackToProject}
-        setCurrentCanvasAction={setCurrentCanvasAction}
-      />;
       audioSubOptionsDisplay = <span />;
     }
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PREVIEW_SPEECH_DISPLAY) {
-      if (audioLayers.length === 0) {
-        return;
-      }
-      const latestAudioLayer = audioLayers[audioLayers.length - 1];
-      if (latestAudioLayer) {
-        audioOptionsDisplay = (
-          <SpeechSelectToolbar
-            audioLayer={latestAudioLayer}
-            submitAddTrackToProject={submitAddTrackToProject}
-            setCurrentCanvasAction={setCurrentCanvasAction}
-            currentLayer={currentLayer}
-          />
-        );
+      if (audioLayers.length > 0) {
+        const latestAudioLayer = audioLayers[audioLayers.length - 1];
+        if (latestAudioLayer) {
+          audioOptionsDisplay = (
+            <SpeechSelectToolbar
+              audioLayer={latestAudioLayer}
+              submitAddTrackToProject={submitAddTrackToProject}
+              setCurrentCanvasAction={setCurrentCanvasAction}
+              currentLayer={currentLayer}
+            />
+          );
+        }
       }
       audioSubOptionsDisplay = <span />;
     }
@@ -1220,7 +1041,9 @@ export default function VideoEditorToolbar(props: any) {
         <div className="transition-all duration-300 ease-in-out">
           <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateSound}>
             <div className="mb-2">
-              <label className={`text-xs ${text2Color}`} htmlFor="secondsTotal">Duration (seconds):</label>
+              <label className={`text-xs ${text2Color}`} htmlFor="secondsTotal">
+                Duration (seconds):
+              </label>
               <input
                 type="number"
                 name="secondsTotal"
@@ -1249,32 +1072,137 @@ export default function VideoEditorToolbar(props: any) {
     }
   }
 
-  let defaultsOptionDisplay = <span />;
-  let defaultsSubOptionsDisplay = <span />;
-  let subtitlesOptionsDisplay = <span />;
-
-  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_SUBTITLES_DISPLAY) {
-    subtitlesOptionsDisplay = (
+  let actionsOptionsDisplay = <span />;
+  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_ACTIONS_DISPLAY) {
+    let actionsSubOptionsDisplay = <span />;
+    if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
+      actionsSubOptionsDisplay = (
+        <div className="mt-2 rounded shadow-lg">
+          <label className="block mb-2">Width:</label>
+          <input
+            type="range"
+            min="1"
+            max="50"
+            className="w-full"
+            value={pencilWidth}
+            onChange={(e) => setPencilWidth(e.target.value)}
+          />
+          <label className="block mt-2 mb-2">Color:</label>
+          <input
+            type="color"
+            value={pencilColor}
+            onChange={(e) => setPencilColor(e.target.value)}
+          />
+        </div>
+      );
+    } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
+      actionsSubOptionsDisplay = (
+        <div className="mt-2 rounded shadow-lg">
+          <label className="block mb-2">Width:</label>
+          <input
+            type="range"
+            min="1"
+            max="100"
+            className="w-full"
+            value={eraserWidth}
+            onChange={(e) => setEraserWidth(e.target.value)}
+          />
+        </div>
+      );
+    }
+    actionsOptionsDisplay = (
       <div>
-        <form onSubmit={submitGenerateSubtitles}>
-          <div className="flex flex-col">
-            <div className="mb-2">
-              <input type="text" name="promptText" placeholder="Enter prompt text here"
-                className={`w-full ${bgColor} ${text2Color} p-2`} />
-            </div>
-            <div className="mb-2">
-              <SecondaryButton type="submit" isPending={subtitlesGenerationPending}>
-                Generate Subtitles
-              </SecondaryButton>
+        <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
+          <div
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
+              pencilOptionsVisible ? 'bg-gray-800' : bgColor
+            } transition-colors duration-300`}
+          >
+            <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}>
+              <FaPencilAlt className="text-2xl m-auto cursor-pointer" />
+              <div className="text-[10px] tracking-tight m-auto text-center">Pencil</div>
             </div>
           </div>
-        </form>
+
+          <div
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
+              eraserOptionsVisible ? 'bg-gray-800' : bgColor
+            } transition-colors duration-300`}
+          >
+            <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}>
+              <FaEraser className="text-2xl m-auto cursor-pointer" />
+              <div className="text-[10px] tracking-tight m-auto text-center">Eraser</div>
+            </div>
+          </div>
+
+          <div
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
+              cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
+            } transition-colors duration-300`}
+          >
+            <div onClick={() => combineCurrentLayerItems()}>
+              <LuCombine className="text-2xl m-auto cursor-pointer" />
+              <div className="text-[10px] tracking-tight m-auto text-center">Combine</div>
+            </div>
+          </div>
+        </div>
+        {actionsSubOptionsDisplay}
       </div>
     );
   }
 
+  let selectOptionsDisplay = <span />;
+  let selectSubObjectionsDisplay = <span />;
+  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_SELECT_DISPLAY) {
+    selectOptionsDisplay = (
+      <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
+        <div
+          className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
+            cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
+          } transition-colors duration-300`}
+          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY)}
+        >
+          <FaCrosshairs className="text-2xl m-auto cursor-pointer" />
+          <div className="text-[10px] tracking-tight m-auto text-center">Select Layer</div>
+        </div>
+        <div
+          className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${bgColor} transition-colors duration-300`}
+          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY)}
+        >
+          <PiSelectionAll className="text-2xl m-auto cursor-pointer" />
+          <div className="text-[10px] tracking-tight m-auto text-center">Select Shape</div>
+        </div>
+      </div>
+    );
+
+    if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY) {
+      selectSubObjectionsDisplay = (
+        <div>
+          <div className={`grid grid-cols-2 w-full ${text2Color} h-auto transition-all duration-300`}>
+            <div className="text-center m-auto align-center p-1 h-[50px] rounded-sm">
+              <button onClick={() => setSelectedLayerSelectShape('rectangle')}>
+                <div className="text-2xl m-auto cursor-pointer">
+                  <MdOutlineRectangle />
+                  <div className='text-xs'>Rectangle</div>
+                </div>
+              </button>
+            </div>
+            <div className="text-center m-auto align-center p-1 h-[50px] rounded-sm">
+              <button onClick={() => setSelectedLayerSelectShape('circle')}>
+                <div className="text-2xl m-auto cursor-pointer">
+                  <FaRegCircle />
+                  <div className='text-xs'>Circle</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  let defaultsOptionDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_SET_DEFAULTS_DISPLAY) {
-    const { defaultSceneDuration, imageGenerationTheme } = sessionDetails;
     defaultsOptionDisplay = (
       <VideoEditorDefaultsViewer
         submitUpdateSessionDefaults={submitUpdateSessionDefaults}
@@ -1289,11 +1217,14 @@ export default function VideoEditorToolbar(props: any) {
     );
   }
 
-  const showExpandedDefaultsDialog = (evt) => {
+  const showExpandedDefaultsDialog = () => {
     openAlertDialog(
       <div className="mt-4 mb-4">
         <div>
-          <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
+          <FaTimes
+            className="absolute top-2 right-2 cursor-pointer"
+            onClick={closeAlertDialog}
+          />
         </div>
         <VideoEditorDefaultsViewer
           submitUpdateSessionDefaults={submitUpdateSessionDefaults}
@@ -1308,13 +1239,14 @@ export default function VideoEditorToolbar(props: any) {
     );
   };
 
-  const showExpandedGenImageDialog = (evt) => {
+  const showExpandedGenImageDialog = () => {
     if (currentDefaultPrompt && !showCreateNewPromptDisplay) {
       openAlertDialog(
         <div className="mt-4 mb-4">
-          <div>
-            <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-          </div>
+          <FaTimes
+            className="absolute top-2 right-2 cursor-pointer"
+            onClick={closeAlertDialog}
+          />
           <PromptViewer
             {...props}
             showCreateNewPrompt={showCreateNewPrompt}
@@ -1325,34 +1257,36 @@ export default function VideoEditorToolbar(props: any) {
     } else {
       openAlertDialog(
         <div className="mt-4 mb-4">
-          <div>
-            <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-          </div>
+          <FaTimes
+            className="absolute top-2 right-2 cursor-pointer"
+            onClick={closeAlertDialog}
+          />
           <PromptGenerator {...props} />
-        </div>);
+        </div>
+      );
     }
   };
 
-  // be here
-
-  const showExpandedGenVideoDialog = (evt) => {
+  const showExpandedGenVideoDialog = () => {
     openAlertDialog(
       <div className="mt-4 mb-4">
-        <div>
-          <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        </div>
+        <FaTimes
+          className="absolute top-2 right-2 cursor-pointer"
+          onClick={closeAlertDialog}
+        />
         <VideoPromptGenerator {...props} />
       </div>
     );
   };
 
-  const showExpandedGenAudioDialog = (evt) => {
+  const showExpandedGenAudioDialog = () => {
     openAlertDialog(
       <div>
-        <div>
-          <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        </div>
-        <div className={`${textInnerColor}`}>
+        <FaTimes
+          className="absolute top-2 right-2 cursor-pointer"
+          onClick={closeAlertDialog}
+        />
+        <div className={textInnerColor}>
           {audioOptionsDisplay}
         </div>
         <div>
@@ -1366,14 +1300,16 @@ export default function VideoEditorToolbar(props: any) {
   if (showToggleCollapseToolbar) {
     collapseButton = (
       <div className={`${text2Color} flex ml-2 cursor-pointer`} onClick={onToggleDisplay}>
-        <div className="inline-flex">Collapse</div> <FaChevronCircleRight className='inline-flex mt-1 ml-2' />
+        <div className="inline-flex">Collapse</div>
+        <FaChevronCircleRight className='inline-flex mt-1 ml-2' />
       </div>
-    )
+    );
   }
 
   const isItemSelected = (view) => currentViewDisplay === view;
-  const getMarginTop = (view) => isItemSelected(view) ? 'mt-0' : 'mt-4';
-  const getSelectedClass = (view) => isItemSelected(view) ? 'bg-blue-950 text-white' : 'bg-gray-900 text-white';
+  const getMarginTop = (view) => (isItemSelected(view) ? 'mt-0' : 'mt-4');
+  const getSelectedClass = (view) =>
+    isItemSelected(view) ? 'bg-blue-950 text-white' : 'bg-gray-900 text-white';
 
   const layerToolbarList = [
     {
@@ -1382,11 +1318,7 @@ export default function VideoEditorToolbar(props: any) {
       view: CURRENT_TOOLBAR_VIEW.SHOW_SET_DEFAULTS_DISPLAY,
       onClick: () => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_SET_DEFAULTS_DISPLAY),
       onExpandClick: showExpandedDefaultsDialog,
-      content: (
-        <div className={`${textInnerColor}`}>
-          {defaultsOptionDisplay}
-        </div>
-      )
+      content: <div className={textInnerColor}>{defaultsOptionDisplay}</div>
     },
     {
       label: 'Generate Image',
@@ -1420,7 +1352,7 @@ export default function VideoEditorToolbar(props: any) {
       onExpandClick: showExpandedGenAudioDialog,
       showOverflow: true,
       content: (
-        <div className={`${textInnerColor}`}>
+        <div className={textInnerColor}>
           {audioOptionsDisplay}
           {audioSubOptionsDisplay}
         </div>
@@ -1441,7 +1373,7 @@ export default function VideoEditorToolbar(props: any) {
       onClick: () => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_SELECT_DISPLAY),
       onExpandClick: null,
       content: (
-        <div className={`${textInnerColor}`}>
+        <div className={textInnerColor}>
           {selectOptionsDisplay}
           {selectSubObjectionsDisplay}
         </div>
@@ -1498,11 +1430,11 @@ export default function VideoEditorToolbar(props: any) {
       setContainerWidth('w-[48%]');
     }
     setIsExpandedView(!isExpandedView);
-  }
+  };
 
   let expandButtonLabel = (
     <div className='relative w-full cursor-pointer pb-1 block'>
-      <FaChevronLeft className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px] ' />
+      <FaChevronLeft className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
       <div className='inline-block'>Expand</div>
     </div>
   );
@@ -1510,16 +1442,17 @@ export default function VideoEditorToolbar(props: any) {
   if (isExpandedView) {
     expandButtonLabel = (
       <div className='relative w-full cursor-pointer pb-1 block'>
-        <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px] ' />
+        <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
         <div className='inline-block'>Collapse</div>
       </div>
     );
   }
 
   return (
-    <div className={`border-l-2 ${bgColor} h-full m-auto fixed top-0 overflow-y-auto pl-2 r-4 ${containerWidth} pr-2 right-0 toolbar-container`}>
-      <div className=''>
-
+    <div
+      className={`border-l-2 ${bgColor} h-full m-auto fixed top-0 overflow-y-auto pl-2 r-4 ${containerWidth} pr-2 right-0 toolbar-container`}
+    >
+      <div>
         <div className="sticky top-[50px] bg-neutral-900 z-10 p-2">
           {collapseButton}
           <div onClick={showEditorExpandedView} className='m-auto text-white text-center'>
@@ -1530,28 +1463,45 @@ export default function VideoEditorToolbar(props: any) {
         <div className='mt-[56px]'>
           {layerToolbarList.map((item, index) => (
             <div key={index} className={`${getMarginTop(item.view)} transition-all duration-300`}>
-              <div className={` ${buttonBgcolor} rounded-sm text-left ${isItemSelected(item.view) ? 'mt-1' : 'mt-4'} transition-colors duration-300`}>
+              <div
+                className={`${buttonBgcolor} rounded-sm text-left ${
+                  isItemSelected(item.view) ? 'mt-1' : 'mt-4'
+                } transition-colors duration-300`}
+              >
                 <div
-                  className={`pt-1  pb-1  pl-2 pr-2 text-lg font-bold m-auto cursor-pointer flex justify-between items-center ${getSelectedClass(item.view)} rounded transition-colors duration-300`}
+                  className={`pt-1 pb-1 pl-2 pr-2 text-lg font-bold m-auto cursor-pointer flex justify-between items-center ${getSelectedClass(
+                    item.view
+                  )} rounded transition-colors duration-300`}
                   onClick={item.onClick}
                 >
                   {item.icon && (
-                    <div className="inline-flex ml-4" onClick={(e) => { item.onExpandClick(); }}>
+                    <div
+                      className="inline-flex ml-4"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        item.onExpandClick && item.onExpandClick();
+                      }}
+                    >
                       {item.icon}
                     </div>
                   )}
-                  <div className="flex-grow text-center">
-                    {item.label}
-                  </div>
+                  <div className="flex-grow text-center">{item.label}</div>
                   <FaChevronDown className="inline-flex mr-4 text-sm" />
                 </div>
-                <div className={` ${(index === layerToolbarList.length - 1) ? 'mb-32' : 'mb-1'} pt-1 pl-2 pr-2 ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'} transition-all duration-500 ${isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div
+                  className={`${
+                    index === layerToolbarList.length - 1 ? 'mb-32' : 'mb-1'
+                  } pt-1 pl-2 pr-2 ${
+                    item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
+                  } transition-all duration-500 ${
+                    isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
                   {item.content}
                 </div>
               </div>
             </div>
           ))}
-
         </div>
       </div>
     </div>

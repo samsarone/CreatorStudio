@@ -119,7 +119,7 @@ export default function APIKeysPanelContent() {
   };
 
   // If user is not a premium user, show message and upgrade button
-  if (!user || !user.isPremiumUser) {
+  if (!user || (!user.isPremiumUser && !user.isPartnerUser )) {
     return (
       <div
         className={`flex flex-col flex-grow items-center justify-center ${bgColor} ${textColor}`}

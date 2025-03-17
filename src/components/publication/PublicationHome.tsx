@@ -15,7 +15,6 @@ export default function PublicationHome(props) {
   useEffect(() => {
     const headers = getHeaders();
     axios.get(`${API_SERVER}/publications/user_publication?tokenId=${id}`, headers).then((res) => {
-      console.log(res);
       const data = res.data;
       setPublicationData(data);
     });

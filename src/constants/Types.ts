@@ -125,6 +125,11 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     name: 'Google Imagen3 Flash',
     key: 'IMAGEN3FLASH'
   },
+  {
+    name: 'Lumina V2',
+    key: 'LUMINAV2',
+    isExpressModel: true,
+  }
 
 ]
 
@@ -233,7 +238,21 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     supportedAspectRatios: [
       '16:9'
     ]
-  }
+  },
+
+
+  {
+    name: 'Pika2.2 I2V',
+    key: 'PIKA2.2I2V',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    isTextToVidModel: false,
+
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
+
+  },
 
 ];
 
@@ -254,6 +273,15 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     isPromptEnabled: true
 
   },
+
+  {    
+    name: 'Bria BackgroundRemove',
+    key: 'BRIA_BACKGROUNDREMOVE',
+    
+    isPromptEnabled: false
+
+  },
+
 
   {
     name: 'Flux-1 Pro Fill',

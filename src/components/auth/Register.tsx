@@ -22,6 +22,7 @@ export default function Register(props) {
 
   const [error, setError] = useState(null);
   const [isTermsChecked, setIsTermsChecked] = useState(true);
+  const [is18Checked, setIs18Checked] = useState(false);
   const [captchaQuestion, setCaptchaQuestion] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
 
@@ -50,6 +51,10 @@ export default function Register(props) {
       setError('You must agree to the terms and conditions.');
       return;
     }
+    if (!is18Checked) {
+      setError('You must confirm that you are at least 18 years old.');
+      return;
+    }
     const email = evt.target.email.value.trim();
     const password = evt.target.password.value;
     const confirmPassword = evt.target.confirmPassword.value;
@@ -64,7 +69,6 @@ export default function Register(props) {
       return;
     }
 
-
     const payload = { email, password, username };
     registerUserWithEmail(payload);
 
@@ -77,11 +81,15 @@ export default function Register(props) {
       alert('You must agree to the terms and conditions.');
       return;
     }
+    if (!is18Checked) {
+      alert('You must confirm that you are at least 18 years old.');
+      return;
+    }
     registerWithGoogle();
   };
 
   return (
-    <div className={`flex items-center justify-center  p-4 ${formBgColor} ${formTextColor}`}>
+    <div className={`flex items-center justify-center p-4 ${formBgColor} ${formTextColor}`}>
       <div className="w-full max-w-md rounded-lg shadow-lg p-6 pt-2">
         <h2 className="text-2xl font-bold text-center mb-6">Create a new Account</h2>
 
@@ -91,14 +99,11 @@ export default function Register(props) {
           </div>
         )}
 
-
         {/* Register with Google */}
         <button
           type="button"
           onClick={handleRegisterWithGoogle}
-          className="flex items-center justify-center w-full bg-neutral-900
-           text-neutral-100 py-3 rounded-lg mb-4 hover:bg-neutral-800 transition-colors
-           border-2 border-neutral-600"
+          className="flex items-center justify-center w-full bg-neutral-900 text-neutral-100 py-3 rounded-lg mb-4 hover:bg-neutral-800 transition-colors border-2 border-neutral-600"
         >
           <FaGoogle className="mr-2 text-green-500" />
           <span className="font-semibold">Register with Google</span>
@@ -165,28 +170,26 @@ export default function Register(props) {
             />
           </div>
 
-
-
           {/* Terms & Conditions */}
           <div className="flex items-center justify-center mt-4">
             <input
               type="checkbox"
               id="terms-checkbox"
-              className="w-4 h-4 mr-2 "
+              className="w-4 h-4 mr-2"
               checked={isTermsChecked}
               onChange={() => setIsTermsChecked(!isTermsChecked)}
             />
-            <label htmlFor="terms-checkbox" className="text-sm leading-tight ">
-              Agree to our {' '}
+            <label htmlFor="terms-checkbox" className="text-sm leading-tight">
+              Agree to our{' '}
               <a
                 href="https://samsar.one/terms"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline "
+                className="underline"
               >
                 terms
               </a>{' '}
-              and {' '}
+              and{' '}
               <a
                 href="https://samsar.one/privacy"
                 target="_blank"
@@ -199,10 +202,22 @@ export default function Register(props) {
             </label>
           </div>
 
-          <div className='mt-2'>
+          {/* Age Confirmation */}
+          <div className="flex items-center justify-center mt-2">
+            <input
+              type="checkbox"
+              id="age-checkbox"
+              className="w-4 h-4 mr-2"
+              checked={is18Checked}
+              onChange={() => setIs18Checked(!is18Checked)}
+            />
+            <label htmlFor="age-checkbox" className="text-sm leading-tight">
+              You are at-least 18 years old
+            </label>
+          </div>
 
-
-            <LoginButton type="submit" className="w-full ">
+          <div className="mt-2">
+            <LoginButton type="submit" className="w-full">
               Register
             </LoginButton>
           </div>

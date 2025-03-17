@@ -783,7 +783,7 @@ export default function VideoEditorContainer(props) {
         },
       ];
 
-      
+
 
 
       setActiveItemList(nImageList);
@@ -2499,10 +2499,13 @@ export default function VideoEditorContainer(props) {
       showUploadAction={() => {
         setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
         openAlertDialog(
-          <UploadImageDialog
-            setUploadURL={setUploadURL}
-            aspectRatio={aspectRatio}
-          />
+          <div>
+            <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
+            <UploadImageDialog
+              setUploadURL={setUploadURL}
+              aspectRatio={aspectRatio}
+            />
+          </div>
         );
       }}
       pencilWidth={pencilWidth}

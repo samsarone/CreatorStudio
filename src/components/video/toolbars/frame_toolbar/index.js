@@ -1805,6 +1805,14 @@ export default function FrameToolbar(props) {
     )
   }
 
+  const submitDownloadVideo = () => {
+    const a = document.createElement('a');
+    a.href = downloadLink;
+    a.download = `Rendition_${new Date().toISOString()}.mp4`;
+    a.click();
+    
+  }
+
   const dropdownItems = [];
   if (downloadLink) {
     dropdownItems.push({
@@ -1841,15 +1849,15 @@ export default function FrameToolbar(props) {
     
     submitRenderDisplay = (
       <div>
-        <a href={downloadLink} download={`${downloadLink}`}>
+
         <CommonDropdownButton
           mainLabel="Download"
-          onMainClick={submitRenderVideo}
+          onMainClick={submitDownloadVideo}
           isPending={isVideoGenerating}
           dropdownItems={dropdownItems}
           extraClasses="my-extra-class-names"
         />
-        </a>
+     
       </div>
     );
   } else if (downloadLink) {

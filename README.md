@@ -1,11 +1,9 @@
-
 # Creative Suite for Generative Image and Video Synthesis Workflows
 
 ![React](https://img.shields.io/badge/React-20232a?style=for-the-badge&logo=react&logoColor=61dafb)
 ![KonvaJS](https://img.shields.io/badge/KonvaJS-FF6F00?style=for-the-badge&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38b2ac?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)
-
 
 You can choose between one of three workflow creators: **Studio**, **Express**, and **VidGPT**.
 
@@ -83,14 +81,14 @@ Create generative videos via text-to-video or image-to-video workflows. These ba
 
 ![Video Generator](https://samsar-github.s3.us-west-2.amazonaws.com/video.png)
 
-| **Name**                | **Key**              | **isExpressModel** | **isTransitionModel** |
-|-------------------------|----------------------|--------------------|-----------------------|
-| Runway Gen-3           | RUNWAYML             | true               | true                  |
-| Kling 1.6 Pro (Img2Vid) | KLINGIMGTOVIDPRO     | true               | -                     |
-| Luma Ray2              | LUMA                 | true               | true                  |
-| SD Video               | SDVIDEO              | -                  | -                     |
-| Hailuo Minimax O1-Live | HAILUO               | -                  | -                     |
-| Haiper 2.0             | HAIPER2.0            | -                  | -                     |
+| **Name**                 | **Key**                  | **isExpressModel** | **isTransitionModel** |
+|--------------------------|--------------------------|--------------------|-----------------------|
+| Runway Gen-3             | RUNWAYML                 | true               | true                  |
+| Kling 1.6 Pro (Img2Vid)  | KLINGIMGTOVIDPRO         | true               | -                     |
+| Luma Ray2                | LUMA                     | true               | true                  |
+| SD Video                 | SDVIDEO                  | -                  | -                     |
+| Hailuo Minimax O1-Live   | HAILUO                   | -                  | -                     |
+| Haiper 2.0               | HAIPER2.0                | -                  | -                     |
 
 ---
 
@@ -138,40 +136,66 @@ Edit in **Studio** for post-processing or to add/remove scenes.
 ### Image Model Prices
 
 | **Model**     | **1:1** | **16:9** | **9:16** |
-|--------------|--------:|--------:|--------:|
-| DALLE3      | 10      | 15      | 15      |
-| DALLE3HD    | 15      | 18      | 18      |
-| FLUX1PRO    | 10      | 15      | 15      |
-| FLUX1.1PRO  | 10      | 15      | 15      |
-| FLUX1DEV    | 5       | 10      | 10      |
+|---------------|--------:|--------:|--------:|
+| DALLE3        | 10      | 15      | 15      |
+| DALLE3HD      | 15      | 18      | 18      |
+| FLUX1PRO      | 10      | 15      | 15      |
+| FLUX1.1PRO    | 10      | 15      | 15      |
+| FLUX1DEV      | 5       | 10      | 10      |
+| FLUX1.1ULTRA  | 12      | 16      | 16      |
+| RECRAFTV3     | 10      | 15      | 15      |
+| SDV3.5        | 10      | 15      | 15      |
+| SANA          | 5       | 5       | 5       |
+| PHOTON        | 10      | 15      | 15      |
+| PHOTONFLASH   | 5       | 5       | 5       |
+| RECRAFT20B    | 5       | 5       | 5       |
+| IMAGEN3       | 5       | 5       | 5       |
+| IMAGEN3FLASH  | 3       | 3       | 3       |
 
 ### Video Model Prices
 
-| **Model**     | **1:1** | **16:9** | **9:16** | **Units** |
-|--------------|--------:|--------:|--------:|:--------:|
-| LUMA        | -      | 60      | 60      | 5, 9      |
-| RUNWAYML    | -      | 60      | 60      | 5, 10     |
-| HAIPER2.0   | 30     | 30      | 30      | 4, 8      |
+| **Model**               | **1:1** | **16:9** | **9:16** | **Units** |
+|-------------------------|-------:|--------:|--------:|:---------:|
+| LUMA                    | -       | 60      | 60      | 5, 9      |
+| SKYREELSI2V            | -       | 60      | 60      | -         |
+| KLINGTXTTOVIDSTANDARD   | 60      | 60      | 60      | -         |
+| KLINGIMGTOVIDSTANDARD   | 60      | 60      | 60      | -         |
+| KLINGTXTTOVIDPRO        | 60      | 60      | 60      | -         |
+| KLINGIMGTOVIDPRO        | 60      | 60      | 60      | 5, 10     |
+| RUNWAYML                | -       | 60      | 60      | 5, 10     |
+| HAIPER2.0               | 30      | 30      | 30      | 4, 8      |
+| VEO                     | -       | 200     | 200     | 5, 8      |
+| VEOI2V                  | -       | 300     | 300     | 5, 8      |
+| SDVIDEO                 | 15      | 15      | 15      | -         |
+| PIXVERSEI2V             | 60      | 60      | 60      | 5, 8      |
+| HAILUO                  | -       | 60      | -       | -         |
+| SYNCLIPSYNC             | 10      | 10      | 10      | -         |
+| LATENTSYNC              | 10      | 10      | 10      | -         |
+| MMAUDIOV2               | 10      | 10      | 10      | 5, 10     |
+| WANI2V                  | -       | 60      | -       | -         |
+| PIKA2.2I2V              | -       | 40      | 40      | -         |
 
 ### Assistant Model Prices
 
-| **Model** | **Operation Type** | **Tokens** | **Price** |
-|-----------|--------------------|-----------:|----------:|
-| GPT4O     | words              | 1000       | 1         |
-| GPTO1     | words              | 1000       | 6         |
+| **Model**  | **Operation Type** | **Tokens** | **Price** |
+|------------|--------------------|-----------:|----------:|
+| GPT4O      | words             | 1000       | 1         |
+| GPTO1      | words             | 1000       | 6         |
+| GPT4.5O    | words             | 1000       | 6         |
+| GPTO3MIni  | words             | 1000       | 2         |
 
 ### Speech Model Prices
 
-| **Key**  | **Operation Type** | **Tokens** | **Price** |
+| **Key** | **Operation Type** | **Tokens** | **Price** |
 |---------|--------------------|-----------:|----------:|
 | TTS     | words             | 1000       | 1         |
 | TTSHD   | words             | 400        | 1         |
 
 ### Music Model Prices
 
-| **Key**    | **Operation Type** | **Price** |
-|-----------|--------------------|----------:|
-| AUDIOCRAFT | generate_song      | 2         |
+| **Key**      | **Operation Type** | **Price** |
+|--------------|--------------------|----------:|
+| AUDIOCRAFT   | generate_song      | 2         |
 
 ---
 
@@ -182,3 +206,4 @@ Edit in **Studio** for post-processing or to add/remove scenes.
 - **Follow on [X](https://x.com/samsar_one) or [Threads](https://www.threads.net/@samsar_one_videos)**
 
 **Contributions and pull requests are welcome!**
+

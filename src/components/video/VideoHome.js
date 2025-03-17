@@ -67,6 +67,8 @@ export default function VideoHome(props) {
 
   const [downloadLink, setDownloadLink ] = useState(null);
 
+  const [preloadedLayerIds, setPreloadedLayerIds] = useState(new Set());
+  
   let { id } = useParams();
 
   const { user, getUserAPI } = useUser();
@@ -195,32 +197,30 @@ export default function VideoHome(props) {
 
 
 
-  useEffect(() => {
-    if (!layers || layers.length === 0 || !('requestIdleCallback' in window)) return;
-
-  
-    const otherLayers = layers.filter(layer => layer._id !== currentLayer?._id);
-    let index = 0;
-  
-    function scheduleLoad() {
-      if (index >= otherLayers.length) return;
-  
-      requestIdleCallback(() => {
-
-        const layer = otherLayers[index];
-        preloadLayerAiVideoLayer(layer);
-        index++;
-        scheduleLoad(); // schedule the next
-      });
-    }
-  
-    scheduleLoad();
-  }, [layers, currentLayer]);
-
+      // --------------
+  // HELPER: Preload
+  // --------------
+  const preloadVideo = (src, container) => {
+    const videoEl = document.createElement('video');
+    videoEl.src = src;
+    // For truly minimal overhead, consider 'metadata' or 'none'
+    videoEl.preload = 'metadata'; 
+    videoEl.style.display = 'none';
+    container.appendChild(videoEl);
+  };
 
   function preloadLayerAiVideoLayer(layer) {
+    if (!layer) return;
     const hiddenContainer = document.getElementById('hidden-video-container');
     if (!hiddenContainer) return;
+
+    // Don’t re-preload the same layer if we already did
+    if (preloadedLayerIds.has(layer._id)) return;  
+
+    // Mark this layer as preloaded
+    setPreloadedLayerIds((prev) => new Set(prev).add(layer._id));
+
+    // AI video
     if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
       const videoURL = layer.aiVideoRemoteLink
         ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
@@ -228,7 +228,7 @@ export default function VideoHome(props) {
       preloadVideo(videoURL, hiddenContainer);
     }
 
-    // 2) Lip-sync video
+    // Lip sync video
     if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
       const videoURL = layer.lipSyncRemoteLink
         ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
@@ -236,6 +236,7 @@ export default function VideoHome(props) {
       preloadVideo(videoURL, hiddenContainer);
     }
 
+    // Sound effect video
     if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
       const videoURL = layer.soundEffectRemoteLink
         ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
@@ -244,27 +245,77 @@ export default function VideoHome(props) {
     }
   }
 
+  // ----------------------------------------------------------------
+  // 1) Ensure the current layer's video is loaded FIRST (immediately)
+  // ----------------------------------------------------------------
+  useEffect(() => {
+    if (!currentLayer) return;
+    
+    let hiddenContainer = document.getElementById('hidden-video-container');
+    if (!hiddenContainer) {
+      hiddenContainer = document.createElement('div');
+      hiddenContainer.id = 'hidden-video-container';
+      hiddenContainer.style.display = 'none';
+      document.body.appendChild(hiddenContainer);
+    }
 
-  // useEffect(() => {
-  //   if (!layers || layers.length === 0) return;
+    // Preload current layer only
+    preloadLayerAiVideoLayer(currentLayer);
 
-  //   const hiddenContainer = document.getElementById('hidden-video-container');
-  //   if (!hiddenContainer) return;
+  }, [currentLayer]); // every time the current layer changes
 
-  //   layers.forEach((layer) => {
-  //     // 1) AI video
+  // ---------------------------------------------------------------------------
+  // 2) Then load the *nearby* layers (e.g. ±2) using requestIdleCallback (if available)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    // If we have no layers or invalid selection, do nothing
+    if (!layers || layers.length === 0 || selectedLayerIndex == null) return;
 
-  //   });
-  // }, [layers]);
+    // Create container if needed
+    let hiddenContainer = document.getElementById('hidden-video-container');
+    if (!hiddenContainer) {
+      hiddenContainer = document.createElement('div');
+      hiddenContainer.id = 'hidden-video-container';
+      hiddenContainer.style.display = 'none';
+      document.body.appendChild(hiddenContainer);
+    }
 
-  // Helper to create a hidden <video> with preload="auto"
-  const preloadVideo = (src, container) => {
-    const videoEl = document.createElement('video');
-    videoEl.src = src;
-    videoEl.preload = 'auto';
-    videoEl.style.display = 'none';
-    container.appendChild(videoEl);
-  };
+    // Figure out which indices to preload. For example ±2 from current
+    // (Adjust the “2” as needed, or add more advanced logic for your timeline.)
+    const indicesToPreload = [];
+    for (let offset = -2; offset <= 2; offset++) {
+      const idx = selectedLayerIndex + offset;
+      if (idx < 0 || idx >= layers.length) continue;
+      // Already preloaded or it is the current layer?
+      if (idx === selectedLayerIndex) continue;
+      indicesToPreload.push(idx);
+    }
+
+    let i = 0;
+    function scheduleNext() {
+      if (i >= indicesToPreload.length) return;
+      
+      // Use requestIdleCallback if the browser supports it
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(() => {
+          const layerIndex = indicesToPreload[i];
+          preloadLayerAiVideoLayer(layers[layerIndex]);
+          i++;
+          scheduleNext();
+        });
+      } else {
+        // fallback: just do it immediately
+        const layerIndex = indicesToPreload[i];
+        preloadLayerAiVideoLayer(layers[layerIndex]);
+        i++;
+        scheduleNext();
+      }
+    }
+    scheduleNext();
+
+  }, [layers, selectedLayerIndex, preloadedLayerIds]);
+
+
 
 
   useEffect(() => {

@@ -617,21 +617,7 @@ export default function OneshotEditor() {
             <p className="text-white text-xs mt-1">Video Model</p>
           </div>
 
-          {/* SingleSelect: Video Model SubType (only show if model has subTypes) */}
-          {selectedVideoModel?.modelSubTypes && selectedVideoModel.modelSubTypes.length > 0 && (
-            <div className="flex flex-col items-center">
-              <SingleSelect
-                value={selectedVideoModelSubType}
-                onChange={setSelectedVideoModelSubType}
-                options={selectedVideoModel.modelSubTypes.map((sub) => ({
-                  label: sub,
-                  value: sub,
-                }))}
-                className="w-40"
-              />
-              <p className="text-white text-xs mt-1">Video Style</p>
-            </div>
-          )}
+
 
           {/* SingleSelect: Duration */}
           <div className="flex flex-col items-center">
