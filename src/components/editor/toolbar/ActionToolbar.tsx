@@ -3,7 +3,7 @@ import { FaHand } from "react-icons/fa6";
 import { FaDownload, FaExpandArrowsAlt, FaPencilAlt, FaEraser, FaUpload, FaSave, FaCrosshairs } from "react-icons/fa";
 import { CANVAS_ACTION, CURRENT_TOOLBAR_VIEW } from "../../../constants/Types.ts";
 import { HiTemplate } from "react-icons/hi";
-import { useColorMode } from "../../../contexts/ColorMode.js";
+import { useColorMode } from "../../../contexts/ColorMode.jsx";
 
 export default function ActionToolbar(props) {
   const { setCurrentAction, setCurrentViewDisplay, showMoveAction, showResizeAction,

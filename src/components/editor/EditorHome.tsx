@@ -3,12 +3,12 @@ import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
 import { Stage, Layer, Rect, Text } from 'react-konva';
-import { useUser } from '../../contexts/UserContext.js';
-import { useAlertDialog } from '../../contexts/AlertDialogContext.js';
-import { useColorMode } from '../../contexts/ColorMode.js';
-import { getHeaders } from '../../utils/web.js';
+import { useUser } from '../../contexts/UserContext.jsx';
+import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { getHeaders } from '../../utils/web.jsx';
 import { CURRENT_TOOLBAR_VIEW, CANVAS_ACTION } from '../../constants/Types.ts';
-import { STAGE_DIMENSIONS } from '../../constants/Image.js';
+import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
 import SMSCanvas from './SMSCanvas.tsx';
 import EditorToolbar from './toolbar/EditorToolbar.tsx';
 import SelectTemplate from './SelectTemplate.tsx';
@@ -16,13 +16,13 @@ import AttestationDialog from './utils/AttestationDialog.tsx';
 import PublishDialog from './utils/PublishDialog.tsx';
 import CommonContainer from '../common/CommonContainer.tsx';
 import ActionToolbar from './toolbar/ActionToolbar.tsx';
-import UploadImageDialog from './utils/UploadImageDialog.js';
+import UploadImageDialog from './utils/UploadImageDialog.jsx';
 
 import './editor.css';
 
-const PUBLISHER_URL = process.env.REACT_APP_PUBLISHER_URL;
-const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
-const IPFS_URL_BASE = process.env.REACT_APP_IPFS_URL_BASE;
+const PUBLISHER_URL = import.meta.env.VITE_PUBLISHER_URL;
+const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+const IPFS_URL_BASE = import.meta.env.VITE_IPFS_URL_BASE;
 
 export default function EditorHome(props) {
   let { id } = useParams();
@@ -465,7 +465,7 @@ export default function EditorHome(props) {
     }
 
     const creatorAllocation = formData.get("creatorAllocation");
-    const selectedChain = process.env.REACT_APP_SELECTED_CHAIN;
+    const selectedChain = import.meta.env.VITE_SELECTED_CHAIN;
 
     if (canvasRef.current) {
       const originalStage = canvasRef.current.getStage();

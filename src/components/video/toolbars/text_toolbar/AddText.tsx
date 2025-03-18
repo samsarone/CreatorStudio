@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CommonButton from "../../../common/CommonButton.tsx";
-import { useColorMode } from '../../../../contexts/ColorMode.js';
-import SingleSelect from '../../../common/SingleSelect.js';
+import { useColorMode } from '../../../../contexts/ColorMode.jsx';
+import SingleSelect from '../../../common/SingleSelect.jsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import { CgColorPicker } from "react-icons/cg";
 import { HexColorPicker } from "react-colorful";

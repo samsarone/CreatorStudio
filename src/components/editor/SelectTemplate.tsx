@@ -3,8 +3,8 @@ import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import SearchBox from './utils/SearchBox.tsx';
 
 
-const IPFS_URL_BASE = process.env.REACT_APP_IPFS_URL_BASE;
-const API_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const IPFS_URL_BASE = import.meta.env.VITE_IPFS_URL_BASE;
+const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
 export default function SelectTemplate(props) {

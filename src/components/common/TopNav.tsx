@@ -5,27 +5,27 @@ import CommonButton from './CommonButton.tsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
-import MusicLibraryHome from '../library/audio/MusicLibraryHome.js';
+import MusicLibraryHome from '../library/audio/MusicLibraryHome.jsx';
 import { IoMdLogIn } from 'react-icons/io';
 
-import { useColorMode } from '../../contexts/ColorMode.js';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { IoMdWallet } from 'react-icons/io';
 import Login from '../auth/Login.tsx';
 import UpgradePlan from '../payments/UpgradePlan.tsx';
-import AddSessionDropdown from './AddSessionDropdown.js';
+import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
 import { FaTwitter, FaStar } from 'react-icons/fa6';
-import AuthContainer from '../auth/AuthContainer.js';
-import { getHeaders } from '../../utils/web.js';
-import AddCreditsDialog from "../account/AddCreditsDialog.js";
+import AuthContainer from '../auth/AuthContainer.jsx';
+import { getHeaders } from '../../utils/web.jsx';
+import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 
-import CanvasControlBar from '../video/toolbars/CanvasControlBar.js';
+import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
 
-import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.js';
+import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
 
 
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function TopNav(props) {
   const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying } = props;

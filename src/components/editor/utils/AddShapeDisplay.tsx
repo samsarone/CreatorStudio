@@ -7,7 +7,7 @@ import BubbleIcon from '../resources/bubble.svg';
 import BubbleDarkIcon from '../resources/bubble_dark.svg';
 
 
-import { useColorMode } from '../../../contexts/ColorMode.js';
+import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 export default function AddShapeDisplay(props: any) {
   const { setSelectedShape, setStrokeColor, setFillColor, fillColor, strokeColor,

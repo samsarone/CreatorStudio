@@ -1,6 +1,6 @@
 import React from 'react';
 import { useUser } from "../../contexts/UserContext";
-import PublicLanding from "./PublicLanding.tsx";
+
 import CreatorLanding from "./CreatorLanding.tsx";
 import OverflowContainer from '../common/OverflowContainer.tsx';
 

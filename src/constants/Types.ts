@@ -1,5 +1,5 @@
-import { ELEVENLABS_TTS } from './ElevenLabs.js';
-import { PLAY_SPEAKER_TYPES } from './PlayAI.js';
+import { ELEVENLABS_TTS } from './ElevenLabs.jsx';
+import { PLAY_SPEAKER_TYPES } from './PlayAI.jsx';
 
 export const CURRENT_TOOLBAR_VIEW = {
   SHOW_DEFAULT_DISPLAY: 'SHOW_DEFAULT_DISPLAY',

@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+@import "tailwindcss";
+
+
 body {
   margin: 0;
   background-color: #111827;

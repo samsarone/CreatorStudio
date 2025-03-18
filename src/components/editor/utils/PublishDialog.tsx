@@ -1,9 +1,9 @@
 import React from "react";
 import CommonButton from "../../common/CommonButton.tsx";
-import { useColorMode } from "../../../contexts/ColorMode.js";
+import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import { FaAsterisk } from "react-icons/fa";
 
-import { useAlertDialog } from "../../../contexts/AlertDialogContext.js";
+import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 
 export default function PublishDialog(props) {
   const { onSubmit, selectedChain, setSelectedChain, chainList, isPublicationPending } = props;

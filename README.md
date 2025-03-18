@@ -1,9 +1,11 @@
 # Creative Suite for Generative Image and Video Synthesis Workflows
 
 ![React](https://img.shields.io/badge/React-20232a?style=for-the-badge&logo=react&logoColor=61dafb)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![KonvaJS](https://img.shields.io/badge/KonvaJS-FF6F00?style=for-the-badge&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38b2ac?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-CA4245?style=for-the-badge&logo=react-router&logoColor=white)
+
 
 You can choose between one of three workflow creators: **Studio**, **Express**, and **VidGPT**.
 
@@ -26,7 +28,10 @@ A hosted version is available [here](https://app.samsar.one).
 
 3. Run the client on port 3000 for Google OAuth to work.
 
+
 ---
+
+### We have recently migrated from CRA to Vite. Please reset and update your local-source code if you haven't already.
 
 ## Studio Creator
 

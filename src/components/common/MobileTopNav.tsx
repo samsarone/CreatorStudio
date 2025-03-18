@@ -6,17 +6,17 @@ import { useNavigate } from 'react-router-dom';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { IoMdLogIn } from 'react-icons/io';
 import ToggleButton from './ToggleButton.tsx';
-import { useColorMode } from '../../contexts/ColorMode.js';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { IoMdWallet } from 'react-icons/io';
 import Login from '../auth/Login.tsx';
 import UpgradePlan from '../payments/UpgradePlan.tsx';
-import AddSessionDropdown from './AddSessionDropdown.js';
+import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
 import { FaTwitter, FaStar } from 'react-icons/fa6';
-import AuthContainer from '../auth/AuthContainer.js';
-import { getHeaders } from '../../utils/web.js';
+import AuthContainer from '../auth/AuthContainer.jsx';
+import { getHeaders } from '../../utils/web.jsx';
 
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function MobileTopNav(props) {
   const { resetCurrentSession, addCustodyAddress } = props;

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useUser } from '../../contexts/UserContext.js';
-import { getHeaders } from '../../utils/web.js';
+import { useUser } from '../../contexts/UserContext.jsx';
+import { getHeaders } from '../../utils/web.jsx';
 import { FaTimes } from 'react-icons/fa';
-import { useAlertDialog } from '../../contexts/AlertDialogContext.js';
+import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import SecondaryButton from '../common/SecondaryButton.tsx';
 
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function UpgradePlan() {
   const { user } = useUser();

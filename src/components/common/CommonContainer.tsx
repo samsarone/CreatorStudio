@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import TopNav from "./TopNav.tsx";
 import { AlertDialog } from "./AlertDialog.tsx";
 import { useUser } from "../../contexts/UserContext";
-import { getHeaders } from '../../utils/web.js';
+import { getHeaders } from '../../utils/web.jsx';
 
 import axios from 'axios';
-const API_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
 export default function CommonContainer(props) {

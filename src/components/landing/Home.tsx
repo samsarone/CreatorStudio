@@ -12,29 +12,29 @@ import UserAccount from "../account/UserAccount.tsx";
 import ListProduct from "../product/ListProduct.tsx";
 import PublicationHome from "../publication/PublicationHome.tsx";
 import VerificationHome from "../verification/VerificationHome.tsx";
-import VideoHome from "../video/VideoHome.js";
-import MobileVideoHome from "../mobile/MobileVideoHome.js";
+import VideoHome from "../video/VideoHome.jsx";
+import MobileVideoHome from "../mobile/MobileVideoHome.jsx";
 import AppHome from "./AppHome.tsx";
-import { getHeaders } from '../../utils/web.js';
+import { getHeaders } from '../../utils/web.jsx';
 import { useUser } from "../../contexts/UserContext";
-import VideoEditorLandingHome from "../video/VideoEditorLandingHome.js";
-import ListVideoSessions from "../video/sessions/ListVideoSessions.js";
-import QuickEditorContainer from "../quick_editor/QuickEditorContainer.js";
-import EmailVerificationHome from "../verification/EmailVerificationHome.js";
-import OneshotEditorContainer from '../oneshot_editor/OneshotEditorContainer.js';
-import OnshotEditorCreator from '../oneshot_editor/OnshotEditorCreator.js';
-import QuickEditorLandingHome from "../quick_editor/QuickEditorLandingHome.js";
-import MobileVideoLandingHome from "../mobile/MobileVideoLandingHome.js";
-import LoginPage from "../auth/pages/LoginPage.js";
-import RegisterPage from "../auth/pages/RegisterPage.js";
+import VideoEditorLandingHome from "../video/VideoEditorLandingHome.jsx";
+import ListVideoSessions from "../video/sessions/ListVideoSessions.jsx";
+import QuickEditorContainer from "../quick_editor/QuickEditorContainer.jsx";
+import EmailVerificationHome from "../verification/EmailVerificationHome.jsx";
+import OneshotEditorContainer from '../oneshot_editor/OneshotEditorContainer.jsx';
+import OnshotEditorCreator from '../oneshot_editor/OnshotEditorCreator.jsx';
+import QuickEditorLandingHome from "../quick_editor/QuickEditorLandingHome.jsx";
+import MobileVideoLandingHome from "../mobile/MobileVideoLandingHome.jsx";
+import LoginPage from "../auth/pages/LoginPage.jsx";
+import RegisterPage from "../auth/pages/RegisterPage.jsx";
 
-import PaymentsSuccess from "../payments/PaymentsSuccess.js";
-import PaymentsFailure from "../payments/PaymentsFailure.js";
-import CreatePayment from "../payments/CreatePayment.js";
-import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.js";
-import { useColorMode } from "../../contexts/ColorMode.js";
+import PaymentsSuccess from "../payments/PaymentsSuccess.jsx";
+import PaymentsFailure from "../payments/PaymentsFailure.jsx";
+import CreatePayment from "../payments/CreatePayment.jsx";
+import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.jsx";
+import { useColorMode } from "../../contexts/ColorMode.jsx";
 
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function Home() {
   const { getUser, getUserAPI } = useUser();

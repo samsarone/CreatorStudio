@@ -4,7 +4,7 @@ import { getHeaders } from "../../utils/web";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import CommonButton from "../common/CommonButton.tsx";
-const API_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
 export default function PublicationHome(props) {

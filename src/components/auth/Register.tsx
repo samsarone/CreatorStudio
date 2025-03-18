@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaGoogle } from 'react-icons/fa6';
 import LoginButton from './LoginButton.tsx';
-import { useColorMode } from '../../contexts/ColorMode.js';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 import './styles.css'; // Optional: remove if not needed
 
 export default function Register(props) {
