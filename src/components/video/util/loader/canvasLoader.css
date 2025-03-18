@@ -3,8 +3,7 @@
 /* Background styling */
 .loader-background {
 
-  background: radial-gradient(circle at center, #0f172a, #1e293b 70%);
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Muted Loader animation */

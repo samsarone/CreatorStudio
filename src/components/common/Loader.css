@@ -1,11 +1,5 @@
 /* Loader.css */
 
-/* Background styling */
-.loader-background {
-  background: #1e293b; /* Tailwind's gray-800 */
-  background: radial-gradient(circle at center, #0f172a, #1e293b 70%);
-  overflow: hidden;
-}
 
 /* Muted Loader animation */
 .muted-loader {

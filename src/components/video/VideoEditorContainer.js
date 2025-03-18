@@ -29,7 +29,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.js';
-import VideoPreview from './VideoPreview.js';
+
 
 const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
 const STATIC_CDN_URL = process.env.REACT_APP_STATIC_CDN_URL;
@@ -496,9 +496,7 @@ export default function VideoEditorContainer(props) {
     await submitGenerateRequest(payload);
   };
 
-  /********************************
-   *      IMAGE EDIT/OUTPAINT
-   ********************************/
+
   const [selectedEditModelValue, setSelectedEditModelValue] = useState(
     IMAGE_EDIT_MODEL_TYPES.find((model) => model.key === selectedEditModel)
   );

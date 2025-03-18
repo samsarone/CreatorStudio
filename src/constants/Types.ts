@@ -222,9 +222,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'PIXVERSEI2V',
     isImgToVidModel: true,
     isExpressModel: true,
-    modelSubTypes: [
-      'anime', '3d_animation', 'clay', 'comic', 'cyberpunk'
-    ],
     supportedAspectRatios: [
       '16:9', '9:16'
     ]

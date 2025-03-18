@@ -123,6 +123,10 @@ export default function FrameToolbar(props) {
   const [dragAmount, setDragAmount] = useState(0);
 
   const [clipStart, setClipStart] = useState(false);
+  const [clipEnd, setClipEnd] = useState(false);
+
+  const [clipStartValue, setClipStartValue] = useState(0);
+  const [clipEndValue, setClipEndValue] = useState(0);
 
 
 
@@ -328,6 +332,10 @@ export default function FrameToolbar(props) {
     const destinationLayerIndexInLayers = layers.findIndex(
       (layer) => layer._id === destinationLayer._id
     );
+
+    if (movedLayerIndexInLayers === destinationLayerIndexInLayers) {
+      return;
+    }
 
     // Create a new layers array.
     const newLayersOrder = Array.from(layers);
@@ -664,7 +672,11 @@ export default function FrameToolbar(props) {
           pendingDuration != null ? pendingDuration : visibleLayers[visibleLayerIndex].duration;
 
         setStartSelectDurationInFrames(startDuration * 30);
-        setEndSelectDurationInFrames((startDuration + currentLayerDuration) * 30);
+        const endDurationInFrames = (startDuration + currentLayerDuration) * 30;
+
+
+        setEndSelectDurationInFrames(Math.floor(endDurationInFrames));
+
       } else {
         // If the selected layer is not in visibleLayers
         setStartSelectDurationInFrames(0);
@@ -747,7 +759,13 @@ export default function FrameToolbar(props) {
     layer.duration = newDuration;
 
     // Here is where we now include clipStart
-    updateSessionLayer(layer, clipStart);  // <--- pass it along
+    const clipPayload = {
+      clipStart: clipStart,
+      clipEnd: clipEnd,
+      clipStartFrames: clipStartValue,
+      clipEndFrames: clipEndValue,
+    }
+    updateSessionLayer(layer, clipPayload);  // <--- pass it along
 
     if (pendingDuration != null) {
       setPendingDuration(null);
@@ -773,18 +791,32 @@ export default function FrameToolbar(props) {
 
 
   const setSelectedLayerDurationRange = (val) => {
-    // val[0] is the new start frame, val[1] is the new end frame
 
-    // If the start frame changed, set clipStart = true
-    // Otherwise if the end frame changed, set clipStart = false
     const newStartFrame = val[0];
     const newEndFrame = val[1];
 
-    // Compare with previous state (e.g. startSelectDurationInFrames, endSelectDurationInFrames)
+
     if (newStartFrame !== startSelectDurationInFrames) {
       setClipStart(true);
-    } else if (newEndFrame !== endSelectDurationInFrames) {
+      const clipStartValue = Math.floor(newStartFrame - startSelectDurationInFrames);
+
+      setClipStartValue(clipStartValue)
+    } else {
       setClipStart(false);
+    }
+    if (newEndFrame !== endSelectDurationInFrames) {
+
+
+      const clipEndValue = Math.floor(endSelectDurationInFrames - newEndFrame);
+      if (clipEndValue > 0) {
+
+        setClipEnd(true);
+
+        setClipEndValue(clipEndValue)
+      }
+
+    } else {
+      setClipEnd(false);
     }
 
     const newDurationInFrames = newEndFrame - newStartFrame;
@@ -1810,7 +1842,7 @@ export default function FrameToolbar(props) {
     a.href = downloadLink;
     a.download = `Rendition_${new Date().toISOString()}.mp4`;
     a.click();
-    
+
   }
 
   const dropdownItems = [];
@@ -1846,7 +1878,7 @@ export default function FrameToolbar(props) {
 
   if (renderedVideoPath && !isCanvasDirty) {
 
-    
+
     submitRenderDisplay = (
       <div>
 
@@ -1857,7 +1889,7 @@ export default function FrameToolbar(props) {
           dropdownItems={dropdownItems}
           extraClasses="my-extra-class-names"
         />
-     
+
       </div>
     );
   } else if (downloadLink) {

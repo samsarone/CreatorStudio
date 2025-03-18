@@ -18,6 +18,9 @@ import { useUser } from '../../contexts/UserContext.js';
 import { FaCheck } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.js';
 
+import LoadingImageTransparent from './util/LoadingImageTransparent.js';
+
+
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -52,7 +55,7 @@ export default function VideoHome(props) {
   const [displayZoomType, setDisplayZoomType] = useState('fit'); // fit or fill
   const [stageZoomScale, setStageZoomScale] = useState(1);
 
-  const [ sessionMetadata, setSessionMetadata ] = useState(null);
+  const [sessionMetadata, setSessionMetadata] = useState(null);
 
   const [minimalToolbarDisplay, setMinimalToolbarDisplay] = useState(true);
   const [aspectRatio, setAspectRatio] = useState(null);
@@ -63,23 +66,27 @@ export default function VideoHome(props) {
   const [toggleUpdateCurrentLayer, setToggleUpdateCurrentLayer] = useState(false);
   const [currentLayerToBeUpdated, setCurrentLayerToBeUpdated] = useState(-1);
 
-  const [ isVideoPreviewPlaying, setIsVideoPreviewPlaying ] = useState(false);
+  const [isVideoPreviewPlaying, setIsVideoPreviewPlaying] = useState(false);
+  const [isReorderPending, setIsReorderPending] = useState(false);
 
-  const [downloadLink, setDownloadLink ] = useState(null);
+  const [downloadLink, setDownloadLink] = useState(null);
 
   const [preloadedLayerIds, setPreloadedLayerIds] = useState(new Set());
-  
+
   let { id } = useParams();
 
   const { user, getUserAPI } = useUser();
 
   const [isUpdateLayerPending, setIsUpdateLayerPending] = useState(false);
 
+
+  const [ canvasProcessLoading, setCanvasProcessLoading ] = useState(false);
+
   const PROCESSOR_API_URL = process.env.REACT_APP_PROCESSOR_API;
   const STATIC_CDN_URL = process.env.REACT_APP_STATIC_CDN_URL;
-  
 
-  
+
+
 
   useEffect(() => {
     // Reset all state variables
@@ -161,7 +168,7 @@ export default function VideoHome(props) {
 
   useEffect(() => {
     if (!currentLayer) return;
-  
+
     // Create a hidden container if not existing
     let hiddenContainer = document.getElementById('hidden-video-container');
     if (!hiddenContainer) {
@@ -170,7 +177,7 @@ export default function VideoHome(props) {
       hiddenContainer.style.display = 'none';
       document.body.appendChild(hiddenContainer);
     }
-  
+
 
     preloadLayerAiVideoLayer(currentLayer);
 
@@ -178,33 +185,33 @@ export default function VideoHome(props) {
 
 
 
-   
-    const generateMeta = async () => {
 
-      const payload = {
-        sessionId: id,  
-      };
+  const generateMeta = async () => {
 
-      const headers = getHeaders();
-  
-      const resData  = await axios.post(`${PROCESSOR_API_URL}/video_sessions/generate_meta`, payload, headers);
+    const payload = {
+      sessionId: id,
+    };
 
-      const sessionMeta = resData.data;
+    const headers = getHeaders();
 
-      setSessionMetadata(sessionMeta);
-    }
-   
+    const resData = await axios.post(`${PROCESSOR_API_URL}/video_sessions/generate_meta`, payload, headers);
 
+    const sessionMeta = resData.data;
+
+    setSessionMetadata(sessionMeta);
+  }
 
 
-      // --------------
+
+
+  // --------------
   // HELPER: Preload
   // --------------
   const preloadVideo = (src, container) => {
     const videoEl = document.createElement('video');
     videoEl.src = src;
     // For truly minimal overhead, consider 'metadata' or 'none'
-    videoEl.preload = 'metadata'; 
+    videoEl.preload = 'metadata';
     videoEl.style.display = 'none';
     container.appendChild(videoEl);
   };
@@ -215,7 +222,7 @@ export default function VideoHome(props) {
     if (!hiddenContainer) return;
 
     // Don’t re-preload the same layer if we already did
-    if (preloadedLayerIds.has(layer._id)) return;  
+    if (preloadedLayerIds.has(layer._id)) return;
 
     // Mark this layer as preloaded
     setPreloadedLayerIds((prev) => new Set(prev).add(layer._id));
@@ -250,7 +257,7 @@ export default function VideoHome(props) {
   // ----------------------------------------------------------------
   useEffect(() => {
     if (!currentLayer) return;
-    
+
     let hiddenContainer = document.getElementById('hidden-video-container');
     if (!hiddenContainer) {
       hiddenContainer = document.createElement('div');
@@ -294,7 +301,7 @@ export default function VideoHome(props) {
     let i = 0;
     function scheduleNext() {
       if (i >= indicesToPreload.length) return;
-      
+
       // Use requestIdleCallback if the browser supports it
       if ('requestIdleCallback' in window) {
         window.requestIdleCallback(() => {
@@ -359,7 +366,7 @@ export default function VideoHome(props) {
   useEffect(() => {
     if (layerListRequestAdded) {
       if (videoSessionDetails && !videoSessionDetails.isExpressGeneration) {
-      //  pollForLayersUpdate();
+        //  pollForLayersUpdate();
       }
     }
   }, [layerListRequestAdded, layers]);
@@ -536,6 +543,8 @@ export default function VideoHome(props) {
 
 
 
+  
+
   useEffect(() => {
     if (currentLayer && currentLayer.imageSession && currentLayer.imageSession.activeItemList) {
       const activeList = currentLayer.imageSession.activeItemList.map(function (item) {
@@ -603,6 +612,9 @@ export default function VideoHome(props) {
       return;
     }
 
+    setCanvasProcessLoading(true);
+
+
     const newLayerIds = newLayersOrder.map(layer => layer._id);
 
     const reqPayload = {
@@ -622,11 +634,15 @@ export default function VideoHome(props) {
         // Use updateCurrentLayerAndLayerList to update layers and selected layer
         updateCurrentLayerAndLayerList(updatedLayers, updatedLayerIndex);
 
+        setCanvasProcessLoading(false);
+
         setIsCanvasDirty(true); // If needed
       })
       .catch((error) => {
         // Handle error
         console.error('Error updating layers order:', error);
+
+        setCanvasProcessLoading(false);
       });
   };
 
@@ -704,14 +720,14 @@ export default function VideoHome(props) {
           } else {
             videoLink = `${PROCESSOR_API_URL}/${sessionData.videoLink}`;
           }
- 
+
 
           setRenderedVideoPath(`${videoLink}`);
           setDownloadVideoDisplay(true);
           setIsVideoGenerating(false);
           setIsCanvasDirty(false);
           setDownloadLink(videoLink);
-        
+
         }
       });
     }, 3000);
@@ -1292,6 +1308,7 @@ export default function VideoHome(props) {
       return;
     }
 
+    setCanvasProcessLoading(true);
 
     const currentLayerIndex = layers.findIndex(layer => layer._id === currentLayer._id);
 
@@ -1314,6 +1331,10 @@ export default function VideoHome(props) {
 
       updateCurrentLayerAndLayerList(newLayers, newLayerIndex);
       setIsCanvasDirty(true);
+      setCanvasProcessLoading(false);
+    }).catch(function(err) {
+      console.error('Error adding layer:', err);
+      setCanvasProcessLoading(false);
     });
   }
 
@@ -1349,7 +1370,7 @@ export default function VideoHome(props) {
     });
   };
 
-  const updateSessionLayer = (newLayer, clipStart = false) => {
+  const updateSessionLayer = (newLayer, clipPayload) => {
     setIsUpdateLayerPending(true);
     const headers = getHeaders();
     if (!headers) {
@@ -1360,9 +1381,12 @@ export default function VideoHome(props) {
     const reqPayload = {
       sessionId: id,
       layer: newLayer,
-      clipStart: clipStart,
+      clipData: clipPayload
     };
 
+
+    console.log(clipPayload);
+    
 
 
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layer`, reqPayload, headers).then((response) => {
@@ -1390,6 +1414,7 @@ export default function VideoHome(props) {
       showLoginDialog();
       return;
     }
+    setCanvasProcessLoading(true);
 
     const layerId = layers[layerIndex]._id.toString();
     const reqPayload = {
@@ -1405,7 +1430,11 @@ export default function VideoHome(props) {
       setCurrentLayer(updatedLayers[newLayerIndex]);
       setSelectedLayerIndex(newLayerIndex);
       setIsCanvasDirty(true);
-    });
+      setCanvasProcessLoading(false);
+    }).catch(function(err) {
+      console.error('Error removing layer:', err);
+      setCanvasProcessLoading(false);
+    })
   }
 
   const publishVideoSession = (payload) => {
@@ -1420,7 +1449,7 @@ export default function VideoHome(props) {
     const payloadTags = payload.tags.split(',');
     payload.tags = payloadTags;
     payload.aspectRatio = aspectRatio;
-    
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/publish_session`, payload, headers).then((dataRes) => {
       const sessionData = dataRes.data;
       setVideoSessionDetails(sessionData);
@@ -1683,10 +1712,13 @@ export default function VideoHome(props) {
 
   const regenerateVideoSessionSubtitles = () => {
     const headers = getHeaders();
+    setCanvasProcessLoading(true);
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/request_regenerate_subtitles`, { sessionId: id, realignAudio: true }, headers).then((response) => {
       const videoSessionData = response.data;
       setVideoSessionDetails(videoSessionData);
       setIsCanvasDirty(true);
+      setCanvasProcessLoading(false);
     });
   }
 
@@ -1769,9 +1801,10 @@ export default function VideoHome(props) {
   if (displayZoomType === 'fill') {
     return (
       <CommonContainer
-      isVideoPreviewPlaying={isVideoPreviewPlaying}
-      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        isVideoPreviewPlaying={isVideoPreviewPlaying}
+        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       >
+
         <div className='m-auto'>
           <div className='block'>
             {frameToolbarDisplay}
@@ -1831,12 +1864,17 @@ export default function VideoHome(props) {
 
 
 
+
+  const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
+
   return (
     <CommonContainer
-    isVideoPreviewPlaying={isVideoPreviewPlaying}
-    setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+      isVideoPreviewPlaying={isVideoPreviewPlaying}
+      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
 
     >
+
+
 
       <div className='m-auto'>
         <div className='block'>
@@ -1904,6 +1942,12 @@ export default function VideoHome(props) {
           </div>
           <div className='w-[90%] bg-cyber-black inline-block'>
 
+            { canvasProcessLoading && (
+              <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">
+                <LoadingImageTransparent />
+      
+              </div>
+            )}
             <VideoEditorContainer
               selectedLayerIndex={selectedLayerIndex}
               layers={layers}
@@ -1944,7 +1988,7 @@ export default function VideoHome(props) {
               isUpdateLayerPending={isUpdateLayerPending}
               isVideoPreviewPlaying={isVideoPreviewPlaying}
 
-            
+
             />
           </div>
           <AssistantHome
