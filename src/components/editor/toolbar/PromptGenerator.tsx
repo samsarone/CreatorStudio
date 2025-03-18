@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import { IMAGE_GENERAITON_MODEL_TYPES } from "../../../constants/Types.ts";
-import { useColorMode } from "../../../contexts/ColorMode.js";
+import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import TextareaAutosize from 'react-textarea-autosize';
 
 export default function PromptGenerator(props) {

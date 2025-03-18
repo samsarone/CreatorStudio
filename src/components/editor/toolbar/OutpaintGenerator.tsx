@@ -1,8 +1,8 @@
 import React from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import { IMAGE_EDIT_MODEL_TYPES } from "../../../constants/Types.ts";
-import { useColorMode } from "../../../contexts/ColorMode.js";
-import RangeSlider from '../../editor/utils/RangeSlider.js';
+import { useColorMode } from "../../../contexts/ColorMode.jsx";
+import RangeSlider from '../../editor/utils/RangeSlider.jsx';
 
 export default function OutpaintGenerator(props) {
   const { promptText, setPromptText, submitOutpaintRequest,

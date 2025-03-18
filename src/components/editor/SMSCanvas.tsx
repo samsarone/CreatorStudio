@@ -4,19 +4,19 @@ import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import { useImage } from 'react-konva-utils';
 import ResizableImage from "./ResizableImage.tsx";
 import ResizableText from "./ResizableText.tsx";
-import { STAGE_DIMENSIONS } from '../../constants/Image.js';
+import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
 import ResizableRectangle from "./shapes/ResizableRectangle.tsx";
 import ResizablePolygon from "./shapes/ResizablePolygon.tsx";
 import ResizableCircle from "./shapes/ResizableCircle.tsx";
 import ResizableDialogBubble from "./shapes/ResizableDialogBubble.tsx";
-import { useColorMode } from '../../contexts/ColorMode.js';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { FaChevronCircleDown, FaChevronCircleUp } from "react-icons/fa";
-import ImageToolbar from './utils/LayerToolbar/ImageToolbar.js';
-import TextToolbar from './utils/LayerToolbar/TextToolbar.js';
-import ShapeToolbar from './utils/LayerToolbar/ShapeToolbar.js';
-import SimpleImage from "./items/SimpleImage.js";
+import ImageToolbar from './utils/LayerToolbar/ImageToolbar.jsx';
+import TextToolbar from './utils/LayerToolbar/TextToolbar.jsx';
+import ShapeToolbar from './utils/LayerToolbar/ShapeToolbar.jsx';
+import SimpleImage from "./items/SimpleImage.jsx";
 
-const IMAGE_BASE = `${process.env.REACT_APP_PROCESSOR_API}`;
+const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
 
 const SELECTABLE_TYPES = ['SHOW_DEFAULT_DISPLAY', 'SHOW_CURSOR_SELECT_DISPLAY'];
 const SMSCanvas = forwardRef((props: any, ref: any) => {

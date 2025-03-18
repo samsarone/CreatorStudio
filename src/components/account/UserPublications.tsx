@@ -3,8 +3,8 @@ import axios from 'axios';
 import { getHeaders } from '../../utils/web';
 import { useNavigate } from 'react-router-dom';
 
-const API_SERVER = process.env.REACT_APP_PROCESSOR_API;
-const IPFS_BASE = process.env.REACT_APP_IPFS_BASE;
+const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const IPFS_BASE = import.meta.env.VITE_IPFS_BASE;
 
 export default function UserPublications() {
   const [ publicationList, setPublicationList ] = useState([]);

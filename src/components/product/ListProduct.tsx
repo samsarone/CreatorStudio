@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import FrameActionButton from "../common/FrameActionButton.js";
+import FrameActionButton from "../common/FrameActionButton.jsx";
 
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function ListProduct() {
   const [productList, setProductList] = useState([]);

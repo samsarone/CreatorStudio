@@ -2,9 +2,9 @@ import React from 'react';
 import ListSessions from '../product/ListSessions.tsx';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '../../contexts/UserContext.js';
+import { useUser } from '../../contexts/UserContext.jsx';
 
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function CreatorLanding(props) {
 

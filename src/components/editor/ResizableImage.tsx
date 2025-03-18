@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Image, Transformer, Group, Text } from 'react-konva';
 import { useImage } from 'react-konva-utils';
-import { getScalingFactor } from '../../utils/image.js';
-import { getStageDimensions} from '../../constants/Image.js';
+import { getScalingFactor } from '../../utils/image.jsx';
+import { getStageDimensions} from '../../constants/Image.jsx';
 
-const IMAGE_BASE = `${process.env.REACT_APP_PROCESSOR_API}`;
+const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
 
 export default function ResizableImage({
   image,

@@ -6,25 +6,25 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 import CommonContainer from "../common/CommonContainer.tsx";
-import { useColorMode } from "../../contexts/ColorMode.js";
-import { useUser } from "../../contexts/UserContext.js";
+import { useColorMode } from "../../contexts/ColorMode.jsx";
+import { useUser } from "../../contexts/UserContext.jsx";
 import SecondaryButton from "../common/SecondaryButton.tsx";
-import { useAlertDialog } from "../../contexts/AlertDialogContext.js";
-import AddCreditsDialog from "./AddCreditsDialog.js";
+import { useAlertDialog } from "../../contexts/AlertDialogContext.jsx";
+import AddCreditsDialog from "./AddCreditsDialog.jsx";
 import UpgradePlan from "../payments/UpgradePlan.tsx";
-import { getHeaders } from "../../utils/web.js";
-import MusicPanelContent from "./MusicPanelContent.js";
-import ImagePanelContent from "./ImagePanelContent.js";
-import SettingsPanelContent from "./SettingsPanelContent.js";
-import BillingPanelContent from "./BillingPanelContent.js";
+import { getHeaders } from "../../utils/web.jsx";
+import MusicPanelContent from "./MusicPanelContent.jsx";
+import ImagePanelContent from "./ImagePanelContent.jsx";
+import SettingsPanelContent from "./SettingsPanelContent.jsx";
+import BillingPanelContent from "./BillingPanelContent.jsx";
 import ToggleButton from "../common/ToggleButton.tsx";
-import SceneLibraryHome from "../library/aivideo/SceneLibraryHome.js";
+import SceneLibraryHome from "../library/aivideo/SceneLibraryHome.jsx";
 import OverflowContainer from "../common/OverflowContainer.tsx";
-import APIKeysPanelContent from "./APIKeysPanelContent.js";
-import SingleSelect from "../common/SingleSelect.js";
+import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
+import SingleSelect from "../common/SingleSelect.jsx";
 
 import { INFERENCE_MODEL_TYPES } from "../../constants/Types.ts";
-const PROCESSOR_SERVER = process.env.REACT_APP_PROCESSOR_API;
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 // Add Montserrat or any additional fonts to the list:
 const fontOptions = [

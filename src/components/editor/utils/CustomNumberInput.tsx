@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaMinus , FaPlus } from "react-icons/fa";
-import { useColorMode } from '../../../contexts/ColorMode.js';
+import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 export default function CustomNumberInput(props) {
   const { value, setValue } = props;
