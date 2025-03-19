@@ -15,6 +15,7 @@ import {
 import AudioOptionsDialog from '../audio/AudioOptionsDialog.jsx';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import CommonDropdownButton from "../../../common/CommonDropdownButton.tsx";
+import PublicPrimaryButton from '../../../common/buttons/PrimaryPublicButton.tsx';
 
 import ReactDOM from 'react-dom';
 
@@ -48,7 +49,6 @@ export default function FrameToolbar(props) {
     currentLayerSeek,
     setCurrentLayerSeek,
     isLayerSeeking,
-    downloadVideoDisplay,
     renderedVideoPath,
     sessionId,
     updateSessionLayer,
@@ -80,9 +80,8 @@ export default function FrameToolbar(props) {
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
     publishVideoSession,
-    generateMeta,
+    isGuestSession,
 
-    sessionMetadata,
 
   } = props;
 
@@ -1868,6 +1867,9 @@ export default function FrameToolbar(props) {
     },
   });
 
+
+  console.log("IS GUEST SESSION " + isGuestSession);
+
   let submitRenderDisplay = (
     <div>
       <CommonButton onClick={submitRenderVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
@@ -1876,35 +1878,45 @@ export default function FrameToolbar(props) {
     </div>
   );
 
-  if (renderedVideoPath && !isCanvasDirty) {
-
-
+  if (isGuestSession && downloadLink) {
     submitRenderDisplay = (
       <div>
-
-        <CommonDropdownButton
-          mainLabel="Download"
-          onMainClick={submitDownloadVideo}
-          isPending={isVideoGenerating}
-          dropdownItems={dropdownItems}
-          extraClasses="my-extra-class-names"
-        />
-
+        <PublicPrimaryButton onClick={submitDownloadVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
+          Download
+        </PublicPrimaryButton>
       </div>
-    );
-  } else if (downloadLink) {
-    submitRenderDisplay = (
-      <div className="relative inline-block text-left">
-        <CommonDropdownButton
-          mainLabel="Render"
-          onMainClick={submitRenderVideo}
-          isPending={isVideoGenerating}
-          dropdownItems={dropdownItems}
-          extraClasses="my-extra-class-names"
-        />
-      </div>
-    );
+    )
+  } else {
+    if (renderedVideoPath && !isCanvasDirty) {
 
+
+      submitRenderDisplay = (
+        <div>
+
+          <CommonDropdownButton
+            mainLabel="Download"
+            onMainClick={submitDownloadVideo}
+            isPending={isVideoGenerating}
+            dropdownItems={dropdownItems}
+            extraClasses="my-extra-class-names"
+          />
+
+        </div>
+      );
+    } else if (downloadLink) {
+      submitRenderDisplay = (
+        <div className="relative inline-block text-left">
+          <CommonDropdownButton
+            mainLabel="Render"
+            onMainClick={submitRenderVideo}
+            isPending={isVideoGenerating}
+            dropdownItems={dropdownItems}
+            extraClasses="my-extra-class-names"
+          />
+        </div>
+      );
+
+    }
   }
 
 

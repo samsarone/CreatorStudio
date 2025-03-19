@@ -62,6 +62,8 @@ export default function VideoHome(props) {
 
   const [applyAudioDucking, setApplyAudioDucking] = useState(true);
 
+  const [isGuestSession, setIsGuestSession] = useState(false);
+
   // update current layer on update layers
   const [toggleUpdateCurrentLayer, setToggleUpdateCurrentLayer] = useState(false);
   const [currentLayerToBeUpdated, setCurrentLayerToBeUpdated] = useState(-1);
@@ -337,6 +339,7 @@ export default function VideoHome(props) {
 
   const showLoginDialog = () => {
     const loginComponent = (
+
       <AuthContainer />
     );
     openAlertDialog(loginComponent);
@@ -456,6 +459,7 @@ export default function VideoHome(props) {
         setAudioFileTrack(audioFileTrack);
       }
       setVideoSessionDetails(sessionDetails);
+      setIsGuestSession(sessionDetails.isGuestSession);
       const layers = sessionDetails.layers;
       setLayers(layers);
       setCurrentLayer(layers[0]);
@@ -754,16 +758,26 @@ export default function VideoHome(props) {
   }, [layers, selectedLayerIndex]);
 
   const submitRenderVideo = () => {
-    const headers = getHeaders();
-    if (!headers) {
-      showLoginDialog();
-      return;
-    }
 
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, { id: id }, headers).then((dataRes) => {
-      setIsVideoGenerating(true);
-      startVideoRenderPoll();
-    });
+    if (isGuestSession) {
+      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, { id: id }).then((dataRes) => {
+        setIsVideoGenerating(true);
+        startVideoRenderPoll();
+      });
+
+    } else {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return;
+      }
+
+
+      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, { id: id }, headers).then((dataRes) => {
+        setIsVideoGenerating(true);
+        startVideoRenderPoll();
+      });
+    }
   }
 
   const setLayerDuration = (value, index) => {
@@ -1831,7 +1845,7 @@ export default function VideoHome(props) {
           onLayersOrderChange={updateSessionLayersOrder}
           updateSessionLayersOnServer={updateSessionLayersOnServer}
           updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
-
+          isGuestSession={isGuestSession}
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
           publishVideoSession={publishVideoSession}
           generateMeta={generateMeta}
@@ -1924,6 +1938,7 @@ export default function VideoHome(props) {
               publishVideoSession={publishVideoSession}
               generateMeta={generateMeta}
               sessionMetadata={sessionMetadata}
+              isGuestSession={isGuestSession}
             />
           </div>
           <div className='w-[90%] bg-cyber-black inline-block'>
