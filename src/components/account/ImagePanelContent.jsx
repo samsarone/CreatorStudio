@@ -57,7 +57,7 @@ export default function ImagePanelContent(props) {
               className="w-64 h-64 object-cover"
             />
             <p className="mt-2 text-sm text-gray-700">
-              {image.prompt.split(' ').slice(0, 4).join(' ')}...
+              {image.prompt ? `${image.prompt.split(' ').slice(0, 4).join(' ')}...` : ''}
             </p>
           </div>
         ))}

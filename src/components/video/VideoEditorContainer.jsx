@@ -66,6 +66,7 @@ export default function VideoEditorContainer(props) {
     isUpdateLayerPending,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    audioLayers,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -186,38 +187,121 @@ export default function VideoEditorContainer(props) {
   }, [aiVideoPollType]);
 
 
-  useEffect(() => {
-    if (!isVideoPreviewPlaying) return;
 
+
+
+
+
+  const audioRefs = useRef([]);  // Each element: { audio: HTMLAudioElement, startTime, endTime, ... }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  useEffect(() => {
+
+    audioRefs.current = audioLayers.map((layer) => {
+
+
+      const rawVolume = (layer.volume ?? 100) / 100;
+      const clampedVolume = clamp(rawVolume, 0, 1);     // ensures 0 <= volume <= 1
+
+      const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+
+      const audioUrl = `${PROCESSOR_API_URL}/${layer.selectedLocalAudioLink}`;
+
+      const audioEl = new Audio(audioUrl);
+      audioEl.preload = "auto";
+      audioEl.volume = clampedVolume;                  // assign the safe, clamped volume
+
+      return {
+        audio: audioEl,
+        startTime: layer.startTime,
+        endTime: layer.endTime,
+      };
+    });
+
+    // On cleanup, make sure to stop and unload
+    return () => {
+      audioRefs.current.forEach(({ audio }) => {
+        audio.pause();
+        audio.src = "";
+      });
+    };
+  }, [audioLayers]);
+
+
+  useEffect(() => {
+    // If we stop playing, pause all audio
+    if (!isVideoPreviewPlaying) {
+      audioRefs.current.forEach(({ audio }) => {
+        audio.pause();
+        // Optionally reset to 0
+        // audio.currentTime = 0;
+      });
+      return;
+    }
+
+    // If we *start* playing:
     const fps = 30;
-    let frame = currentLayerSeek;                  // Start from current position
-    const endFrame = Math.floor(totalDuration * fps);
+    let frame = currentLayerSeek;
+    const totalFrames = Math.floor(totalDuration * fps);
 
     const intervalId = setInterval(() => {
-      // If we've reached or exceeded the total frames, stop.
-      if (frame >= endFrame) {
+      // If we go beyond total frames, stop
+      if (frame >= totalFrames) {
+
         clearInterval(intervalId);
-        if (setIsVideoPreviewPlaying) {
-          setIsVideoPreviewPlaying(false);           // Turn off preview
-        }
+        setIsVideoPreviewPlaying(false);
         return;
       }
-      // Otherwise, increment
+
+      // Update the current frame
       frame++;
-      // Update parent's "currentLayerSeek"
-      // (Make sure you have a setter for that in the props)
+      // Update your "global" preview time in frames
       props.setCurrentLayerSeek(frame);
+
+      // Convert frames -> seconds
+      const previewTime = frame / fps;
+
+      // Sync each audio
+      audioRefs.current.forEach(({ audio, startTime, endTime }) => {
+
+
+        if (previewTime >= startTime && previewTime < endTime) {
+          const newCurrent = previewTime - startTime;
+          // If not playing, start playing
+          if (audio.paused) {
+            try {
+              audio.play();
+            } catch (err) {
+              console.log(err);
+            }
+          }
+
+          // Keep the audio's time in sync 
+          // (only if drifting too far, to avoid choppy re-seeks)
+          if (Math.abs(audio.currentTime - newCurrent) > 0.3) {
+            audio.currentTime = newCurrent;
+          }
+        } else {
+          // Pause if out of range
+          if (!audio.paused) {
+            audio.pause();
+          }
+        }
+      });
     }, 1000 / fps);
 
-    // Cleanup on unmount or if `isVideoPreviewPlaying` changes
     return () => clearInterval(intervalId);
   }, [
     isVideoPreviewPlaying,
     currentLayerSeek,
     totalDuration,
-    props,
-    setIsVideoPreviewPlaying
+    props,              // includes setCurrentLayerSeek
+    setIsVideoPreviewPlaying,
   ]);
+
 
 
   // Preload hidden <video> once we set aiVideoLayer

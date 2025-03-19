@@ -1,5 +1,6 @@
 import React from "react";
 import SecondaryButton from "../../common/SecondaryButton.tsx";
+import SecondaryPublicButton from "../../common/buttons/SecondaryPublicButton.tsx";
 import { useNavigate } from "react-router-dom";
 import { FaExpandArrowsAlt, FaDownload, FaTimes } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
@@ -127,6 +128,8 @@ export default function CanvasControlBar(props) {
     );
   }
 
+  console.log("IS PREVIEW PLAYING " + isVideoPreviewPlaying);
+
   return (
     <div className="h-[25px] md:mt-[-10px] md:mb-[10px] relative flex justify-center" style={{ zIndex: 5 }}>
 
@@ -156,9 +159,9 @@ export default function CanvasControlBar(props) {
 
 
         <div>
-          <SecondaryButton onClick={showPlayPause}>
+          <SecondaryPublicButton onClick={showPlayPause}>
             {isVideoPreviewPlaying ? <><FaPause className="text-xs inline-flex mr-1" /> Pause</> : <><FaPlay className="text-xs inline-flex mr-1" /> Play</>}
-          </SecondaryButton>
+          </SecondaryPublicButton>
         </div>
 
 
