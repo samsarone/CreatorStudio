@@ -7,6 +7,7 @@ import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getHeaders } from '../../utils/web.jsx';
+import { FaTimes } from 'react-icons/fa';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -14,7 +15,7 @@ export default function AuthContainer(props) {
   const { initView } = props;
 
   const [error, setError] = useState('');
-  
+
   useEffect(() => {
     if (initView) {
       if (initView === 'register') {
@@ -60,7 +61,7 @@ export default function AuthContainer(props) {
         const googleAuthUrl = authPayload.loginUrl;
 
         localStorage.setItem("setShowSetPaymentFlow", true);
-        
+
         window.location.href = googleAuthUrl; // Redirect to Google OAuth
       })
       .catch((error) => {
@@ -111,25 +112,27 @@ export default function AuthContainer(props) {
 
 
     axios.post(`${PROCESSOR_SERVER}/users/register`, payload)
-    .then((dataRes) => {
-      const userData = dataRes.data;
-      const authToken = userData.authToken;
-      localStorage.setItem('authToken', authToken);
-      setUser(userData);
-      closeAlertDialog();
-      getOrCreateUserSession();
+      .then((dataRes) => {
+        const userData = dataRes.data;
+        const authToken = userData.authToken;
+        localStorage.setItem('authToken', authToken);
+        setUser(userData);
+        closeAlertDialog();
+        getOrCreateUserSession();
 
-      localStorage.setItem("setShowSetPaymentFlow", true);
-    })
-    .catch((error) => {
-      console.error('Error during user registration:', error);
-      setError('Unable to register user');
-    });
+        localStorage.setItem("setShowSetPaymentFlow", true);
+      })
+      .catch((error) => {
+        console.error('Error during user registration:', error);
+        setError('Unable to register user');
+      });
 
   }
 
+  let authoComponent;
+
   if (currentLoginView === 'login') {
-    return (
+    authoComponent = (
       <Login
         setCurrentLoginView={setCurrentLoginView}
         signInWithGoogle={signInWithGoogle}
@@ -141,23 +144,31 @@ export default function AuthContainer(props) {
       />
     );
   } else if (currentLoginView === 'forgotPassword') {
-    return (
+    authoComponent = (
       <ForgotPassword
         setCurrentLoginView={setCurrentLoginView}
         closeAlertDialog={closeAlertDialog}
       />
     );
+  } else {
+    authoComponent = (
+      <Register
+        setCurrentLoginView={setCurrentLoginView}
+        registerWithGoogle={registerWithGoogle}
+        verifyAndSetUserProfile={verifyAndSetUserProfile}
+        setUser={setUser}
+        getOrCreateUserSession={getOrCreateUserSession}
+        closeAlertDialog={closeAlertDialog}
+        registerUserWithEmail={registerUserWithEmail}
+        showLoginButton={true}
+      />
+    );
   }
+
   return (
-    <Register
-      setCurrentLoginView={setCurrentLoginView}
-      registerWithGoogle={registerWithGoogle}
-      verifyAndSetUserProfile={verifyAndSetUserProfile}
-      setUser={setUser}
-      getOrCreateUserSession={getOrCreateUserSession}
-      closeAlertDialog={closeAlertDialog}
-      registerUserWithEmail={registerUserWithEmail}
-      showLoginButton={true}
-    />
-  );
+    <div>
+            <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
+      {authoComponent}
+    </div>
+  )
 }
