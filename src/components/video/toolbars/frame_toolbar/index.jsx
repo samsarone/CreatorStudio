@@ -2104,11 +2104,11 @@ export default function FrameToolbar(props) {
 
   return (
     <div
-      className={`border-r-2 ${bgColor} shadow-lg m-auto fixed top-0 ${containerWdidth} ${textColor}
-       text-left left-0 toolbar-container border-stone-600`}
+      className={` shadow-lg m-auto fixed top-0 ${containerWdidth} ${textColor}
+       text-left left-0 toolbar-container `}
     >
       <div className={`${mtContainer}`}>
-        <div className='w-full pb-1'>
+        <div className={`w-full pb-1 border-r-2 ${bgColor} border-stone-600`}>
           <div>
             <div className=' m-auto text-center'>
               {layerActionCurrentView}

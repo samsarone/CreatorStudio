@@ -80,7 +80,7 @@ export default function VideoHome(props) {
   const [isUpdateLayerPending, setIsUpdateLayerPending] = useState(false);
 
 
-  const [ canvasProcessLoading, setCanvasProcessLoading ] = useState(false);
+  const [canvasProcessLoading, setCanvasProcessLoading] = useState(false);
 
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
   const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
@@ -543,7 +543,7 @@ export default function VideoHome(props) {
 
 
 
-  
+
 
   useEffect(() => {
     if (currentLayer && currentLayer.imageSession && currentLayer.imageSession.activeItemList) {
@@ -1332,7 +1332,7 @@ export default function VideoHome(props) {
       updateCurrentLayerAndLayerList(newLayers, newLayerIndex);
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
-    }).catch(function(err) {
+    }).catch(function (err) {
       console.error('Error adding layer:', err);
       setCanvasProcessLoading(false);
     });
@@ -1386,7 +1386,7 @@ export default function VideoHome(props) {
 
 
     console.log(clipPayload);
-    
+
 
 
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layer`, reqPayload, headers).then((response) => {
@@ -1431,7 +1431,7 @@ export default function VideoHome(props) {
       setSelectedLayerIndex(newLayerIndex);
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
-    }).catch(function(err) {
+    }).catch(function (err) {
       console.error('Error removing layer:', err);
       setCanvasProcessLoading(false);
     })
@@ -1723,9 +1723,54 @@ export default function VideoHome(props) {
   }
 
 
+  const editorContainerDisplay = (
+    <VideoEditorContainer
+      selectedLayerIndex={selectedLayerIndex}
+      layers={layers}
+      key={`layer_canvas_${selectedLayerIndex}`}
+      currentLayerSeek={currentLayerSeek}
+      currentEditorView={currentEditorView}
+      setCurrentEditorView={setCurrentEditorView}
+      toggleFrameDisplayType={toggleFrameDisplayType}
+      setFrameEditDisplay={setFrameEditDisplay}
+      currentLayer={currentLayer}
+      setCurrentLayerSeek={setCurrentLayerSeek}
+      updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
+      updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
+      activeItemList={activeItemList}
+      setActiveItemList={setActiveItemList}
+      isLayerSeeking={isLayerSeeking}
+      showAddAudioToProjectDialog={showAddAudioToProjectDialog}
+      generationImages={generationImages}
+      setGenerationImages={setGenerationImages}
+      updateCurrentActiveLayer={updateCurrentActiveLayer}
+      videoSessionDetails={videoSessionDetails}
+      setVideoSessionDetails={setVideoSessionDetails}
+      toggleHideItemInLayer={toggleHideItemInLayer}
+      updateLayerMask={updateLayerMask}
+      resetLayerMask={resetLayerMask}
+      pollForLayersUpdate={pollForLayersUpdate}
+      setIsCanvasDirty={setIsCanvasDirty}
+      updateCurrentLayer={updateCurrentLayer}
+      applyAnimationToAllLayers={applyAnimationToAllLayers}
+      isExpressGeneration={videoSessionDetails.isExpressGeneration}
+      aspectRatio={videoSessionDetails.aspectRatio}
+      displayZoomType={displayZoomType}
+      toggleStageZoom={toggleStageZoom}
+      stageZoomScale={stageZoomScale}
+      updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
+      updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
+      totalDuration={totalDuration}
+      isUpdateLayerPending={isUpdateLayerPending}
+      isVideoPreviewPlaying={isVideoPreviewPlaying}
+      audioLayers={audioLayers}
+      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+
+    />
+  );
+
 
   let frameToolbarDisplay = null;
-
 
   if (minimalToolbarDisplay) {
     frameToolbarDisplay = (
@@ -1790,10 +1835,7 @@ export default function VideoHome(props) {
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
           publishVideoSession={publishVideoSession}
           generateMeta={generateMeta}
-
           sessionMetadata={sessionMetadata}
-
-
         />
       </div>
     )
@@ -1804,52 +1846,11 @@ export default function VideoHome(props) {
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       >
-
         <div className='m-auto'>
           <div className='block'>
             {frameToolbarDisplay}
             <div className='w-[98%] bg-cyber-black inline-block'>
-
-              <VideoEditorContainer
-                selectedLayerIndex={selectedLayerIndex}
-                layers={layers}
-                key={`layer_canvas_${selectedLayerIndex}`}
-                currentLayerSeek={currentLayerSeek}
-                currentEditorView={currentEditorView}
-                setCurrentEditorView={setCurrentEditorView}
-                toggleFrameDisplayType={toggleFrameDisplayType}
-                setFrameEditDisplay={setFrameEditDisplay}
-                currentLayer={currentLayer}
-                setCurrentLayerSeek={setCurrentLayerSeek}
-                updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
-                updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
-                activeItemList={activeItemList}
-                setActiveItemList={setActiveItemList}
-                isLayerSeeking={isLayerSeeking}
-                showAddAudioToProjectDialog={showAddAudioToProjectDialog}
-                generationImages={generationImages}
-                setGenerationImages={setGenerationImages}
-                updateCurrentActiveLayer={updateCurrentActiveLayer}
-                videoSessionDetails={videoSessionDetails}
-                setVideoSessionDetails={setVideoSessionDetails}
-                toggleHideItemInLayer={toggleHideItemInLayer}
-                updateLayerMask={updateLayerMask}
-                resetLayerMask={resetLayerMask}
-                pollForLayersUpdate={pollForLayersUpdate}
-                setIsCanvasDirty={setIsCanvasDirty}
-                updateCurrentLayer={updateCurrentLayer}
-                applyAnimationToAllLayers={applyAnimationToAllLayers}
-                isExpressGeneration={videoSessionDetails.isExpressGeneration}
-                aspectRatio={videoSessionDetails.aspectRatio}
-                displayZoomType={displayZoomType}
-                toggleStageZoom={toggleStageZoom}
-                stageZoomScale={stageZoomScale}
-                updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
-                updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
-                totalDuration={totalDuration}
-                isUpdateLayerPending={isUpdateLayerPending}
-
-              />
+              {editorContainerDisplay}
             </div>
             <AssistantHome
               submitAssistantQuery={submitAssistantQuery}
@@ -1862,20 +1863,11 @@ export default function VideoHome(props) {
     )
   }
 
-
-
-
-  const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
-
   return (
     <CommonContainer
       isVideoPreviewPlaying={isVideoPreviewPlaying}
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
-
     >
-
-
-
       <div className='m-auto'>
         <div className='block'>
           <div className='w-[10%] inline-block'>
@@ -1929,67 +1921,20 @@ export default function VideoHome(props) {
               onLayersOrderChange={updateSessionLayersOrder}
               updateSessionLayersOnServer={updateSessionLayersOnServer}
               regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
-
               publishVideoSession={publishVideoSession}
               generateMeta={generateMeta}
-
               sessionMetadata={sessionMetadata}
-
-
-
-
             />
           </div>
           <div className='w-[90%] bg-cyber-black inline-block'>
 
-            { canvasProcessLoading && (
+            {canvasProcessLoading && (
               <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">
                 <LoadingImageTransparent />
-      
+
               </div>
             )}
-            <VideoEditorContainer
-              selectedLayerIndex={selectedLayerIndex}
-              layers={layers}
-              key={`layer_canvas_${selectedLayerIndex}`}
-              currentLayerSeek={currentLayerSeek}
-              currentEditorView={currentEditorView}
-              setCurrentEditorView={setCurrentEditorView}
-              toggleFrameDisplayType={toggleFrameDisplayType}
-              setFrameEditDisplay={setFrameEditDisplay}
-              currentLayer={currentLayer}
-              setCurrentLayerSeek={setCurrentLayerSeek}
-              updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
-              updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
-              activeItemList={activeItemList}
-              setActiveItemList={setActiveItemList}
-              isLayerSeeking={isLayerSeeking}
-              showAddAudioToProjectDialog={showAddAudioToProjectDialog}
-              generationImages={generationImages}
-              setGenerationImages={setGenerationImages}
-              updateCurrentActiveLayer={updateCurrentActiveLayer}
-              videoSessionDetails={videoSessionDetails}
-              setVideoSessionDetails={setVideoSessionDetails}
-              toggleHideItemInLayer={toggleHideItemInLayer}
-              updateLayerMask={updateLayerMask}
-              resetLayerMask={resetLayerMask}
-              pollForLayersUpdate={pollForLayersUpdate}
-              setIsCanvasDirty={setIsCanvasDirty}
-              updateCurrentLayer={updateCurrentLayer}
-              applyAnimationToAllLayers={applyAnimationToAllLayers}
-              isExpressGeneration={videoSessionDetails.isExpressGeneration}
-              aspectRatio={videoSessionDetails.aspectRatio}
-              displayZoomType={displayZoomType}
-              toggleStageZoom={toggleStageZoom}
-              stageZoomScale={stageZoomScale}
-              updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
-              updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
-              totalDuration={totalDuration}
-              isUpdateLayerPending={isUpdateLayerPending}
-              isVideoPreviewPlaying={isVideoPreviewPlaying}
-
-
-            />
+            {editorContainerDisplay}
           </div>
           <AssistantHome
             submitAssistantQuery={submitAssistantQuery}
