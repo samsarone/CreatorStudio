@@ -19,8 +19,11 @@ import {
   CURRENT_TOOLBAR_VIEW,
   TOOLBAR_ACTION_VIEW,
   SPEECH_SELECT_TYPES,
+
+  OPENAI_SPEAKER_TYPES,
+
+
   MUSIC_PROVIDERS,
-  SPEAKER_TYPES,
   TTS_COMBINED_SPEAKER_TYPES
 } from '../../../constants/Types.ts';
 import SecondaryButton from '../../common/SecondaryButton.tsx';
@@ -141,7 +144,7 @@ export default function VideoEditorToolbar(props) {
   const [speakerType, setSpeakerType] = useState(() => {
     const storedSpeakerName = localStorage.getItem('defaultSpeaker');
     const storedSpeaker = TTS_COMBINED_SPEAKER_TYPES.find(speaker => speaker.value === storedSpeakerName);
-    return storedSpeaker ? storedSpeaker : SPEAKER_TYPES[0];
+    return storedSpeaker ? storedSpeaker : OPENAI_SPEAKER_TYPES[0];
   });
 
   useEffect(() => {
@@ -648,7 +651,7 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  let bgColor = "bg-cyber-black border-stone-900";
+  let bgColor = "bg-cyber-black border-stone-600";
   if (colorMode === 'light') {
     bgColor = "bg-neutral-50 text-neutral-900";
   }

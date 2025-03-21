@@ -122,10 +122,6 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'PHOTONFLASH'
   },
   {
-    name: 'Google Imagen3 Flash',
-    key: 'IMAGEN3FLASH'
-  },
-  {
     name: 'Lumina V2',
     key: 'LUMINAV2',
     isExpressModel: true,
@@ -407,6 +403,23 @@ export const OPENAI_SPEAKER_TYPES = [
     "Gender": "F",
     previewURL: "https://cdn.openai.com/API/docs/audio/shimmer.wav"
   },
+
+  {
+    value: 'ash', label: 'Ash', provider: 'OPENAI',
+    "Gender": "M",
+    previewURL: "https://cdn.openai.com/API/docs/audio/ash.wav"
+  },
+  {
+    value: 'coral', label: 'Coral', provider: 'OPENAI',
+    "Gender": "F",
+    previewURL: "https://cdn.openai.com/API/docs/audio/coral.wav"
+  },
+  {
+    value: 'sage', label: 'Sage', provider: 'OPENAI',
+    "Gender": "F",
+    previewURL: "https://cdn.openai.com/API/docs/audio/sage.wav"
+  },
+  
 ];
 
 
@@ -431,14 +444,6 @@ export const TTS_COMBINED_SPEAKER_TYPES = [
 ];
 
 
-export const SPEAKER_TYPES = [
-  'alloy',
-  'echo',
-  'fable',
-  'onyx',
-  'nova',
-  'shimmer'
-];
 
 export const CANVAS_ACTION = {
   MOVE: 'MOVE',

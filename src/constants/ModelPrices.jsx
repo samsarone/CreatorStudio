@@ -227,23 +227,7 @@ export const IMAGE_MODEL_PRICES = [
       },
     ]
   },
-  {
-    key: 'IMAGEN3FLASH',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 3
-      },
-      {
-        aspectRatio: '16:9',
-        price: 3
-      },
-      {
-        aspectRatio: '9:16',
-        price: 3
-      },
-    ]
-  },
+  
   {
     key: 'LUMINAV2',
     prices: [

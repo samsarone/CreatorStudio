@@ -28,7 +28,7 @@ import AssistantHome from '../assistant/AssistantHome.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import ProgressIndicator from './ProgressIndicator.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
-import { SPEAKER_TYPES } from '../../constants/Types.ts';
+import { OPENAI_SPEAKER_TYPES } from '../../constants/Types.ts';
 import { useNavigate } from 'react-router-dom';
 import { franc } from 'franc';
 import AudioSelect from '../common/AudioSelect.jsx';
