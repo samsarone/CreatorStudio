@@ -52,6 +52,7 @@ import {
 } from '../../constants/ModelPrices.jsx';
 import ThemeViewer from './ThemeViewer.jsx';
 
+
 ace.config.set('useWorker', false);
 
 const aspectRatioOptions = [
@@ -94,6 +95,8 @@ export default function QuickEditor() {
   const [isAssistantQueryGenerating, setIsAssistantQueryGenerating] = useState(false);
   const [polling, setPolling] = useState(false);
 
+  const { colorMode } = useColorMode();
+
   const [advancedSettingsVisible, setAdvancedSettingsVisible] = useState(() => {
     const storedValue = localStorage.getItem('advancedSettingsVisible');
     return storedValue ? JSON.parse(storedValue) : false;
@@ -131,7 +134,7 @@ export default function QuickEditor() {
 
   const [speechStyle, setSpeechStyle] = useState({ value: 'Narrative', label: 'Narrative' });
 
-  const { colorMode } = useColorMode();
+
   
 
   const subtitleFontOptions = [

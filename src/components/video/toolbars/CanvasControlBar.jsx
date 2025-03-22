@@ -128,7 +128,6 @@ export default function CanvasControlBar(props) {
     );
   }
 
-  console.log("IS PREVIEW PLAYING " + isVideoPreviewPlaying);
 
   return (
     <div className="h-[25px] md:mt-[-10px] md:mb-[10px] relative flex justify-center" style={{ zIndex: 5 }}>

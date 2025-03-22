@@ -141,15 +141,38 @@ export default function VideoEditorToolbar(props) {
   const [musicDuration, setMusicDuration] = useState(10);
 
   const [ttsProvider, setTtsProvider] = useState({ value: 'OPENAI', label: 'OpenAI' });
-  const [speakerType, setSpeakerType] = useState(() => {
-    const storedSpeakerName = localStorage.getItem('defaultSpeaker');
-    const storedSpeaker = TTS_COMBINED_SPEAKER_TYPES.find(speaker => speaker.value === storedSpeakerName);
-    return storedSpeaker ? storedSpeaker : OPENAI_SPEAKER_TYPES[0];
-  });
+
+
+  const [speakerType, setSpeakerType] = useState(null);
+
+  useEffect(() => {
+
+    if (movieGenSpeakers && movieGenSpeakers.length > 0) {
+      const storedSpeakerName = localStorage.getItem('defaultSpeaker');
+
+      const storedSpeaker = movieGenSpeakers.find(speaker => speaker.speakerCharacterName === storedSpeakerName);
+
+      if (storedSpeaker) {
+        setSpeakerType({
+          value: storedSpeaker.speaker,
+          label: storedSpeaker.speakerCharacterName,
+          provider: storedSpeaker.provider
+        });
+      }
+      else {
+        setSpeakerType({
+          value: movieGenSpeakers[0].speaker,
+          label: movieGenSpeakers[0].speakerCharacterName,
+          provider: movieGenSpeakers[0].provider
+        });
+      }
+
+    }
+  }, [movieGenSpeakers]);
 
   useEffect(() => {
     if (speakerType) {
-      localStorage.setItem('defaultSpeaker', speakerType.value);
+      localStorage.setItem('defaultSpeaker', speakerType.label);
     }
   }, [speakerType]);
 
@@ -173,6 +196,10 @@ export default function VideoEditorToolbar(props) {
 
   const handleSpeakerChange = (selectedOption) => {
     setSpeakerType(selectedOption);
+
+    //const selectedSpeakerName = selectedOption.label;
+   // localStorage.setItem('defaultSpeaker', selectedSpeakerName);
+
     if (audioSampleRef.current) {
       audioSampleRef.current.pause();
       audioSampleRef.current = null;
@@ -306,6 +333,7 @@ export default function VideoEditorToolbar(props) {
       applyAnimationToAllLayers(formValues, animationType);
     }
   };
+
 
   const getAnimationBoundariesDisplay = (selectedOption) => {
     const selectedItem = activeItemList.find(item => item.id === selectedId);
@@ -651,7 +679,7 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  let bgColor = "bg-cyber-black border-stone-600";
+  let bgColor = "bg-gray-800 border-stone-600";
   if (colorMode === 'light') {
     bgColor = "bg-neutral-50 text-neutral-900";
   }
@@ -797,7 +825,8 @@ export default function VideoEditorToolbar(props) {
         .split('\n')
         .filter(prompt => prompt && prompt.trim().length > 0);
 
-      const layeredSpeechBody = {
+
+      let layeredSpeechBody = {
         generationType: 'speech',
         speaker: speaker,
         promptList: promptList,
@@ -808,10 +837,14 @@ export default function VideoEditorToolbar(props) {
         aspectRatio: aspectRatio
       };
 
+      if (payload.generationMeta) {
+        layeredSpeechBody.generationMeta = payload.generationMeta;
+      }
+
+
       setNumberOfSpeechLayersRequested(promptList.length);
       submitGenerateLayeredSpeechRequest(layeredSpeechBody);
     } else {
-      // single speech
       submitGenerateMusicRequest(payload);
     }
   };
@@ -1309,10 +1342,15 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
+  const bgPillSelected = colorMode === 'dark' ? 'bg-blue-950' : 'bg-blue-200';
+  const bgPillUnselected = colorMode === 'dark' ? 'bg-gray-900' : 'bg-gray-200';
+  const textPillSelected = colorMode === 'dark' ? 'text-white' : 'text-gray-900';
+  const textPillUnselected = colorMode === 'dark' ? 'text-gray-100' : 'text-gray-600';
+
   const isItemSelected = (view) => currentViewDisplay === view;
   const getMarginTop = (view) => (isItemSelected(view) ? 'mt-0' : 'mt-4');
   const getSelectedClass = (view) =>
-    isItemSelected(view) ? 'bg-blue-950 text-white' : 'bg-gray-900 text-white';
+    isItemSelected(view) ? `${bgPillSelected} ${textPillSelected}` : `${bgPillUnselected} ${textPillUnselected}` 
 
   const layerToolbarList = [
     {

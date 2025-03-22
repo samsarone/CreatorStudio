@@ -17,6 +17,27 @@
 
 
   <title>Samsar One Creators Studio</title>
+
+  <script>
+    (function () {
+      // Try to read user preference from localStorage
+      let colorMode = localStorage.getItem('colorMode');
+
+      // If not set, fall back to system preference
+      if (!colorMode) {
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        colorMode = systemPrefersDark ? 'dark' : 'light';
+        localStorage.setItem('colorMode', colorMode);
+      }
+
+      // Toggle .dark class on <html>
+      if (colorMode === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
 </head>
 
 <body>

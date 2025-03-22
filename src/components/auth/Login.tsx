@@ -37,7 +37,13 @@ export default function Login(props) {
       })
       .catch((err) => {
         console.error('Error during user login:', err);
-        setError('Invalid email or password');
+
+        // Attempt to grab server error message
+        if (err.response && err.response.data && err.response.data.message) {
+          setError(err.response.data.message);
+        } else {
+          setError('Invalid email or password. Please try again.');
+        }
       });
   };
 
@@ -97,21 +103,19 @@ export default function Login(props) {
           </div>
         </form>
         <div>
-          <div>
-            <div className="text-center text-xs text-neutral-500">
-              <a href="#" onClick={() => setCurrentLoginView('forgotPassword')}>
-                Forgot password?
-              </a>
-            </div>
+          <div className="text-center text-xs text-neutral-500">
+            <a href="#" onClick={() => setCurrentLoginView('forgotPassword')}>
+              Forgot password?
+            </a>
           </div>
         </div>
         {showSignupButton && (
-        <div>
-          <div className="mt-4 mb-4 text-center font-bold">Don't have an account?</div>
-          <div className="text-center">
-            <LoginButton onClick={() => setCurrentLoginView('register')}>Sign up</LoginButton>
+          <div>
+            <div className="mt-4 mb-4 text-center font-bold">Don't have an account?</div>
+            <div className="text-center">
+              <LoginButton onClick={() => setCurrentLoginView('register')}>Sign up</LoginButton>
+            </div>
           </div>
-        </div>
         )}
       </div>
     </div>

@@ -33,6 +33,8 @@ export default function ShowNewUserIntroDisplay(props) {
   const bgColor = colorMode === 'dark' ? `bg-gray-900` : `bg-neutral-300`;
   const textColor = colorMode === 'dark' ? `text-white` : `text-black`;
 
+  const bg2Color = colorMode === 'dark' ? `bg-gray-800` : `bg-neutral-200`;
+
   const handleSessionClick = (index) => {
     setSelectedSessionIndex(index === selectedSessionIndex ? null : index);
   };
@@ -44,7 +46,7 @@ export default function ShowNewUserIntroDisplay(props) {
     <div>
       <div className={`${bgColor} ${textColor} p-4`}>
 
-        <div className='bg-gray-800 mt-4 mb-4 pb-4 pt-2'>
+        <div className={`${bg2Color} mt-4 mb-4 pb-4 pt-2`}>
           <div className='text-lg font-bold mb-4 '>
             Create New Project
           </div>

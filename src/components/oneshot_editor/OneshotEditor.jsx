@@ -11,7 +11,6 @@ import AuthContainer from '../auth/AuthContainer.jsx';
 import axios from 'axios';
 import { getHeaders } from '../../utils/web.jsx';
 
-
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
   VIDEO_GENERATION_MODEL_TYPES,
@@ -71,17 +70,17 @@ export default function OneshotEditor() {
   }, []);
 
   const fetchLatestVideos = async () => {
-    try {
-      const headers = getHeaders();
-      const response = await axios.get(`${API_SERVER}/vidgpt/latest_videos`, headers);
-      // The route returns { items: [...] }
-      if (response?.data?.items) {
-        setLatestVideos(response.data.items);
-      }
-    } catch (err) {
-      console.error("Error fetching latest videos:", err);
-      setError('Failed to fetch latest videos.');
-    }
+    // try {
+    //   const headers = getHeaders();
+    //   const response = await axios.get(`${API_SERVER}/vidgpt/latest_videos`, headers);
+    //   // The route returns { items: [...] }
+    //   if (response?.data?.items) {
+    //     setLatestVideos(response.data.items);
+    //   }
+    // } catch (err) {
+    //   console.error("Error fetching latest videos:", err);
+    //   setError('Failed to fetch latest videos.');
+    // }
   };
 
   // When a thumbnail is clicked, toggle the iframe view
@@ -95,9 +94,6 @@ export default function OneshotEditor() {
     { label: '9:16 (Portrait)', value: '9:16' },
   ];
 
-
-
-
   // Filter out “Express” models
   const expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
     .filter((m) => m.isExpressModel)
@@ -110,10 +106,6 @@ export default function OneshotEditor() {
     );
     return foundAspectRatio || aspectRatioOptions[0];
   });
-
-
-
-
 
   const expressVideoModels = useMemo(() => {
     return VIDEO_GENERATION_MODEL_TYPES
@@ -129,7 +121,6 @@ export default function OneshotEditor() {
         ...m,
       }));
   }, [selectedAspectRatioOption]);
-
 
   // Duration options
   const durationOptions = [
@@ -153,7 +144,6 @@ export default function OneshotEditor() {
     const found = expressVideoModels.find((m) => m.value === saved);
     return found || expressVideoModels[0];
   });
-
 
   const [selectedDurationOption, setSelectedDurationOption] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTDuration');
@@ -244,8 +234,6 @@ export default function OneshotEditor() {
     openAlertDialog(loginComponent);
   };
 
-
-
   async function handleDownloadVideo() {
     try {
       if (!videoLink) return;
@@ -274,7 +262,6 @@ export default function OneshotEditor() {
       console.error('Error downloading video:', error);
     }
   }
-
 
   // Polling function for assistant queries
   const startAssistantQueryPoll = () => {
@@ -525,53 +512,58 @@ export default function OneshotEditor() {
 
   let pricingInfoDisplay = (
     <div className="relative">
-    <div
-      className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
-      onClick={togglePricingDetailsDisplay}
-    >
-      10 Credits / second of video
-      <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
-    </div>
-    {pricingDetailsDisplay && (
-      <div className="mt-1 text-sm w-full text-right">
-        <div>The total price will be shown at completion.</div>
-        <div>For example, a 60s video will cost 600 credits.</div>
-      </div>
-    )}
-  </div>
-  );
-  if (selectedVideoModel.value === 'VEOI2V') {
-    pricingInfoDisplay = (
-      <div className="relative">
       <div
         className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
         onClick={togglePricingDetailsDisplay}
       >
-        60 Credits / second of video
+        10 Credits / second of video
         <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
       </div>
       {pricingDetailsDisplay && (
         <div className="mt-1 text-sm w-full text-right">
           <div>The total price will be shown at completion.</div>
-          <div>For example, a 60s video will cost 3600 credits.</div>
+          <div>For example, a 60s video will cost 600 credits.</div>
         </div>
       )}
     </div>
+  );
+  if (selectedVideoModel.value === 'VEOI2V') {
+    pricingInfoDisplay = (
+      <div className="relative">
+        <div
+          className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
+          onClick={togglePricingDetailsDisplay}
+        >
+          60 Credits / second of video
+          <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
+        </div>
+        {pricingDetailsDisplay && (
+          <div className="mt-1 text-sm w-full text-right">
+            <div>The total price will be shown at completion.</div>
+            <div>For example, a 60s video will cost 3600 credits.</div>
+          </div>
+        )}
+      </div>
     );
   }
+
   return (
     <div className="mt-[20px] relative">
       {/* Top Bar (header) */}
       <div
-        className="
-          flex justify-between items-center
-          p-2 bg-neutral-950 text-white
-          pt-8 mt-8
-          rounded-md shadow-md
-          relative
-        "
+        className={
+          colorMode === 'dark'
+            ? "flex justify-between items-center p-2 bg-neutral-950 text-white pt-8 mt-8 rounded-md shadow-md relative"
+            : "flex justify-between items-center p-2 bg-white text-black pt-8 mt-8 rounded-md shadow-md relative"
+        }
       >
-        <div className="xs-hidden text-lg font-bold text-white pl-2 mt-[-6px]">
+        <div
+          className={
+            colorMode === 'dark'
+              ? "xs-hidden text-lg font-bold text-white pl-2 mt-[-6px]"
+              : "xs-hidden text-lg font-bold text-black pl-2 mt-[-6px]"
+          }
+        >
           VidGPT Editor
         </div>
 
@@ -585,7 +577,15 @@ export default function OneshotEditor() {
               options={aspectRatioOptions}
               className="w-40"
             />
-            <p className="text-white text-xs mt-1">Aspect Ratio</p>
+            <p
+              className={
+                colorMode === 'dark'
+                  ? "text-white text-xs mt-1"
+                  : "text-black text-xs mt-1"
+              }
+            >
+              Aspect Ratio
+            </p>
           </div>
 
           {/* SingleSelect: Image Model */}
@@ -596,7 +596,15 @@ export default function OneshotEditor() {
               options={expressImageModels}
               className="w-40"
             />
-            <p className="text-white text-xs mt-1">Image Model</p>
+            <p
+              className={
+                colorMode === 'dark'
+                  ? "text-white text-xs mt-1"
+                  : "text-black text-xs mt-1"
+              }
+            >
+              Image Model
+            </p>
           </div>
 
           {/* SingleSelect: Video Model */}
@@ -604,20 +612,23 @@ export default function OneshotEditor() {
             <SingleSelect
               value={selectedVideoModel}
               onChange={(newVal) => setSelectedVideoModel(newVal)}
-              // Pull the 'label' and 'value' from expressVideoModels,
-              // but keep the rest of the keys so we still have modelSubTypes
               options={expressVideoModels.map((m) => ({
                 label: m.label,
                 value: m.value,
-                // Keep the entire object under some property:
                 ...m,
               }))}
               className="w-40"
             />
-            <p className="text-white text-xs mt-1">Video Model</p>
+            <p
+              className={
+                colorMode === 'dark'
+                  ? "text-white text-xs mt-1"
+                  : "text-black text-xs mt-1"
+              }
+            >
+              Video Model
+            </p>
           </div>
-
-
 
           {/* SingleSelect: Duration */}
           <div className="flex flex-col items-center">
@@ -627,7 +638,15 @@ export default function OneshotEditor() {
               options={durationOptions}
               className="w-40"
             />
-            <p className="text-white text-xs mt-1">Default Duration</p>
+            <p
+              className={
+                colorMode === 'dark'
+                  ? "text-white text-xs mt-1"
+                  : "text-black text-xs mt-1"
+              }
+            >
+              Default Duration
+            </p>
           </div>
 
           {/* Show "Render pending" if pending */}
@@ -643,14 +662,14 @@ export default function OneshotEditor() {
             <div className="flex items-center space-x-2">
               <button
                 className="bg-blue-600 px-3 py-1 rounded text-white"
-             
               >
-             <a           href={videoLink}
-          download={`Rendition_${dateNowStr}.mp4`}
-          className='text-xs underline mt-2 mb-1 ml-2'>
-              Download Video
-            
-            </a> 
+                <a
+                  href={videoLink}
+                  download={`Rendition_${dateNowStr}.mp4`}
+                  className="text-xs underline mt-2 mb-1 ml-2"
+                >
+                  Download Video
+                </a>
               </button>
               <button
                 className="bg-blue-600 px-3 py-1 rounded text-white"
@@ -696,10 +715,11 @@ export default function OneshotEditor() {
           minRows={8}
           maxRows={20}
           disabled={isFormDisabled}
-          className={`
-            w-full bg-gray-950 text-white pl-4 pt-4 p-2 rounded mt-4
-            ${isFormDisabled ? 'opacity-50 cursor-not-allowed' : ''}
-          `}
+          className={
+            colorMode === 'dark'
+              ? "w-full bg-gray-950 text-white pl-4 pt-4 p-2 rounded mt-4"
+              : "w-full bg-gray-50 text-black pl-4 pt-4 p-2 rounded mt-4"
+          }
           placeholder={`Enter a topic for your story-video, e.g.:\n"A 1-minute journey through the cosmos"`}
           name="promptText"
           value={promptText}
@@ -716,69 +736,17 @@ export default function OneshotEditor() {
           </div>
 
           {/* Pricing Info */}
-          <div className="md:absolute md:right-0 top-0 text-white p-2 bg-gray-900 rounded text-center mt-4 md:mt-0 w-full md:w-auto">
-              {pricingInfoDisplay}
+          <div
+            className={
+              colorMode === 'dark'
+                ? "md:absolute md:right-0 top-0 text-white p-2 bg-gray-900 rounded text-center mt-4 md:mt-0 w-full md:w-auto"
+                : "md:absolute md:right-0 top-0 text-black p-2 bg-gray-100 rounded text-center mt-4 md:mt-0 w-full md:w-auto"
+            }
+          >
+            {pricingInfoDisplay}
           </div>
         </div>
       </form>
-
-      {/* Divider */}
-      <div className="my-8 flex justify-center">
-        <div className="w-full max-w-4xl h-0.5 bg-gradient-to-r from-gray-800 via-blue-500 to-gray-800 opacity-70"></div>
-      </div>
-
-      <div className={`${textColor}`}>
-        <div className="my-2">
-          <h2 className="text-xl font-bold my-4">Latest Videos from Gallery</h2>
-          {error && <div className="text-red-500">{error}</div>}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {latestVideos.map((video) => {
-              const { videoId } = video.id || {};
-              const { title, thumbnails } = video.snippet || {};
-              const isExpanded = expandedVideoId === videoId;
-
-              return (
-                <div key={videoId} className="bg-gray-800 p-2 rounded">
-                  {isExpanded ? (
-                    // Show the iframe when expanded
-                    <div
-                      className="relative overflow-hidden"
-                      style={{ paddingBottom: '56.25%' }}
-                    >
-                      <iframe
-                        className="absolute top-0 left-0 w-full h-full"
-                        src={`https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1`}
-                        title={title}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                      <FaTimes
-                        onClick={() => handleToggleVideo(videoId)}
-                        className="absolute top-2 right-2 text-black px-2 py-1 rounded"
-                      />
-                    </div>
-                  ) : (
-                    // Show the thumbnail when collapsed
-                    <>
-                      <img
-                        src={thumbnails?.medium?.url}
-                        alt={title}
-                        className="w-full rounded cursor-pointer"
-                        onClick={() => handleToggleVideo(videoId)}
-                      />
-                      <p className="mt-2 text-sm text-white font-semibold">
-                        {title}
-                      </p>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
 
       {/* AssistantHome inserted below */}
       <AssistantHome
