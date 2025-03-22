@@ -50,7 +50,7 @@
   },
   "scripts": {
     "start": "vite --port 3000",
-    "build": "vite build",
+    "build": "vite build --mode production",
     "preview": "vite preview"
   },
   "eslintConfig": {

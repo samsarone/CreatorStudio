@@ -15,6 +15,13 @@ export default function AuthContainer(props) {
   const { initView } = props;
 
   const [error, setError] = useState('');
+  const [currentLoginView, setCurrentLoginView] = useState('login');
+  
+  const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { closeAlertDialog } = useAlertDialog();
+  const { setUser } = useUser();
 
   useEffect(() => {
     if (initView) {
@@ -25,13 +32,6 @@ export default function AuthContainer(props) {
       }
     }
   }, [initView]);
-  const [currentLoginView, setCurrentLoginView] = useState('login');
-
-  const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { closeAlertDialog } = useAlertDialog();
-  const { setUser } = useUser();
 
   const signInWithGoogle = () => {
     let currentMediaFlowPath = 'video';
@@ -49,6 +49,7 @@ export default function AuthContainer(props) {
       })
       .catch((error) => {
         console.error('Error during Google login:', error);
+        setError('Unable to initiate Google login at this time.');
       });
     closeAlertDialog();
   };
@@ -66,6 +67,7 @@ export default function AuthContainer(props) {
       })
       .catch((error) => {
         console.error('Error during Google registration:', error);
+        setError('Unable to initiate Google registration at this time.');
       });
     closeAlertDialog();
   };
@@ -81,6 +83,7 @@ export default function AuthContainer(props) {
       })
       .catch((error) => {
         console.error('Error verifying user profile:', error);
+        setError('Unable to verify user profile.');
       });
   };
 
@@ -105,29 +108,36 @@ export default function AuthContainer(props) {
       })
       .catch((error) => {
         console.error('Error getting or creating user session:', error);
+        setError('Unable to create or get a session.');
       });
   };
 
-  const registerUserWithEmail = (payload) => {
+  /**
+   * Register user with email and bubble up server errors if any
+   */
+  const registerUserWithEmail = async (payload, onError) => {
+    try {
+      const { data } = await axios.post(`${PROCESSOR_SERVER}/users/register`, payload);
+      const userData = data;
+      const authToken = userData.authToken;
 
+      localStorage.setItem('authToken', authToken);
+      setUser(userData);
+      closeAlertDialog();
+      getOrCreateUserSession();
 
-    axios.post(`${PROCESSOR_SERVER}/users/register`, payload)
-      .then((dataRes) => {
-        const userData = dataRes.data;
-        const authToken = userData.authToken;
-        localStorage.setItem('authToken', authToken);
-        setUser(userData);
-        closeAlertDialog();
-        getOrCreateUserSession();
+      localStorage.setItem("setShowSetPaymentFlow", true);
+    } catch (error) {
+      console.error('Error during user registration:', error);
 
-        localStorage.setItem("setShowSetPaymentFlow", true);
-      })
-      .catch((error) => {
-        console.error('Error during user registration:', error);
-        setError('Unable to register user');
-      });
-
-  }
+      // Attempt to bubble server error back to <Register />
+      if (error.response && error.response.data && error.response.data.message) {
+        onError(error.response.data.message);
+      } else {
+        onError('Unable to register user at this time. Please try again.');
+      }
+    }
+  };
 
   let authoComponent;
 
@@ -167,8 +177,15 @@ export default function AuthContainer(props) {
 
   return (
     <div>
-            <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
+      {/* If you'd like to display container-level errors */}
+      {error && (
+        <div className="text-center text-red-500">
+          {error}
+        </div>
+      )}
+
+      <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
       {authoComponent}
     </div>
-  )
+  );
 }

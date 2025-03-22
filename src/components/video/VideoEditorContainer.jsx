@@ -1509,9 +1509,6 @@ export default function VideoEditorContainer(props) {
     setSelectedId('item_0');
   };
 
-  /**********************************************
-   *          AUDIO / MUSIC GENERATION
-   **********************************************/
   const submitGenerateMusicRequest = (payload) => {
     const headers = getHeaders();
     if (!headers) {
@@ -1519,6 +1516,10 @@ export default function VideoEditorContainer(props) {
       return;
     }
     payload.sessionId = id;
+
+    console.log("REQUEST GENERATE AUDIO");
+    console.log(payload);
+
     axios
       .post(`${PROCESSOR_API_URL}/audio/request_generate_audio`, payload, headers)
       .then((response) => {
@@ -2381,7 +2382,10 @@ export default function VideoEditorContainer(props) {
 
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/update_movie_gen_speakers`, payload, headers)
-      .then(() => {
+      .then((resData) => {
+
+        setMovieGenSpeakers(updatedSpeakers);
+
         toast.success(
           <div>
             <FaCheck className='inline-flex mr-2' /> MovieGen speakers updated successfully!
@@ -2391,6 +2395,9 @@ export default function VideoEditorContainer(props) {
             className: 'custom-toast',
           }
         );
+
+
+
       })
       .catch(() => {
         toast.error(
@@ -2517,18 +2524,12 @@ export default function VideoEditorContainer(props) {
 
               downloadCurrentFrame={downloadCurrentFrame}
 
-
-
             />
           </div>
         );
       }
     }
   }
-
-
-
-
 
   const editorToolbarExpanded = (
     <VideoEditorToolbar
@@ -2657,7 +2658,7 @@ export default function VideoEditorContainer(props) {
       );
     } else {
       editorToolbarDisplay = (
-        <div className='w-[18%] inline-block bg-cyber-black '>
+        <div className='w-[18%] inline-block bg-gray-800'>
           {editorToolbarExpanded}
           <ToastContainer
             position='bottom-center'
@@ -2706,7 +2707,7 @@ export default function VideoEditorContainer(props) {
       <div className='text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8 '>
         {viewDisplay}
       </div>
-      <div className='w-[18%] inline-block bg-cyber-black '>
+      <div className='w-[18%] inline-block bg-gray-800 '>
         {editorToolbarExpanded}
       </div>
     </div>

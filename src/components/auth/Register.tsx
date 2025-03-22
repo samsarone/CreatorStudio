@@ -70,7 +70,15 @@ export default function Register(props) {
     }
 
     const payload = { email, password, username };
-    registerUserWithEmail(payload);
+
+    // Attempt registration
+    registerUserWithEmail(
+      payload,
+      // Pass a callback (or you can use a promise/async) to handle server error
+      (serverErrorMessage) => {
+        setError(serverErrorMessage);
+      }
+    );
 
     // Example usage: you can remove if not used
     localStorage.setItem('isPaymentPopupVisible', 'true');
@@ -212,7 +220,7 @@ export default function Register(props) {
               onChange={() => setIs18Checked(!is18Checked)}
             />
             <label htmlFor="age-checkbox" className="text-sm leading-tight">
-              You are at-least 18 years old
+              You are at least 18 years old
             </label>
           </div>
 

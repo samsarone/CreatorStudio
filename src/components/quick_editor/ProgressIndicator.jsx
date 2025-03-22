@@ -4,6 +4,7 @@ import { FaTimes, FaSpinner } from 'react-icons/fa';
 import './mobileStyles.css';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
@@ -54,6 +55,9 @@ export default function ProgressIndicator(props) {
   const { openAlertDialog } = useAlertDialog();
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
 
+  const { colorMode } = useColorMode();
+
+
   const progressPercentage = useMemo(
     () => getProgressPercentage(expressGenerationStatus),
     [expressGenerationStatus]
@@ -89,8 +93,15 @@ export default function ProgressIndicator(props) {
   if (videoLink && !videoLink.startsWith('http')) { 
     videoActualLink = `${PROCESSOR_API_URL}/${videoLink}`;
   }
+
+  const bgColor = colorMode === 'dark' ? 'bg-gray-900' : 'bg-gray-100';
+  const bg2Color = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
+  const bg3Color = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
+
+  const textColor = colorMode === 'dark' ? 'text-gray-200' : 'text-gray-900';
+
   return (
-    <div className="bg-stone-950 p-4 pt-1 rounded text-white">
+    <div className={`${bgColor} ${textColor} p-4 pt-1 rounded `}>
 
       {/* Error message display */}
       {errorMessage && (
@@ -112,7 +123,7 @@ export default function ProgressIndicator(props) {
       {isGenerationPending && expressGenerationStatus ? (
         <div className="clear-both mt-4 flex items-center">
           {/* Progress Bar */}
-          <div className="w-full bg-gray-700 rounded overflow-hidden mr-4">
+          <div className={`w-full ${bg2Color} rounded overflow-hidden mr-4`}>
             <div
               className="h-4 bg-green-500 transition-all duration-300"
               style={{ width: `${progressPercentage}%` }}
