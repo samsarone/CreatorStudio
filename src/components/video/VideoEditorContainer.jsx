@@ -1517,11 +1517,7 @@ export default function VideoEditorContainer(props) {
     }
     payload.sessionId = id;
 
-    console.log("REQUEST GENERATE AUDIO");
-    console.log(payload);
-
-    axios
-      .post(`${PROCESSOR_API_URL}/audio/request_generate_audio`, payload, headers)
+    axios.post(`${PROCESSOR_API_URL}/audio/request_generate_audio`, payload, headers)
       .then((response) => {
         setAudioGenerationPending(true);
         startAudioGenerationPoll(response.data);
@@ -1939,6 +1935,9 @@ export default function VideoEditorContainer(props) {
 
   // Add selected AI video to layer
   const addSelectedAiVideoToLayer = (payload) => {
+
+
+
     setIsSelectButtonDisabled(true);
     const { video, trimScene, model } = payload;
 
@@ -1951,6 +1950,7 @@ export default function VideoEditorContainer(props) {
       trimScene,
       layerId: currentLayer._id.toString(),
       videoModel: video.model,
+      audioPrompt: video.audioPrompt,
     };
     const headers = getHeaders();
     if (!headers) {

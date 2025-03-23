@@ -1397,12 +1397,7 @@ export default function VideoHome(props) {
       layer: newLayer,
       clipData: clipPayload
     };
-
-
-    console.log(clipPayload);
-
-
-
+    
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layer`, reqPayload, headers).then((response) => {
       const resData = response.data;
       const { session, layer } = resData;

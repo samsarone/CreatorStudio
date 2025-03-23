@@ -400,10 +400,11 @@ export default function OneshotEditor() {
           }
           setVideoLink(videoActualLink);
         } else if (resData.status === 'FAILED') {
+          const errorMessage = resData.expressGenerationError;
           clearInterval(pollIntervalRef.current);
           setIsGenerationPending(false);
           setErrorMessage({
-            error: 'Video generation failed.',
+            error: `Video generation failed. ${errorMessage}`,
           });
         }
       } catch (error) {

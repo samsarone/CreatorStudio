@@ -66,9 +66,6 @@ export default function DefaultSpeechProviderSelect(props) {
       speechOptionValue: speechOptionValue,
     };
 
-    console.log("TTS PROVIDER VALUE " + ttsProviderValue);
-
-
     // If the ttsProvider is OpenAI, gather advanced fields from the form
     if (ttsProviderValue === 'OpenAI') {
       const identity = formData.get('identity');
