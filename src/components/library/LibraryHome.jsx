@@ -80,7 +80,7 @@ export default function LibraryHome(props) {
 
         {/* 2) Conditional Overlay */}
         {isLoading && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 opacity-50">
             <FaSpinner className="text-white text-4xl animate-spin" />
           </div>
         )}
