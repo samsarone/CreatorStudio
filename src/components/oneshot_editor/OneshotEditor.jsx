@@ -511,13 +511,21 @@ export default function OneshotEditor() {
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
+  let creditsPerSecondVideo = 10;
+  if (selectedVideoModel.value === 'VEOI2V') {
+    creditsPerSecondVideo = 60;
+  }
+  if (selectedVideoModel.value === 'LUMAFLASH2') {
+    creditsPerSecondVideo = 6;
+  }
+
   let pricingInfoDisplay = (
     <div className="relative">
       <div
         className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
         onClick={togglePricingDetailsDisplay}
       >
-        10 Credits / second of video
+        {creditsPerSecondVideo} Credits / second of video
         <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
       </div>
       {pricingDetailsDisplay && (
@@ -528,25 +536,7 @@ export default function OneshotEditor() {
       )}
     </div>
   );
-  if (selectedVideoModel.value === 'VEOI2V') {
-    pricingInfoDisplay = (
-      <div className="relative">
-        <div
-          className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
-          onClick={togglePricingDetailsDisplay}
-        >
-          60 Credits / second of video
-          <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
-        </div>
-        {pricingDetailsDisplay && (
-          <div className="mt-1 text-sm w-full text-right">
-            <div>The total price will be shown at completion.</div>
-            <div>For example, a 60s video will cost 3600 credits.</div>
-          </div>
-        )}
-      </div>
-    );
-  }
+
 
   return (
     <div className="mt-[20px] relative">

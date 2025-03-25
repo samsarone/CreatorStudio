@@ -968,7 +968,7 @@ export default function FrameToolbar(props) {
             <input
               type="number"
               value={selectedAudioTrack.startTime}
-              className={`w-[40px] ${bgColor} rounded-sm p-1`}
+              className={`w-[45px] ${bgColor} rounded-sm p-1`}
               onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
             />
 
@@ -977,7 +977,7 @@ export default function FrameToolbar(props) {
             <input
               type="number"
               value={selectedAudioTrack.endTime}
-              className={`w-[40px] ${bgColor} rounded-sm p-1`}
+              className={`w-[45px] ${bgColor} rounded-sm p-1`}
               onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
             />
 
@@ -985,8 +985,8 @@ export default function FrameToolbar(props) {
             <label className="inline-block font-semibold">V:</label>
             <input
               type="number"
-              defaultValue={selectedAudioTrack.volume}
-              className={`w-[40px] ${bgColor} rounded-sm p-1`}
+              value={selectedAudioTrack.volume}
+              className={`w-[45px] ${bgColor} rounded-sm p-1`}
               onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
             />
 
@@ -1866,9 +1866,6 @@ export default function FrameToolbar(props) {
       showPublishOptionsDialog();
     },
   });
-
-
-  console.log("IS GUEST SESSION " + isGuestSession);
 
   let submitRenderDisplay = (
     <div>
