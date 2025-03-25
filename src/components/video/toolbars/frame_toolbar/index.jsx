@@ -57,12 +57,7 @@ export default function FrameToolbar(props) {
     showAudioTrackView,
     frameToolbarView,
     audioLayers,
-    updateAudioLayer,
     removeAudioLayer,
-    handleVolumeChange,
-    handleStartTimeChange,
-    handleEndTimeChange,
-    updateChangesToActiveAudioLayers,
     addLayerToComposition,
     copyCurrentLayerBelow,
     removeSessionLayer,
@@ -81,7 +76,7 @@ export default function FrameToolbar(props) {
     regenerateVideoSessionSubtitles,
     publishVideoSession,
     isGuestSession,
-
+    updateAllAudioLayersOneShot,
 
   } = props;
 
@@ -285,6 +280,7 @@ export default function FrameToolbar(props) {
         return {
           ...audioTrack,
           isDisplaySelected: false,
+          isDirty: false,
         }
       });
       setAudioTrackListDisplay(visibleAudioDisplay);
@@ -292,6 +288,11 @@ export default function FrameToolbar(props) {
     }
   }, [audioLayers]);
 
+
+  const dirtyCount = useMemo(
+    () => audioTrackListDisplay.filter((track) => track.isDirty).length,
+    [audioTrackListDisplay]
+  );
 
   // State to manage visible layers
   const [visibleLayersStartIndex, setVisibleLayersStartIndex] = useState(0);
@@ -876,136 +877,172 @@ export default function FrameToolbar(props) {
 
 
 
+  const updateAudioLayerFromSlider = (audioLayerId, startTime, endTime, duration) => {
 
-  const setSelectedLayerToBeDragged = () => {
-
+    const updatedAudioTrackListDisplay = audioTrackListDisplay.map((audioTrack) => {
+      if (audioTrack._id === audioLayerId) {
+        return {
+          ...audioTrack,
+          startTime: startTime,
+          endTime: endTime,
+          duration: duration,
+          isDirty: true,
+        };
+      } else {
+        return {
+          ...audioTrack,
+        };
+      }
+    });
+    setAudioTrackListDisplay(updatedAudioTrackListDisplay);
 
   }
 
-  const handleVolumeChangeHandler = (e, selectedTrackId) => {
 
-    const payload = {
-      newVolume: parseFloat(e.target.value),
-      selectedTrackId: selectedTrackId,
+  const handleVolumeChangeHandler = (e, trackId) => {
+    const newVolume = parseFloat(e.target.value);
+    setAudioTrackListDisplay((prev) =>
+      prev.map((track) =>
+        track._id === trackId
+          ? { ...track, volume: newVolume, isDirty: true }
+          : track
+      )
+    );
+  };
 
+  const handleStartTimeChangeHandler = (e, trackId) => {
+    const newStart = parseFloat(e.target.value);
+    setAudioTrackListDisplay((prev) =>
+      prev.map((track) =>
+        track._id === trackId
+          ? { ...track, startTime: newStart, isDirty: true }
+          : track
+      )
+    );
+  };
+
+  const handleEndTimeChangeHandler = (e, trackId) => {
+    const newEnd = parseFloat(e.target.value);
+    setAudioTrackListDisplay((prev) =>
+      prev.map((track) =>
+        track._id === trackId
+          ? { ...track, endTime: newEnd, isDirty: true }
+          : track
+      )
+    );
+  };
+
+
+  const onUpdateAllAudioLayers = async () => {
+    // We’re about to send the entire array:
+    const response = await updateAllAudioLayersOneShot(audioTrackListDisplay);
+    if (response.success) {
+      // The server accepted the changes and returned 
+      // the “official” updated audio layer objects:
+      const officialLayers = response.serverLayers;
+      // We can now re-initialize local state to match 
+      // the server's final version. (No longer dirty.)
+      const merged = officialLayers.map((layer) => ({
+        ...layer,
+        isDirty: false,
+      }));
+      setAudioTrackListDisplay(merged);
+    } else {
+      console.error("Failed to update all audio layers in one shot:", response.error);
+      alert("Failed to update! See console.");
     }
+  };
 
-    handleVolumeChange(payload);
-  }
-
-  const handleStartTimeChangeHandler = (e, selectedTrackId) => {
-
-
-
-    const payload = {
-      newStartTime: parseFloat(e.target.value),
-      selectedTrackId: selectedTrackId,
-
-    }
-    handleStartTimeChange(payload);
-  }
-
-  const handleEndTimeChangeHandler = (e, selectedTrackId) => {
-
-    const payload = {
-      newEndTime: parseFloat(e.target.value),
-      selectedTrackId: selectedTrackId,
-    }
-    handleEndTimeChange(payload);
-  }
 
 
   const showSelectedAudioTrack = () => {
     const selectedAudioTrack = audioTrackListDisplay.find(
       (audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected
     );
-
     if (!selectedAudioTrack) {
       return <span />;
     }
-
     // Only first 4 words of the prompt
     const shortPrompt = selectedAudioTrack.prompt
       ? selectedAudioTrack.prompt.split(' ').slice(0, 4).join(' ') + '...'
       : '';
 
     return (
-      <div className="flex">
-        <form onSubmit={updateChangesToActiveAudioLayers} className="w-full">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {/* Audio Type (uppercase + bold) */}
+      <div className="flex flex-nowrap flex-row items-center w-full gap-4 text-xs">
+        {/* Left column: Audio type, speaker, short prompt */}
+        <div className="flex flex-col justify-center">
+          <span className="uppercase font-bold text-blue-300 text-xs">
+            {selectedAudioTrack.generationType}
+          </span>
+          {selectedAudioTrack.speakerCharacterName && (
+            <span className="italic text-neutral-400">
+              {selectedAudioTrack.speakerCharacterName}
+            </span>
+          )}
+          {shortPrompt && (
+            <span className="text-neutral-200 text-xs">
+              "{shortPrompt}"
+            </span>
+          )}
+        </div>
 
-            <div>
+        {/* Middle column: Start/End/Volume inputs in a single row */}
+        <div className="flex flex-row items-center gap-2">
+          {/* Start Time */}
+          <label className="font-semibold">S:</label>
+          <input
+            type="number"
+            value={selectedAudioTrack.startTime}
+            className={`${bgColor} rounded-sm p-1 w-[50px]`}
+            onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
+          />
+          {/* End Time */}
+          <label className="font-semibold">E:</label>
+          <input
+            type="number"
+            value={selectedAudioTrack.endTime}
+            className={`${bgColor} rounded-sm p-1 w-[50px]`}
+            onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
+          />
+          {/* Volume */}
+          <label className="font-semibold">V:</label>
+          <input
+            type="number"
+            value={selectedAudioTrack.volume}
+            className={`${bgColor} rounded-sm p-1 w-[50px]`}
+            onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
+          />
+        </div>
 
-              <span className="uppercase font-bold text-blue-300 text-xs block">
-                {selectedAudioTrack.generationType}
-              </span>
-
-              {/* Speaker (if available) */}
-              {selectedAudioTrack.speakerCharacterName && (
-                <span className="italic text-neutral-400">
-                  {selectedAudioTrack.speakerCharacterName}
-                </span>
-              )}
+        {/* Next column: Update button + updated/not-updated message below */}
+        <div className="flex flex-col items-center">
+          <button
+            onClick={onUpdateAllAudioLayers}
+            disabled={dirtyCount === 0}
+            className="bg-blue-700 text-white px-2 py-1 rounded-sm disabled:opacity-60 cursor-pointer" 
+          >
+            Update All
+          </button>
+          {dirtyCount > 0 ? (
+            <div className="text-yellow-300 font-bold mt-1 text-center m-auto">
+              {dirtyCount} update pending,
             </div>
+          ) : (
+            <div className="text-neutral-400 mt-1">No pending changes</div>
+          )}
+        </div>
 
-            {/* Short Prompt */}
-            {shortPrompt && (
-              <span className="text-neutral-200 text-xs w-16">"{shortPrompt}"</span>
-            )}
-
-
-
-            {/* Hidden input to pass the layer ID */}
-            <input
-              type="hidden"
-              name="layerId"
-              value={selectedAudioTrack._id.toString()}
-            />
-
-            {/* Start Time */}
-            <label className="inline-block font-semibold">S:</label>
-            <input
-              type="number"
-              value={selectedAudioTrack.startTime}
-              className={`w-[45px] ${bgColor} rounded-sm p-1`}
-              onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
-            />
-
-            {/* End Time */}
-            <label className="inline-block font-semibold">E:</label>
-            <input
-              type="number"
-              value={selectedAudioTrack.endTime}
-              className={`w-[45px] ${bgColor} rounded-sm p-1`}
-              onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
-            />
-
-            {/* Volume */}
-            <label className="inline-block font-semibold">V:</label>
-            <input
-              type="number"
-              value={selectedAudioTrack.volume}
-              className={`w-[45px] ${bgColor} rounded-sm p-1`}
-              onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
-            />
-
-            {/* Update */}
-            <SecondaryButton type="submit" extraClasses="px-2 py-1">
-              Update
-            </SecondaryButton>
-
-            {/* Remove */}
-            <button
-              type="button"
-              className="bg-red-800 text-white px-2 py-1 rounded-sm flex items-center  inline-flex"
-              onClick={() => removeAudioLayer(selectedAudioTrack)}
-            >
-              <FaTimes className="mr-1" />
-              Remove
-            </button>
-          </div>
-        </form>
+        {/* Rightmost column: Remove button (far right) */}
+        <div className="ml-auto">
+          <button
+            type="button"
+            className="bg-red-800 text-white px-2 py-1 rounded-sm inline-flex items-center gap-1"
+            onClick={() => removeAudioLayer(selectedAudioTrack)}
+          >
+            <FaTimes />
+            Remove
+          </button>
+        </div>
       </div>
     );
   };
@@ -1237,7 +1274,6 @@ export default function FrameToolbar(props) {
             onDragAmountChange={(amount) => {
               setDragAmount(amount);
             }}
-            onBeforeChange={setSelectedLayerToBeDragged}
           />
         </div>
       </div>
@@ -1456,7 +1492,7 @@ export default function FrameToolbar(props) {
       return <AudioTrackSlider
         key={audioTrack._id}
         audioTrack={audioTrack}
-        onUpdate={updateAudioLayer}
+        onUpdate={updateAudioLayerFromSlider}
         selectedFrameRange={selectedFrameRange} // Pass the visible range here
         isStartVisible={isStartVisible}
         isEndVisible={isEndVisible}
