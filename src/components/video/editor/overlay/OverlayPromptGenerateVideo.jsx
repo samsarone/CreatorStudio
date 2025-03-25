@@ -99,7 +99,6 @@ export default function OverlayPromptGenerateVideo(props) {
       localStorage.getItem("defaultVideoModel") ||
       (modelOptions.length > 0 ? modelOptions[0].props.value : "");
     if (defaultModel) {
-     console.log(defaultModel);
 
      // setSelectedVideoGenerationModel(defaultModel);
     }

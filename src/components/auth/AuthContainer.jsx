@@ -35,7 +35,7 @@ export default function AuthContainer(props) {
 
   const signInWithGoogle = () => {
     let currentMediaFlowPath = 'video';
-    if (location.pathname.includes('/quick_video/')) {
+    if (location.pathname.includes('/vidgpt/')) {
       currentMediaFlowPath = 'quick_video';
     }
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
@@ -100,7 +100,7 @@ export default function AuthContainer(props) {
           if (location.pathname.includes('/video/')) {
             navigate(`/video/${sessionData._id}`);
           } else {
-            navigate(`/quick_video/${sessionData._id}`);
+            navigate(`/vidgpt/${sessionData._id}`);
           }
         } else {
           navigate('/my_sessions');

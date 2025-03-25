@@ -40,8 +40,6 @@ export default function DefaultSpeechProviderSelect(props) {
     addSubtitles,
   } = props;
 
-  console.log("BE HERE NOWE????");
-  
 
   const createSubmitGenerateSpeechRequest = (evt) => {
     evt.preventDefault();
