@@ -1223,9 +1223,6 @@ export default function VideoEditorContainer(props) {
       });
   };
 
-  /***********************************************
-   *            TEMPLATE / LIBRARY
-   ***********************************************/
   const showTemplatesSelect = () => {
     setIsTemplateSelectViewSelected(!isTemplateSelectViewSelected);
   };
