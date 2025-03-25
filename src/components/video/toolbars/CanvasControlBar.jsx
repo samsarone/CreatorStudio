@@ -44,7 +44,7 @@ export default function CanvasControlBar(props) {
   let expressGenerationLink = null;
 
   const routeToExpress = () => {
-    navigate(`/quick_video/${sessionId}`);
+    navigate(`/vidgpt/${sessionId}`);
   };
 
   const showAddSubtitlesDialog = () => {

@@ -21,8 +21,8 @@ export default function LoginPage() {
   // signInWithGoogle logic copied from your AuthContainer
   const signInWithGoogle = () => {
     let currentMediaFlowPath = 'video';
-    if (location.pathname.includes('/quick_video/')) {
-      currentMediaFlowPath = 'quick_video';
+    if (location.pathname.includes('/vidgpt/')) {
+      currentMediaFlowPath = 'vidgpt';
     }
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
 
@@ -50,7 +50,7 @@ export default function LoginPage() {
           // If user wanted quick_video, navigate there; else normal /video route
           const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
           if (currentMediaFlow === 'quick_video') {
-            navigate(`/quick_video/${sessionData._id}`);
+            navigate(`//vidgpt/${sessionData._id}`);
           } else {
             navigate(`/video/${sessionData._id}`);
           }

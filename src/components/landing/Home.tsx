@@ -78,8 +78,8 @@ export default function Home() {
       if (sessionData) {
         localStorage.setItem('videoSessionId', sessionData._id);
         let currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
-        if (currentMediaFlowPath && currentMediaFlowPath === 'quick_video') {
-          const finalUrl = appendQueryParams(`/quick_video/${sessionData._id}`);
+        if (currentMediaFlowPath && currentMediaFlowPath === 'vidgpt') {
+          const finalUrl = appendQueryParams(`/vidgpt/${sessionData._id}`);
           navigate(finalUrl);
         } else {
           const finalUrl = appendQueryParams(`/video/${sessionData._id}`);
@@ -111,8 +111,8 @@ export default function Home() {
         <Route path="/session/:id" element={<EditorHome />} />
         <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
         <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />
-        <Route path="/quick_video/:id" element={isMobile ? <MobileVideoHome /> : <QuickEditorContainer />} />
-        <Route path="/quick_video" element={isMobile ? <MobileVideoLandingHome /> : <QuickEditorLandingHome />} />
+        <Route path="/quick_video/:id" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorContainer />} />
+        <Route path="/quick_video" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorLandingHome />} />
         <Route path="/vidgpt" element={<OneshotEditorContainer />} />
         <Route path="/vidgpt/:id" element={<OneshotEditorContainer />} />
         <Route path="/login" element={<LoginPage />} />

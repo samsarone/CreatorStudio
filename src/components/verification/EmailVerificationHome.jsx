@@ -11,7 +11,6 @@ export default function EmailVerificationHome() {
     const urlParams = new URLSearchParams(window.location.search);
     const verificationCode = urlParams.get('code');
     const email = urlParams.get('email');
-    console.log(verificationCode);
 
     // send the verification code to the server
     const payload = {

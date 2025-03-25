@@ -40,7 +40,7 @@ export default function RegisterPage() {
           localStorage.setItem('videoSessionId', sessionData._id);
           const currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
           if (currentMediaFlowPath === 'quick_video') {
-            navigate(`/quick_video/${sessionData._id}`);
+            navigate(`/vidgpt/${sessionData._id}`);
           } else {
             navigate(`/video/${sessionData._id}`);
           }

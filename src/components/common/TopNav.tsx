@@ -234,7 +234,7 @@ export default function TopNav(props) {
       const sessionId = session._id.toString();
       localStorage.setItem('videoSessionId', sessionId);
 
-      navigate(`/quick_video/${session._id}`);
+      navigate(`/vidgpt/${session._id}`);
 
     });
   }
@@ -489,7 +489,7 @@ export default function TopNav(props) {
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       />
     );
-  } else if (location.pathname.includes('/quick_video/')) {
+  } else if (location.pathname.includes('/vidgpt/')) {
     controlbarView = (
       <div className="absolute text-center w-full ">
 
