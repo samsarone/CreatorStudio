@@ -126,11 +126,6 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'LUMINAV2',
     isExpressModel: true,
   },
-  {
-    name: 'Reve Image',
-    key: 'REVE',
-    isExpressModel: true,
-  }
 
 ]
 
