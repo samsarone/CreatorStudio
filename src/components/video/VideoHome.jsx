@@ -791,6 +791,38 @@ export default function VideoHome(props) {
     // setTotalDuration(totalDuration);
   }
 
+
+  const updateAllAudioLayersOneShot = async (updatedAudioLayers) => {
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return;
+      }
+
+      const payload = {
+        sessionId: id,
+        audioLayers: updatedAudioLayers
+      };
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/update_all_audio_layers`,
+        payload,
+        headers
+      );
+
+      const { audioLayers: returnedLayers } = response.data;
+      // Update local state with the “official” audioLayers from the server
+      setAudioLayers(returnedLayers);
+
+      // Let FrameToolbar know the server accepted changes 
+      // so we can clear "isDirty" states on that side:
+      return { success: true, serverLayers: returnedLayers };
+    } catch (error) {
+      console.error("Error updating all audio layers:", error);
+      return { success: false, error };
+    }
+  };
+
   useEffect(() => {
     let totalDuration = 0;
     if (!layers) {
@@ -1026,8 +1058,10 @@ export default function VideoHome(props) {
         audioLayer.isSelected = true;
         audioLayer.endTime = endTime;
         audioLayer.duration = duration;
+        audioLayer.isDirty = true;
       } else {
         audioLayer.isSelected = false;
+        audioLayer.isDirty = false;
       }
       return audioLayer;
     });
@@ -1067,87 +1101,7 @@ export default function VideoHome(props) {
 
   }
 
-  const handleVolumeChange = (payload) => {
 
-
-    const {
-      newVolume,
-      selectedTrackId,
-    } = payload;
-
-    const selectedAudioTrack = audioLayers.find(audioLayer => audioLayer._id.toString() === selectedTrackId.toString());
-
-    const updatedAudioLayer = {
-      ...selectedAudioTrack,
-      volume: newVolume,
-      isSelected: true,
-    };
-
-
-
-    const newAudioLayers = audioLayers.map(audioLayer => {
-      if (audioLayer._id.toString() === selectedTrackId.toString()) {
-        return updatedAudioLayer;
-      }
-      return audioLayer;
-    });
-
-    setAudioLayers(newAudioLayers);
-  };
-
-  const handleStartTimeChange = (payload) => {
-
-
-    const { selectedTrackId, newStartTime } = payload;
-
-    const selectedAudioTrack = audioLayers.find(audioLayer => audioLayer._id.toString() === selectedTrackId.toString());
-
-    const newDuration = selectedAudioTrack.endTime - newStartTime;
-
-    const updatedAudioLayer = {
-      ...selectedAudioTrack,
-      startTime: newStartTime,
-      isSelected: true,
-    };
-
-    const newAudioLayers = audioLayers.map(audioLayer => {
-      if (audioLayer._id.toString() === selectedTrackId.toString()) {
-        return updatedAudioLayer;
-      }
-      return audioLayer;
-    });
-
-
-    setAudioLayers(newAudioLayers);
-
-
-  }
-
-  const handleEndTimeChange = (payload) => {
-
-    const { selectedTrackId, newEndTime } = payload;
-
-    const selectedAudioTrack = audioLayers.find(audioLayer => audioLayer._id.toString() === selectedTrackId.toString());
-
-    const newDuration = newEndTime - selectedAudioTrack.startTime;
-
-    const updatedAudioLayer = {
-      ...selectedAudioTrack,
-      endTime: newEndTime,
-      duration: newDuration,
-      isSelected: true,
-    };
-
-    setAudioLayers(audioLayers.map(audioLayer => {
-
-      if (audioLayer._id.toString() === updatedAudioLayer._id.toString()) {
-        return updatedAudioLayer;
-      }
-      return audioLayer;
-    }));
-
-
-  }
 
   const removeAudioLayer = (audioLayer) => {
 
@@ -1820,9 +1774,6 @@ export default function VideoHome(props) {
           updateAudioLayer={updateAudioLayer}
           isAudioLayerDirty={isAudioLayerDirty}
           removeAudioLayer={removeAudioLayer}
-          handleVolumeChange={handleVolumeChange}
-          handleStartTimeChange={handleStartTimeChange}
-          handleEndTimeChange={handleEndTimeChange}
           updateChangesToActiveAudioLayers={updateChangesToActiveAudioLayers}
           addLayerToComposition={addLayerToComposition}
           copyCurrentLayerBelow={copyCurrentLayerBelow}
@@ -1845,6 +1796,7 @@ export default function VideoHome(props) {
           publishVideoSession={publishVideoSession}
           generateMeta={generateMeta}
           sessionMetadata={sessionMetadata}
+          updateAllAudioLayersOneShot={updateAllAudioLayersOneShot} 
         />
       </div>
     )
@@ -1909,9 +1861,6 @@ export default function VideoHome(props) {
               updateAudioLayer={updateAudioLayer}
               isAudioLayerDirty={isAudioLayerDirty}
               removeAudioLayer={removeAudioLayer}
-              handleVolumeChange={handleVolumeChange}
-              handleStartTimeChange={handleStartTimeChange}
-              handleEndTimeChange={handleEndTimeChange}
               updateChangesToActiveAudioLayers={updateChangesToActiveAudioLayers}
               updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
               addLayerToComposition={addLayerToComposition}
@@ -1934,6 +1883,7 @@ export default function VideoHome(props) {
               generateMeta={generateMeta}
               sessionMetadata={sessionMetadata}
               isGuestSession={isGuestSession}
+              updateAllAudioLayersOneShot={updateAllAudioLayersOneShot} 
             />
           </div>
           <div className='w-[90%] bg-cyber-black inline-block'>
