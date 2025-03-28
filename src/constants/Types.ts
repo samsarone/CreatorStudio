@@ -440,6 +440,10 @@ export const OPENAI_SPEAKER_TYPES = [
 
 export const MUSIC_PROVIDERS = [
   {
+    name: 'CassetteAI',
+    key: 'CASSETTEAI'
+  },
+  {
     name: 'AudioCraft',
     key: 'AUDIOCRAFT'
   }

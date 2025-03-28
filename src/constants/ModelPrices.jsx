@@ -780,7 +780,16 @@ export const MUSIC_MODEL_PRICES = [
         price: 2,
       }
     ]
-  }
+  },
+  {
+    key: 'CASSETTEAI',
+    prices: [
+      {
+        operationType: "generate_song",
+        price: 5,
+      }
+    ]
+  },
 ]
 
 
