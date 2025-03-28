@@ -198,7 +198,7 @@ export default function VideoEditorToolbar(props) {
     setSpeakerType(selectedOption);
 
     //const selectedSpeakerName = selectedOption.label;
-   // localStorage.setItem('defaultSpeaker', selectedSpeakerName);
+    // localStorage.setItem('defaultSpeaker', selectedSpeakerName);
 
     if (audioSampleRef.current) {
       audioSampleRef.current.pause();
@@ -803,7 +803,7 @@ export default function VideoEditorToolbar(props) {
       isInstrumental: isInstrumental,
       model: selectedMusicProvider.key,
     };
-    if (selectedMusicProvider.key === 'AUDIOCRAFT') {
+    if (selectedMusicProvider.key === 'AUDIOCRAFT' || selectedMusicProvider.key === 'CASSETTEAI') {
       body.duration = Number(musicDuration);
     }
     submitGenerateMusicRequest(body);
@@ -862,11 +862,10 @@ export default function VideoEditorToolbar(props) {
           onClick={() => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY);
           }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${
-            isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY)
+          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY)
               ? highlightedBgColor
               : ''
-          } p-2 rounded`}
+            } p-2 rounded`}
         >
           <RiSpeakLine />
           <div className="text-xs">Speech</div>
@@ -875,11 +874,10 @@ export default function VideoEditorToolbar(props) {
           onClick={() => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY);
           }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${
-            isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)
+          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)
               ? highlightedBgColor
               : ''
-          } p-2 rounded`}
+            } p-2 rounded`}
         >
           <FaMusic />
           <div className="text-xs">Music</div>
@@ -888,11 +886,10 @@ export default function VideoEditorToolbar(props) {
           onClick={() => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY);
           }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${
-            isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY)
+          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY)
               ? highlightedBgColor
               : ''
-          } p-2 rounded`}
+            } p-2 rounded`}
         >
           <AiOutlineSound />
           <div className="text-xs">Effect</div>
@@ -904,43 +901,12 @@ export default function VideoEditorToolbar(props) {
       audioSubOptionsDisplay = (
         <div className="transition-all duration-300 ease-in-out">
           <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateMusic}>
-            {/* Provider & optional duration */}
-            {selectedMusicProvider.key === 'AUDIOCRAFT' ? (
-              <div className="mb-2 grid grid-cols-4 gap-2 items-center">
-                <div className="col-span-3">
-                  <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicProvider">
-                    Provider:
-                  </label>
-                  <SingleSelect
-                    name="musicProvider"
-                    options={MUSIC_PROVIDERS.map(provider => ({
-                      value: provider.key,
-                      label: provider.name
-                    }))}
-                    value={{
-                      value: selectedMusicProvider.key,
-                      label: selectedMusicProvider.name
-                    }}
-                    onChange={handleMusicProviderChange}
-                  />
-                </div>
-                <div className="col-span-1 relative">
-                  <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicDuration">
-                    Seconds
-                  </label>
-                  <input
-                    type="number"
-                    name="musicDuration"
-                    min="1"
-                    max="120"
-                    value={musicDuration}
-                    onChange={(e) => setMusicDuration(e.target.value)}
-                    className={`w-full ${bgColor} ${text2Color} p-1`}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className="mb-2">
+
+            <div className="mb-2 grid grid-cols-4 gap-2 items-center">
+              <div className="col-span-3">
+                <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicProvider">
+                  Provider:
+                </label>
                 <SingleSelect
                   name="musicProvider"
                   options={MUSIC_PROVIDERS.map(provider => ({
@@ -954,7 +920,22 @@ export default function VideoEditorToolbar(props) {
                   onChange={handleMusicProviderChange}
                 />
               </div>
-            )}
+              <div className="col-span-1 relative">
+                <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicDuration">
+                  Seconds
+                </label>
+                <input
+                  type="number"
+                  name="musicDuration"
+                  min="1"
+                  max="120"
+                  value={musicDuration}
+                  onChange={(e) => setMusicDuration(e.target.value)}
+                  className={`w-full ${bgColor} ${text2Color} p-1`}
+                />
+              </div>
+            </div>
+
 
             <TextareaAutosize
               name="promptText"
@@ -1002,7 +983,7 @@ export default function VideoEditorToolbar(props) {
             bgColor={bgColor}
             text2Color={text2Color}
             showAdvancedOptions={false}
-            setShowAdvancedOptions={() => {}}
+            setShowAdvancedOptions={() => { }}
             colorMode={colorMode}
           />
         </div>
@@ -1150,9 +1131,8 @@ export default function VideoEditorToolbar(props) {
       <div>
         <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
-              pencilOptionsVisible ? 'bg-gray-800' : bgColor
-            } transition-colors duration-300`}
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${pencilOptionsVisible ? 'bg-gray-800' : bgColor
+              } transition-colors duration-300`}
           >
             <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}>
               <FaPencilAlt className="text-2xl m-auto cursor-pointer" />
@@ -1161,9 +1141,8 @@ export default function VideoEditorToolbar(props) {
           </div>
 
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
-              eraserOptionsVisible ? 'bg-gray-800' : bgColor
-            } transition-colors duration-300`}
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${eraserOptionsVisible ? 'bg-gray-800' : bgColor
+              } transition-colors duration-300`}
           >
             <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}>
               <FaEraser className="text-2xl m-auto cursor-pointer" />
@@ -1172,9 +1151,8 @@ export default function VideoEditorToolbar(props) {
           </div>
 
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
-              cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
-            } transition-colors duration-300`}
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
+              } transition-colors duration-300`}
           >
             <div onClick={() => combineCurrentLayerItems()}>
               <LuCombine className="text-2xl m-auto cursor-pointer" />
@@ -1193,9 +1171,8 @@ export default function VideoEditorToolbar(props) {
     selectOptionsDisplay = (
       <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
         <div
-          className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${
-            cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
-          } transition-colors duration-300`}
+          className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
+            } transition-colors duration-300`}
           onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY)}
         >
           <FaCrosshairs className="text-2xl m-auto cursor-pointer" />
@@ -1350,7 +1327,7 @@ export default function VideoEditorToolbar(props) {
   const isItemSelected = (view) => currentViewDisplay === view;
   const getMarginTop = (view) => (isItemSelected(view) ? 'mt-0' : 'mt-4');
   const getSelectedClass = (view) =>
-    isItemSelected(view) ? `${bgPillSelected} ${textPillSelected}` : `${bgPillUnselected} ${textPillUnselected}` 
+    isItemSelected(view) ? `${bgPillSelected} ${textPillSelected}` : `${bgPillUnselected} ${textPillUnselected}`
 
   const layerToolbarList = [
     {
@@ -1505,9 +1482,8 @@ export default function VideoEditorToolbar(props) {
           {layerToolbarList.map((item, index) => (
             <div key={index} className={`${getMarginTop(item.view)} transition-all duration-300`}>
               <div
-                className={`${buttonBgcolor} rounded-sm text-left ${
-                  isItemSelected(item.view) ? 'mt-1' : 'mt-4'
-                } transition-colors duration-300`}
+                className={`${buttonBgcolor} rounded-sm text-left ${isItemSelected(item.view) ? 'mt-1' : 'mt-4'
+                  } transition-colors duration-300`}
               >
                 <div
                   className={`pt-1 pb-1 pl-2 pr-2 text-lg font-bold m-auto cursor-pointer flex justify-between items-center ${getSelectedClass(
@@ -1530,13 +1506,10 @@ export default function VideoEditorToolbar(props) {
                   <FaChevronDown className="inline-flex mr-4 text-sm" />
                 </div>
                 <div
-                  className={`${
-                    index === layerToolbarList.length - 1 ? 'mb-32' : 'mb-1'
-                  } pt-1 pl-2 pr-2 ${
-                    item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
-                  } transition-all duration-500 ${
-                    isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
-                  }`}
+                  className={`${index === layerToolbarList.length - 1 ? 'mb-32' : 'mb-1'
+                    } pt-1 pl-2 pr-2 ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
+                    } transition-all duration-500 ${isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
+                    }`}
                 >
                   {item.content}
                 </div>
