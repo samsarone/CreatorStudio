@@ -15,7 +15,7 @@ import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import axios from 'axios';
 
 import { getHeaders } from '../../utils/web.jsx';
-import ProgressIndicator from '../quick_editor/ProgressIndicator.jsx'; // Import the ProgressIndicator component
+import ProgressIndicator from '../oneshot_editor/ProgressIndicator.jsx'; // Import the ProgressIndicator component
 
 
 

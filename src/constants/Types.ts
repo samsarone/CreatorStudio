@@ -106,8 +106,13 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   },
 
   {
-    name: 'Nvidia Sana',
-    key: 'SANA'
+    name: 'Sana 4.5B',
+    key: 'SANA4.5B',
+  },
+  {
+    name: 'Sana Sprint',
+    key: 'SANASPRINT',
+    isExpressModel: true,
   },
   {
     name: 'Recraft 20B',
@@ -127,7 +132,8 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
 
-]
+];
+
 
 export const VIDEO_GENERATION_MODEL_TYPES = [
   {
@@ -188,7 +194,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9'
-    ]
+    ],
+    isExpressModel: true,
   },
   {
     name: 'Haiper 2.0',
@@ -221,20 +228,25 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
-    
-
   },
-
   {
-    name: 'PixVerseV3.5',
+    name: 'PixVerseV4',
     key: 'PIXVERSEI2V',
     isImgToVidModel: true,
     isExpressModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
-
   },
+  {
+    name: 'PixVerseV4 Fast',
+    key: 'PIXVERSEI2VFAST',
+    isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
+  },
+  
   {
     name: 'Wan I2V',
     key: 'WANI2V',
@@ -244,20 +256,18 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9'
     ]
   },
-
-
   {
     name: 'Pika2.2 I2V',
     key: 'PIKA2.2I2V',
     isImgToVidModel: true,
     isExpressModel: true,
     isTextToVidModel: false,
-
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
-
   },
+  
+  
 
 ];
 
@@ -397,7 +407,7 @@ export const OPENAI_SPEAKER_TYPES = [
   },
   {
     value: 'fable', label: 'Fable', provider: 'OPENAI',
-    "Gender": "F",
+    "Gender": "M",
     previewURL: "https://cdn.openai.com/API/docs/audio/fable.wav"
   },
   {

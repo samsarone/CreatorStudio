@@ -158,6 +158,80 @@ export const IMAGE_MODEL_PRICES = [
   },
 
   {
+    key: 'SANA',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 5
+      },
+      {
+        aspectRatio: '16:9',
+        price: 5
+      },
+      {
+        aspectRatio: '9:16',
+        price: 5
+      },
+    ]
+  },
+
+  {
+    key: 'SANA',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 5
+      },
+      {
+        aspectRatio: '16:9',
+        price: 5
+      },
+      {
+        aspectRatio: '9:16',
+        price: 5
+      },
+    ]
+  },
+
+  {
+    key: 'SANA4.5B',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 8
+      },
+      {
+        aspectRatio: '16:9',
+        price: 8
+      },
+      {
+        aspectRatio: '9:16',
+        price: 8
+      },
+    ]
+  },
+
+
+  {
+    key: 'SANASPRINT',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 2
+      },
+      {
+        aspectRatio: '16:9',
+        price: 2
+      },
+      {
+        aspectRatio: '9:16',
+        price: 2
+      },
+    ]
+  },
+
+
+  {
     key: 'PHOTON',
     prices: [
       {
@@ -227,7 +301,7 @@ export const IMAGE_MODEL_PRICES = [
       },
     ]
   },
-  
+
   {
     key: 'LUMINAV2',
     prices: [
@@ -244,12 +318,12 @@ export const IMAGE_MODEL_PRICES = [
         price: 15
       },
     ]
-    
+
   },
 
 
-  
-  
+
+
 ]
 
 export const IMAGE_EDIT_MODEL_PRICES = [
@@ -358,6 +432,7 @@ export const IMAGE_EDIT_MODEL_PRICES = [
       },
     ]
   },
+
 
 
 
@@ -502,8 +577,8 @@ export const VIDEO_MODEL_PRICES = [
     ],
     "units": [4, 8]
   },
-  
-  
+
+
   {
     key: 'SDVIDEO',
     prices: [
@@ -593,6 +668,27 @@ export const VIDEO_MODEL_PRICES = [
     units: [5, 8]
   },
 
+  {
+    key: 'PIXVERSEI2VFAST',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 120
+      },
+      {
+        aspectRatio: '16:9',
+        price: 120
+      },
+      {
+        aspectRatio: '9:16',
+        price: 120
+      },
+    ],
+    units: [5, 8],
+    isExpressModel: true,
+  },
+
+
 
   {
     key: 'PIKA2.2I2V',
@@ -630,6 +726,23 @@ export const VIDEO_MODEL_PRICES = [
   },
   {
     key: 'LATENTSYNC',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 10
+      },
+      {
+        aspectRatio: '9:16',
+        price: 10
+      },
+    ],
+  },
+  {
+    key: 'KLINGLIPSYNC',
     prices: [
       {
         aspectRatio: '1:1',
