@@ -16,7 +16,7 @@ import {
   VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
 import { getOperationExpectedPricing } from '../../constants/pricing/VidGPTPricing.jsx';
-import ProgressIndicator from '../quick_editor/ProgressIndicator.jsx';
+import ProgressIndicator from './ProgressIndicator.jsx';
 import { FaYoutube } from 'react-icons/fa6';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import { VIDEO_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
@@ -127,7 +127,6 @@ export default function OneshotEditor() {
     { label: '30 Secs', value: 30 },
     { label: '1 Minute', value: 60 },
     { label: '1.5 Minutes', value: 90 },
-    { label: '2 Minutes', value: 120 },
   ];
 
   // -- Load localStorage defaults:
@@ -511,6 +510,7 @@ export default function OneshotEditor() {
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
+
   let creditsPerSecondVideo = 10;
   if (selectedVideoModel.value === 'VEOI2V') {
     creditsPerSecondVideo = 60;
@@ -518,7 +518,10 @@ export default function OneshotEditor() {
   if (selectedVideoModel.value === 'LUMAFLASH2') {
     creditsPerSecondVideo = 6;
   }
-
+  if (selectedImageModel.value === "PIXVERSEI2VFAST") {
+    creditsPerSecondVideo = 20;
+  }
+  
   let pricingInfoDisplay = (
     <div className="relative">
       <div

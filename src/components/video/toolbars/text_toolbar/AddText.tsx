@@ -49,16 +49,22 @@ export default function AddText(props) {
 
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Because we manage fillColor/strokeColor in local state, we separate them out,
+  // but still rely on textConfig for final submission.
   const [localFillColor, setLocalFillColor] = useState(fillColor);
   const [localStrokeColor, setLocalStrokeColor] = useState(strokeColor);
 
   // For controlling which color picker is open: "fill", "stroke" or null
   const [colorPickerType, setColorPickerType] = useState(null);
 
-  const formElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800";
-  const textElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800 border-gray-600 border-2";
+  const formElementBG =
+    colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800";
+  const textElementBG =
+    colorMode === "dark"
+      ? "bg-gray-800 text-neutral-50"
+      : "bg-gray-100 text-neutral-800 border-gray-600 border-2";
 
-  const buttonClasses = (active) => active ? 'bg-blue-500 text-white' : formElementBG;
+  const buttonClasses = (active) => (active ? 'bg-blue-500 text-white' : formElementBG);
 
   const handleFontSizeChange = (e) => {
     let val = parseInt(e.target.value, 10);
@@ -102,7 +108,7 @@ export default function AddText(props) {
   };
 
   const submitChanges = () => {
-    // Ensure final colors are set
+    // Ensure final colors are set in textConfig
     setTextConfig({ ...textConfig, fillColor: localFillColor, strokeColor: localStrokeColor });
     submitAddText();
   };
@@ -115,38 +121,82 @@ export default function AddText(props) {
     setColorPickerType('stroke');
   };
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('defaultTextConfiguration');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.textConfig) {
-        setTextConfig(parsed.textConfig);
-        setLocalFillColor(parsed.textConfig.fillColor || '#000000');
-        setLocalStrokeColor(parsed.textConfig.strokeColor || '#ffffff');
-      }
-      if (parsed.addText !== undefined) {
-      //  setAddText(parsed.addText);
-      }
-    }
-  }, [ setTextConfig]);
-
-  // Save to localStorage whenever textConfig or addText changes
-  useEffect(() => {
-    const data = {
-      textConfig: { ...textConfig, fillColor: localFillColor, strokeColor: localStrokeColor },
-      addText: addText
-    };
-    localStorage.setItem('defaultTextConfiguration', JSON.stringify(data));
-  }, [textConfig, addText, localFillColor, localStrokeColor]);
-
-
   const updateText = (evt) => {
-
     const textValue = evt.target.value;
-
     setAddText(textValue);
-  }
+  };
+
+  /**
+   * Load from localStorage on mount
+   */
+  useEffect(() => {
+    const storedFontSize = localStorage.getItem('selected_text_config_fontSize');
+    const storedFontFamily = localStorage.getItem('selected_text_config_fontFamily');
+    const storedFillColor = localStorage.getItem('selected_text_config_fillColor');
+    const storedStrokeColor = localStorage.getItem('selected_text_config_strokeColor');
+    const storedStrokeWidth = localStorage.getItem('selected_text_config_strokeWidth');
+    const storedBold = localStorage.getItem('selected_text_config_bold');
+    const storedItalic = localStorage.getItem('selected_text_config_italic');
+    const storedUnderline = localStorage.getItem('selected_text_config_underline');
+    const storedTextAlign = localStorage.getItem('selected_text_config_textAlign');
+    const storedLineHeight = localStorage.getItem('selected_text_config_lineHeight');
+    const storedAddText = localStorage.getItem('selected_text_config_addText');
+
+    // Update textConfig if these values exist
+    setTextConfig((prev) => ({
+      ...prev,
+      fontSize: storedFontSize ? parseInt(storedFontSize, 10) : prev.fontSize,
+      fontFamily: storedFontFamily || prev.fontFamily,
+      fillColor: storedFillColor || prev.fillColor,
+      strokeColor: storedStrokeColor || prev.strokeColor,
+      strokeWidth: storedStrokeWidth ? parseInt(storedStrokeWidth, 10) : prev.strokeWidth,
+      bold: storedBold === 'true' ? true : prev.bold,
+      italic: storedItalic === 'true' ? true : prev.italic,
+      underline: storedUnderline === 'true' ? true : prev.underline,
+      textAlign: storedTextAlign || prev.textAlign,
+      lineHeight: storedLineHeight ? parseFloat(storedLineHeight) : prev.lineHeight,
+    }));
+
+    // Also update local color states
+    if (storedFillColor) setLocalFillColor(storedFillColor);
+    if (storedStrokeColor) setLocalStrokeColor(storedStrokeColor);
+
+    // If there's saved text, update addText
+    if (storedAddText) {
+      setAddText(storedAddText);
+    }
+  }, [setTextConfig, setAddText]);
+
+  /**
+   * Save to localStorage whenever textConfig or addText changes
+   */
+  useEffect(() => {
+    localStorage.setItem('selected_text_config_fontSize', textConfig.fontSize.toString());
+    localStorage.setItem('selected_text_config_fontFamily', textConfig.fontFamily);
+    localStorage.setItem('selected_text_config_fillColor', localFillColor);
+    localStorage.setItem('selected_text_config_strokeColor', localStrokeColor);
+    localStorage.setItem('selected_text_config_strokeWidth', textConfig.strokeWidth.toString());
+    localStorage.setItem('selected_text_config_bold', textConfig.bold.toString());
+    localStorage.setItem('selected_text_config_italic', textConfig.italic.toString());
+    localStorage.setItem('selected_text_config_underline', textConfig.underline.toString());
+    localStorage.setItem('selected_text_config_textAlign', textConfig.textAlign);
+    localStorage.setItem('selected_text_config_lineHeight', textConfig.lineHeight.toString());
+    localStorage.setItem('selected_text_config_addText', addText || '');
+  }, [
+    textConfig.fontSize,
+    textConfig.fontFamily,
+    textConfig.strokeWidth,
+    textConfig.bold,
+    textConfig.italic,
+    textConfig.underline,
+    textConfig.textAlign,
+    textConfig.lineHeight,
+    localFillColor,
+    localStrokeColor,
+    addText,
+    textConfig
+  ]);
+
   return (
     <div>
       {/* Row 1: Font Size and Font Family */}
@@ -225,7 +275,10 @@ export default function AddText(props) {
                 type="number"
                 min="0"
                 value={strokeWidth}
-                onChange={(e) => setTextConfig({ ...textConfig, strokeWidth: parseInt(e.target.value, 10) || 0 })}
+                onChange={(e) => setTextConfig({
+                  ...textConfig,
+                  strokeWidth: parseInt(e.target.value, 10) || 0
+                })}
                 className={`${formElementBG} w-full p-2 rounded`}
               />
             </div>
@@ -237,7 +290,10 @@ export default function AddText(props) {
                 min="0"
                 step="0.1"
                 value={lineHeight}
-                onChange={(e) => setTextConfig({ ...textConfig, lineHeight: parseFloat(e.target.value) || 0 })}
+                onChange={(e) => setTextConfig({
+                  ...textConfig,
+                  lineHeight: parseFloat(e.target.value) || 0
+                })}
                 className={`${formElementBG} w-full p-2 rounded`}
               />
             </div>
@@ -269,28 +325,29 @@ export default function AddText(props) {
               </div>
             </div>
             <div>
-               {/*
-              <div className='text-xs mb-1'>Text Alignment</div>
-              <div className='flex space-x-1'>
-                <button
-                  onClick={() => setAlignment('left')}
-                  className={`${buttonClasses(textAlign === 'left')} p-1 rounded`}
-                >
-                  <FaAlignLeft />
-                </button>
-                <button
-                  onClick={() => setAlignment('center')}
-                  className={`${buttonClasses(textAlign === 'center')} p-1 rounded`}
-                >
-                  <FaAlignCenter />
-                </button>
-                <button
-                  onClick={() => setAlignment('right')}
-                  className={`${buttonClasses(textAlign === 'right')} p-1 rounded`}
-                >
-                  <FaAlignRight />
-                </button> 
-              </div>
+              {/* 
+                If you need alignment, uncomment. 
+                <div className='text-xs mb-1'>Text Alignment</div>
+                <div className='flex space-x-1'>
+                  <button
+                    onClick={() => setAlignment('left')}
+                    className={`${buttonClasses(textAlign === 'left')} p-1 rounded`}
+                  >
+                    <FaAlignLeft />
+                  </button>
+                  <button
+                    onClick={() => setAlignment('center')}
+                    className={`${buttonClasses(textAlign === 'center')} p-1 rounded`}
+                  >
+                    <FaAlignCenter />
+                  </button>
+                  <button
+                    onClick={() => setAlignment('right')}
+                    className={`${buttonClasses(textAlign === 'right')} p-1 rounded`}
+                  >
+                    <FaAlignRight />
+                  </button>
+                </div>
               */}
             </div>
           </div>
@@ -300,7 +357,7 @@ export default function AddText(props) {
       {/* Row 3: Textarea */}
       <TextareaAutosize
         value={addText || ''}
-        onChange={(evt) => updateText(evt)}
+        onChange={updateText}
         className={`${textElementBG} w-full p-4 rounded-lg mt-2`}
         minRows={3}
         placeholder='Enter text here...'
