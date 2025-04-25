@@ -20,6 +20,8 @@ export default function VideoAiVideoOptionsViewer(props) {
   const lipSyncOptions = [
     { label: 'Latent Sync', value: 'LATENTSYNC' },
     { label: 'Sync Lip Sync', value: 'SYNCLIPSYNC' },
+    {label: 'Kling Lip Sync', value: 'KLINGLIPSYNC'},
+    
   ];
 
   // 1) Define state for the lip sync selection

@@ -64,7 +64,7 @@ export default function Login(props) {
               onClick={signInWithGoogle}
             >
               <div className="text-center text-lg font-bold pt-[2px]">
-                <FaGoogle className="inline-block mr-2 mb-1 text-green-600" />
+                <FaGoogle className="inline-block mr-2 mb-1 text-blue-600" />
                 <div className="inline-block">Login with Google</div>
               </div>
             </div>

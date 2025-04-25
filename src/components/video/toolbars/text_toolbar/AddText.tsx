@@ -176,11 +176,11 @@ export default function AddText(props) {
     localStorage.setItem('selected_text_config_fillColor', localFillColor);
     localStorage.setItem('selected_text_config_strokeColor', localStrokeColor);
     localStorage.setItem('selected_text_config_strokeWidth', textConfig.strokeWidth.toString());
-    localStorage.setItem('selected_text_config_bold', textConfig.bold.toString());
-    localStorage.setItem('selected_text_config_italic', textConfig.italic.toString());
-    localStorage.setItem('selected_text_config_underline', textConfig.underline.toString());
+    localStorage.setItem('selected_text_config_bold', textConfig.bold?.toString());
+    localStorage.setItem('selected_text_config_italic', textConfig.italic?.toString());
+    localStorage.setItem('selected_text_config_underline', textConfig.underline?.toString());
     localStorage.setItem('selected_text_config_textAlign', textConfig.textAlign);
-    localStorage.setItem('selected_text_config_lineHeight', textConfig.lineHeight.toString());
+    localStorage.setItem('selected_text_config_lineHeight', textConfig.lineHeight?.toString());
     localStorage.setItem('selected_text_config_addText', addText || '');
   }, [
     textConfig.fontSize,

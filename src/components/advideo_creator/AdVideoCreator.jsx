@@ -19,7 +19,7 @@ import {
 } from '../../constants/Types.ts';
 
 import { getOperationExpectedPricing } from '../../constants/pricing/VidGPTPricing.jsx';
-import ProgressIndicator from './ProgressIndicator.jsx';
+import ProgressIndicator from '../oneshot_editor/ProgressIndicator.jsx';
 import { FaYoutube } from 'react-icons/fa6';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import { VIDEO_MODEL_PRICES, IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
@@ -28,12 +28,12 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
 
-export default function OneshotEditor() {
+export default function AdVideoCreator() {
   const { user } = useUser();
   const { colorMode } = useColorMode();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { openAlertDialog /*, closeAlertDialog*/ } = useAlertDialog();
+  const { openAlertDialog } = useAlertDialog();
 
   // Basic session & form state
   const [sessionDetails, setSessionDetails] = useState(null);
@@ -63,46 +63,48 @@ export default function OneshotEditor() {
   // State to track which video is expanded for inline playback
   const [expandedVideoId, setExpandedVideoId] = useState(null);
 
-  // Image‑upload state
-  const [uploadedImageFile, setUploadedImageFile] = useState(null);        // original File
-  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState(null);  // base‑64 preview / API
-  const fileInputRef = useRef(null);
+  // Multiple image upload
+  const [uploadedImageFiles, setUploadedImageFiles] = useState([]);   // File[]
+  const [uploadedImageDataUrls, setUploadedImageDataUrls] = useState([]); // string[]
 
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchLatestVideos();
   }, []);
 
   const fetchLatestVideos = async () => {
-    // Example: commented out for brevity
-    // try {
-    //   const headers = getHeaders();
-    //   const response = await axios.get(`${API_SERVER}/vidgpt/latest_videos`, headers);
-    //   if (response?.data?.items) {
-    //     setLatestVideos(response.data.items);
-    //   }
-    // } catch (err) {
-    //   console.error("Error fetching latest videos:", err);
-    //   setError('Failed to fetch latest videos.');
-    // }
+    // Example: you might fetch your list of videos here
+    // ...
   };
 
   const handleToggleVideo = (videoId) => {
     setExpandedVideoId((prev) => (prev === videoId ? null : videoId));
   };
 
+  // Handle multiple file uploads; merges new selections
+  const handleFileChange = async (e) => {
+    const newFiles = Array.from(e.target.files || []);
+    if (!newFiles.length) return;
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadedImageFile(file);
+    // Merge with existing files if you want to keep previously uploaded ones
+    const allFiles = [...uploadedImageFiles, ...newFiles];
+    setUploadedImageFiles(allFiles);
 
-    // Convert to base‑64 so it can travel inside JSON
-    const reader = new FileReader();
-    reader.onloadend = () => setUploadedImageDataUrl(reader.result);
-    reader.readAsDataURL(file);
+    // Convert all Files to base64
+    const base64Arr = await Promise.all(
+      allFiles.map(
+        (file) =>
+          new Promise((resolve) => {
+            const fr = new FileReader();
+            fr.onloadend = () => resolve(fr.result);
+            fr.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    setUploadedImageDataUrls(base64Arr);
   };
-
 
   // Aspect Ratio
   const aspectRatioOptions = [
@@ -180,10 +182,9 @@ export default function OneshotEditor() {
   });
 
   // ----------------------------------
-  // NEW STATE FOR IMAGE MODEL SUB-TYPES
+  //  Model sub-types for images
   // ----------------------------------
   const [selectedImageModelSubType, setSelectedImageModelSubType] = useState(null);
-
 
   useEffect(() => {
     if (!selectedImageModel) return;
@@ -198,40 +199,21 @@ export default function OneshotEditor() {
         });
       }
     } else {
-      // Reset if the user switches away from IDEOGRAM
       setSelectedImageModelSubType(null);
     }
   }, [selectedImageModel]);
 
-  // If we had a model with subTypes (like 'RECRAFTV3'), you could do:
-  // useEffect(() => {
-  //   const matched = IMAGE_GENERAITON_MODEL_TYPES.find((m) => m.key === selectedImageModel?.value);
-  //   if (matched?.modelSubTypes) {
-  //     // set a default sub-type
-  //   } else {
-  //     setSelectedImageModelSubType(null);
-  //   }
-  // }, [selectedImageModel]);
-
   // ----------------------------------
-  // VIDEO MODEL SUB-TYPE
+  //  Model sub-types for videos
   // ----------------------------------
   const [selectedVideoModelSubType, setSelectedVideoModelSubType] = useState(null);
 
-
-
   useEffect(() => {
-
     // If video model is Pixverse, default subType to the first Pixverse style
     if (selectedVideoModel?.value?.startsWith('PIXVERSE')) {
       if (!selectedVideoModelSubType) {
-
-
         const firstPixverseStyle = PIXVERRSE_VIDEO_STYLES[0];
         setSelectedVideoModelSubType({ label: firstPixverseStyle, value: firstPixverseStyle });
-
-
-
       }
     }
     // Else if model has standard "modelSubTypes" array, use the first from that
@@ -246,8 +228,6 @@ export default function OneshotEditor() {
       setSelectedVideoModelSubType(null);
     }
   }, [selectedVideoModel]);
-
-
 
   // Save preferences to localStorage
   useEffect(() => {
@@ -497,25 +477,21 @@ export default function OneshotEditor() {
     setVideoLink(null);
     setExpressGenerationStatus(null);
 
-    // Include imageModelSubType if you have one
     const payload = {
       prompt: promptText,
       sessionID: id,
       aspectRatio: selectedAspectRatioOption?.value,
-      imageModel: selectedImageModel?.value,
-      imageModelSubType:
-        selectedImageModel?.value === 'IDEOGRAMV2'
-          ? selectedImageModelSubType?.value
-          : null, // or handle similarly for RECRAFTV3 if it has subTypes
-      videoGenerationModel: selectedVideoModel?.value,
-      modelSubType: selectedVideoModelSubType?.value || null,
+      // example: hard-coded
+      imageModel: 'GPTIMAGE1',
+      videoGenerationModel: 'MAGIDISTILLED',
       duration: selectedDurationOption?.value,
-      startImage: uploadedImageDataUrl || null,
+      // <-- Pass all Base64 images here
+      startImages: uploadedImageDataUrls,
     };
 
     try {
       const headers = getHeaders();
-      await axios.post(`${API_SERVER}/vidgpt/create`, payload, headers);
+      await axios.post(`${API_SERVER}/admaker/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
       console.error('Error submitting theme text:', error);
@@ -536,10 +512,9 @@ export default function OneshotEditor() {
     setIsSubmitting(false);
     setSessionMessages([]);
     setSelectedImageModelSubType(null);
-    setUploadedImageFile(null);
-    setUploadedImageDataUrl(null);
+    setUploadedImageFiles([]);
+    setUploadedImageDataUrls([]);
   };
-
 
   const viewInStudio = () => {
     navigate(`/video/${id}`);
@@ -570,18 +545,9 @@ export default function OneshotEditor() {
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
-  // Example pricing logic
   let creditsPerSecondVideo = 10;
-  if (selectedVideoModel.value === 'VEOI2V') {
-    creditsPerSecondVideo = 60;
-  }
-  if (selectedVideoModel.value === 'LUMAFLASH2') {
-    creditsPerSecondVideo = 6;
-  }
-  if (selectedVideoModel.value === 'KLINGIMGTOVIDPROMASTER') {
-    creditsPerSecondVideo = 40;
-  }
-
+  // Example: you can conditionally change this based on model
+  // if (selectedVideoModel.value === 'VEOI2V') {...}
 
   let pricingInfoDisplay = (
     <div className="relative">
@@ -601,8 +567,6 @@ export default function OneshotEditor() {
     </div>
   );
 
-
-
   return (
     <div className="mt-[20px] relative">
       {/* Top Bar (header) */}
@@ -613,49 +577,42 @@ export default function OneshotEditor() {
             : "flex justify-between items-center p-2 bg-white text-black pt-8 mt-8 rounded-md shadow-md relative"
         }
       >
+        <div
+          className={
+            colorMode === 'dark'
+              ? 'flex items-center text-lg font-bold text-white pl-2 mt-[-6px] space-x-2'
+              : 'flex items-center text-lg font-bold text-black pl-2 mt-[-6px] space-x-2'
+          }
+        >
+          <span>AdVideo Creator
 
+            <span className='text-sm text-gray-400 ml-2'>
+              Add all the product photos, and then enter a prompt for the ad.
+            </span>  
+          </span>
 
-<div
-  className={
-    colorMode === 'dark'
-      ? 'flex items-center text-lg font-bold text-white pl-2 mt-[-6px] space-x-2'
-      : 'flex items-center text-lg font-bold text-black pl-2 mt-[-6px] space-x-2'
-  }
->
-  {/* label */}
-  <span>VidGenie Creator</span>
-
-  {/* click‑to‑upload icon */}
-  <button
-    type="button"
-    onClick={() => fileInputRef.current?.click()}
-    title={uploadedImageFile ? 'Change image' : 'Upload starter image'}
-    className="p-0 leading-none"      
-  >
-    <FaImage className="text-xl hover:opacity-80 align-middle ml-4 pt-1" />
-  </button>
-
-  {/* hidden input */}
-  <input
-    type="file"
-    accept="image/*"
-    ref={fileInputRef}
-    onChange={handleFileChange}
-    className="hidden"
-  />
-
-  {/* tiny filename, positioned so it doesn’t push the header down */}
-  {uploadedImageFile && (
-    <span className="absolute top-full left-0 mt-1 text-xs text-green-500 truncate max-w-[150px]">
-      {uploadedImageFile.name}
-    </span>
-  )}
-</div>
-
-
-
-
-
+          {/* Button to trigger multiple image uploads */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title={
+              uploadedImageFiles && uploadedImageFiles.length
+                ? 'Add or change images'
+                : 'Upload starter images'
+            }
+            className="p-0 leading-none cursor-pointer"
+          >
+            <FaImage className="text-xl hover:opacity-80 align-middle ml-4 pt-1" />
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+          />
+        </div>
 
         {/* Right-Side Toolbar */}
         <div className="flex items-center space-x-4 mr-2">
@@ -677,131 +634,6 @@ export default function OneshotEditor() {
               Aspect Ratio
             </p>
           </div>
-
-          {/* Upload Image */}
-
-
-
-          {/* Image Model */}
-          <div className="flex flex-col items-center">
-            <SingleSelect
-              value={selectedImageModel}
-              onChange={setSelectedImageModel}
-              options={expressImageModels}
-              className="w-40"
-            />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
-              Image Model
-            </p>
-          </div>
-
-          {/* 
-            NEW: If the chosen image model has sub-types — for example "IDEOGRAMV2" 
-            — show a sub-type dropdown.
-          */}
-          {selectedImageModel?.value === 'IDEOGRAMV2' && (
-            <div className="flex flex-col items-center">
-              <SingleSelect
-                value={selectedImageModelSubType}
-                onChange={setSelectedImageModelSubType}
-                // Map IDEOGRAM_IMAGE_STYLES to { label, value } objects
-                options={IDEOGRAM_IMAGE_STYLES.map((style) => ({
-                  label: style,
-                  value: style,
-                }))}
-                className="w-40"
-              />
-              <p
-                className={
-                  colorMode === 'dark'
-                    ? "text-white text-xs mt-1"
-                    : "text-black text-xs mt-1"
-                }
-              >
-                Ideogram Style
-              </p>
-            </div>
-          )}
-
-          {/* Video Model */}
-          <div className="flex flex-col items-center">
-            <SingleSelect
-              value={selectedVideoModel}
-              onChange={setSelectedVideoModel}
-              options={expressVideoModels.map((m) => ({
-                label: m.label,
-                value: m.value,
-                ...m,
-              }))}
-              className="w-40"
-            />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
-              Video Model
-            </p>
-          </div>
-
-
-
-          {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
-            <div className="flex flex-col items-center">
-              <SingleSelect
-                value={selectedVideoModelSubType}
-                onChange={setSelectedVideoModelSubType}
-                options={PIXVERRSE_VIDEO_STYLES.map((style) => ({
-                  label: style,
-                  value: style,
-                }))}
-                className="w-40"
-              />
-              <p
-                className={
-                  colorMode === 'dark'
-                    ? 'text-white text-xs mt-1'
-                    : 'text-black text-xs mt-1'
-                }
-              >
-                Pixverse Style
-              </p>
-            </div>
-          )}
-
-
-
-          {/* If video model has sub-types, show another dropdown */}
-          {selectedVideoModel?.modelSubTypes && selectedVideoModelSubType && (
-            <div className="flex flex-col items-center">
-              <SingleSelect
-                value={selectedVideoModelSubType}
-                onChange={setSelectedVideoModelSubType}
-                options={selectedVideoModel.modelSubTypes.map((sub) => ({
-                  label: sub,
-                  value: sub,
-                }))}
-                className="w-40"
-              />
-              <p
-                className={
-                  colorMode === 'dark'
-                    ? "text-white text-xs mt-1"
-                    : "text-black text-xs mt-1"
-                }
-              >
-                Video Sub-Type
-              </p>
-            </div>
-          )}
 
           {/* Duration */}
           <div className="flex flex-col items-center">
@@ -857,7 +689,6 @@ export default function OneshotEditor() {
             </div>
           )}
         </div>
-
       </div>
 
       {errorMessage?.error && !showResultDisplay && (
@@ -879,12 +710,18 @@ export default function OneshotEditor() {
         </div>
       )}
 
-      {uploadedImageDataUrl && (
-        <img
-          src={uploadedImageDataUrl}
-          alt="Prompt starter"
-          className="mt-4 max-h-40 rounded shadow"
-        />
+      {/* Render previews of all uploaded images */}
+      {uploadedImageDataUrls && uploadedImageDataUrls.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-4">
+          {uploadedImageDataUrls.map((src, idx) => (
+            <img
+              key={idx}
+              src={src}
+              alt={`starter‑${idx + 1}`}
+              className="max-h-40 rounded shadow"
+            />
+          ))}
+        </div>
       )}
 
       {/* Textarea & Submit Form */}

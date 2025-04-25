@@ -34,7 +34,7 @@ export default function ForgotPassword(props) {
     <div className="w-[300px] m-auto mt-8">
       <div className="text-center font-bold text-2xl mb-4">Forgot Password</div>
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
-      {success && <div className="text-green-500 text-center mb-4">{success}</div>}
+      {success && <div className="text-blue-500 text-center mb-4">{success}</div>}
       <p className="text-neutral-500 text-center mb-6">
         Enter your email address below to reset your password.
       </p>

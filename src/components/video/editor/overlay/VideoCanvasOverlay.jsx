@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FaTimes } from "react-icons/fa";
 
+import { useColorMode } from "../../../../contexts/ColorMode";
 import OverlayPromptGenerator from "./OverlayPromptGenerator";
 import OverlayPromptGenerateVideo from "./OverlayPromptGenerateVideo";
 
@@ -30,6 +31,8 @@ export default function VideoCanvasOverlay(props) {
     setSelectedVideoGenerationModel,
   } = props;
 
+  const { colorMode } = useColorMode();
+
   // Tab for toggling between "Generate Image" vs "Generate Video"
   const [selectedTab, setSelectedTab] = useState("image"); // default is "image"
 
@@ -58,12 +61,16 @@ export default function VideoCanvasOverlay(props) {
       topH = "top-[60vh]";
     }
 
+    let bgColor = `bg-black`;
+    if (colorMode === "light") {
+      bgColor = `bg-neutral-200`;
+    }
     return (
       <div
         className={`
           absolute ${topH} left-1/2 transform -translate-x-1/2 
           z-10
-          bg-black bg-opacity-60 backdrop-blur-sm
+          ${bgColor} bg-opacity-60 backdrop-blur-sm
           flex flex-col items-center 
           px-4 py-2
           rounded-lg

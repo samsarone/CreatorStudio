@@ -14,6 +14,8 @@ function AddSessionDropdown(props) {
     gotoViewSessionsPage,
     addNewExpressSession,
     addNewVidGPTSession,
+    showAddNewAdVideoSession,
+    
     showAddNewMovieMakerSession,
     betaOptionVisible
   } = props;
@@ -114,8 +116,16 @@ function AddSessionDropdown(props) {
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
               role="menuitem"
             >
-              <FaStar className='inline-flex mb-1' /> VideoGPT
+              <FaStar className='inline-flex mb-1' /> VidGenie
             </button>  
+            <button
+              onClick={showAddNewAdVideoSession}
+              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
+              role="menuitem"
+            >
+              <FaStar className='inline-flex mb-1' /> AdVideo Maker
+            </button>  
+
 
             <button
               onClick={viewSessions}

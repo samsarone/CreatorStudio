@@ -157,41 +157,6 @@ export const IMAGE_MODEL_PRICES = [
     ]
   },
 
-  {
-    key: 'SANA',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
-
-  {
-    key: 'SANA',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
 
   {
     key: 'SANA4.5B',
@@ -306,8 +271,56 @@ export const IMAGE_MODEL_PRICES = [
     key: 'LUMINAV2',
     prices: [
       {
+        aspectRatio: '16:9',
+        price: 15
+      },
+    ]
+
+  },
+
+  {
+    key: 'IDEOGRAMV2',
+    prices: [
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
         aspectRatio: '1:1',
-        price: 12
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
+  },
+
+  
+  {
+    key: 'HIDREAMI1',
+    prices: [
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '1:1',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
+  },
+
+  {
+    key: 'GPTIMAGE1',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 15
       },
       {
         aspectRatio: '16:9',
@@ -318,11 +331,7 @@ export const IMAGE_MODEL_PRICES = [
         price: 15
       },
     ]
-
-  },
-
-
-
+  }
 
 ]
 
@@ -433,8 +442,23 @@ export const IMAGE_EDIT_MODEL_PRICES = [
     ]
   },
 
-
-
+  {
+    key: 'GPTIMAGE1EDIT',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
+  }
 
 
 ]
@@ -540,7 +564,24 @@ export const VIDEO_MODEL_PRICES = [
         price: 60
       },
     ],
-    units: [5, 10]
+    units: [5, 10],
+  },
+  {
+    key: 'KLINGIMGTOVIDPROMASTER',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 150
+      },
+      {
+        aspectRatio: '16:9',
+        price: 150
+      },
+      {
+        aspectRatio: '9:16',
+        price: 150
+      },
+    ],
   },
 
   {
@@ -785,7 +826,34 @@ export const VIDEO_MODEL_PRICES = [
         price: 60
       },
     ]
-  }
+  },
+
+
+
+  {
+    name: 'Magi Distilled',
+    key: 'MAGIDISTILLED',
+    isImgToVidModel: true,
+    isExpressModel: true,
+
+    "prices": [
+
+      {
+        "aspectRatio": "16:9",
+        "price": 60
+      },
+      {
+        "aspectRatio": "9:16",
+        "price": 60
+      }
+    ],
+
+
+    
+
+  },
+
+
 ]
 
 
@@ -809,7 +877,7 @@ export const ASSISTANT_MODEL_PRICES = [
     ]
   },
   {
-    key: "GPTO1",
+    key: "GPTO3",
     prices: [
       {
         operationType: "words",

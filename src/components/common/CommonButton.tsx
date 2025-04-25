@@ -21,7 +21,7 @@ export default function CommonButton(props) {
   }
 
   const bgColor = colorMode === 'dark' ? `text-neutral-100  border-2 border-neutral-500 from-gray-950 to-gray-800 text-white hover:from-gray-800 hover:text-neutral-100` :
-    `text-neutral-100  from-green-500 to-green-600  hover:bg-green-60 hover:text-neutral-300
+    `text-neutral-100  from-blue-500 to-blue-600  hover:bg-blue-60 hover:text-neutral-300
     
     `;
   return (

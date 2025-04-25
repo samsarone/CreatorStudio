@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import CommonButton from "../../../common/CommonButton.tsx";
-import { IMAGE_GENERAITON_MODEL_TYPES, RECRAFT_IMAGE_STYLES } from "../../../../constants/Types.ts";
+import { IMAGE_GENERAITON_MODEL_TYPES, RECRAFT_IMAGE_STYLES , IDEOGRAM_IMAGE_STYLES } from "../../../../constants/Types.ts";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 import { IMAGE_MODEL_PRICES } from "../../../../constants/ModelPrices.jsx";
 import TextareaAutosize from "react-textarea-autosize";
@@ -36,6 +36,10 @@ export default function OverlayPromptGenerator(props) {
     ) {
       const defaultRecraftModel = localStorage.getItem("defaultRecraftModel");
       return defaultRecraftModel || RECRAFT_IMAGE_STYLES[0];
+    }
+    if (selectedGenerationModel === 'IDEOGRAMV2') {
+      const defaultIdeogramModel = localStorage.getItem("defaultIdeogramModel");
+      return defaultIdeogramModel || IDEOGRAM_IMAGE_STYLES[0];
     }
     return null;
   });

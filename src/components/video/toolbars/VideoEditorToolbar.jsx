@@ -1466,6 +1466,10 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
+  let collapseButtonColor = `bg-neutral-900`;
+  if (colorMode === 'light') {
+    collapseButtonColor = `bg-neutral-50`;
+  }
   return (
     <div
       className={`border-l-2 ${bgColor} h-full m-auto fixed top-0 overflow-y-auto pl-2 r-4 ${containerWidth} pr-2 right-0 toolbar-container`}

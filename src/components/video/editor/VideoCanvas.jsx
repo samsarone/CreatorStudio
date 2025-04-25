@@ -738,6 +738,11 @@ const VideoCanvas = forwardRef((props, ref) => {
       );
     }
  
+    let bgCanvasColor = '#111827';
+    if (colorMode === 'light') {
+      bgCanvasColor = '#F3F4F6';
+    }
+
   return (
     <div className={`m-auto relative  ${textColor} pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0`}
       style={{
@@ -755,7 +760,7 @@ const VideoCanvas = forwardRef((props, ref) => {
           boxSizing: 'border-box',
           padding: 0,
           margin: 0,
-          backgroundColor: '#111827',
+          backgroundColor: {bgCanvasColor},
         }}
       >
         <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove}

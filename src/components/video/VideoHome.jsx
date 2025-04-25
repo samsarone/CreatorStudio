@@ -234,6 +234,7 @@ export default function VideoHome(props) {
       const videoURL = layer.aiVideoRemoteLink
         ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
         : `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
+
       preloadVideo(videoURL, hiddenContainer);
     }
 
@@ -1728,6 +1729,7 @@ export default function VideoHome(props) {
       isVideoPreviewPlaying={isVideoPreviewPlaying}
       audioLayers={audioLayers}
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+      setAudioLayers={setAudioLayers}
 
     />
   );

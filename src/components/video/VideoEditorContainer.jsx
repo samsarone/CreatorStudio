@@ -67,6 +67,7 @@ export default function VideoEditorContainer(props) {
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
     audioLayers,
+    setAudioLayers,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -155,7 +156,10 @@ export default function VideoEditorContainer(props) {
       setAiVideoLayer(getSoundEffectVideoLink());
       setAiVideoLayerType('sound_effect');
     } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoLayer) {
-      setAiVideoLayer(getAIVideoLink());
+
+      const aiVideoLink = getAIVideoLink();
+  
+      setAiVideoLayer(aiVideoLink);
       setAiVideoLayerType('ai_video');
     } else {
       setAiVideoLayer(null);
@@ -1075,17 +1079,17 @@ export default function VideoEditorContainer(props) {
     }
 
     // Non-premium: add watermark
-    if (!isPremiumUser) {
-      try {
-        const watermarkImg = await loadLocalImage(waterMarkImage);
-        const padding = 16;
-        const x = canvas.width - watermarkImg.width - padding / 2;
-        const y = canvas.height - watermarkImg.height - padding;
-        ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
-      } catch (error) {
-        console.error('Error loading watermark image:', error);
-      }
-    }
+    // if (!isPremiumUser) {
+    //   try {
+    //     const watermarkImg = await loadLocalImage(waterMarkImage);
+    //     const padding = 16;
+    //     const x = canvas.width - watermarkImg.width - padding / 2;
+    //     const y = canvas.height - watermarkImg.height - padding;
+    //     ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
+    //   } catch (error) {
+    //     console.error('Error loading watermark image:', error);
+    //   }
+    // }
 
     const dataURL = canvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -1749,13 +1753,21 @@ export default function VideoEditorContainer(props) {
     const responseData = await axios.post(`${PROCESSOR_API_URL}/video_sessions/remove_ai_video_layer`, payload, headers);
     const removeResponse = responseData.data;
     if (removeResponse) {
-      const { session, layer } = removeResponse;
+
+
+      const { session, layer, audioLayers } = removeResponse;
+
+
       const layerList = session.layers;
       const currentNewLayerIndex = layerList.findIndex(
         (l) => l._id.toString() === layer._id.toString()
       );
       updateCurrentLayerAndLayerList(layerList, currentNewLayerIndex);
       setActiveItemList(layer.imageSession.activeItemList);
+      setAudioLayers(audioLayers);
+
+
+
       if (layer.hasAiVideoLayer) {
         setAiVideoLayer(layer.aiVideoLayer);
         setAiVideoLayerType(layer.aiVideoLayerType);

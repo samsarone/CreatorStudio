@@ -39,10 +39,11 @@ import './editor.css';
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
   RECRAFT_IMAGE_STYLES,
+  IDEOGRAM_IMAGE_STYLES,
   MUSIC_PROVIDERS,
-  VIDEO_GENERATION_MODEL_TYPES
+  VIDEO_GENERATION_MODEL_TYPES,
+  TTS_COMBINED_SPEAKER_TYPES
 } from '../../constants/Types.ts';
-import { TTS_COMBINED_SPEAKER_TYPES } from '../../constants/Types.ts';
 
 import {
   IMAGE_MODEL_PRICES,
@@ -134,9 +135,6 @@ export default function QuickEditor() {
   const [addTranscriptionsRequired, setAddTranscriptionsRequired] = useState(true);
 
   const [speechStyle, setSpeechStyle] = useState({ value: 'Narrative', label: 'Narrative' });
-
-
-  
 
   const subtitleFontOptions = [
     { value: 'Arial', label: 'Arial' },
@@ -551,10 +549,11 @@ export default function QuickEditor() {
     setShowResultDisplay(true);
 
     // Basic language detection
-   // const detectedLanguage = franc(promptListValue) || 'und';
-   // const matchedLanguage = popularLanguages.find((lang) => lang.value === detectedLanguage) || { value: 'eng' };
-    const subtitlesTranslationRequired = false; //subtitlesLanguage.value !== matchedLanguage.value;
-    const speechTranslationRequired = false; //speechLanguage.value !== matchedLanguage.value;
+    // (Commented out because it's optional/placeholder)
+    // const detectedLanguage = franc(promptListValue) || 'und';
+    // const matchedLanguage = popularLanguages.find((lang) => lang.value === detectedLanguage) || { value: 'eng' };
+    const subtitlesTranslationRequired = false; 
+    const speechTranslationRequired = false; 
 
     let fontFamily = 'Times New Roman';
     if (subtitlesLanguage.value) {
@@ -566,7 +565,6 @@ export default function QuickEditor() {
     const finalAddSubtitles = speechRequired && addSubtitlesRequired;
     const finalAddTranscriptions = speechRequired && addTranscriptionsRequired;
 
-    
     let payload = {
       sessionId: id,
       lineItems,
@@ -625,10 +623,14 @@ export default function QuickEditor() {
       payload.autoSelectMusic = true;
     }
 
-    // If selectedImageModel is RECRAFT..., also pass style:
+    // NOTE: Extended to also pass style for IDEOGRAMV2, same as RECRAFT:
     if (
       selectedImageModel &&
-      (selectedImageModel.value === 'RECRAFTV3' || selectedImageModel.value === 'RECRAFT20B')
+      (
+        selectedImageModel.value === 'RECRAFTV3' ||
+        selectedImageModel.value === 'RECRAFT20B' ||
+        selectedImageModel.value === 'IDEOGRAMV2'
+      )
     ) {
       payload.imageStyle = selectedImageStyle ? selectedImageStyle.value : null;
     }
@@ -698,11 +700,6 @@ export default function QuickEditor() {
     setAddBannerToComposition(newVal);
   };
 
-  // ---------------------------
-  // CHANGE #1: On changing videoType,
-  // if "Add Generative video" is active, reset the selectedVideoGenerationModel
-  // to a default valid for that videoType.
-  // ---------------------------
   const handleVideoTypeChange = (selectedOption) => {
     setVideoType(selectedOption);
 
@@ -831,11 +828,12 @@ export default function QuickEditor() {
     setSelectedMusicProvider(selectedOption);
   };
 
+  // Updated to handle IDEOGRAMV2, just like RECRAFT:
   const handleSelectedImageModelChange = (selectedOption) => {
+
     setSelectedImageModel(selectedOption);
     localStorage.setItem('defaultModel', selectedOption.value);
 
-    // If user picks RECRAFT, pick a default style if none selected
     if (selectedOption.value === 'RECRAFTV3' || selectedOption.value === 'RECRAFT20B') {
       const defaultRecraftModel = localStorage.getItem('defaultRecraftModel');
       if (defaultRecraftModel) {
@@ -843,18 +841,35 @@ export default function QuickEditor() {
       } else {
         setSelectedImageStyle({ value: RECRAFT_IMAGE_STYLES[0], label: RECRAFT_IMAGE_STYLES[0] });
       }
-    } else {
+    } 
+    // -- IDEOGRAMV2 logic added here:
+    else if (selectedOption.value === 'IDEOGRAMV2') {
+      const defaultIdeogramModel = localStorage.getItem('defaultIdeogramModel');
+      if (defaultIdeogramModel) {
+        setSelectedImageStyle({ value: defaultIdeogramModel, label: defaultIdeogramModel });
+      } else if (IDEOGRAM_IMAGE_STYLES.length > 0) {
+        setSelectedImageStyle({ value: IDEOGRAM_IMAGE_STYLES[0], label: IDEOGRAM_IMAGE_STYLES[0] });
+      } else {
+        setSelectedImageStyle(null);
+      }
+    }
+    else {
       setSelectedImageStyle(null);
     }
   };
 
+  // Updated to handle saving IDEOGRAM style as well:
   const handleImageStyleChange = (selectedOption) => {
     setSelectedImageStyle(selectedOption);
+
     if (
       selectedImageModel &&
       (selectedImageModel.value === 'RECRAFTV3' || selectedImageModel.value === 'RECRAFT20B')
     ) {
       localStorage.setItem('defaultRecraftModel', selectedOption.value);
+    } 
+    else if (selectedImageModel && selectedImageModel.value === 'IDEOGRAMV2') {
+      localStorage.setItem('defaultIdeogramModel', selectedOption.value);
     }
   };
 
@@ -1098,8 +1113,6 @@ export default function QuickEditor() {
     localStorage.setItem('defaultSubtitleFont', selectedOption.value);
   };
 
-
-
   // Assistant logic
   const startAssistantQueryPoll = () => {
     const headers = getHeaders();
@@ -1141,7 +1154,6 @@ export default function QuickEditor() {
       });
   };
 
-  // Handle outside-click to close credits breakdown
   const creditsDropdownRef = useRef(null);
   useEffect(() => {
     function handleClickOutside(event) {
@@ -1242,7 +1254,6 @@ export default function QuickEditor() {
                     options={[
                       { value: 'Slideshow', label: 'Narrative' }, 
                       { value: 'Infinitezoom', label: 'Infinite Zoom' },
- 
                     ]}
                     className="w-24"
                   />
@@ -1259,10 +1270,13 @@ export default function QuickEditor() {
                   />
                 </div>
 
-                {/* If Recraft => image style */}
+                {/* If RECRAFT or IDEOGRAM => show the style select, exactly like RECRAFT logic */}
                 {selectedImageModel &&
-                  (selectedImageModel.value === 'RECRAFTV3' ||
-                    selectedImageModel.value === 'RECRAFT20B') && (
+                  (
+                    selectedImageModel.value === 'RECRAFTV3' ||
+                    selectedImageModel.value === 'RECRAFT20B' ||
+                    selectedImageModel.value === 'IDEOGRAMV2'
+                  ) && (
                     <div className="block p-2">
                       <label className="whitespace-nowrap block text-xs text-left pl-2 pb-1">
                         Image Style:
@@ -1270,10 +1284,17 @@ export default function QuickEditor() {
                       <SingleSelect
                         value={selectedImageStyle}
                         onChange={handleImageStyleChange}
-                        options={RECRAFT_IMAGE_STYLES.map((style) => ({
-                          value: style,
-                          label: style,
-                        }))}
+                        options={
+                          selectedImageModel.value === 'IDEOGRAMV2'
+                            ? IDEOGRAM_IMAGE_STYLES.map((style) => ({
+                                value: style,
+                                label: style,
+                              }))
+                            : RECRAFT_IMAGE_STYLES.map((style) => ({
+                                value: style,
+                                label: style,
+                              }))
+                        }
                         className="w-24"
                       />
                     </div>
