@@ -40,7 +40,7 @@ export default function CommonDropdownButton({
   const gradientBg =
     colorMode === "dark"
       ? "text-neutral-100 border-2 border-neutral-500 from-gray-950 to-gray-800 hover:from-gray-800 hover:text-neutral-100"
-      : "text-neutral-100 from-green-500 to-green-600 hover:text-neutral-300";
+      : "text-neutral-100 from-blue-500 to-blue-600 hover:text-neutral-300";
 
   return (
     <Menu as="div" className="relative inline-block text-left">

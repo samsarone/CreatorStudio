@@ -125,7 +125,7 @@ export default function ProgressIndicator(props) {
           {/* Progress Bar */}
           <div className={`w-full ${bg2Color} rounded overflow-hidden mr-4`}>
             <div
-              className="h-4 bg-green-500 transition-all duration-300"
+              className="h-4 bg-blue-500 transition-all duration-300"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>

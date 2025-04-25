@@ -51,7 +51,7 @@ export default function PublishOptionsDialog(props) {
         <button
           type="button"
           onClick={generateMeta}
-          className="px-3 py-1 rounded text-sm bg-green-600 text-white"
+          className="px-3 py-1 rounded text-sm bg-blue-600 text-white"
         >
           Generate Meta
         </button>

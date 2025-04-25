@@ -1687,8 +1687,12 @@ export default function FrameToolbar(props) {
   }
 
   let mtop = 'mt-[52px]';
+  let bg5Color = `bg-neutral-900`;
+  if (colorMode === 'light') {
+    bg5Color = `bg-neutral-100`;
+  }
   let expandButtonLabel = (
-    <div className='relative w-full cursor-pointer pb-1 block  bg-neutral-900'>
+    <div className={`relative w-full cursor-pointer pb-1 block  ${bg5Color}`}>
       <div className='inline-block'>Expand</div>
       <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px] ' />
     </div>

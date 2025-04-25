@@ -27,8 +27,8 @@ export default function CreatorLanding(props) {
     <div>
       <div className=' bg-stone-200 rounded-lg m-auto text-center w-full pt-[50px] pb-[50px]'>
 
-          <button className='w-[200px] bg-gradient-to-r h-[64px] m-auto from-green-950 to-green-700
-          text-neutral-100 font-bold rounded-lg hover:from-green-800 hover:to-green-950 shadow-lg mt-8' onClick={() => createNewSession()}>
+          <button className='w-[200px] bg-gradient-to-r h-[64px] m-auto from-blue-950 to-blue-700
+          text-neutral-100 font-bold rounded-lg hover:from-blue-800 hover:to-blue-950 shadow-lg mt-8' onClick={() => createNewSession()}>
             Create new session
           </button>
           <div className='text-xs text-color-neutral-600 mt-1'>

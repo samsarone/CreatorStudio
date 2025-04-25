@@ -27,7 +27,7 @@ export default function MobileTopNav(props) {
   let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
 
   if (colorMode === 'light') {
-    bgColor = 'from-green-700 to-green-400 text-neutral-900';
+    bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
   }
 
   const resetSession = () => {

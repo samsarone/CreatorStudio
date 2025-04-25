@@ -113,7 +113,7 @@ export default function Register(props) {
           onClick={handleRegisterWithGoogle}
           className="flex items-center justify-center w-full bg-neutral-900 text-neutral-100 py-3 rounded-lg mb-4 hover:bg-neutral-800 transition-colors border-2 border-neutral-600"
         >
-          <FaGoogle className="mr-2 text-green-500" />
+          <FaGoogle className="mr-2 text-blue-500" />
           <span className="font-semibold">Register with Google</span>
         </button>
 

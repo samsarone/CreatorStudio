@@ -66,10 +66,16 @@ export const CURRENT_EDITOR_VIEW = {
 }
 
 export const IMAGE_GENERAITON_MODEL_TYPES = [
+
+  {
+    name: 'GPT Image 1',
+    key: 'GPTIMAGE1',
+    isExpressModel: true,
+  },
   {
     name: 'Google Imagen3',
     key: 'IMAGEN3',
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Flux-1.1 Pro',
@@ -108,6 +114,7 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
     name: 'Sana 4.5B',
     key: 'SANA4.5B',
+    isExpressModel: true,
   },
   {
     name: 'Sana Sprint',
@@ -131,11 +138,34 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'LUMINAV2',
     isExpressModel: true,
   },
+  {
+    name: 'Ideogram V2',
+    key: 'IDEOGRAMV2',
+    isExpressModel: true,
+  },
+
+  {
+    name: 'HiDream I1',
+    key: 'HIDREAMI1',
+    isExpressModel: true,
+  },
+
+  
+  
 
 ];
 
 
 export const VIDEO_GENERATION_MODEL_TYPES = [
+  {
+    name: 'Kling 2.0 Master',
+    key: 'KLINGIMGTOVIDPROMASTER',
+    isExpressModel: true,
+    isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1',
+    ]
+  },
   {
     name: 'Kling 1.6 Pro',
     key: 'KLINGIMGTOVIDPRO',
@@ -147,10 +177,10 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
-    name: 'Runway Gen-3',
+    name: 'Runway Gen-4',
     key: 'RUNWAYML',
     isExpressModel: true,
-    isTransitionModel: true,
+    isTransitionModel: false,
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
@@ -266,10 +296,22 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16'
     ]
   },
-  
-  
 
+
+  {
+    name: 'Magi Distilled',
+    key: 'MAGIDISTILLED',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    isTextToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1'
+    ]
+  },
 ];
+
+
+
 
 
 
@@ -321,6 +363,15 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     isPromptEnabled: true
   },
 
+  {
+    name: 'GPT Image 1 Edit',
+    key: 'GPTIMAGE1EDIT',
+    editType: 'inpaint',
+    isPromptEnabled: true,
+  },
+
+  
+
 ]
 
 
@@ -328,15 +379,15 @@ export const IMAGE_EDIT_MODEL_TYPES = [
 
 export const ASSISTANT_MODEL_TYPES = [
   'GPT4.5O',
-  'GPT4O',
-  'GPTO1',
+  'GPT4.1',
+  'GPTO3',
   'GPTO3MINI'
 ];
 
 
 export const INFERENCE_MODEL_TYPES = [
   {
-    label: 'GPT 4.5O',
+    label: 'GPT 4.5',
     value: 'GPT4.5O',
   },
   {
@@ -344,12 +395,12 @@ export const INFERENCE_MODEL_TYPES = [
     value: 'GPTO3MINI',
   },
   {
-    label: 'GPT 4O',
-    value: 'GPT4O',
+    label: 'GPT 4.1',
+    value: 'GPT4.1',
   },
   {
-    label: 'GPT O1',
-    value: 'GPTO1',
+    label: 'GPT O3',
+    value: 'GPTO3',
   },
 
 ]
@@ -382,6 +433,17 @@ export const RECRAFT_IMAGE_STYLES = [
   "vector_illustration/line_circuit",
   "vector_illustration/linocut"
 ];
+
+export const IDEOGRAM_IMAGE_STYLES = [
+  'auto', 'general', 'realistic', 'design', 'render_3D', 'anime'
+];
+
+
+
+export const PIXVERRSE_VIDEO_STYLES = [
+  'anime', '3d_animation', 'clay', 'comic', 'cyberpunk'
+];
+
 
 
 

@@ -53,7 +53,7 @@ export default function TopNav(props) {
   let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
 
   if (colorMode === 'light') {
-    bgColor = 'from-green-700 to-green-400 text-neutral-900';
+    bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
   }
 
   const textColor =
@@ -254,6 +254,21 @@ export default function TopNav(props) {
     });
   }
 
+  const showAddNewAdVideoSession = () => {
+    const headers = getHeaders();
+    const payload = {
+      prompts: [],
+    };
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('videoSessionId', sessionId);
+
+      navigate(`/adcreator/${session._id}`);
+
+    });
+
+  }
   let userTierDisplay = <span />;
 
   let userCredits;
@@ -402,6 +417,7 @@ export default function TopNav(props) {
             addNewVidGPTSession={addNewVidGPTSession}
             showAddNewMovieMakerSession={showAddNewMovieMakerSession}
             betaOptionVisible={betaOptionVisible}
+            showAddNewAdVideoSession={showAddNewAdVideoSession}
             />
         </div>
       </div>
@@ -426,7 +442,7 @@ export default function TopNav(props) {
         <div className='text-red-500 '>
           You are out of credits
         </div>
-        <div className='underline text-green-600 cursor-pointer' onClick={openPurchaseCreditsDialog}>
+        <div className='underline text-blue-600 cursor-pointer' onClick={openPurchaseCreditsDialog}>
           Purchase More
         </div>
       </div>;

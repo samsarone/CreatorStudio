@@ -27,6 +27,8 @@ import QuickEditorLandingHome from "../quick_editor/QuickEditorLandingHome.jsx";
 import MobileVideoLandingHome from "../mobile/MobileVideoLandingHome.jsx";
 import LoginPage from "../auth/pages/LoginPage.jsx";
 import RegisterPage from "../auth/pages/RegisterPage.jsx";
+import AdVideoCreatorContainer from "../advideo_creator/AdVideoCreatorContainer.jsx";
+import AdVideoCreator from "../advideo_creator/AdVideoCreator.jsx";
 
 import PaymentsSuccess from "../payments/PaymentsSuccess.jsx";
 import PaymentsFailure from "../payments/PaymentsFailure.jsx";
@@ -117,6 +119,10 @@ export default function Home() {
         <Route path="/vidgpt/:id" element={<OneshotEditorContainer />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/vidgenie" element={<OneshotEditorContainer />} />
+        <Route path="/adcreator" element={<AdVideoCreatorContainer />} />
+        <Route path="/adcreator/:id" element={<AdVideoCreatorContainer />} />
+
         <Route path="/videogpt" element={<OneshotEditorContainer />} />
         <Route path="/videogpt/:id" element={<OneshotEditorContainer />} />
         <Route path="/movie_maker" element={<MovieGeneratorContainer />} />

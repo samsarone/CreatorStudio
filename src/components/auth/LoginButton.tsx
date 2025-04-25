@@ -14,7 +14,7 @@ export default function LoginButton(props) {
   }
 
   const bgColor = colorMode === 'dark' ? `text-neutral-100  border-2 border-gray-800 from-gray-950 to-gray-800 text-white hover:bg-gray-800 hover:text-neutral-100` :
-    `text-neutral-100  from-green-500 to-green-600  hover:bg-green-60 hover:text-neutral-300`;
+    `text-neutral-100  from-blue-500 to-blue-600  hover:bg-blue-60 hover:text-neutral-300`;
   return (
     <button onClick={onClick} className={`m-auto text-center min-w-16
     rounded-lg shadow-sm 
