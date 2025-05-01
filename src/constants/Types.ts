@@ -54,11 +54,51 @@ export const TOOLBAR_ACTION_VIEW = {
   SHOW_SUBTITLES_DISPLAY: 'SHOW_SUBTITLES_DISPLAY',
 }
 
+
+export const RECRAFT_IMAGE_STYLES = [
+  "realistic_image",
+  "digital_illustration",
+  "vector_illustration",
+  "realistic_image/b_and_w",
+  "realistic_image/hard_flash",
+  "realistic_image/hdr",
+  "realistic_image/natural_light",
+  "realistic_image/studio_portrait",
+  "realistic_image/enterprise",
+  "realistic_image/motion_blur",
+  "digital_illustration/pixel_art",
+  "digital_illustration/hand_drawn",
+  "digital_illustration/grain",
+  "digital_illustration/infantile_sketch",
+  "digital_illustration/2d_art_poster",
+  "digital_illustration/handmade_3d",
+  "digital_illustration/hand_drawn_outline",
+  "digital_illustration/engraving_color",
+  "digital_illustration/2d_art_poster_2",
+  "vector_illustration/engraving",
+  "vector_illustration/line_art",
+  "vector_illustration/line_circuit",
+  "vector_illustration/linocut"
+];
+
+
+export const FLITE_IMAGE_STYLES = [
+  'standard',
+  'texture',
+];
+
 export const FRAME_TOOLBAR_VIEW = {
   DEFAULT: 'DEFAULT',
   AUDIO: 'AUDIO',
   EXPANDED: 'EXPANDED'
 }
+
+
+export const IDEOGRAM_IMAGE_STYLES = [
+  'auto', 'general', 'realistic', 'design', 'render_3D', 'anime'
+];
+
+
 
 export const CURRENT_EDITOR_VIEW = {
   'VIEW': 'VIEW',
@@ -103,7 +143,8 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
 
   {
     name: 'Recraft V3',
-    key: 'RECRAFTV3'
+    key: 'RECRAFTV3',
+    imageStyles: RECRAFT_IMAGE_STYLES,
   },
 
   {
@@ -123,7 +164,8 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   },
   {
     name: 'Recraft 20B',
-    key: 'RECRAFT20B'
+    key: 'RECRAFT20B',
+    imageStyles: RECRAFT_IMAGE_STYLES,
   },
   {
     name: 'Lumalabs Photon',
@@ -142,6 +184,7 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     name: 'Ideogram V2',
     key: 'IDEOGRAMV2',
     isExpressModel: true,
+    imageStyles: IDEOGRAM_IMAGE_STYLES,
   },
 
   {
@@ -149,6 +192,13 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'HIDREAMI1',
     isExpressModel: true,
   },
+
+  {
+    name: 'F-Lite',
+    key: 'FLITE',
+    isExpressModel: true,
+    imageStyles: FLITE_IMAGE_STYLES,
+  }
 
   
   
@@ -408,35 +458,7 @@ export const INFERENCE_MODEL_TYPES = [
 
 
 
-export const RECRAFT_IMAGE_STYLES = [
-  "realistic_image",
-  "digital_illustration",
-  "vector_illustration",
-  "realistic_image/b_and_w",
-  "realistic_image/hard_flash",
-  "realistic_image/hdr",
-  "realistic_image/natural_light",
-  "realistic_image/studio_portrait",
-  "realistic_image/enterprise",
-  "realistic_image/motion_blur",
-  "digital_illustration/pixel_art",
-  "digital_illustration/hand_drawn",
-  "digital_illustration/grain",
-  "digital_illustration/infantile_sketch",
-  "digital_illustration/2d_art_poster",
-  "digital_illustration/handmade_3d",
-  "digital_illustration/hand_drawn_outline",
-  "digital_illustration/engraving_color",
-  "digital_illustration/2d_art_poster_2",
-  "vector_illustration/engraving",
-  "vector_illustration/line_art",
-  "vector_illustration/line_circuit",
-  "vector_illustration/linocut"
-];
 
-export const IDEOGRAM_IMAGE_STYLES = [
-  'auto', 'general', 'realistic', 'design', 'render_3D', 'anime'
-];
 
 
 

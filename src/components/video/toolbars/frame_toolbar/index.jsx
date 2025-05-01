@@ -1865,15 +1865,15 @@ export default function FrameToolbar(props) {
 
   let additionalActionToolbar = <span />;
   if (downloadLink) {
-    additionalActionToolbar = (
-      <div className='mt-2'>
-        <div >
-          <SecondaryButton onClick={publishVideoSession} >
-            Publish
-          </SecondaryButton>
-        </div>
-      </div>
-    )
+    // additionalActionToolbar = (
+    //   <div className='mt-2'>
+    //     <div >
+    //       <SecondaryButton onClick={publishVideoSession} >
+    //         Publish
+    //       </SecondaryButton>
+    //     </div>
+    //   </div>
+    // )
   }
 
   const submitDownloadVideo = () => {

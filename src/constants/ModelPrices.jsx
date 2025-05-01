@@ -331,6 +331,24 @@ export const IMAGE_MODEL_PRICES = [
         price: 15
       },
     ]
+  },
+
+  {
+    key: 'FLITE',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
   }
 
 ]
@@ -442,23 +460,9 @@ export const IMAGE_EDIT_MODEL_PRICES = [
     ]
   },
 
-  {
-    key: 'GPTIMAGE1EDIT',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  }
+
+
+
 
 
 ]
@@ -799,6 +803,25 @@ export const VIDEO_MODEL_PRICES = [
       },
     ],
   },
+
+    {
+    key: 'HUMMINGBIRDLIPSYNC',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 10
+      },
+      {
+        aspectRatio: '9:16',
+        price: 10
+      },
+    ],
+  },
+
   {
     key: 'MMAUDIOV2',
     prices: [

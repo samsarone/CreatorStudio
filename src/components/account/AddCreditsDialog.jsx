@@ -26,8 +26,6 @@ export default function AddCreditsDialog(props) {
 
   const handlePurchase = () => {
     if (selectedOption) {
-      const creditsToPurchase = selectedOption.value * 100;
-
       // Implement your purchase logic here
       purchaseCreditsForUser(selectedOption.value);
     }
@@ -51,11 +49,7 @@ export default function AddCreditsDialog(props) {
         className="mb-4"
       />
       
-      {selectedOption && (
-        <div className="mb-4 mt-4">
-          <span>You will receive {parseInt(selectedOption.value) * 100} credits for {selectedOption.label}</span>
-        </div>
-      )}
+
 
       <div className="m-auto mb-8">
         <div

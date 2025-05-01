@@ -51,10 +51,7 @@ export default function Register(props) {
       setError('You must agree to the terms and conditions.');
       return;
     }
-    if (!is18Checked) {
-      setError('You must confirm that you are at least 18 years old.');
-      return;
-    }
+
     const email = evt.target.email.value.trim();
     const password = evt.target.password.value;
     const confirmPassword = evt.target.confirmPassword.value;
@@ -210,19 +207,7 @@ export default function Register(props) {
             </label>
           </div>
 
-          {/* Age Confirmation */}
-          <div className="flex items-center justify-center mt-2">
-            <input
-              type="checkbox"
-              id="age-checkbox"
-              className="w-4 h-4 mr-2"
-              checked={is18Checked}
-              onChange={() => setIs18Checked(!is18Checked)}
-            />
-            <label htmlFor="age-checkbox" className="text-sm leading-tight">
-              You are at least 18 years old
-            </label>
-          </div>
+
 
           <div className="mt-2">
             <LoginButton type="submit" className="w-full">

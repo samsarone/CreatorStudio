@@ -9,7 +9,6 @@ import { IMAGE_MODEL_PRICES } from "../../../constants/ModelPrices.jsx";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import TextareaAutosize from "react-textarea-autosize";
 import { FaQuestionCircle } from "react-icons/fa";
-
 import "react-tooltip/dist/react-tooltip.css";
 import { Tooltip } from "react-tooltip";
 
@@ -17,64 +16,67 @@ export default function PromptGenerator(props) {
   const {
     promptText,
     setPromptText,
-    submitGenerateRequest,
+    submitGenerateNewRequest,
     isGenerationPending,
     selectedGenerationModel,
     setSelectedGenerationModel,
     generationError,
-    currentDefaultPrompt,
-    submitGenerateNewRequest,
     aspectRatio,
   } = props;
 
   const { colorMode } = useColorMode();
 
+  // Whether to retry if generation fails:
   const [retryOnFailure, setRetryOnFailure] = useState(false);
+  // Whether it’s a “character speaker” type image:
   const [isCharacterImage, setIsCharacterImage] = useState(false);
 
-  // --------------------------------------------------
-  // Local state for storing the currently selected sub-style (if applicable)
-  // --------------------------------------------------
-  const [selectedImageStyle, setSelectedImageStyle] = useState(() => {
-    // Check model upon initial load
-    if (selectedGenerationModel === "RECRAFTV3" || selectedGenerationModel === "RECRAFT20B") {
-      const defaultRecraftModel = localStorage.getItem("defaultRecraftModel");
-      return defaultRecraftModel || RECRAFT_IMAGE_STYLES[0];
-    }
-    // ------------------ ADDED: IDEOGRAMV2 DEFAULT ------------------
-    if (selectedGenerationModel === "IDEOGRAMV2") {
-      const defaultIdeogramModel = localStorage.getItem("defaultIdeogramModel");
-      return defaultIdeogramModel || IDEOGRAM_IMAGE_STYLES[0];
-    }
-    return null;
-  });
+  // ------------------------------------------------------------------
+  // Track the user-selected image style (if model has an imageStyles array)
+  // ------------------------------------------------------------------
+  const [selectedImageStyle, setSelectedImageStyle] = useState(null);
 
-  // --------------------------------------------------
-  // Whenever the model changes, re-check for default sub-style
-  // --------------------------------------------------
+  // Whenever the model changes, check if it has `imageStyles`. If so, load from
+  // local storage or default to the first style. If not, set to null.
   useEffect(() => {
-    if (selectedGenerationModel === "RECRAFTV3" || selectedGenerationModel === "RECRAFT20B") {
-      const defaultRecraftModel = localStorage.getItem("defaultRecraftModel");
-      setSelectedImageStyle(defaultRecraftModel || RECRAFT_IMAGE_STYLES[0]);
+    if (!selectedGenerationModel) return;
 
-    // ------------------ ADDED: IDEOGRAMV2 LOGIC ------------------
-    } else if (selectedGenerationModel === "IDEOGRAMV2") {
-      const defaultIdeogramModel = localStorage.getItem("defaultIdeogramModel");
-      setSelectedImageStyle(defaultIdeogramModel || IDEOGRAM_IMAGE_STYLES[0]);
+    // Find the model definition from IMAGE_GENERAITON_MODEL_TYPES
+    const modelDefinition = IMAGE_GENERAITON_MODEL_TYPES.find(
+      (m) => m.key === selectedGenerationModel
+    );
+
+    if (modelDefinition?.imageStyles?.length) {
+      // We’ll store/retrieve the style in localStorage using a key that’s unique to this model:
+      const localStorageKey = `defaultImageStyle_${selectedGenerationModel}`;
+      const storedStyle = localStorage.getItem(localStorageKey);
+
+      // If we have a stored style that is still valid for this model, use it
+      const isValidStoredStyle = modelDefinition.imageStyles.includes(storedStyle);
+      if (storedStyle && isValidStoredStyle) {
+        setSelectedImageStyle(storedStyle);
+      } else {
+        // Otherwise, default to the first style in the array
+        setSelectedImageStyle(modelDefinition.imageStyles[0]);
+      }
     } else {
+      // This model doesn’t have imageStyles
       setSelectedImageStyle(null);
     }
   }, [selectedGenerationModel]);
 
+  // ------------------------------------------------------------------
+  // UI style helpers
+  // ------------------------------------------------------------------
   const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
   const textBG =
     colorMode === "dark"
       ? "bg-gray-800"
       : "bg-gray-200 border-gray-600 border-2";
 
-  // --------------------------------------------------
-  // Pricing info for the selected model + aspect ratio
-  // --------------------------------------------------
+  // ------------------------------------------------------------------
+  // Find the cost of the current model + aspect ratio, if any
+  // ------------------------------------------------------------------
   const pricingInfo = IMAGE_MODEL_PRICES.find(
     (m) => m.key === selectedGenerationModel
   );
@@ -83,34 +85,30 @@ export default function PromptGenerator(props) {
     : null;
   const modelPrice = priceObj ? priceObj.price : 0;
 
-  // --------------------------------------------------
-  // Handle selection of generation model
-  // --------------------------------------------------
-  const setSelectedModelDisplay = (evt) => {
+  // ------------------------------------------------------------------
+  // Handle user selecting a new model from the dropdown
+  // ------------------------------------------------------------------
+  const handleModelChange = (evt) => {
     const newModel = evt.target.value;
     setSelectedGenerationModel(newModel);
     localStorage.setItem("defaultImageModel", newModel);
   };
 
-  // --------------------------------------------------
-  // Handle style selection for RECRAFT or IDEOGRAM
-  // --------------------------------------------------
-  const handleImageStyleChange = (e) => {
-    const newStyle = e.target.value;
+  // ------------------------------------------------------------------
+  // Handle user changing the image style (when model has imageStyles)
+  // ------------------------------------------------------------------
+  const handleImageStyleChange = (evt) => {
+    const newStyle = evt.target.value;
     setSelectedImageStyle(newStyle);
 
-    if (selectedGenerationModel === "RECRAFTV3" || selectedGenerationModel === "RECRAFT20B") {
-      localStorage.setItem("defaultRecraftModel", newStyle);
-
-    // ------------------ ADDED: IDEOGRAMV2 LOCALSTORAGE ------------------
-    } else if (selectedGenerationModel === "IDEOGRAMV2") {
-      localStorage.setItem("defaultIdeogramModel", newStyle);
-    }
+    // Save in localStorage so next time user picks this model, we recall it
+    const localStorageKey = `defaultImageStyle_${selectedGenerationModel}`;
+    localStorage.setItem(localStorageKey, newStyle);
   };
 
-  // --------------------------------------------------
-  // Submission logic
-  // --------------------------------------------------
+  // ------------------------------------------------------------------
+  // On “Submit” click, build the payload and call `submitGenerateNewRequest`
+  // ------------------------------------------------------------------
   const handleSubmit = () => {
     const payload = {
       prompt: promptText,
@@ -118,44 +116,41 @@ export default function PromptGenerator(props) {
       retryOnFailure,
       isCharacterImage,
     };
-    // Attach imageStyle if it’s a model that requires it
-    if (
-      selectedGenerationModel === "RECRAFTV3" ||
-      selectedGenerationModel === "RECRAFT20B" ||
-      selectedGenerationModel === "IDEOGRAMV2" // <-- ADDED HERE
-    ) {
+    // If the selected model has an imageStyles array, include imageStyle
+    const modelDefinition = IMAGE_GENERAITON_MODEL_TYPES.find(
+      (m) => m.key === selectedGenerationModel
+    );
+    if (modelDefinition?.imageStyles?.length && selectedImageStyle) {
       payload.imageStyle = selectedImageStyle;
     }
+
     submitGenerateNewRequest(payload);
   };
 
+  // Show any generation error
   const errorDisplay = generationError && (
     <div className="text-red-500 text-center text-sm">{generationError}</div>
   );
 
   return (
     <div>
-      {/* Model Selection */}
+      {/* ------------------ Model Selection ------------------ */}
       <div className="flex w-full mt-2 mb-2">
         <div className="inline-flex w-[25%] items-center">
           <div className="text-xs font-bold flex items-center">
             Model
             <a
               data-tooltip-id="modelCostTooltip"
-              data-tooltip-content={` Currently selected model cost\n: ${modelPrice} Credits`}
+              data-tooltip-content={`Currently selected model cost: ${modelPrice} credits`}
             >
-              <FaQuestionCircle
-                className="ml-1 mr-1"
-                data-tip
-                data-for="modelCostTooltip"
-              />
+              <FaQuestionCircle className="ml-1 mr-1" />
             </a>
-            {/* Single Tooltip showing cost of currently selected model */}
+            {/* Tooltip for cost */}
             <Tooltip id="modelCostTooltip" place="right" effect="solid" />
           </div>
         </div>
         <select
-          onChange={setSelectedModelDisplay}
+          onChange={handleModelChange}
           className={`${selectBG} inline-flex w-[75%]`}
           value={selectedGenerationModel}
         >
@@ -167,48 +162,36 @@ export default function PromptGenerator(props) {
         </select>
       </div>
 
-      {/* Image Style for RECRAFT or IDEOGRAM */}
-      {(selectedGenerationModel === "RECRAFTV3" ||
-        selectedGenerationModel === "RECRAFT20B") && (
-        <div className="flex w-full mt-2 mb-2">
-          <div className="inline-flex w-[25%]">
-            <div className="text-xs font-bold">Image Style</div>
-          </div>
-          <select
-            onChange={handleImageStyleChange}
-            value={selectedImageStyle || ""}
-            className={`${selectBG} inline-flex w-[75%]`}
-          >
-            {RECRAFT_IMAGE_STYLES.map((style) => (
-              <option key={style} value={style}>
-                {style}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* ------------------ Image Style Dropdown ------------------ */}
+      {(() => {
+        // Check if currently selected model has imageStyles
+        const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
+          (m) => m.key === selectedGenerationModel
+        );
+        if (modelDef?.imageStyles?.length) {
+          return (
+            <div className="flex w-full mt-2 mb-2">
+              <div className="inline-flex w-[25%]">
+                <div className="text-xs font-bold">Image Style</div>
+              </div>
+              <select
+                onChange={handleImageStyleChange}
+                value={selectedImageStyle || ""}
+                className={`${selectBG} inline-flex w-[75%]`}
+              >
+                {modelDef.imageStyles.map((style) => (
+                  <option key={style} value={style}>
+                    {style}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
-      {/* ------------------ ADDED: IDEOGRAMV2 STYLE SELECTION ------------------ */}
-      {selectedGenerationModel === "IDEOGRAMV2" && (
-        <div className="flex w-full mt-2 mb-2">
-          <div className="inline-flex w-[25%]">
-            <div className="text-xs font-bold">Image Style</div>
-          </div>
-          <select
-            onChange={handleImageStyleChange}
-            value={selectedImageStyle || ""}
-            className={`${selectBG} inline-flex w-[75%]`}
-          >
-            {IDEOGRAM_IMAGE_STYLES.map((style) => (
-              <option key={style} value={style}>
-                {style}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Retry on fail + Character Image checkboxes */}
+      {/* ------------------ Retry on Failure & Character Image ------------------ */}
       <div className="w-full mb-2">
         <div className="text-xs font-semibold flex items-center space-x-4">
           <label className="flex items-center">
@@ -224,17 +207,14 @@ export default function PromptGenerator(props) {
                 data-tooltip-id="retryOnFailTooltip"
                 data-tooltip-content="Retry generation if it fails"
               >
-                <FaQuestionCircle
-                  className="ml-1 inline-flex"
-                  data-tip
-                  data-for="retryOnFailTooltip"
-                />
+                <FaQuestionCircle className="ml-1 inline-flex" />
               </a>
               <Tooltip id="retryOnFailTooltip" place="right" effect="solid">
                 Retry generation if it fails
               </Tooltip>
             </span>
           </label>
+
           <label className="flex items-center">
             <input
               type="checkbox"
@@ -248,11 +228,7 @@ export default function PromptGenerator(props) {
                 data-tooltip-id="characterImageTooltip"
                 data-tooltip-content="Generate an image of a character speaking the prompt"
               >
-                <FaQuestionCircle
-                  className="ml-1 inline-flex"
-                  data-tip
-                  data-for="characterImageTooltip"
-                />
+                <FaQuestionCircle className="ml-1 inline-flex" />
               </a>
               <Tooltip id="characterImageTooltip" place="right" effect="solid">
                 Generate an image of a character speaking the prompt
@@ -262,7 +238,7 @@ export default function PromptGenerator(props) {
         </div>
       </div>
 
-      {/* Prompt Textarea */}
+      {/* ------------------ Prompt Textarea ------------------ */}
       <TextareaAutosize
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Add prompt text here"
@@ -271,7 +247,7 @@ export default function PromptGenerator(props) {
         value={promptText}
       />
 
-      {/* Submit Button */}
+      {/* ------------------ Submit Button ------------------ */}
       <div className="text-center">
         <CommonButton onClick={handleSubmit} isPending={isGenerationPending}>
           Submit

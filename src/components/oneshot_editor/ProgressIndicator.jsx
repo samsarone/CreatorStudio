@@ -85,12 +85,16 @@ export default function ProgressIndicator(props) {
 
   const showBuyCreditsDialog = () => {
     openAlertDialog(
-      <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser()} />
+      <div>
+         <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
+         
+        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser()} />
+      </div>
     );
   };
 
   let videoActualLink = videoLink;
-  if (videoLink && !videoLink.startsWith('http')) { 
+  if (videoLink && !videoLink.startsWith('http')) {
     videoActualLink = `${PROCESSOR_API_URL}/${videoLink}`;
   }
 
@@ -115,7 +119,7 @@ export default function ProgressIndicator(props) {
             >
               View in Studio
             </button>
-          </div>  
+          </div>
         </div>
       )}
 
