@@ -112,6 +112,15 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'GPTIMAGE1',
     isExpressModel: true,
   },
+    {
+    name: 'F-Lite',
+    key: 'FLITE',
+    isExpressModel: true,
+    imageStyles: FLITE_IMAGE_STYLES,
+  },
+
+  
+
   {
     name: 'Google Imagen3',
     key: 'IMAGEN3',
@@ -193,14 +202,7 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
 
-  {
-    name: 'F-Lite',
-    key: 'FLITE',
-    isExpressModel: true,
-    imageStyles: FLITE_IMAGE_STYLES,
-  }
 
-  
   
 
 ];

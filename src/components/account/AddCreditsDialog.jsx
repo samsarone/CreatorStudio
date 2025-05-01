@@ -4,6 +4,10 @@ import CommonButton from '../common/CommonButton.tsx';
 import SecondaryButton from '../common/SecondaryButton.tsx';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
+import { getHeaders } from '../../utils/web.jsx';
+import axios from 'axios';
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+
 const creditOptions = [
   { value: 10, label: '$10' },
   { value: 25, label: '$25' },
@@ -14,7 +18,38 @@ const creditOptions = [
 ];
 
 export default function AddCreditsDialog(props) {
-  const { purchaseCreditsForUser , requestApplyCreditsCoupon} = props;
+  const {   requestApplyCreditsCoupon} = props;
+
+ const purchaseCreditsForUser = (amountToPurchase) => {
+      const purchaseAmountRequest = parseInt(amountToPurchase);
+      const headers = getHeaders();
+  
+      const payload = { amount: purchaseAmountRequest };
+  
+      axios
+        .post(`${PROCESSOR_SERVER}/users/purchase_credits`, payload, headers)
+        .then(function (dataRes) {
+          const data = dataRes.data;
+          if (data.url) {
+            window.open(data.url, "_blank");
+            toast.success("Payment URL generated successfully!", {
+              position: "bottom-center",
+            });
+          } else {
+            console.error("Failed to get Stripe payment URL");
+            toast.error("Failed to generate payment URL", {
+              position: "bottom-center",
+            });
+          }
+        })
+        .catch(function (error) {
+          console.error("Error during payment process", error);
+          toast.error("Payment process failed", {
+            position: "bottom-center",
+          });
+        });
+    };
+  
 
   const [selectedOption, setSelectedOption] = useState({
     value: 10,

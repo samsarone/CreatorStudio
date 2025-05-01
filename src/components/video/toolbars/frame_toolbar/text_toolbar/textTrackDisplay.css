@@ -6,7 +6,9 @@
 }
 
 
-
+.user-selected-track {
+  overflow-y: hidden;
+}
 
 
 /* Corrected selectors to target .thumb and .track-0 */
