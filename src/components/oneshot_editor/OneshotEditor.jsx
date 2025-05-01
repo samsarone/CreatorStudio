@@ -51,7 +51,7 @@ export default function OneshotEditor() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [showResultDisplay, setShowResultDisplay] = useState(false);
 
-  
+
   // Polling refs
   const pollIntervalRef = useRef(null);
   const pollErrorCountRef = useRef(0);
@@ -91,7 +91,7 @@ export default function OneshotEditor() {
   });
 
 
-    // Filter out “Express” image models
+  // Filter out “Express” image models
   let expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
     .filter((m) => {
       const modelExistsInPricing = IMAGE_MODEL_PRICES.find(
@@ -106,15 +106,38 @@ export default function OneshotEditor() {
       // Keep only "express" and ensure it has pricing for the chosen aspect
       return m.isExpressModel && modelHasAspectRatio;
     })
-    .map((m) => ({ label: m.name, value: m.key }));
+    .map((m) => ({ label: m.name, value: m.key , imageStyles: m.imageStyles }));
+
+
+
+  const [selectedImageStyle, setSelectedImageStyle] = useState(() => {
+    const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
+    const found = expressImageModels.find((m) => m.value === saved);
+    const returnVal = found || expressImageModels[0];
+    if (returnVal.imageStyles) {
+      const firstStyle = returnVal.imageStyles[0];
+      const styleVal = {
+        label: firstStyle,
+        value: firstStyle,
+      }
+      return styleVal;
+    } else {
+      return null;
+    }
+  });
+
   // Track the selected IMAGE model
   const [selectedImageModel, setSelectedImageModel] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
     const found = expressImageModels.find((m) => m.value === saved);
+    const returnVal = found || expressImageModels[0];
+    if (returnVal.imageStyles) {
+
+    }
     return found || expressImageModels[0];
   });
 
-  const [selectedImageStyle, setSelectedImageStyle] = useState(null);
+
 
   useEffect(() => {
     if (!selectedImageModel) return;
@@ -124,38 +147,32 @@ export default function OneshotEditor() {
       (m) => m.key === selectedImageModel.value
     );
 
-    console.log("IMAGE MODEEL CONFIG");
-    console.log(imageModelConfig);
-
-
     if (imageModelConfig?.imageStyles?.length) {
+
       // If we have no selected style yet, or if the old style doesn't exist in the new model
       const doesOldStyleExist = imageModelConfig.imageStyles.find(
         (style) => style === selectedImageStyle?.value
       );
-      console.log("DOES OLD STYLE EXIST");
-      console.log(doesOldStyleExist);
 
-      console.log(selectedImageStyle);
 
       if (!selectedImageStyle || !doesOldStyleExist) {
-        console.log("SETTING FIRST STYLE");
-
         const firstStyle = imageModelConfig.imageStyles[0];
-        console.log(firstStyle);
 
-        setSelectedImageStyle({ label: firstStyle, value: firstStyle });
+        const styleVal = {
+          label: firstStyle,
+          value: firstStyle,
+        }
+
+
+        setSelectedImageStyle(styleVal);
       }
     } else {
-      // If the model doesn't define imageStyles, reset
+
       setSelectedImageStyle(null);
     }
   }, [selectedImageModel]);
 
 
-
-  console.log(selectedImageStyle);
-  console.log("JAA");
 
 
   const fetchLatestVideos = async () => {
@@ -230,43 +247,8 @@ export default function OneshotEditor() {
     return found || durationOptions[0];
   });
 
-  // ----------------------------------
-  // NEW STATE FOR IMAGE MODEL SUB-TYPES
-  // ----------------------------------
-  const [selectedImageModelSubType, setSelectedImageModelSubType] = useState(null);
 
 
-  useEffect(() => {
-    if (!selectedImageModel) return;
-
-    if (selectedImageModel.value === 'IDEOGRAMV2') {
-      // If no subType chosen yet, pick the first from IDEOGRAM_IMAGE_STYLES
-      if (!selectedImageModelSubType) {
-        const firstStyle = IDEOGRAM_IMAGE_STYLES[0];
-        setSelectedImageModelSubType({
-          label: firstStyle,
-          value: firstStyle,
-        });
-      }
-    } else {
-      // Reset if the user switches away from IDEOGRAM
-      setSelectedImageModelSubType(null);
-    }
-  }, [selectedImageModel]);
-
-  // If we had a model with subTypes (like 'RECRAFTV3'), you could do:
-  // useEffect(() => {
-  //   const matched = IMAGE_GENERAITON_MODEL_TYPES.find((m) => m.key === selectedImageModel?.value);
-  //   if (matched?.modelSubTypes) {
-  //     // set a default sub-type
-  //   } else {
-  //     setSelectedImageModelSubType(null);
-  //   }
-  // }, [selectedImageModel]);
-
-  // ----------------------------------
-  // VIDEO MODEL SUB-TYPE
-  // ----------------------------------
   const [selectedVideoModelSubType, setSelectedVideoModelSubType] = useState(null);
 
 
@@ -585,7 +567,6 @@ export default function OneshotEditor() {
     setIsGenerationPending(false);
     setIsSubmitting(false);
     setSessionMessages([]);
-    setSelectedImageModelSubType(null);
     setUploadedImageFile(null);
     setUploadedImageDataUrl(null);
     setSelectedImageStyle(null);
@@ -727,7 +708,9 @@ export default function OneshotEditor() {
             const imageModelConfig = IMAGE_GENERAITON_MODEL_TYPES.find(
               (m) => m.key === selectedImageModel?.value
             );
-            if (imageModelConfig?.imageStyles && selectedImageStyle) {
+
+
+            if (imageModelConfig?.imageStyles) {
               return (
                 <div className="flex flex-col items-center">
                   <SingleSelect
