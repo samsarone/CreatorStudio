@@ -122,9 +122,13 @@ export default function VideoEditorContainer(props) {
   // Helpers to return full video URLs based on which link is available
   const getAIVideoLink = () => {
     if (!currentLayer || !currentLayer.aiVideoLayer) return null;
-    return currentLayer.aiVideoRemoteLink
+    const aiVidLink =  currentLayer.aiVideoRemoteLink
       ? `${STATIC_CDN_URL}/${currentLayer.aiVideoRemoteLink}`
       : `${PROCESSOR_API_URL}${currentLayer.aiVideoLayer}`;
+
+    console.log("AI VI LIUN " + aiVidLink); 
+    return aiVidLink;
+     
   };
 
   const getLipSyncVideoLink = () => {
@@ -157,8 +161,13 @@ export default function VideoEditorContainer(props) {
       setAiVideoLayerType('sound_effect');
     } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoLayer) {
 
+      console.log("I BE HEREEEEEEEE");
+
       const aiVideoLink = getAIVideoLink();
   
+      console.log("AI VUDEO LINK");
+      console.log(aiVideoLink);
+
       setAiVideoLayer(aiVideoLink);
       setAiVideoLayerType('ai_video');
     } else {

@@ -18,9 +18,11 @@ export default function VideoAiVideoOptionsViewer(props) {
 
   // 2) Define options for SingleSelect
   const lipSyncOptions = [
+    { label: 'HummingBird Lip Sync', value: 'HUMMINGBIRDLIPSYNC' },
     { label: 'Latent Sync', value: 'LATENTSYNC' },
     { label: 'Sync Lip Sync', value: 'SYNCLIPSYNC' },
     {label: 'Kling Lip Sync', value: 'KLINGLIPSYNC'},
+    
     
   ];
 

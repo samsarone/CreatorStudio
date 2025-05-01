@@ -51,6 +51,7 @@ export default function OneshotEditor() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [showResultDisplay, setShowResultDisplay] = useState(false);
 
+  
   // Polling refs
   const pollIntervalRef = useRef(null);
   const pollErrorCountRef = useRef(0);
@@ -72,6 +73,90 @@ export default function OneshotEditor() {
   useEffect(() => {
     fetchLatestVideos();
   }, []);
+
+
+
+  // Aspect Ratio
+  const aspectRatioOptions = [
+    { label: '16:9 (Landscape)', value: '16:9' },
+    { label: '9:16 (Portrait)', value: '9:16' },
+  ];
+
+  const [selectedAspectRatioOption, setSelectedAspectRatioOption] = useState(() => {
+    const storedAspectRatioValue = localStorage.getItem('defaultVidGPTAspectRatio');
+    const foundAspectRatio = aspectRatioOptions.find(
+      (option) => option.value === storedAspectRatioValue
+    );
+    return foundAspectRatio || aspectRatioOptions[0];
+  });
+
+
+    // Filter out “Express” image models
+  let expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
+    .filter((m) => {
+      const modelExistsInPricing = IMAGE_MODEL_PRICES.find(
+        (imp) => imp.key.toLowerCase() === m.key.toLowerCase()
+      );
+      if (!modelExistsInPricing) return false;
+
+      const modelPricing = modelExistsInPricing?.prices || [];
+      const modelHasAspectRatio = modelPricing.find(
+        (p) => p.aspectRatio === selectedAspectRatioOption.value
+      );
+      // Keep only "express" and ensure it has pricing for the chosen aspect
+      return m.isExpressModel && modelHasAspectRatio;
+    })
+    .map((m) => ({ label: m.name, value: m.key }));
+  // Track the selected IMAGE model
+  const [selectedImageModel, setSelectedImageModel] = useState(() => {
+    const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
+    const found = expressImageModels.find((m) => m.value === saved);
+    return found || expressImageModels[0];
+  });
+
+  const [selectedImageStyle, setSelectedImageStyle] = useState(null);
+
+  useEffect(() => {
+    if (!selectedImageModel) return;
+
+    // Find the model config from IMAGE_GENERAITON_MODEL_TYPES
+    const imageModelConfig = IMAGE_GENERAITON_MODEL_TYPES.find(
+      (m) => m.key === selectedImageModel.value
+    );
+
+    console.log("IMAGE MODEEL CONFIG");
+    console.log(imageModelConfig);
+
+
+    if (imageModelConfig?.imageStyles?.length) {
+      // If we have no selected style yet, or if the old style doesn't exist in the new model
+      const doesOldStyleExist = imageModelConfig.imageStyles.find(
+        (style) => style === selectedImageStyle?.value
+      );
+      console.log("DOES OLD STYLE EXIST");
+      console.log(doesOldStyleExist);
+
+      console.log(selectedImageStyle);
+
+      if (!selectedImageStyle || !doesOldStyleExist) {
+        console.log("SETTING FIRST STYLE");
+
+        const firstStyle = imageModelConfig.imageStyles[0];
+        console.log(firstStyle);
+
+        setSelectedImageStyle({ label: firstStyle, value: firstStyle });
+      }
+    } else {
+      // If the model doesn't define imageStyles, reset
+      setSelectedImageStyle(null);
+    }
+  }, [selectedImageModel]);
+
+
+
+  console.log(selectedImageStyle);
+  console.log("JAA");
+
 
   const fetchLatestVideos = async () => {
     // Example: commented out for brevity
@@ -104,36 +189,7 @@ export default function OneshotEditor() {
   };
 
 
-  // Aspect Ratio
-  const aspectRatioOptions = [
-    { label: '16:9 (Landscape)', value: '16:9' },
-    { label: '9:16 (Portrait)', value: '9:16' },
-  ];
 
-  const [selectedAspectRatioOption, setSelectedAspectRatioOption] = useState(() => {
-    const storedAspectRatioValue = localStorage.getItem('defaultVidGPTAspectRatio');
-    const foundAspectRatio = aspectRatioOptions.find(
-      (option) => option.value === storedAspectRatioValue
-    );
-    return foundAspectRatio || aspectRatioOptions[0];
-  });
-
-  // Filter out “Express” image models
-  let expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
-    .filter((m) => {
-      const modelExistsInPricing = IMAGE_MODEL_PRICES.find(
-        (imp) => imp.key.toLowerCase() === m.key.toLowerCase()
-      );
-      if (!modelExistsInPricing) return false;
-
-      const modelPricing = modelExistsInPricing?.prices || [];
-      const modelHasAspectRatio = modelPricing.find(
-        (p) => p.aspectRatio === selectedAspectRatioOption.value
-      );
-      // Keep only "express" and ensure it has pricing for the chosen aspect
-      return m.isExpressModel && modelHasAspectRatio;
-    })
-    .map((m) => ({ label: m.name, value: m.key }));
 
   const expressVideoModels = useMemo(() => {
     return VIDEO_GENERATION_MODEL_TYPES
@@ -158,12 +214,7 @@ export default function OneshotEditor() {
     { label: '2 Minutes', value: 120 },
   ];
 
-  // Track the selected IMAGE model
-  const [selectedImageModel, setSelectedImageModel] = useState(() => {
-    const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
-    const found = expressImageModels.find((m) => m.value === saved);
-    return found || expressImageModels[0];
-  });
+
 
   // Track the selected VIDEO model
   const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
@@ -497,16 +548,15 @@ export default function OneshotEditor() {
     setVideoLink(null);
     setExpressGenerationStatus(null);
 
+    const imageStyleValue = selectedImageStyle?.value || null;
+
     // Include imageModelSubType if you have one
     const payload = {
       prompt: promptText,
       sessionID: id,
       aspectRatio: selectedAspectRatioOption?.value,
       imageModel: selectedImageModel?.value,
-      imageModelSubType:
-        selectedImageModel?.value === 'IDEOGRAMV2'
-          ? selectedImageModelSubType?.value
-          : null, // or handle similarly for RECRAFTV3 if it has subTypes
+      imageStyle: imageStyleValue,
       videoGenerationModel: selectedVideoModel?.value,
       modelSubType: selectedVideoModelSubType?.value || null,
       duration: selectedDurationOption?.value,
@@ -538,6 +588,8 @@ export default function OneshotEditor() {
     setSelectedImageModelSubType(null);
     setUploadedImageFile(null);
     setUploadedImageDataUrl(null);
+    setSelectedImageStyle(null);
+
   };
 
 
@@ -615,47 +667,17 @@ export default function OneshotEditor() {
       >
 
 
-<div
-  className={
-    colorMode === 'dark'
-      ? 'flex items-center text-lg font-bold text-white pl-2 mt-[-6px] space-x-2'
-      : 'flex items-center text-lg font-bold text-black pl-2 mt-[-6px] space-x-2'
-  }
->
-  {/* label */}
-  <span>VidGenie Creator</span>
+        <div
+          className={
+            colorMode === 'dark'
+              ? 'flex items-center text-lg font-bold text-white pl-2 mt-[-6px] space-x-2'
+              : 'flex items-center text-lg font-bold text-black pl-2 mt-[-6px] space-x-2'
+          }
+        >
+          {/* label */}
+          <span>VidGenie Creator</span>
 
-  {/* click‑to‑upload icon */}
-  <button
-    type="button"
-    onClick={() => fileInputRef.current?.click()}
-    title={uploadedImageFile ? 'Change image' : 'Upload starter image'}
-    className="p-0 leading-none"      
-  >
-    <FaImage className="text-xl hover:opacity-80 align-middle ml-4 pt-1" />
-  </button>
-
-  {/* hidden input */}
-  <input
-    type="file"
-    accept="image/*"
-    ref={fileInputRef}
-    onChange={handleFileChange}
-    className="hidden"
-  />
-
-  {/* tiny filename, positioned so it doesn’t push the header down */}
-  {uploadedImageFile && (
-    <span className="absolute top-full left-0 mt-1 text-xs text-green-500 truncate max-w-[150px]">
-      {uploadedImageFile.name}
-    </span>
-  )}
-</div>
-
-
-
-
-
+        </div>
 
         {/* Right-Side Toolbar */}
         <div className="flex items-center space-x-4 mr-2">
@@ -701,33 +723,38 @@ export default function OneshotEditor() {
             </p>
           </div>
 
-          {/* 
-            NEW: If the chosen image model has sub-types — for example "IDEOGRAMV2" 
-            — show a sub-type dropdown.
-          */}
-          {selectedImageModel?.value === 'IDEOGRAMV2' && (
-            <div className="flex flex-col items-center">
-              <SingleSelect
-                value={selectedImageModelSubType}
-                onChange={setSelectedImageModelSubType}
-                // Map IDEOGRAM_IMAGE_STYLES to { label, value } objects
-                options={IDEOGRAM_IMAGE_STYLES.map((style) => ({
-                  label: style,
-                  value: style,
-                }))}
-                className="w-40"
-              />
-              <p
-                className={
-                  colorMode === 'dark'
-                    ? "text-white text-xs mt-1"
-                    : "text-black text-xs mt-1"
-                }
-              >
-                Ideogram Style
-              </p>
-            </div>
-          )}
+          {(() => {
+            const imageModelConfig = IMAGE_GENERAITON_MODEL_TYPES.find(
+              (m) => m.key === selectedImageModel?.value
+            );
+            if (imageModelConfig?.imageStyles && selectedImageStyle) {
+              return (
+                <div className="flex flex-col items-center">
+                  <SingleSelect
+                    value={selectedImageStyle}
+                    onChange={setSelectedImageStyle}
+                    options={imageModelConfig.imageStyles.map((style) => ({
+                      label: style,
+                      value: style,
+                    }))}
+                    className="w-40"
+                  />
+                  <p
+                    className={
+                      colorMode === 'dark'
+                        ? 'text-white text-xs mt-1'
+                        : 'text-black text-xs mt-1'
+                    }
+                  >
+                    Image Style
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+
 
           {/* Video Model */}
           <div className="flex flex-col items-center">

@@ -120,6 +120,7 @@ export default function Home() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/vidgenie" element={<OneshotEditorContainer />} />
+        <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
         <Route path="/adcreator" element={<AdVideoCreatorContainer />} />
         <Route path="/adcreator/:id" element={<AdVideoCreatorContainer />} />
 

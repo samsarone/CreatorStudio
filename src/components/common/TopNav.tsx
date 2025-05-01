@@ -50,7 +50,7 @@ export default function TopNav(props) {
 
   } = useContext(NavCanvasControlContext);
 
-  let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
+  let bgColor = 'from-indigo-900 via-blue-950 to-blue-900 text-neutral-50';
 
   if (colorMode === 'light') {
     bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
@@ -249,7 +249,7 @@ export default function TopNav(props) {
       const sessionId = session._id.toString();
       localStorage.setItem('videoSessionId', sessionId);
 
-      navigate(`/videogpt/${session._id}`);
+      navigate(`/vidgenie/${session._id}`);
 
     });
   }
@@ -314,7 +314,7 @@ export default function TopNav(props) {
             {userTierDisplay}
           </div>
         </div>
-        <FaCog className='inline-flex text-2lg ' onClick={gotoUserAccount}/>
+        <FaCog className='inline-flex text-2lg ' onClick={gotoUserAccount} />
       </div>
     );
 
@@ -379,8 +379,11 @@ export default function TopNav(props) {
   const openPurchaseCreditsDialog = () => {
 
     const alertDialogContent = (
-      <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser}
-        requestApplyCreditsCoupon={requestApplyCreditsCoupon} />
+      <div>
+        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
+        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser}
+          requestApplyCreditsCoupon={requestApplyCreditsCoupon} />
+      </div>
     );
 
     openAlertDialog(alertDialogContent, undefined, true);
@@ -413,12 +416,12 @@ export default function TopNav(props) {
       <div className="inline-flex float-right">
         <div className="inline-flex ml-2 mr-2">
           <AddSessionDropdown createNewSession={createNewSession} gotoViewSessionsPage={gotoViewSessionsPage}
-            addNewExpressSession={addNewExpressSession} 
+            addNewExpressSession={addNewExpressSession}
             addNewVidGPTSession={addNewVidGPTSession}
             showAddNewMovieMakerSession={showAddNewMovieMakerSession}
             betaOptionVisible={betaOptionVisible}
             showAddNewAdVideoSession={showAddNewAdVideoSession}
-            />
+          />
         </div>
       </div>
     );
@@ -473,7 +476,7 @@ export default function TopNav(props) {
 
     const headers = getHeaders();
 
-    
+
     axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: sessionId }, headers).then(function (response) {
       console.log("Regenerate Subtitles Response", response);
 
@@ -509,7 +512,7 @@ export default function TopNav(props) {
     controlbarView = (
       <div className="absolute text-center w-full ">
 
-    </div>
+      </div>
 
     )
   }
@@ -522,7 +525,7 @@ export default function TopNav(props) {
       <div className="grid grid-flow-col	 h-full">
         {/* Left Section: Logo */}
         <div className="flex items-center pl-0 mt-[-6px]">
-          <img src={'/one.png'} className="cursor-pointer" onClick={gotoHome} alt="Logo" />
+          <img src={'/logo_main.png'} className="cursor-pointer ml-4 mt-1 w-[45px] h-[45px]" onClick={gotoHome} alt="Logo" />
         </div>
 
         {/* Center Section: CanvasControlBar */}

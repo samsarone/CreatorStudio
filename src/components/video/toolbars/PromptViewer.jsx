@@ -3,7 +3,6 @@ import SecondaryButton from '../../common/SecondaryButton.tsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import { IMAGE_MODEL_PRICES } from '../../../constants/ModelPrices.jsx';
 import { IMAGE_GENERAITON_MODEL_TYPES } from "../../../constants/Types.ts";
-import { RECRAFT_IMAGE_STYLES, IDEOGRAM_IMAGE_STYLES } from "../../../constants/Types.ts";
 
 export default function PromptViewer(props) {
   const {
@@ -16,34 +15,50 @@ export default function PromptViewer(props) {
 
   // Track whether to retry on failure
   const [retryOnFailure, setRetryOnFailure] = useState(false);
-
+  // Prompt text
   const [promptText, setPromptText] = useState(currentDefaultPrompt);
+  // Selected model
   const [selectedModel, setSelectedModel] = useState(IMAGE_GENERAITON_MODEL_TYPES[0].key);
+  // Selected image style, if the model supports it
   const [selectedImageStyle, setSelectedImageStyle] = useState(null);
 
+  // ─────────────────────────────────────────────────────────
+  //  On mount, try to load default model from localStorage
+  // ─────────────────────────────────────────────────────────
   useEffect(() => {
-    // Load the default model from localStorage
     const storageModel = localStorage.getItem('defaultImageModel');
     if (storageModel) {
       setSelectedModel(storageModel);
     }
   }, []);
 
+  // ─────────────────────────────────────────────────────────
+  //  Whenever the selected model changes, see if it has imageStyles.
+  //  If it does, load from localStorage or default to the first style.
+  // ─────────────────────────────────────────────────────────
   useEffect(() => {
-    // Whenever selectedModel changes, pick the correct default style or reset to null
-    if (selectedModel === 'RECRAFTV3' || selectedModel === 'RECRAFT20B') {
-      // Load Recraft default style
-      const defaultRecraftModel = localStorage.getItem('defaultRecraftModel');
-      setSelectedImageStyle(defaultRecraftModel || RECRAFT_IMAGE_STYLES[0]);
-    } else if (selectedModel === 'IDEOGRAMV2') {
-      // Load Ideogram default style
-      const defaultIdeogramModel = localStorage.getItem('defaultIdeogramModel');
-      setSelectedImageStyle(defaultIdeogramModel || IDEOGRAM_IMAGE_STYLES[0]);
+    const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find((m) => m.key === selectedModel);
+    if (modelDef?.imageStyles?.length) {
+      const localKey = `defaultImageStyle_${selectedModel}`;
+      const storedStyle = localStorage.getItem(localKey);
+
+      // If we have a stored style that still exists in this model's array, use it
+      const isValidStoredStyle = modelDef.imageStyles.includes(storedStyle);
+      if (storedStyle && isValidStoredStyle) {
+        setSelectedImageStyle(storedStyle);
+      } else {
+        // Otherwise, default to the first style in the array
+        setSelectedImageStyle(modelDef.imageStyles[0]);
+      }
     } else {
+      // This model doesn't have an imageStyles array
       setSelectedImageStyle(null);
     }
   }, [selectedModel]);
 
+  // ─────────────────────────────────────────────────────────
+  //  Handle changes
+  // ─────────────────────────────────────────────────────────
   const handleInputChange = (e) => {
     setPromptText(e.target.value);
   };
@@ -57,44 +72,49 @@ export default function PromptViewer(props) {
   const handleImageStyleChange = (e) => {
     const newStyle = e.target.value;
     setSelectedImageStyle(newStyle);
-
-    // Persist the style based on which model is selected
-    if (selectedModel === 'RECRAFTV3' || selectedModel === 'RECRAFT20B') {
-      localStorage.setItem('defaultRecraftModel', newStyle);
-    } else if (selectedModel === 'IDEOGRAMV2') {
-      localStorage.setItem('defaultIdeogramModel', newStyle);
-    }
+    const localKey = `defaultImageStyle_${selectedModel}`;
+    localStorage.setItem(localKey, newStyle);
   };
 
+  // ─────────────────────────────────────────────────────────
+  //  Submitting (Regenerate)
+  // ─────────────────────────────────────────────────────────
   const handleSubmit = () => {
     const payload = {
       prompt: promptText,
       model: selectedModel,
+      // If you also want to send retryOnFailure:
+      retryOnFailure,
     };
 
-    // Attach imageStyle if the selected model uses subTypes
-    if (['RECRAFTV3', 'RECRAFT20B', 'IDEOGRAMV2'].includes(selectedModel)) {
+    // If model supports imageStyles, attach the user’s chosen style
+    const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find((m) => m.key === selectedModel);
+    if (modelDef?.imageStyles?.length && selectedImageStyle) {
       payload.imageStyle = selectedImageStyle;
     }
 
     submitGenerateRecreateRequest(payload);
   };
 
-  const modelOptionMap = IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
-    <option key={model.key} value={model.key}>
-      {model.name}
-    </option>
-  ));
-
+  // ─────────────────────────────────────────────────────────
+  //  Pricing
+  // ─────────────────────────────────────────────────────────
   const modelPricing = IMAGE_MODEL_PRICES.find((m) => m.key === selectedModel);
   const priceObj = modelPricing
     ? modelPricing.prices.find((price) => price.aspectRatio === aspectRatio)
     : null;
   const modelPrice = priceObj ? priceObj.price : 0;
 
+  // Build the model dropdown
+  const modelOptionMap = IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
+    <option key={model.key} value={model.key}>
+      {model.name}
+    </option>
+  ));
+
   return (
     <div className="flex flex-col items-center space-y-2 bg-neutral-800 p-2 rounded-lg">
-      {/* Expected Cost Display */}
+      {/* ───────────── Display Cost & Retry Option ───────────── */}
       <div className="w-full">
         <div className="text-xs font-semibold text-gray-300">
           Incurs <span className="text-blue-300">{modelPrice} Credits</span>
@@ -110,7 +130,7 @@ export default function PromptViewer(props) {
         </div>
       </div>
 
-      {/* Model Selection Dropdown */}
+      {/* ───────────── Model Selection ───────────── */}
       <div className="flex w-full mt-2 mb-2">
         <div className="inline-flex w-[25%]">
           <div className="text-xs font-bold">Model</div>
@@ -124,47 +144,33 @@ export default function PromptViewer(props) {
         </select>
       </div>
 
-      {/* Recraft Style Selection */}
-      {(selectedModel === 'RECRAFTV3' || selectedModel === 'RECRAFT20B') && (
-        <div className="flex w-full mt-2 mb-2">
-          <div className="inline-flex w-[25%]">
-            <div className="text-xs font-bold">Image Style</div>
-          </div>
-          <select
-            onChange={handleImageStyleChange}
-            value={selectedImageStyle || ''}
-            className="w-[75%] p-2 border rounded bg-[#171717] text-[#fafafa]"
-          >
-            {RECRAFT_IMAGE_STYLES.map((style) => (
-              <option key={style} value={style}>
-                {style}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* ───────────── Image Style Dropdown (if model has imageStyles) ───────────── */}
+      {(() => {
+        const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find((m) => m.key === selectedModel);
+        if (modelDef?.imageStyles?.length) {
+          return (
+            <div className="flex w-full mt-2 mb-2">
+              <div className="inline-flex w-[25%]">
+                <div className="text-xs font-bold">Image Style</div>
+              </div>
+              <select
+                onChange={handleImageStyleChange}
+                value={selectedImageStyle || ''}
+                className="w-[75%] p-2 border rounded bg-[#171717] text-[#fafafa]"
+              >
+                {modelDef.imageStyles.map((style) => (
+                  <option key={style} value={style}>
+                    {style}
+                  </option>
+                ))}
+              </select>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
-      {/* Ideogram Style Selection */}
-      {selectedModel === 'IDEOGRAMV2' && (
-        <div className="flex w-full mt-2 mb-2">
-          <div className="inline-flex w-[25%]">
-            <div className="text-xs font-bold">Image Style</div>
-          </div>
-          <select
-            onChange={handleImageStyleChange}
-            value={selectedImageStyle || ''}
-            className="w-[75%] p-2 border rounded bg-[#171717] text-[#fafafa]"
-          >
-            {IDEOGRAM_IMAGE_STYLES.map((style) => (
-              <option key={style} value={style}>
-                {style}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Prompt Textarea */}
+      {/* ───────────── Prompt Textarea ───────────── */}
       <TextareaAutosize
         className="text-left max-h-64 overflow-y-auto w-full px-2 py-2 border rounded bg-[#171717] text-[#fafafa]"
         value={promptText}
@@ -174,7 +180,7 @@ export default function PromptViewer(props) {
         style={{ resize: 'none' }}
       />
 
-      {/* Action Buttons */}
+      {/* ───────────── Action Buttons ───────────── */}
       <div className="flex space-x-4">
         <SecondaryButton
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -183,6 +189,7 @@ export default function PromptViewer(props) {
         >
           Regenerate
         </SecondaryButton>
+
         <SecondaryButton
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
           onClick={showCreateNewPrompt}
