@@ -18,7 +18,6 @@ export default function OneshotEditorContainer() {
 
   useEffect(() => {
 
-
     if (!id) {
       const headers = getHeaders();
       axios.post(`${API_SERVER}/vidgpt/create_blank`, {}, headers).then(function (response) {

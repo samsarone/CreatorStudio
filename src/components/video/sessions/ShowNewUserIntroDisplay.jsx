@@ -13,7 +13,9 @@ import { Tooltip } from 'react-tooltip';
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function ShowNewUserIntroDisplay(props) {
-  const { createNewStudioSession, createNewQuickSession, createNewVidGPTSession, handleImportClick } = props;
+  const { createNewStudioSession, createNewQuickSession, createNewVidGPTSession, 
+    
+    handleImportClick, createNewAdVideoSession, createNewInfoVideoSession } = props;
 
   const [introSessionList, setIntroSessionList] = useState([]);
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(null);
@@ -51,7 +53,7 @@ export default function ShowNewUserIntroDisplay(props) {
             Create New Project
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 justify-items-center">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 justify-items-center">
             {/* Studio Session */}
             <div
               onClick={() => createNewStudioSession()}
@@ -63,7 +65,7 @@ export default function ShowNewUserIntroDisplay(props) {
                 {/* 2) Add FaQuestionCircle with tooltip props */}
                 <FaQuestionCircle
                   data-tooltip-id="studioSessionTooltip"
-                  data-tooltip-content="Studio creator and editor. Create And Edit."
+                  data-tooltip-content="Studio creator and editor. Create And Edit image, video, audio etc."
                   className="ml-2"
                 />
               </span>
@@ -76,14 +78,47 @@ export default function ShowNewUserIntroDisplay(props) {
             >
               <FaStar className="text-4xl mb-2" />
               <span className="flex items-center">
-                VidGPT Session
+                VidGenie Session
                 <FaQuestionCircle
                   data-tooltip-id="vidgptSessionTooltip"
-                  data-tooltip-content="1-Shot Feature film creator. Edit in Studio."
+                  data-tooltip-content="1-Shot Feature film creator in grounded or cinematic mode. Edit in Studio."
                   className="ml-2"
                 />
               </span>
             </div>
+
+            <div
+              onClick={() => createNewInfoVideoSession()}
+              className="flex flex-col items-center justify-center cursor-pointer"
+            >
+              <FaStar className="text-4xl mb-2" />
+              <span className="flex items-center">
+                Info Video Maker Session
+                <FaQuestionCircle
+                  data-tooltip-id="vidgptSessionTooltip"
+                  data-tooltip-content="Create accurate and informative 1-shot infotainment style videos. Edit in Studio."
+                  className="ml-2"
+                />
+              </span>
+            </div>
+
+
+                        <div
+              onClick={() => createNewAdVideoSession()}
+              className="flex flex-col items-center justify-center cursor-pointer"
+            >
+              <FaStar className="text-4xl mb-2" />
+              <span className="flex items-center">
+                Ad Video Maker Session
+                <FaQuestionCircle
+                  data-tooltip-id="adVideoSessionTooltip"
+                  data-tooltip-content="Create Ad Videos from list of image references + prompt. Edit in Studio."
+                  className="ml-2"
+                />
+              </span>
+            </div>
+
+
           </div>
         </div>
         {introSessionsListDisplay}

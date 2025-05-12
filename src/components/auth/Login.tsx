@@ -53,7 +53,7 @@ export default function Login(props) {
   return (
     <div>
       <div>
-        <div className="mt-2 mb-4 text-center font-bold text-2xl">Login</div>
+        <div className="mt-2 mb-4 text-center font-bold text-2xl">Please Login To Continue</div>
         {error && <div className="text-red-500 text-center">{error}</div>}
 
         {/* Google Sign-in Button */}

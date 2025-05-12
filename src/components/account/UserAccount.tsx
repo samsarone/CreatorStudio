@@ -45,6 +45,8 @@ export default function UserAccount() {
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
 
+
+
   // Color style classes
   const textColor = colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
   const bgColor = colorMode === "dark" ? "bg-neutral-900" : "bg-neutral-100";
@@ -62,6 +64,31 @@ export default function UserAccount() {
   // Font states
   const [speakerFont, setSpeakerFont] = useState(fontOptions[0]);
   const [textFont, setTextFont] = useState(fontOptions[0]);
+
+
+  const backingTrackModelOptions = [
+    {
+      value: 'AUDIOCRAFT',
+      label: 'AudioCraft',
+    },
+    {
+      value: 'CASSETTEAI',
+      label: 'CassetteAI',
+    }
+  ];
+
+  const [backingTrackModel, setBackingTrackModel] = useState(backingTrackModelOptions[0]);
+
+
+  const handleBackingTrackModelChange = (newVal) => {
+
+    setBackingTrackModel(newVal);
+
+
+    // Important: pass the correct key to the server
+    updateUserDetails({ backingTrackModel: newVal.value });
+  }
+
 
   useEffect(() => {
     if (user) {
@@ -93,7 +120,19 @@ export default function UserAccount() {
       const textFontOption =
         fontOptions.find((f) => f.value === userTextFont) || fontOptions[0];
       setTextFont(textFontOption);
+
+
+
+      // Backing track model
+      const userBackingTrackModel = user.backingTrackModel || "AUDIOCRAFT";
+      const backingTrackModelOption =
+        backingTrackModelOptions.find((f) => f.value === userBackingTrackModel) || backingTrackModelOptions[0];
+      setBackingTrackModel(backingTrackModelOption);
+
+
     }
+
+
   }, [user]);
 
   // If no user found, return an empty span (or redirect)
@@ -303,6 +342,7 @@ export default function UserAccount() {
     updateUserDetails({ expressGenerationTextFont: newVal.value });
   };
 
+
   // Render label for current panel in the header
   let currentPageLabel = "Account Information";
   if (displayPanel === "images") {
@@ -477,6 +517,19 @@ export default function UserAccount() {
                         onChange={handleTextFontChange}
                       />
                     </div>
+
+
+                                        <div>
+                      <h3 className="text-lg font-semibold mb-2">Backing Track Model</h3>
+                      <SingleSelect
+                        options={backingTrackModelOptions}
+                        value={backingTrackModel}
+                        
+                        onChange={handleBackingTrackModelChange}
+
+                      />
+                    </div>
+
                   </div>
                 </div>
 

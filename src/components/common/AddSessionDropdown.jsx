@@ -15,7 +15,8 @@ function AddSessionDropdown(props) {
     addNewExpressSession,
     addNewVidGPTSession,
     showAddNewAdVideoSession,
-    
+    addNewSnowMakerSession,
+
     showAddNewMovieMakerSession,
     betaOptionVisible
   } = props;
@@ -67,6 +68,11 @@ function AddSessionDropdown(props) {
     setIsOpen(false);
   }
 
+  const showAddNewShowMakerSession = () => {
+    addNewSnowMakerSession();
+    setIsOpen(false);
+  }
+
   const handleAspectRatioChange = (selectedOption) => {
     localStorage.setItem('defaultAspectRatio', selectedOption.value);
     setAspectRatio(selectedOption);
@@ -101,30 +107,40 @@ function AddSessionDropdown(props) {
                   value={aspectRatio}
                 />
               </div>
-              <div>
-                <div onClick={addNewSession} className='flex mt-2 hover:bg-gray-600'>
-                  <MdCreateNewFolder className='inline-flex text-lg mt-1 cursor-pointer' />
 
-                  <div className='text-lg inline-flex ml-2 '>
-                    Create
-                  </div>
-                </div>
-              </div>
+
+
+
             </button>
+            <button
+              onClick={addNewSession}
+              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
+              role="menuitem"
+            >
+              <MdCreateNewFolder className='inline-flex mb-1' /> Studio
+            </button>
+
             <button
               onClick={showAddNewVidGPTSession}
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
               role="menuitem"
             >
               <FaStar className='inline-flex mb-1' /> VidGenie
-            </button>  
+            </button>
+            <button
+              onClick={showAddNewShowMakerSession}
+              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
+              role="menuitem"
+            >
+              <FaStar className='inline-flex mb-1' /> InfoVideo Maker
+            </button>
             <button
               onClick={showAddNewAdVideoSession}
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
               role="menuitem"
             >
               <FaStar className='inline-flex mb-1' /> AdVideo Maker
-            </button>  
+            </button>
 
 
             <button
@@ -135,7 +151,7 @@ function AddSessionDropdown(props) {
               <MdExplore className='inline-flex' /> View Projects
             </button>
 
-            
+
           </div>
         </div>
       )}

@@ -263,12 +263,7 @@ export default function VideoPromptGenerator(props) {
           : isImgToVidModel
           ? useStartFrame
           : false,
-      useEndFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
-          ? false
-          : isImgToVidModel
-          ? useEndFrame
-          : false,
+      useEndFrame: false,
       combineLayers,
       clipLayerToAiVideo,
     };
@@ -346,18 +341,6 @@ export default function VideoPromptGenerator(props) {
                 <span className="ml-2 text-xs">Start frame</span>
               </label>
 
-              {/* If you want the End Frame for certain models only, you can gate it similarly. */}
-              {selectedVideoGenerationModel === "RUNWAYML" && (
-                <label className="inline-flex items-center text-sm mr-4">
-                  <input
-                    type="checkbox"
-                    checked={useEndFrame}
-                    onChange={handleEndFrameChange}
-                    className="form-checkbox h-4 w-4 text-blue-600"
-                  />
-                  <span className="ml-2 text-xs">End frame</span>
-                </label>
-              )}
             </>
           )}
 
