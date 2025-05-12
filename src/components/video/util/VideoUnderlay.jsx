@@ -39,8 +39,6 @@ export default function VideoUnderlay(props) {
           // Update the video element's src if it's mounted
           if (videoRef.current) {
 
-            console.log("TRU TO LOAD SRC ");
-            console.log(newVideoSrc);
             
             videoRef.current.src = newVideoSrc;
             videoRef.current.play().catch(error => {

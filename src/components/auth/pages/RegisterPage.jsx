@@ -78,7 +78,7 @@ export default function RegisterPage() {
 
 
       <div className="w-full flex flex-col items-center justify-center pt-20">
-        <div className="bg-neutral-800 text-white rounded-lg p-6 max-w-md w-full">
+        <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
           <Register
             registerWithGoogle={registerWithGoogle}
             registerUserWithEmail={registerUserWithEmail}

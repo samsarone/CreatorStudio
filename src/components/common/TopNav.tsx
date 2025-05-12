@@ -84,23 +84,23 @@ export default function TopNav(props) {
 
 
 
-    if (user && !user.isPremiumUser) {
-      const setPaymentFlowShown = localStorage.getItem("setPaymentFlowShown");
+    // if (user && !user.isPremiumUser) {
+    //   const setPaymentFlowShown = localStorage.getItem("setPaymentFlowShown");
 
-      if (!setPaymentFlowShown || setPaymentFlowShown === 'false') {
-        localStorage.setItem("setPaymentFlowShown", "true");
-        setTimeout(() => {
-          openAlertDialog(
-            <div className='relative '>
-              <UpgradePlan />
-            </div>
-          );
-        }, 10 * 1000);
+    //   if (!setPaymentFlowShown || setPaymentFlowShown === 'false') {
+    //     localStorage.setItem("setPaymentFlowShown", "true");
+    //     setTimeout(() => {
+    //       openAlertDialog(
+    //         <div className='relative '>
+    //           <UpgradePlan />
+    //         </div>
+    //       );
+    //     }, 10 * 1000);
 
 
-      }
+    //   }
 
-    }
+    // }
 
   }, [location.search]);
 
@@ -109,17 +109,17 @@ export default function TopNav(props) {
     // listen to local storage setShowSetPaymentFlow
     // if set then show timeouts 2 min the payment flow and set it to false in local storage
 
-    if (localStorage.getItem("setShowSetPaymentFlow") === 'true') {
-      setTimeout(() => {
-        openAlertDialog(
-          <div className='relative '>
-            <UpgradePlan />
-          </div>
+    // if (localStorage.getItem("setShowSetPaymentFlow") === 'true') {
+    //   setTimeout(() => {
+    //     openAlertDialog(
+    //       <div className='relative '>
+    //         <UpgradePlan />
+    //       </div>
 
-        );
-      }, 500);
-      localStorage.setItem("setShowSetPaymentFlow", "false");
-    }
+    //     );
+    //   }, 500);
+    //   localStorage.setItem("setShowSetPaymentFlow", "false");
+    // }
 
     const handleStorageChange = (event) => {
       if (event.key === "setShowSetPaymentFlow" && event.newValue === 'true') {
@@ -386,7 +386,7 @@ export default function TopNav(props) {
       </div>
     );
 
-    openAlertDialog(alertDialogContent, undefined, true);
+    openAlertDialog(alertDialogContent, undefined, false);
 
   }
 
@@ -404,6 +404,22 @@ export default function TopNav(props) {
 
     });
   }
+
+  const addNewSnowMakerSession = () => {
+     const headers = getHeaders();
+    const payload = {
+      prompts: [],
+    };
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('videoSessionId', sessionId);
+
+      navigate(`/infovidcreator/${session._id}`);
+
+    });   
+  }
+
   let addSessionButton = <span />;
 
   let betaOptionVisible = false;
@@ -421,6 +437,7 @@ export default function TopNav(props) {
             showAddNewMovieMakerSession={showAddNewMovieMakerSession}
             betaOptionVisible={betaOptionVisible}
             showAddNewAdVideoSession={showAddNewAdVideoSession}
+            addNewSnowMakerSession={addNewSnowMakerSession}
           />
         </div>
       </div>

@@ -279,7 +279,7 @@ export const IMAGE_MODEL_PRICES = [
   },
 
   {
-    key: 'IDEOGRAMV2',
+    key: 'IDEOGRAMV3',
     prices: [
       {
         aspectRatio: '16:9',
@@ -749,6 +749,24 @@ export const VIDEO_MODEL_PRICES = [
       },
     ],
 
+  },
+
+  {
+    key: 'VIDUI2V',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 60
+      },
+      {
+        aspectRatio: '16:9',
+        price: 60
+      },
+      {
+        aspectRatio: '9:16',
+        price: 60
+      },
+    ]
   },
 
 

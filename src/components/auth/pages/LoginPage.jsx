@@ -69,7 +69,7 @@ export default function LoginPage() {
 
     <div className="w-full flex flex-col items-center justify-center pt-20">
       {/* You can style the container as you prefer */}
-      <div className="bg-neutral-800 text-white rounded-lg p-6 max-w-md w-full">
+      <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
         {/* Reuse your existing <Login> component. 
             Pass in only the props it needs. */}
         <Login

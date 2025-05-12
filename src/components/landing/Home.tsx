@@ -30,11 +30,13 @@ import RegisterPage from "../auth/pages/RegisterPage.jsx";
 import AdVideoCreatorContainer from "../advideo_creator/AdVideoCreatorContainer.jsx";
 import AdVideoCreator from "../advideo_creator/AdVideoCreator.jsx";
 
+
 import PaymentsSuccess from "../payments/PaymentsSuccess.jsx";
 import PaymentsFailure from "../payments/PaymentsFailure.jsx";
 import CreatePayment from "../payments/CreatePayment.jsx";
 import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.jsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
+import SnowMakerContainer from "../snowmaker/SnowMakerContainer.jsx";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -123,6 +125,14 @@ export default function Home() {
         <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
         <Route path="/adcreator" element={<AdVideoCreatorContainer />} />
         <Route path="/adcreator/:id" element={<AdVideoCreatorContainer />} />
+
+        <Route path="/snowmaker" element={<SnowMakerContainer />} />
+        <Route path="/snowmaker/:id" element={<SnowMakerContainer />} />
+
+        <Route path="/infovidcreator" element={<SnowMakerContainer />} />
+        <Route path="/infovidcreator/:id" element={<SnowMakerContainer />} />
+
+
 
         <Route path="/videogpt" element={<OneshotEditorContainer />} />
         <Route path="/videogpt/:id" element={<OneshotEditorContainer />} />

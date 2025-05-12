@@ -95,7 +95,7 @@ export const FRAME_TOOLBAR_VIEW = {
 
 
 export const IDEOGRAM_IMAGE_STYLES = [
-  'auto', 'general', 'realistic', 'design', 'render_3D', 'anime'
+'AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'
 ];
 
 
@@ -190,8 +190,8 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
   {
-    name: 'Ideogram V2',
-    key: 'IDEOGRAMV2',
+    name: 'Ideogram V3',
+    key: 'IDEOGRAMV3',
     isExpressModel: true,
     imageStyles: IDEOGRAM_IMAGE_STYLES,
   },
@@ -360,6 +360,19 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16', '1:1'
     ]
   },
+
+  {
+    name: 'Vidu Img2Vid',
+    key: 'VIDUI2V',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    isTextToVidModel: false,
+    supportedAspectRatios: [
+      '16:9', '9:16', 
+      '1:1'
+    ]
+  
+  }
 ];
 
 

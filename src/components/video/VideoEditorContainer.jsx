@@ -126,7 +126,6 @@ export default function VideoEditorContainer(props) {
       ? `${STATIC_CDN_URL}/${currentLayer.aiVideoRemoteLink}`
       : `${PROCESSOR_API_URL}${currentLayer.aiVideoLayer}`;
 
-    console.log("AI VI LIUN " + aiVidLink); 
     return aiVidLink;
      
   };
@@ -161,12 +160,8 @@ export default function VideoEditorContainer(props) {
       setAiVideoLayerType('sound_effect');
     } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoLayer) {
 
-      console.log("I BE HEREEEEEEEE");
-
       const aiVideoLink = getAIVideoLink();
-  
-      console.log("AI VUDEO LINK");
-      console.log(aiVideoLink);
+
 
       setAiVideoLayer(aiVideoLink);
       setAiVideoLayerType('ai_video');
@@ -1775,6 +1770,7 @@ export default function VideoEditorContainer(props) {
       setActiveItemList(layer.imageSession.activeItemList);
       setAudioLayers(audioLayers);
 
+      setIsCanvasDirty(true);
 
 
       if (layer.hasAiVideoLayer) {

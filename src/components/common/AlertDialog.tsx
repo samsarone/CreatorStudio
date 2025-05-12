@@ -11,8 +11,9 @@ export function AlertDialog() {
   let bgColor = colorMode === 'dark' ? 'bg-gray-900 text-neutral-100' : 'bg-neutral-100 text-neutral-900';
   const dialogWidthClass = useXL ? 'w-auto' : 'md:w-[512px]';
 
+
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full" style={{ zIndex: 10000 }}>
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full  m-auto" style={{ zIndex: 10000 }}>
       <div className={`relative top-20 mx-auto pt-1 pb-5 p-5 border shadow-lg rounded-md ${bgColor} ${dialogWidthClass}`}>
         <button
           className="absolute top-2 right-2 text-gray-400 hover:text-gray-500 focus:outline-none"
