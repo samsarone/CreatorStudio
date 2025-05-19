@@ -79,10 +79,7 @@ export default function Register(props) {
       alert('You must agree to the terms and conditions.');
       return;
     }
-    if (!is18Checked) {
-      alert('You must confirm that you are at least 18 years old.');
-      return;
-    }
+
     registerWithGoogle();
   };
 

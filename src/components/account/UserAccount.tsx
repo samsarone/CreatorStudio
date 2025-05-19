@@ -77,7 +77,29 @@ export default function UserAccount() {
     }
   ];
 
+
+  const agentVideoModelOptions = [
+    {
+      value: 'RUNWAYML',
+      label: 'Runway Gen 4',
+    },
+    {
+      value: 'PIXVERSEI2V',
+      label: 'Pixverse v4.5',
+    },
+  ];
+
+
   const [backingTrackModel, setBackingTrackModel] = useState(backingTrackModelOptions[0]);
+
+  const [agentVideoModel, setAgentVideoModel] = useState(agentVideoModelOptions[0]);
+
+  const handleAgentVideoModelChange = (newVal) => {
+    setAgentVideoModel(newVal);
+
+    // Important: pass the correct key to the server
+    updateUserDetails({ agentVideoModel: newVal.value });
+  }
 
 
   const handleBackingTrackModelChange = (newVal) => {
@@ -129,6 +151,13 @@ export default function UserAccount() {
         backingTrackModelOptions.find((f) => f.value === userBackingTrackModel) || backingTrackModelOptions[0];
       setBackingTrackModel(backingTrackModelOption);
 
+
+      // Agent video model
+      const userAgentVideoModel = user.agentVideoModel || "RUNWAYML";
+      const agentVideoModelOption =
+        agentVideoModelOptions.find((f) => f.value === userAgentVideoModel) || agentVideoModelOptions[0];
+      setAgentVideoModel(agentVideoModelOption);
+      
 
     }
 
@@ -343,6 +372,7 @@ export default function UserAccount() {
   };
 
 
+
   // Render label for current panel in the header
   let currentPageLabel = "Account Information";
   if (displayPanel === "images") {
@@ -519,16 +549,28 @@ export default function UserAccount() {
                     </div>
 
 
-                                        <div>
+                    <div>
                       <h3 className="text-lg font-semibold mb-2">Backing Track Model</h3>
                       <SingleSelect
                         options={backingTrackModelOptions}
                         value={backingTrackModel}
-                        
+
                         onChange={handleBackingTrackModelChange}
 
                       />
                     </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Default Agent Video Model</h3>
+                      <SingleSelect
+                        options={agentVideoModelOptions}
+                        value={agentVideoModel}
+
+                        onChange={handleAgentVideoModelChange}
+
+                      />
+                    </div>
+
 
                   </div>
                 </div>

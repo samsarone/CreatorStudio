@@ -312,7 +312,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
-    name: 'PixVerseV4',
+    name: 'PixVerseV4.5',
     key: 'PIXVERSEI2V',
     isImgToVidModel: true,
     isExpressModel: true,
@@ -321,7 +321,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
-    name: 'PixVerseV4 Fast',
+    name: 'PixVerseV4.5 Fast',
     key: 'PIXVERSEI2VFAST',
     isImgToVidModel: true,
     supportedAspectRatios: [
