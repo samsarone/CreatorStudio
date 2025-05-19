@@ -549,7 +549,7 @@ export default function OneshotEditor() {
     setUploadedImageDataUrl(null);
     setSelectedImageStyle(null);
     // Reset to default Cinematic if desired
-    setSelectedToneOption({ label: 'Cinematic', value: 'Cinematic' });
+    setSelectedToneOption({ label: 'cinematic', value: 'cinematic' });
   };
 
   const viewInStudio = () => {
