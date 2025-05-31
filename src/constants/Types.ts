@@ -95,7 +95,7 @@ export const FRAME_TOOLBAR_VIEW = {
 
 
 export const IDEOGRAM_IMAGE_STYLES = [
-'AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'
+  'AUTO', 'GENERAL', 'REALISTIC', 'DESIGN'
 ];
 
 
@@ -112,14 +112,22 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'GPTIMAGE1',
     isExpressModel: true,
   },
-    {
+  {
+    name: 'Google Imagen4',
+    key: 'IMAGEN4',
+    isExpressModel: true,
+  },
+
+  {
     name: 'F-Lite',
     key: 'FLITE',
     isExpressModel: true,
     imageStyles: FLITE_IMAGE_STYLES,
   },
 
-  
+
+
+
 
   {
     name: 'Google Imagen3',
@@ -203,16 +211,45 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   },
 
 
-  
+
 
 ];
 
 
 export const VIDEO_GENERATION_MODEL_TYPES = [
+
   {
-    name: 'Kling 2.0 Master',
-    key: 'KLINGIMGTOVIDPROMASTER',
+    name: 'Runway Gen-4',
+    key: 'RUNWAYML',
     isExpressModel: true,
+    isTransitionModel: false,
+    isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
+  },
+
+  {
+    name: 'Kling 2.1 Master',
+    key: 'KLINGIMGTOVID2.1MASTER',
+    isExpressModel: true,
+    isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1',
+    ]
+  },
+    {
+    name: 'Kling 2.1 Pro',
+    key: 'KLINGIMGTOVID2.1PRO',
+    isExpressModel: true,
+    isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1',
+    ]
+  },
+    {
+    name: 'Kling 2.1 Standard',
+    key: 'KLINGIMGTOVID2.1STANDARD',
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
@@ -225,17 +262,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
-    ]
-  },
-
-  {
-    name: 'Runway Gen-4',
-    key: 'RUNWAYML',
-    isExpressModel: true,
-    isTransitionModel: false,
-    isImgToVidModel: true,
-    supportedAspectRatios: [
-      '16:9', '9:16'
     ]
   },
 
@@ -306,7 +332,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isTextToVidModel: false,
     isImgToVidModel: true,
 
-    isExpressModel: true, 
+    isExpressModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
@@ -328,7 +354,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16'
     ]
   },
-  
+
   {
     name: 'Wan I2V',
     key: 'WANI2V',
@@ -368,10 +394,10 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     isTextToVidModel: false,
     supportedAspectRatios: [
-      '16:9', '9:16', 
+      '16:9', '9:16',
       '1:1'
     ]
-  
+
   }
 ];
 
@@ -388,7 +414,7 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     editType: 'inpaint',
     isPromptEnabled: false
   },
-  {    
+  {
     name: 'Bria GenFill',
     key: 'BRIA_GENFILL',
     editType: 'inpaint',
@@ -396,10 +422,10 @@ export const IMAGE_EDIT_MODEL_TYPES = [
 
   },
 
-  {    
+  {
     name: 'Bria BackgroundRemove',
     key: 'BRIA_BACKGROUNDREMOVE',
-    
+
     isPromptEnabled: false
 
   },
@@ -435,20 +461,46 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     isPromptEnabled: true,
   },
 
-  
+
 
 ]
 
 
 
 
-export const ASSISTANT_MODEL_TYPES = [
-  'GPT4.5O',
-  'GPT4.1',
-  'GPTO3',
-  'GPTO3MINI'
-];
+// export const ASSISTANT_MODEL_TYPES = [
+//   'GPT4.5O',
+//   'GPT4.1',
+//   'GPTO3',
+//   'GPTO3MINI',
+//   'GROK3'
+// ];
 
+
+export const ASSISTANT_MODEL_TYPES = [
+  {
+    label: 'Grok 3',
+    value: 'GROK3'
+  },
+  {
+    label: 'GPT 4.1',
+    value: 'GPT4.1',
+  },
+  {
+    label: 'GPT 4.5',
+    value: 'GPT4.5O',
+  },
+  {
+    label: 'GPT O3 Mini (H)',
+    value: 'GPTO3MINI',
+  },
+
+  {
+    label: 'GPT O3',
+    value: 'GPTO3',
+  },
+
+];
 
 export const INFERENCE_MODEL_TYPES = [
   {
@@ -540,7 +592,7 @@ export const OPENAI_SPEAKER_TYPES = [
     "Gender": "F",
     previewURL: "https://cdn.openai.com/API/docs/audio/sage.wav"
   },
-  
+
 ];
 
 
@@ -555,7 +607,11 @@ export const MUSIC_PROVIDERS = [
   {
     name: 'AudioCraft',
     key: 'AUDIOCRAFT'
-  }
+  },
+    {
+    name: 'Lyria 2',
+    key: 'LYRIA2'
+  },
 ]
 
 

@@ -267,6 +267,25 @@ export const IMAGE_MODEL_PRICES = [
     ]
   },
 
+
+  {
+    key: 'IMAGEN4',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 5
+      },
+      {
+        aspectRatio: '16:9',
+        price: 5
+      },
+      {
+        aspectRatio: '9:16',
+        price: 5
+      },
+    ]
+  },
+
   {
     key: 'LUMINAV2',
     prices: [
@@ -586,7 +605,73 @@ export const VIDEO_MODEL_PRICES = [
         price: 150
       },
     ],
+        units: [5, 10],
   },
+
+
+
+
+
+    {
+    key: 'KLINGIMGTOVID2.1MASTER',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 150
+      },
+      {
+        aspectRatio: '16:9',
+        price: 150
+      },
+      {
+        aspectRatio: '9:16',
+        price: 150
+      },
+    ],
+        units: [5, 10],
+  },
+    {
+    key: 'KLINGIMGTOVID2.1PRO',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 50
+      },
+      {
+        aspectRatio: '16:9',
+        price: 50
+      },
+      {
+        aspectRatio: '9:16',
+        price: 50
+      },
+    ],
+        units: [5, 10],
+  },
+    {
+    key: 'KLINGIMGTOVID2.1STANDARD',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 30
+      },
+      {
+        aspectRatio: '16:9',
+        price: 30
+      },
+      {
+        aspectRatio: '9:16',
+        price: 30
+      },
+    ],
+        units: [5, 10],
+  },
+
+
+
+
+
+
 
   {
     "key": "RUNWAYML",
@@ -917,6 +1002,16 @@ export const ASSISTANT_MODEL_PRICES = [
       },
     ]
   },
+    {
+    key: "GROK3",
+    prices: [
+      {
+        operationType: "words",
+        tokens: 1000,
+        price: 1
+      },
+    ]
+  },
   {
     key: "GPTO3",
     prices: [
@@ -1009,6 +1104,15 @@ export const MUSIC_MODEL_PRICES = [
       {
         operationType: "generate_song",
         price: 5,
+      }
+    ]
+  },
+    {
+    key: 'LYRIA2',
+    prices: [
+      {
+        operationType: "generate_song",
+        price: 2,
       }
     ]
   },

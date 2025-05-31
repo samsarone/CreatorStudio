@@ -5,7 +5,7 @@ import { FaCopy } from 'react-icons/fa';
 import { MdMinimize } from 'react-icons/md';
 import dayjs from 'dayjs';
 import TextareaAutosize from 'react-textarea-autosize';
-import { INFERENCE_MODEL_TYPES } from "../../constants/Types.ts";
+import { ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 
 // Additional imports for user logic & SingleSelect:
 import { useUser } from "../../contexts/UserContext.jsx";
@@ -32,14 +32,14 @@ export default function AssistantHome(props) {
   const [userInput, setUserInput] = useState('');
 
   // Local state for the user’s assistant model
-  const [assistantModel, setAssistantModel] = useState(INFERENCE_MODEL_TYPES[0]);
+  const [assistantModel, setAssistantModel] = useState(ASSISTANT_MODEL_TYPES[0]);
 
   // On component mount or whenever `user` changes, synchronize the local assistantModel
   useEffect(() => {
     if (user) {
       // If user.selectedAssistantModel not set, default to "GPT4O"
       const userAssistantModel = user.selectedAssistantModel || "GPT4O";
-      const userAssistantModelOption = INFERENCE_MODEL_TYPES.find(
+      const userAssistantModelOption = ASSISTANT_MODEL_TYPES.find(
         (model) => model.value === userAssistantModel
       );
       if (userAssistantModelOption) {
@@ -173,7 +173,7 @@ export default function AssistantHome(props) {
               <span>Creative Assistant</span>
               <div className="ml-4 w-40">
                 <SingleSelect
-                  options={INFERENCE_MODEL_TYPES}
+                  options={ASSISTANT_MODEL_TYPES}
                   value={assistantModel}
                   onChange={handleAssistantModelChange}
                 />

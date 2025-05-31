@@ -24,7 +24,14 @@ import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
 
 import { INFERENCE_MODEL_TYPES } from "../../constants/Types.ts";
+import { ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+
+// ===== NEW: Default Image Model options =====
+const agentImageModelOptions = [
+  { value: "GPTIMAGE1", label: "GPT Image One" },
+  { value: "IMAGEN4", label: "Imagen4" },
+];
 
 // Add Montserrat or any additional fonts to the list:
 const fontOptions = [
@@ -45,8 +52,6 @@ export default function UserAccount() {
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
 
-
-
   // Color style classes
   const textColor = colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
   const bgColor = colorMode === "dark" ? "bg-neutral-900" : "bg-neutral-100";
@@ -59,58 +64,44 @@ export default function UserAccount() {
   // Local states for new form fields
   const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
   const [inferenceModel, setInferenceModel] = useState(INFERENCE_MODEL_TYPES[0]);
-  const [assistantModel, setAssistantModel] = useState(INFERENCE_MODEL_TYPES[0]);
+  const [assistantModel, setAssistantModel] = useState(ASSISTANT_MODEL_TYPES[0]);
+
+  // ===== NEW: Default Image Model state =====
+  const [agentImageModel, setAgentImageModel] = useState(agentImageModelOptions[0]);
 
   // Font states
   const [speakerFont, setSpeakerFont] = useState(fontOptions[0]);
   const [textFont, setTextFont] = useState(fontOptions[0]);
 
-
   const backingTrackModelOptions = [
-    {
-      value: 'AUDIOCRAFT',
-      label: 'AudioCraft',
-    },
-    {
-      value: 'CASSETTEAI',
-      label: 'CassetteAI',
-    }
+    { value: "LYRIA2", label: "Lyria 2" },
+    { value: "AUDIOCRAFT", label: "AudioCraft" },
+    { value: "CASSETTEAI", label: "CassetteAI" },
   ];
-
 
   const agentVideoModelOptions = [
-    {
-      value: 'RUNWAYML',
-      label: 'Runway Gen 4',
-    },
-    {
-      value: 'PIXVERSEI2V',
-      label: 'Pixverse v4.5',
-    },
+    { value: "RUNWAYML", label: "Runway Gen 4" },
+    { value: "PIXVERSEI2V", label: "Pixverse v4.5" },
   ];
 
-
   const [backingTrackModel, setBackingTrackModel] = useState(backingTrackModelOptions[0]);
-
   const [agentVideoModel, setAgentVideoModel] = useState(agentVideoModelOptions[0]);
 
   const handleAgentVideoModelChange = (newVal) => {
     setAgentVideoModel(newVal);
-
-    // Important: pass the correct key to the server
     updateUserDetails({ agentVideoModel: newVal.value });
-  }
-
+  };
 
   const handleBackingTrackModelChange = (newVal) => {
-
     setBackingTrackModel(newVal);
-
-
-    // Important: pass the correct key to the server
     updateUserDetails({ backingTrackModel: newVal.value });
-  }
+  };
 
+  // ===== NEW: Handler for Default Image Model =====
+  const handleAgentImageModelChange = (newVal) => {
+    setAgentImageModel(newVal);
+    updateUserDetails({ agentImageModel: newVal.value });
+  };
 
   useEffect(() => {
     if (user) {
@@ -123,7 +114,7 @@ export default function UserAccount() {
 
       // Assistant model
       const userAssistantModel = user.selectedAssistantModel || "GPT4O";
-      const userAssistantModelOption = INFERENCE_MODEL_TYPES.find(
+      const userAssistantModelOption = ASSISTANT_MODEL_TYPES.find(
         (model) => model.value === userAssistantModel
       );
       setAssistantModel(userAssistantModelOption);
@@ -133,35 +124,35 @@ export default function UserAccount() {
 
       // Speaker font
       const userSpeakerFont = user.expressGenerationSpeakerFont || "Arial";
-      const speakerFontOption =
-        fontOptions.find((f) => f.value === userSpeakerFont) || fontOptions[0];
+      const speakerFontOption = fontOptions.find((f) => f.value === userSpeakerFont) || fontOptions[0];
       setSpeakerFont(speakerFontOption);
 
       // Text font
       const userTextFont = user.expressGenerationTextFont || "Arial";
-      const textFontOption =
-        fontOptions.find((f) => f.value === userTextFont) || fontOptions[0];
+      const textFontOption = fontOptions.find((f) => f.value === userTextFont) || fontOptions[0];
       setTextFont(textFontOption);
-
-
 
       // Backing track model
       const userBackingTrackModel = user.backingTrackModel || "AUDIOCRAFT";
       const backingTrackModelOption =
-        backingTrackModelOptions.find((f) => f.value === userBackingTrackModel) || backingTrackModelOptions[0];
+        backingTrackModelOptions.find((f) => f.value === userBackingTrackModel) ||
+        backingTrackModelOptions[0];
       setBackingTrackModel(backingTrackModelOption);
-
 
       // Agent video model
       const userAgentVideoModel = user.agentVideoModel || "RUNWAYML";
       const agentVideoModelOption =
-        agentVideoModelOptions.find((f) => f.value === userAgentVideoModel) || agentVideoModelOptions[0];
+        agentVideoModelOptions.find((f) => f.value === userAgentVideoModel) ||
+        agentVideoModelOptions[0];
       setAgentVideoModel(agentVideoModelOption);
-      
 
+      // ===== NEW: Agent image model =====
+      const userAgentImageModel = user.agentImageModel || "GPTIMAGE1";
+      const agentImageModelOption =
+        agentImageModelOptions.find((f) => f.value === userAgentImageModel) ||
+        agentImageModelOptions[0];
+      setAgentImageModel(agentImageModelOption);
     }
-
-
   }, [user]);
 
   // If no user found, return an empty span (or redirect)
@@ -193,71 +184,53 @@ export default function UserAccount() {
     const headers = getHeaders();
     axios
       .post(`${PROCESSOR_SERVER}/users/update`, payload, headers)
-      .then(function (dataRes) {
-        toast.success("User details updated successfully!", {
-          position: "bottom-center",
-        });
-        // Re-fetch updated user details so the context is current
+      .then(function () {
+        toast.success("User details updated successfully!", { position: "bottom-center" });
         getUserAPI();
       })
       .catch(function (error) {
         console.error("Error updating user details", error);
-        toast.error("Failed to update user details", {
-          position: "bottom-center",
-        });
+        toast.error("Failed to update user details", { position: "bottom-center" });
       });
   };
 
   const purchaseCreditsForUser = (amountToPurchase) => {
-    const purchaseAmountRequest = parseInt(amountToPurchase);
+    const purchaseAmountRequest = parseInt(amountToPurchase, 10);
     const headers = getHeaders();
 
-    const payload = { amount: purchaseAmountRequest };
-
     axios
-      .post(`${PROCESSOR_SERVER}/users/purchase_credits`, payload, headers)
+      .post(`${PROCESSOR_SERVER}/users/purchase_credits`, { amount: purchaseAmountRequest }, headers)
       .then(function (dataRes) {
         const data = dataRes.data;
         if (data.url) {
           window.open(data.url, "_blank");
-          toast.success("Payment URL generated successfully!", {
-            position: "bottom-center",
-          });
+          toast.success("Payment URL generated successfully!", { position: "bottom-center" });
         } else {
           console.error("Failed to get Stripe payment URL");
-          toast.error("Failed to generate payment URL", {
-            position: "bottom-center",
-          });
+          toast.error("Failed to generate payment URL", { position: "bottom-center" });
         }
       })
       .catch(function (error) {
         console.error("Error during payment process", error);
-        toast.error("Payment process failed", {
-          position: "bottom-center",
-        });
+        toast.error("Payment process failed", { position: "bottom-center" });
       });
   };
 
   const requestApplyCreditsCoupon = (couponCode) => {
-    const headers = getHeaders();
+
     axios
       .post(
         `${PROCESSOR_SERVER}/users/apply_credits_coupon`,
-        { couponCode: couponCode },
-        headers
+        { couponCode },
+        getHeaders()
       )
       .then(function () {
-        toast.success("Coupon applied successfully!", {
-          position: "bottom-center",
-        });
-        // Optionally, re-fetch updated user details
+        toast.success("Coupon applied successfully!", { position: "bottom-center" });
         getUserAPI();
       })
       .catch(function (error) {
         console.error("Error applying coupon", error);
-        toast.error("Failed to apply coupon", {
-          position: "bottom-center",
-        });
+        toast.error("Failed to apply coupon", { position: "bottom-center" });
       });
   };
 
@@ -274,47 +247,37 @@ export default function UserAccount() {
   };
 
   const handleUpgradeToPremium = () => {
-    const alertDialogComponent = <UpgradePlan />;
     openAlertDialog(
       <div>
         <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        {alertDialogComponent}
+        <UpgradePlan />
       </div>
     );
   };
 
   const handleCancelMembership = () => {
-    const headers = getHeaders();
     axios
-      .post(`${PROCESSOR_SERVER}/users/cancel_membership`, {}, headers)
+      .post(`${PROCESSOR_SERVER}/users/cancel_membership`, {}, getHeaders())
       .then(function () {
         getUserAPI();
-        toast.success("Membership canceled successfully!", {
-          position: "bottom-center",
-        });
+        toast.success("Membership canceled successfully!", { position: "bottom-center" });
       })
       .catch(function () {
-        toast.error("Failed to cancel membership", {
-          position: "bottom-center",
-        });
+        toast.error("Failed to cancel membership", { position: "bottom-center" });
       });
   };
 
   const logoutUser = () => {
     resetUser();
     navigate("/");
-    toast.success("Logged out successfully!", {
-      position: "bottom-center",
-    });
+    toast.success("Logged out successfully!", { position: "bottom-center" });
   };
 
   const deleteAllGenerationsForUser = () => {
     axios
       .post(`${PROCESSOR_SERVER}/users/delete_generations`, {}, getHeaders())
       .then(function () {
-        toast.success("All generations deleted successfully!", {
-          position: "bottom-center",
-        });
+        toast.success("All generations deleted successfully!", { position: "bottom-center" });
       });
   };
 
@@ -322,9 +285,7 @@ export default function UserAccount() {
     axios
       .post(`${PROCESSOR_SERVER}/users/delete_projects`, {}, getHeaders())
       .then(function () {
-        toast.success("All projects deleted successfully!", {
-          position: "bottom-center",
-        });
+        toast.success("All projects deleted successfully!", { position: "bottom-center" });
       });
   };
 
@@ -332,9 +293,7 @@ export default function UserAccount() {
     axios
       .post(`${PROCESSOR_SERVER}/users/delete_user`, {}, getHeaders())
       .then(function () {
-        toast.success("Account deleted successfully!", {
-          position: "bottom-center",
-        });
+        toast.success("Account deleted successfully!", { position: "bottom-center" });
         resetUser();
         navigate("/");
       });
@@ -361,35 +320,23 @@ export default function UserAccount() {
   // Font preference change handlers
   const handleSpeakerFontChange = (newVal) => {
     setSpeakerFont(newVal);
-    // Important: pass the correct key to the server
     updateUserDetails({ expressGenerationSpeakerFont: newVal.value });
   };
 
   const handleTextFontChange = (newVal) => {
     setTextFont(newVal);
-    // Important: pass the correct key to the server
     updateUserDetails({ expressGenerationTextFont: newVal.value });
   };
 
-
-
   // Render label for current panel in the header
   let currentPageLabel = "Account Information";
-  if (displayPanel === "images") {
-    currentPageLabel = "Image Library";
-  } else if (displayPanel === "sounds") {
-    currentPageLabel = "Sound Library";
-  } else if (displayPanel === "scenes") {
-    currentPageLabel = "Scene Library";
-  } else if (displayPanel === "videos") {
-    currentPageLabel = "Video Library";
-  } else if (displayPanel === "apiKeys") {
-    currentPageLabel = "API Keys";
-  } else if (displayPanel === "billing") {
-    currentPageLabel = "Billing Information";
-  } else if (displayPanel === "settings") {
-    currentPageLabel = "Settings";
-  }
+  if (displayPanel === "images") currentPageLabel = "Image Library";
+  else if (displayPanel === "sounds") currentPageLabel = "Sound Library";
+  else if (displayPanel === "scenes") currentPageLabel = "Scene Library";
+  else if (displayPanel === "videos") currentPageLabel = "Video Library";
+  else if (displayPanel === "apiKeys") currentPageLabel = "API Keys";
+  else if (displayPanel === "billing") currentPageLabel = "Billing Information";
+  else if (displayPanel === "settings") currentPageLabel = "Settings";
 
   // Render the "Notify on completion" checkbox only if the user is verified
   let confirmationEmailActions = <span />;
@@ -446,7 +393,9 @@ export default function UserAccount() {
           </nav>
 
           {/* Panel Content */}
-          <div className={`${bgColor} ${textColor} p-6 rounded-r-lg shadow-md flex-grow flex flex-col`}>
+          <div
+            className={`${bgColor} ${textColor} p-6 rounded-r-lg shadow-md flex-grow flex flex-col`}
+          >
             {/* Header */}
             <div className="flex items-center mb-6">
               <div className="flex-1 text-left">
@@ -497,7 +446,7 @@ export default function UserAccount() {
                     <div className="mt-4">
                       <div className="text-sm font-bold mt-2 mb-2">Assistant Model</div>
                       <SingleSelect
-                        options={INFERENCE_MODEL_TYPES}
+                        options={ASSISTANT_MODEL_TYPES}
                         value={assistantModel}
                         onChange={handleAssistantModelChange}
                       />
@@ -518,18 +467,29 @@ export default function UserAccount() {
                     <h3 className="text-lg font-semibold mb-2">Credits Remaining</h3>
                     <p>{user.generationCredits}</p>
                     <div className="mt-4">
-                      <SecondaryButton onClick={showPurchaseCreditsAction}>Purchase Credits</SecondaryButton>
+                      <SecondaryButton onClick={showPurchaseCreditsAction}>
+                        Purchase Credits
+                      </SecondaryButton>
                     </div>
 
-                    {/* Next Credit Refill */}
                     <div className="mt-8">
                       <h3 className="text-lg font-semibold mb-2">Next Credit Refill</h3>
                       <p>{user.nextCreditRefill || "N/A"}</p>
                     </div>
                   </div>
 
-                  {/* Column 3: Speaker font & Text Font */}
+                  {/* Column 3: Image Model, Speaker Font & Text Font */}
                   <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
+                    {/* ===== NEW: Default Image Model selector ===== */}
+                    <div className="mb-6">
+                      <h3 className="text-lg font-semibold mb-2">Default Image Model</h3>
+                      <SingleSelect
+                        options={agentImageModelOptions}
+                        value={agentImageModel}
+                        onChange={handleAgentImageModelChange}
+                      />
+                    </div>
+
                     <div className="mb-6">
                       <h3 className="text-lg font-semibold mb-2">Speaker Font</h3>
                       <SingleSelect
@@ -539,7 +499,7 @@ export default function UserAccount() {
                       />
                     </div>
 
-                    <div>
+                    <div className="mb-6">
                       <h3 className="text-lg font-semibold mb-2">Text Font</h3>
                       <SingleSelect
                         options={fontOptions}
@@ -548,15 +508,12 @@ export default function UserAccount() {
                       />
                     </div>
 
-
-                    <div>
+                    <div className="mb-6">
                       <h3 className="text-lg font-semibold mb-2">Backing Track Model</h3>
                       <SingleSelect
                         options={backingTrackModelOptions}
                         value={backingTrackModel}
-
                         onChange={handleBackingTrackModelChange}
-
                       />
                     </div>
 
@@ -565,13 +522,9 @@ export default function UserAccount() {
                       <SingleSelect
                         options={agentVideoModelOptions}
                         value={agentVideoModel}
-
                         onChange={handleAgentVideoModelChange}
-
                       />
                     </div>
-
-
                   </div>
                 </div>
 

@@ -589,7 +589,7 @@ export default function OneshotEditor() {
   if (selectedVideoModel.value === 'LUMAFLASH2') {
     creditsPerSecondVideo = 6;
   }
-  if (selectedVideoModel.value === 'KLINGIMGTOVIDPROMASTER') {
+  if (selectedVideoModel.value === 'KLINGIMGTOVID2.1MASTER') {
     creditsPerSecondVideo = 40;
   }
 
