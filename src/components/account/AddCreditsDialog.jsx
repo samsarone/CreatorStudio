@@ -68,6 +68,7 @@ export default function AddCreditsDialog(props) {
 
   const handleApplyCoupon = () => {
 
+
     // Implement coupon application logic here
     requestApplyCreditsCoupon(couponCode);
   };

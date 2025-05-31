@@ -134,14 +134,6 @@ function AddSessionDropdown(props) {
             >
               <FaStar className='inline-flex mb-1' /> InfoVideo Maker
             </button>
-            <button
-              onClick={showAddNewAdVideoSession}
-              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
-              role="menuitem"
-            >
-              <FaStar className='inline-flex mb-1' /> AdVideo Maker
-            </button>
-
 
             <button
               onClick={viewSessions}

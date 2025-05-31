@@ -88,7 +88,11 @@ export default function ProgressIndicator(props) {
       <div>
          <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
          
-        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser()} />
+        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser}
+        
+        
+        
+        />
       </div>
     );
   };

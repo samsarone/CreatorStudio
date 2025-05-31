@@ -3,10 +3,20 @@ import OverflowContainer from '../common/OverflowContainer.tsx';
 import UpgradePlan from './UpgradePlan.tsx';
 import AddCreditsDialog from '../account/AddCreditsDialog.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { getHeaders } from '../../utils/web.jsx';
+import axios from 'axios';
+import { useUser } from '../../contexts/UserContext.jsx';
+import { ToastContainer, toast } from "react-toastify";
+
+import 'react-toastify/dist/ReactToastify.css';
+
+
+const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function CreatePayment() {
   const [selectedTab, setSelectedTab] = useState('upgradePlan');
   const { colorMode } = useColorMode();
+    const { user, resetUser, getUserAPI } = useUser();
 
   // Helper function to derive button styles based on selection and theme
   const getButtonClass = (isActive) => {
@@ -24,13 +34,35 @@ export default function CreatePayment() {
     }
   };
 
+  const requestApplyCreditsCoupon = (couponCode) => {
+
+
+
+    axios.post(
+        `${PROCESSOR_SERVER}/users/apply_credits_coupon`,
+        { couponCode },
+        getHeaders()
+      )
+      .then(function () {
+
+
+        toast.success("Coupon applied successfully!", { position: "bottom-center" });
+        getUserAPI();
+      })
+      .catch(function (error) {
+        console.error("Error applying coupon", error);
+        toast.error("Failed to apply coupon", { position: "bottom-center" });
+      });
+  };
+
+
   return (
     <OverflowContainer>
+      <ToastContainer />
       {/* Page background + text color based on colorMode */}
       <div
-        className={`min-h-screen pt-16 ${
-          colorMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
-        }`}
+        className={`min-h-screen pt-16 ${colorMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'
+          }`}
       >
         {/* Centered container so it doesn't span the entire width */}
         <div className="max-w-2xl mx-auto w-full px-4">
@@ -57,9 +89,8 @@ export default function CreatePayment() {
               href="https://docs.samsar.one/pricing"
               target="_blank"
               rel="noopener noreferrer"
-              className={`underline ${
-                colorMode === 'dark' ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'
-              }`}
+              className={`underline ${colorMode === 'dark' ? 'text-indigo-400 hover:text-indigo-300' : 'text-indigo-600 hover:text-indigo-500'
+                }`}
             >
               Pricing
             </a>
@@ -67,14 +98,13 @@ export default function CreatePayment() {
 
           {/* Content section with a modern card look */}
           <div
-            className={`mt-4 p-4 rounded-lg shadow-md ${
-              colorMode === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-            }`}
+            className={`mt-4 p-4 rounded-lg shadow-md ${colorMode === 'dark' ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
+              }`}
           >
             {selectedTab === 'upgradePlan' ? (
               <UpgradePlan />
             ) : (
-              <AddCreditsDialog />
+              <AddCreditsDialog requestApplyCreditsCoupon={requestApplyCreditsCoupon} />
             )}
           </div>
         </div>
