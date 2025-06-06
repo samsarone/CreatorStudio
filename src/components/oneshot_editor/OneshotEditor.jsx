@@ -41,6 +41,46 @@ export default function OneshotEditor() {
   const [promptText, setPromptText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
+
+  // ─ Polling helpers ─────────────────────────────────────────────
+  const DEFAULT_POLL = 5_000;      // 5 s while online & healthy
+  const OFFLINE_POLL = 30_000;     // 30 s while offline
+  const MAX_BACKOFF = 60_000;      // cap when server keeps 5xx-ing
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [pollDelay, setPollDelay] = useState(DEFAULT_POLL);
+
+  useEffect(() => {
+    // React to browser going offline / online
+    const onLine = () => { setIsOnline(true); setPollDelay(DEFAULT_POLL); };
+    const offLine = () => { setIsOnline(false); setPollDelay(OFFLINE_POLL); };
+    window.addEventListener("online", onLine);
+    window.addEventListener("offline", offLine);
+    return () => {
+      window.removeEventListener("online", onLine);
+      window.removeEventListener("offline", offLine);
+    };
+  }, []);
+
+  // Wake-from-sleep or tab-focus → trigger an immediate poll
+  const lastWakePoll = useRef(Date.now());
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && Date.now() - lastWakePoll.current > 2_000) {
+        lastWakePoll.current = Date.now();
+        pollGenerationStatus(true);          // instant run
+        startAssistantQueryPoll(true);       // 〃
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
+
+
+
+
   // Assistant / Chatbot states
   const [sessionMessages, setSessionMessages] = useState([]);
   const [isAssistantQueryGenerating, setIsAssistantQueryGenerating] = useState(false);
@@ -82,8 +122,8 @@ export default function OneshotEditor() {
   ];
   // Default to Cinematic
   const [selectedToneOption, setSelectedToneOption] = useState({
-    label: 'cinematic',
-    value: 'cinematic',
+    label: 'grounded',
+    value: 'grounded',
   });
 
   // Aspect Ratio
@@ -279,15 +319,15 @@ export default function OneshotEditor() {
   const [isDisabled, setIsDisabled] = useState(false);
 
   // const [ showLoginDialog, setShowLoginDialog ] = useState(false);
-  const [ showPurchaseCreditsDialog, setShowPurchaseCreditsDialog ] = useState(false);
+  const [showPurchaseCreditsDialog, setShowPurchaseCreditsDialog] = useState(false);
 
 
 
   useEffect(() => {
     if (!user || user.generationCredits < 300) {
-    //  setIsDisabled(true);
+      //  setIsDisabled(true);
     } else {
-     // setIsDisabled(false);
+      // setIsDisabled(false);
     }
   }, [user]);
 
@@ -549,7 +589,7 @@ export default function OneshotEditor() {
     setUploadedImageDataUrl(null);
     setSelectedImageStyle(null);
     // Reset to default Cinematic if desired
-    setSelectedToneOption({ label: 'cinematic', value: 'cinematic' });
+    setSelectedToneOption({ label: 'grounded', value: 'grounded' });
   };
 
   const viewInStudio = () => {
@@ -624,12 +664,16 @@ export default function OneshotEditor() {
         <div
           className={
             colorMode === 'dark'
-              ? 'flex items-center text-lg font-bold text-white pl-2 mt-[-6px] space-x-2'
-              : 'flex items-center text-lg font-bold text-black pl-2 mt-[-6px] space-x-2'
+              ? 'flex flex-col items-start text-lg font-bold text-white pl-2 mt-[-6px]'
+              : 'flex flex-col items-start text-lg font-bold text-black pl-2 mt-[-6px]'
           }
         >
-          <span>VidGenie Creator</span>
+          <div className="block">VidGenie Text to Vid Agent</div>
+          <div className="text-xs text-gray-400 mt-1">
+            Create 1-shot videos from text prompts.
+          </div>
         </div>
+
 
         {/* Right-Side Toolbar */}
         <div className="flex items-center space-x-4 mr-2">
@@ -788,7 +832,7 @@ export default function OneshotEditor() {
                   : "text-black text-xs mt-1"
               }
             >
-              Default Duration
+              Max Duration
             </p>
           </div>
 

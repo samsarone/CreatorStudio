@@ -121,14 +121,9 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
     name: 'F-Lite',
     key: 'FLITE',
-    isExpressModel: true,
+    isExpressModel: false,
     imageStyles: FLITE_IMAGE_STYLES,
   },
-
-
-
-
-
   {
     name: 'Google Imagen3',
     key: 'IMAGEN3',
@@ -137,7 +132,7 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
     name: 'Flux-1.1 Pro',
     key: 'FLUX1.1PRO',
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Dall-E 3',
@@ -172,12 +167,12 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
     name: 'Sana 4.5B',
     key: 'SANA4.5B',
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Sana Sprint',
     key: 'SANASPRINT',
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Recraft 20B',
@@ -195,19 +190,19 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
     name: 'Lumina V2',
     key: 'LUMINAV2',
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Ideogram V3',
     key: 'IDEOGRAMV3',
-    isExpressModel: true,
+    isExpressModel: false,
     imageStyles: IDEOGRAM_IMAGE_STYLES,
   },
 
   {
     name: 'HiDream I1',
     key: 'HIDREAMI1',
-    isExpressModel: true,
+    isExpressModel: false,
   },
 
 
@@ -232,7 +227,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Kling 2.1 Master',
     key: 'KLINGIMGTOVID2.1MASTER',
-    isExpressModel: true,
+    isExpressModel: false,
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
@@ -250,7 +245,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     {
     name: 'Kling 2.1 Standard',
     key: 'KLINGIMGTOVID2.1STANDARD',
-    isImgToVidModel: true,
+    isImgToVidModel: false,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
     ]
@@ -258,7 +253,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Kling 1.6 Pro',
     key: 'KLINGIMGTOVIDPRO',
-    isExpressModel: true,
+    isExpressModel: false,
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
@@ -269,7 +264,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Luma Ray2',
     key: 'LUMA',
-    isExpressModel: true,
+    isExpressModel: false,
     isTransitionModel: true,
     isImgToVidModel: true,
     isTextToVidModel: true,
@@ -282,7 +277,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Luma Ray2 Flash',
     key: 'LUMAFLASH2',
-    isExpressModel: true,
+    isExpressModel: false,
     isTransitionModel: true,
     isImgToVidModel: true,
     isTextToVidModel: true,
@@ -303,7 +298,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     supportedAspectRatios: [
       '16:9'
     ],
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Haiper 2.0',
@@ -319,7 +314,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
-    name: 'Veo',
+    name: 'Veo2',
     key: 'VEO',
     isTextToVidModel: true,
     isImgToVidModel: false,
@@ -327,21 +322,33 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
-    name: 'Veo Img2Vid',
+    name: 'Veo2 Img2Vid',
     key: 'VEOI2V',
     isTextToVidModel: false,
     isImgToVidModel: true,
-
-    isExpressModel: true,
+    isExpressModel: false,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
   },
+
+    {
+    name: 'Veo3',
+    key: 'VEO3',
+    isImgToVidModel: false,
+    isExpressModel: false,
+    isTextToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16',
+    ]
+
+  },
+
   {
     name: 'PixVerseV4.5',
     key: 'PIXVERSEI2V',
     isImgToVidModel: true,
-    isExpressModel: true,
+    isExpressModel: false,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
@@ -359,7 +366,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     name: 'Wan I2V',
     key: 'WANI2V',
     isImgToVidModel: true,
-    isExpressModel: true,
+    isExpressModel: false,
     supportedAspectRatios: [
       '16:9'
     ]
@@ -368,7 +375,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     name: 'Pika2.2 I2V',
     key: 'PIKA2.2I2V',
     isImgToVidModel: true,
-    isExpressModel: true,
+    isExpressModel: false,
     isTextToVidModel: false,
     supportedAspectRatios: [
       '16:9', '9:16'
@@ -380,7 +387,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     name: 'Magi Distilled',
     key: 'MAGIDISTILLED',
     isImgToVidModel: true,
-    isExpressModel: true,
+    isExpressModel: false,
     isTextToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1'
@@ -391,14 +398,15 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     name: 'Vidu Img2Vid',
     key: 'VIDUI2V',
     isImgToVidModel: true,
-    isExpressModel: true,
+    isExpressModel: false,
     isTextToVidModel: false,
     supportedAspectRatios: [
       '16:9', '9:16',
       '1:1'
     ]
 
-  }
+  },
+
 ];
 
 
