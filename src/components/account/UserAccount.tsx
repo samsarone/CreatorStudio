@@ -480,15 +480,7 @@ export default function UserAccount() {
 
                   {/* Column 3: Image Model, Speaker Font & Text Font */}
                   <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
-                    {/* ===== NEW: Default Image Model selector ===== */}
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-2">Default Image Model</h3>
-                      <SingleSelect
-                        options={agentImageModelOptions}
-                        value={agentImageModel}
-                        onChange={handleAgentImageModelChange}
-                      />
-                    </div>
+                    <h3 className="text-lg font-semibold mb-2">Agent Settings</h3>
 
                     <div className="mb-6">
                       <h3 className="text-lg font-semibold mb-2">Speaker Font</h3>
@@ -517,14 +509,7 @@ export default function UserAccount() {
                       />
                     </div>
 
-                    <div>
-                      <h3 className="text-lg font-semibold mb-2">Default Agent Video Model</h3>
-                      <SingleSelect
-                        options={agentVideoModelOptions}
-                        value={agentVideoModel}
-                        onChange={handleAgentVideoModelChange}
-                      />
-                    </div>
+
                   </div>
                 </div>
 

@@ -146,11 +146,7 @@ export default function MobileTopNav(props) {
             {userTierDisplay}
           </div>
         </div>
-        <img
-          src={user.pfpUrl ? user.pfpUrl : '/46.png'}
-          alt={user.username}
-          className="w-[50px] rounded-full"
-        />
+
       </div>
     );
 
@@ -199,11 +195,15 @@ export default function MobileTopNav(props) {
     userCreditsDisplay = <div>{userCredits} credits</div>;
   }
 
+  console.log("INSIDE MOBILE TOP NAV");
+
+
+
   return (
     <div className={`bg-gradient-to-r ${bgColor} h-[50px] fixed w-[100vw] shadow-lg z-10`}>
       <div className="flex flex-basis">
         <div className='basis-1/4'>
-          <img src={'/log_ff1.png'} className="cursor-pointer h-[44px] w-[44px] ml-2 mt-1 mr-2" onClick={gotoHome} />
+          <img src={'/logo_main.png'} className="cursor-pointer h-[44px] w-[44px] ml-2 mt-1 mr-2" onClick={gotoHome} />
         </div>
         <div className="basis-3/4  ">
           <div className="text-xs inline-flex">

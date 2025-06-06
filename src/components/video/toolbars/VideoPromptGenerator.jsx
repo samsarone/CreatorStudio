@@ -314,7 +314,6 @@ export default function VideoPromptGenerator(props) {
     <div className="text-red-500 text-center text-sm">{generationError}</div>
   ) : null;
 
-  console.log(selectedVideoGenerationModel);
   
   return (
     <div>

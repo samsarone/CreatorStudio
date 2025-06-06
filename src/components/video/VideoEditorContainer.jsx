@@ -19,6 +19,9 @@ import VideoCanvasContainer from './editor/VideoCanvasContainer.jsx';
 import VideoEditorToolbar from './toolbars/VideoEditorToolbar.jsx'
 import LoadingImage from './util/LoadingImage.jsx';
 import LoadingImageTransparent from './util/LoadingImageTransparent.jsx';
+import LoadingImageBase from './util/LoadingImageBase.jsx';
+
+
 import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
 
 import LibraryHome from '../library/LibraryHome.jsx';
@@ -29,6 +32,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+
 
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
@@ -122,12 +126,12 @@ export default function VideoEditorContainer(props) {
   // Helpers to return full video URLs based on which link is available
   const getAIVideoLink = () => {
     if (!currentLayer || !currentLayer.aiVideoLayer) return null;
-    const aiVidLink =  currentLayer.aiVideoRemoteLink
+    const aiVidLink = currentLayer.aiVideoRemoteLink
       ? `${STATIC_CDN_URL}/${currentLayer.aiVideoRemoteLink}`
       : `${PROCESSOR_API_URL}${currentLayer.aiVideoLayer}`;
 
     return aiVidLink;
-     
+
   };
 
   const getLipSyncVideoLink = () => {
@@ -1743,9 +1747,12 @@ export default function VideoEditorContainer(props) {
 
   // removeAiVideoLayer now includes the layer type in the payload
   const removeAIVideoLayer = async () => {
+    setCanvasActionLoading(true);
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
+      setCanvasActionLoading(false);
       return;
     }
     const payload = {
@@ -1754,32 +1761,41 @@ export default function VideoEditorContainer(props) {
       aiVideoLayerType, // pass the currently active AI video layer type
     };
 
-    const responseData = await axios.post(`${PROCESSOR_API_URL}/video_sessions/remove_ai_video_layer`, payload, headers);
-    const removeResponse = responseData.data;
-    if (removeResponse) {
+
+    try {
+
+      const responseData = await axios.post(`${PROCESSOR_API_URL}/video_sessions/remove_ai_video_layer`, payload, headers);
+      const removeResponse = responseData.data;
+      if (removeResponse) {
 
 
-      const { session, layer, audioLayers } = removeResponse;
+        const { session, layer, audioLayers } = removeResponse;
 
 
-      const layerList = session.layers;
-      const currentNewLayerIndex = layerList.findIndex(
-        (l) => l._id.toString() === layer._id.toString()
-      );
-      updateCurrentLayerAndLayerList(layerList, currentNewLayerIndex);
-      setActiveItemList(layer.imageSession.activeItemList);
-      setAudioLayers(audioLayers);
+        const layerList = session.layers;
+        const currentNewLayerIndex = layerList.findIndex(
+          (l) => l._id.toString() === layer._id.toString()
+        );
+        updateCurrentLayerAndLayerList(layerList, currentNewLayerIndex);
+        setActiveItemList(layer.imageSession.activeItemList);
+        setAudioLayers(audioLayers);
 
-      setIsCanvasDirty(true);
+        setIsCanvasDirty(true);
 
 
-      if (layer.hasAiVideoLayer) {
-        setAiVideoLayer(layer.aiVideoLayer);
-        setAiVideoLayerType(layer.aiVideoLayerType);
-      } else {
-        setAiVideoLayer(null);
-        setAiVideoLayerType(null);
+        if (layer.hasAiVideoLayer) {
+          setAiVideoLayer(layer.aiVideoLayer);
+          setAiVideoLayerType(layer.aiVideoLayerType);
+        } else {
+          setAiVideoLayer(null);
+          setAiVideoLayerType(null);
+        }
       }
+
+    } catch (error) {
+
+    } finally {
+      setCanvasActionLoading(false);
     }
   };
 
@@ -2454,13 +2470,13 @@ export default function VideoEditorContainer(props) {
         if (canvasActionLoading) {
           const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
           canvasInternalLoading = (
-            <div className={`absolute t-0 pt-[150px] w-[${canvasWidth}px]  z-10`}>
-              <LoadingImageTransparent />
+            <div className="absolute inset-0 z-10 flex items-center justify-center">
+              <LoadingImageBase />
             </div>
           );
         }
         viewDisplay = (
-          <div>
+          <div className='relative'>
             {canvasInternalLoading}
             <VideoCanvasContainer
               ref={canvasRef}
