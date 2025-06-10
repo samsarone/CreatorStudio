@@ -195,8 +195,6 @@ export default function MobileTopNav(props) {
     userCreditsDisplay = <div>{userCredits} credits</div>;
   }
 
-  console.log("INSIDE MOBILE TOP NAV");
-
 
 
   return (
