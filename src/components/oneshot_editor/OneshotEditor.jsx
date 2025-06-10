@@ -246,6 +246,7 @@ export default function OneshotEditor() {
     { label: '1 Minute', value: 60 },
     { label: '1.5 Minutes', value: 90 },
     { label: '2 Minutes', value: 120 },
+    { label: '3 Minutes', value: 180 },
   ];
 
   // Track the selected VIDEO model
@@ -657,72 +658,60 @@ export default function OneshotEditor() {
       <div
         className={
           colorMode === 'dark'
-            ? "flex justify-between items-center p-2 bg-neutral-950 text-white pt-8 mt-8 rounded-md shadow-md relative"
-            : "flex justify-between items-center p-2 bg-white text-black pt-8 mt-8 rounded-md shadow-md relative"
+            ? 'flex flex-col md:flex-row justify-between p-2 bg-neutral-950 text-white pt-8 mt-8 rounded-md shadow-md relative'
+            : 'flex flex-col md:flex-row justify-between p-2 bg-white text-black pt-8 mt-8 rounded-md shadow-md relative'
         }
       >
+        {/* 1️⃣  Heading  */}
         <div
           className={
             colorMode === 'dark'
-              ? 'flex flex-col items-start text-lg font-bold text-white pl-2 mt-[-6px]'
-              : 'flex flex-col items-start text-lg font-bold text-black pl-2 mt-[-6px]'
+              ? 'flex flex-col items-start text-lg font-bold text-white pl-2 -mt-[6px]'
+              : 'flex flex-col items-start text-lg font-bold text-black pl-2 -mt-[6px]'
           }
         >
-          <div className="block">VidGenie Text to Vid Agent</div>
-          <div className="text-xs text-gray-400 mt-1">
-            Create 1-shot videos from text prompts.
-          </div>
+          <span className='mt-2'>VidGenie Text to Vid Agent</span>
+          <span className="text-xs text-gray-400 mt-1">
+            Create 1‑shot videos from text prompts.
+          </span>
         </div>
 
-
-        {/* Right-Side Toolbar */}
-        <div className="flex items-center space-x-4 mr-2">
+        {/* 2️⃣  Options row  */}
+        <div className="flex flex-wrap md:flex-nowrap gap-4 mt-4 md:mt-0 items-center">
           {/* Aspect Ratio */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-start">
             <SingleSelect
               value={selectedAspectRatioOption}
               onChange={setSelectedAspectRatioOption}
               options={aspectRatioOptions}
               className="w-40"
             />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
+            <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
               Aspect Ratio
             </p>
           </div>
 
           {/* Image Model */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-start">
             <SingleSelect
               value={selectedImageModel}
               onChange={setSelectedImageModel}
               options={expressImageModels}
               className="w-40"
             />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
+            <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
               Image Model
             </p>
           </div>
 
-          {/* Image Style (if available) */}
+          {/* Image Style (if any) */}
           {(() => {
             const imageModelConfig = IMAGE_GENERAITON_MODEL_TYPES.find(
               (m) => m.key === selectedImageModel?.value
             );
             if (imageModelConfig?.imageStyles) {
               return (
-                <div className="flex flex-col items-center">
+                <div className="flex flex-col items-start">
                   <SingleSelect
                     value={selectedImageStyle}
                     onChange={setSelectedImageStyle}
@@ -733,11 +722,9 @@ export default function OneshotEditor() {
                     className="w-40"
                   />
                   <p
-                    className={
-                      colorMode === 'dark'
-                        ? 'text-white text-xs mt-1'
-                        : 'text-black text-xs mt-1'
-                    }
+                    className={`text-xs mt-1 ${
+                      colorMode === 'dark' ? 'text-white' : 'text-black'
+                    }`}
                   >
                     Image Style
                   </p>
@@ -748,7 +735,7 @@ export default function OneshotEditor() {
           })()}
 
           {/* Video Model */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-start">
             <SingleSelect
               value={selectedVideoModel}
               onChange={setSelectedVideoModel}
@@ -759,20 +746,14 @@ export default function OneshotEditor() {
               }))}
               className="w-40"
             />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
+            <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
               Video Model
             </p>
           </div>
 
-          {/* Sub-type (Pixverse or other) */}
+          {/* Pixverse or other sub‑types */}
           {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-start">
               <SingleSelect
                 value={selectedVideoModelSubType}
                 onChange={setSelectedVideoModelSubType}
@@ -782,20 +763,14 @@ export default function OneshotEditor() {
                 }))}
                 className="w-40"
               />
-              <p
-                className={
-                  colorMode === 'dark'
-                    ? 'text-white text-xs mt-1'
-                    : 'text-black text-xs mt-1'
-                }
-              >
+              <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
                 Pixverse Style
               </p>
             </div>
           )}
 
           {selectedVideoModel?.modelSubTypes && selectedVideoModelSubType && (
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-start">
               <SingleSelect
                 value={selectedVideoModelSubType}
                 onChange={setSelectedVideoModelSubType}
@@ -805,74 +780,59 @@ export default function OneshotEditor() {
                 }))}
                 className="w-40"
               />
-              <p
-                className={
-                  colorMode === 'dark'
-                    ? "text-white text-xs mt-1"
-                    : "text-black text-xs mt-1"
-                }
-              >
-                Video Sub-Type
+              <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
+                Video Sub‑Type
               </p>
             </div>
           )}
 
           {/* Duration */}
-          <div className="flex flex-col items-center">
+          <div className="flex flex-col items-start">
             <SingleSelect
               value={selectedDurationOption}
               onChange={setSelectedDurationOption}
               options={durationOptions}
               className="w-40"
             />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
+            <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
               Max Duration
             </p>
           </div>
 
-          {/* NEW Tone Select */}
-          <div className="flex flex-col items-center">
+          {/* Tone */}
+          <div className="flex flex-col items-start">
             <SingleSelect
               value={selectedToneOption}
               onChange={setSelectedToneOption}
               options={toneOptions}
               className="w-40"
             />
-            <p
-              className={
-                colorMode === 'dark'
-                  ? "text-white text-xs mt-1"
-                  : "text-black text-xs mt-1"
-              }
-            >
+            <p className={`text-xs mt-1 ${colorMode === 'dark' ? 'text-white' : 'text-black'}`}>
               Video Tone
             </p>
           </div>
+        </div>
 
-          {/* Show "Render pending" if pending */}
+        {/* 3️⃣  Action / status row  */}
+        <div className="flex flex-wrap gap-2 mt-4 md:mt-0 items-center">
+          {/* Pending */}
           {renderState === 'pending' && (
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <span>Render pending</span>
               <FaSpinner className="animate-spin" />
             </div>
           )}
 
-          {/* Show "Download/Studio/RenderAgain" if completed */}
+          {/* Completed */}
           {renderState === 'complete' && (
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
               <button className="bg-blue-600 px-3 py-1 rounded text-white">
                 <a
                   href={videoLink}
-                  download={`Rendition_${dateNowStr}.mp4`}
-                  className="text-xs underline mt-2 mb-1 ml-2"
+                  download={`Rendition_${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`}
+                  className="text-xs underline"
                 >
-                  Download Video
+                  Download
                 </a>
               </button>
               <button
@@ -930,7 +890,7 @@ export default function OneshotEditor() {
               ? "w-full bg-gray-950 text-white pl-4 pt-4 p-2 rounded mt-4"
               : "w-full bg-gray-50 text-black pl-4 pt-4 p-2 rounded mt-4"
           }
-          placeholder={`Enter a topic for your story-video, e.g.:\n"A 1-minute journey through the cosmos"`}
+          placeholder={`Enter a succint prompt for your rendition. Include any keywords for theme, style or context, followed by description for video request.`}
           name="promptText"
           value={promptText}
           onChange={(e) => setPromptText(e.target.value)}

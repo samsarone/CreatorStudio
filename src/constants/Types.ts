@@ -260,32 +260,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
 
-
-  {
-    name: 'Luma Ray2',
-    key: 'LUMA',
-    isExpressModel: false,
-    isTransitionModel: true,
-    isImgToVidModel: true,
-    isTextToVidModel: true,
-    supportedAspectRatios: [
-      '16:9'
-    ]
-  },
-
-
-  {
-    name: 'Luma Ray2 Flash',
-    key: 'LUMAFLASH2',
-    isExpressModel: false,
-    isTransitionModel: true,
-    isImgToVidModel: true,
-    isTextToVidModel: true,
-    supportedAspectRatios: [
-      '16:9'
-    ]
-  },
-
   {
     name: 'SD Video',
     key: 'SDVIDEO',
