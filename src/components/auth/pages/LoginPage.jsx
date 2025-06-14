@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
@@ -13,6 +13,8 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+    const [currentLoginView, setCurrentLoginView] = useState('login');
+
   // In a page (vs. a modal), we can define a no-op or minimal function:
   const closeAlertDialog = () => {
     // No-op in a full page context
@@ -21,7 +23,7 @@ export default function LoginPage() {
   // signInWithGoogle logic copied from your AuthContainer
   const signInWithGoogle = () => {
     let currentMediaFlowPath = 'video';
-    if (location.pathname.includes('/vidgpt/')) {
+    if (location.pathname.includes('/vidgenie/')) {
       currentMediaFlowPath = 'vidgpt';
     }
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
@@ -50,7 +52,7 @@ export default function LoginPage() {
           // If user wanted quick_video, navigate there; else normal /video route
           const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
           if (currentMediaFlow === 'quick_video') {
-            navigate(`//vidgpt/${sessionData._id}`);
+            navigate(`//vidgenie/${sessionData._id}`);
           } else {
             navigate(`/video/${sessionData._id}`);
           }
@@ -78,6 +80,7 @@ export default function LoginPage() {
           closeAlertDialog={closeAlertDialog}
           getOrCreateUserSession={getOrCreateUserSession}
           showSignupButton={false}
+          setCurrentLoginView={setCurrentLoginView} // This prop is optional, but if you want to keep it for consistency
           // setCurrentLoginView is no longer needed, we do not toggle views
         />
         

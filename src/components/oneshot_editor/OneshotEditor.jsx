@@ -41,6 +41,8 @@ export default function OneshotEditor() {
   const [promptText, setPromptText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+// ⬆️  near the other generation states
+const [isPaused, setIsPaused] = useState(false);
 
 
   // ─ Polling helpers ─────────────────────────────────────────────
@@ -78,6 +80,32 @@ export default function OneshotEditor() {
   }, []);
 
 
+
+  // ⬆️  place below other helper funcs (e.g. handleDownloadVideo)
+const handlePauseRender = async () => {
+  try {
+    const headers = getHeaders();
+    await axios.post(
+      `${API_SERVER}/quick_session/pause`,
+      { sessionId: id },      // body ‑ adjust if your API expects params instead
+      headers
+    );
+
+    // 1️⃣  Stop all polling so we don’t immediately re‑query the server
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (assistantPollRef.current) clearInterval(assistantPollRef.current);
+
+    // 2️⃣  Update local UI state
+    setIsPaused(true);
+    setIsGenerationPending(false);   // treat “paused” as a non‑pending status
+    setExpressGenerationStatus('PAUSED');
+  } catch (err) {
+    console.error('Pause request failed:', err);
+    setErrorMessage({
+      error: 'Could not pause the render. Please try again.',
+    });
+  }
+};
 
 
 
@@ -117,12 +145,12 @@ export default function OneshotEditor() {
   //  New Tone Select
   // --------------------------------------
   const toneOptions = [
-    { label: 'grounded', value: 'grounded' },
+    { label: 'muted', value: 'grounded' },
     { label: 'cinematic', value: 'cinematic' }
   ];
   // Default to Cinematic
   const [selectedToneOption, setSelectedToneOption] = useState({
-    label: 'grounded',
+    label: 'muted',
     value: 'grounded',
   });
 
@@ -566,7 +594,7 @@ export default function OneshotEditor() {
 
     try {
       const headers = getHeaders();
-      await axios.post(`${API_SERVER}/vidgpt/create`, payload, headers);
+      await axios.post(`${API_SERVER}/vidgenie/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
       console.error('Error submitting theme text:', error);
@@ -816,12 +844,33 @@ export default function OneshotEditor() {
         {/* 3️⃣  Action / status row  */}
         <div className="flex flex-wrap gap-2 mt-4 md:mt-0 items-center">
           {/* Pending */}
-          {renderState === 'pending' && (
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <span>Render pending</span>
-              <FaSpinner className="animate-spin" />
-            </div>
-          )}
+{/* Pending */}
+{renderState === 'pending' && (
+  <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+    <div className="flex items-center gap-2">
+      <span>Render pending</span>
+      <FaSpinner className="animate-spin" />
+    </div>
+
+    {/* NEW: Pause button */}
+    <button
+      type="button"
+      onClick={handlePauseRender}
+      className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-white flex items-center gap-1"
+    >
+      <FaTimes />
+      Pause
+    </button>
+  </div>
+)}
+
+{/* Paused */}
+{isPaused && (
+  <div className="flex items-center gap-2 w-full md:w-auto">
+    <span className="text-yellow-600 font-semibold">Render paused</span>
+  </div>
+)}
+
 
           {/* Completed */}
           {renderState === 'complete' && (

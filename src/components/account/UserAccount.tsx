@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { FaChevronCircleLeft, FaTimes } from "react-icons/fa";
+import { FaChevronCircleLeft, FaTimes, FaBars } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -23,17 +23,18 @@ import OverflowContainer from "../common/OverflowContainer.tsx";
 import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
 
-import { INFERENCE_MODEL_TYPES } from "../../constants/Types.ts";
-import { ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
+import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
+
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
-// ===== NEW: Default Image Model options =====
+/* ------------------------------------------------------------------ */
+/*  CONSTANTS                                                         */
+/* ------------------------------------------------------------------ */
 const agentImageModelOptions = [
   { value: "GPTIMAGE1", label: "GPT Image One" },
   { value: "IMAGEN4", label: "Imagen4" },
 ];
 
-// Add Montserrat or any additional fonts to the list:
 const fontOptions = [
   { value: "Arial", label: "Arial" },
   { value: "Times New Roman", label: "Times New Roman" },
@@ -43,195 +44,130 @@ const fontOptions = [
   { value: "Bungee Outline", label: "Bungee Outline" },
   { value: "Orbitron", label: "Orbitron" },
   { value: "Rampart One", label: "Rampart One" },
-  { value: "Montserrat", label: "Montserrat" }, // Example addition
+  { value: "Montserrat", label: "Montserrat" },
 ];
 
+const backingTrackModelOptions = [
+  { value: "LYRIA2", label: "Lyria 2" },
+  { value: "AUDIOCRAFT", label: "AudioCraft" },
+  { value: "CASSETTEAI", label: "CassetteAI" },
+];
+
+const agentVideoModelOptions = [
+  { value: "RUNWAYML", label: "Runway Gen 4" },
+  { value: "PIXVERSEI2V", label: "Pixverse v4.5" },
+];
+
+/* ------------------------------------------------------------------ */
+/*  COMPONENT                                                         */
+/* ------------------------------------------------------------------ */
 export default function UserAccount() {
+  /* ---------- CONTEXTS ---------- */
   const { colorMode } = useColorMode();
   const { user, resetUser, getUserAPI } = useUser();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
 
-  // Color style classes
+  /* ---------- THEME CLASSES ---------- */
   const textColor = colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
   const bgColor = colorMode === "dark" ? "bg-neutral-900" : "bg-neutral-100";
   const secondaryTextColor = colorMode === "dark" ? "text-neutral-400" : "text-neutral-500";
   const cardBgColor = colorMode === "dark" ? "bg-neutral-800" : "bg-white";
 
-  // Panel state
+  /* ---------- STATE ---------- */
   const [displayPanel, setDisplayPanel] = useState("account");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Local states for new form fields
   const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
   const [inferenceModel, setInferenceModel] = useState(INFERENCE_MODEL_TYPES[0]);
   const [assistantModel, setAssistantModel] = useState(ASSISTANT_MODEL_TYPES[0]);
 
-  // ===== NEW: Default Image Model state =====
   const [agentImageModel, setAgentImageModel] = useState(agentImageModelOptions[0]);
+  const [agentVideoModel, setAgentVideoModel] = useState(agentVideoModelOptions[0]);
+  const [backingTrackModel, setBackingTrackModel] = useState(backingTrackModelOptions[0]);
 
-  // Font states
   const [speakerFont, setSpeakerFont] = useState(fontOptions[0]);
   const [textFont, setTextFont] = useState(fontOptions[0]);
 
-  const backingTrackModelOptions = [
-    { value: "LYRIA2", label: "Lyria 2" },
-    { value: "AUDIOCRAFT", label: "AudioCraft" },
-    { value: "CASSETTEAI", label: "CassetteAI" },
-  ];
-
-  const agentVideoModelOptions = [
-    { value: "RUNWAYML", label: "Runway Gen 4" },
-    { value: "PIXVERSEI2V", label: "Pixverse v4.5" },
-  ];
-
-  const [backingTrackModel, setBackingTrackModel] = useState(backingTrackModelOptions[0]);
-  const [agentVideoModel, setAgentVideoModel] = useState(agentVideoModelOptions[0]);
-
-  const handleAgentVideoModelChange = (newVal) => {
-    setAgentVideoModel(newVal);
-    updateUserDetails({ agentVideoModel: newVal.value });
-  };
-
-  const handleBackingTrackModelChange = (newVal) => {
-    setBackingTrackModel(newVal);
-    updateUserDetails({ backingTrackModel: newVal.value });
-  };
-
-  // ===== NEW: Handler for Default Image Model =====
-  const handleAgentImageModelChange = (newVal) => {
-    setAgentImageModel(newVal);
-    updateUserDetails({ agentImageModel: newVal.value });
-  };
-
+  /* ------------------------------------------------------------------ */
+  /*  EFFECT: Hydrate component with user‑specific preferences          */
+  /* ------------------------------------------------------------------ */
   useEffect(() => {
-    if (user) {
-      // Inference model
-      const userInferenceModel = user.selectedInferenceModel || "GPT4O";
-      const userInferenceModelOption = INFERENCE_MODEL_TYPES.find(
-        (model) => model.value === userInferenceModel
-      );
-      setInferenceModel(userInferenceModelOption);
+    if (!user) return;
 
-      // Assistant model
-      const userAssistantModel = user.selectedAssistantModel || "GPT4O";
-      const userAssistantModelOption = ASSISTANT_MODEL_TYPES.find(
-        (model) => model.value === userAssistantModel
-      );
-      setAssistantModel(userAssistantModelOption);
+    /* Inference & Assistant Models */
+    setInferenceModel(
+      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT4O"))
+    );
+    setAssistantModel(
+      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT4O"))
+    );
 
-      // Notify on completion
-      setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
+    /* Other prefs */
+    setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
 
-      // Speaker font
-      const userSpeakerFont = user.expressGenerationSpeakerFont || "Arial";
-      const speakerFontOption = fontOptions.find((f) => f.value === userSpeakerFont) || fontOptions[0];
-      setSpeakerFont(speakerFontOption);
+    setSpeakerFont(
+      fontOptions.find((f) => f.value === (user.expressGenerationSpeakerFont || "Arial"))
+    );
+    setTextFont(fontOptions.find((f) => f.value === (user.expressGenerationTextFont || "Arial")));
 
-      // Text font
-      const userTextFont = user.expressGenerationTextFont || "Arial";
-      const textFontOption = fontOptions.find((f) => f.value === userTextFont) || fontOptions[0];
-      setTextFont(textFontOption);
-
-      // Backing track model
-      const userBackingTrackModel = user.backingTrackModel || "AUDIOCRAFT";
-      const backingTrackModelOption =
-        backingTrackModelOptions.find((f) => f.value === userBackingTrackModel) ||
-        backingTrackModelOptions[0];
-      setBackingTrackModel(backingTrackModelOption);
-
-      // Agent video model
-      const userAgentVideoModel = user.agentVideoModel || "RUNWAYML";
-      const agentVideoModelOption =
-        agentVideoModelOptions.find((f) => f.value === userAgentVideoModel) ||
-        agentVideoModelOptions[0];
-      setAgentVideoModel(agentVideoModelOption);
-
-      // ===== NEW: Agent image model =====
-      const userAgentImageModel = user.agentImageModel || "GPTIMAGE1";
-      const agentImageModelOption =
-        agentImageModelOptions.find((f) => f.value === userAgentImageModel) ||
-        agentImageModelOptions[0];
-      setAgentImageModel(agentImageModelOption);
-    }
+    setBackingTrackModel(
+      backingTrackModelOptions.find((f) => f.value === (user.backingTrackModel || "AUDIOCRAFT"))
+    );
+    setAgentVideoModel(
+      agentVideoModelOptions.find((f) => f.value === (user.agentVideoModel || "RUNWAYML"))
+    );
+    setAgentImageModel(
+      agentImageModelOptions.find((f) => f.value === (user.agentImageModel || "GPTIMAGE1"))
+    );
   }, [user]);
 
-  // If no user found, return an empty span (or redirect)
-  if (!user) {
-    return <span />;
-  }
+  /* ------------------------------------------------------------------ */
+  /*  EARLY RETURN                                                      */
+  /* ------------------------------------------------------------------ */
+  if (!user) return <span />;
 
-  // For account type and button
-  let accountType = "Free";
-  let accountActions = <span />;
-
-  if (user.isPremiumUser) {
-    accountType = "Premium";
-    accountActions = (
-      <SecondaryButton onClick={() => handleCancelMembership()}>
-        Cancel Membership
-      </SecondaryButton>
-    );
-  } else {
-    accountActions = (
-      <SecondaryButton onClick={() => handleUpgradeToPremium()}>
-        Upgrade to Premium
-      </SecondaryButton>
-    );
-  }
-
-  // ====== START: Endpoint Calls ======
+  /* ------------------------------------------------------------------ */
+  /*  HELPERS ‑ API calls & updates                                     */
+  /* ------------------------------------------------------------------ */
   const updateUserDetails = (payload) => {
-    const headers = getHeaders();
     axios
-      .post(`${PROCESSOR_SERVER}/users/update`, payload, headers)
-      .then(function () {
-        toast.success("User details updated successfully!", { position: "bottom-center" });
+      .post(`${PROCESSOR_SERVER}/users/update`, payload, getHeaders())
+      .then(() => {
+        toast.success("User details updated!", { position: "bottom-center" });
         getUserAPI();
       })
-      .catch(function (error) {
-        console.error("Error updating user details", error);
-        toast.error("Failed to update user details", { position: "bottom-center" });
-      });
+      .catch(() => toast.error("Failed to update user details", { position: "bottom-center" }));
   };
 
   const purchaseCreditsForUser = (amountToPurchase) => {
     const purchaseAmountRequest = parseInt(amountToPurchase, 10);
-    const headers = getHeaders();
-
     axios
-      .post(`${PROCESSOR_SERVER}/users/purchase_credits`, { amount: purchaseAmountRequest }, headers)
-      .then(function (dataRes) {
-        const data = dataRes.data;
-        if (data.url) {
-          window.open(data.url, "_blank");
-          toast.success("Payment URL generated successfully!", { position: "bottom-center" });
+      .post(
+        `${PROCESSOR_SERVER}/users/purchase_credits`,
+        { amount: purchaseAmountRequest },
+        getHeaders()
+      )
+      .then((res) => {
+        const { url } = res.data;
+        if (url) {
+          window.open(url, "_blank");
+          toast.success("Payment URL generated!", { position: "bottom-center" });
         } else {
-          console.error("Failed to get Stripe payment URL");
           toast.error("Failed to generate payment URL", { position: "bottom-center" });
         }
       })
-      .catch(function (error) {
-        console.error("Error during payment process", error);
-        toast.error("Payment process failed", { position: "bottom-center" });
-      });
+      .catch(() => toast.error("Payment process failed", { position: "bottom-center" }));
   };
 
   const requestApplyCreditsCoupon = (couponCode) => {
-
     axios
-      .post(
-        `${PROCESSOR_SERVER}/users/apply_credits_coupon`,
-        { couponCode },
-        getHeaders()
-      )
-      .then(function () {
-        toast.success("Coupon applied successfully!", { position: "bottom-center" });
+      .post(`${PROCESSOR_SERVER}/users/apply_credits_coupon`, { couponCode }, getHeaders())
+      .then(() => {
+        toast.success("Coupon applied!", { position: "bottom-center" });
         getUserAPI();
       })
-      .catch(function (error) {
-        console.error("Error applying coupon", error);
-        toast.error("Failed to apply coupon", { position: "bottom-center" });
-      });
+      .catch(() => toast.error("Failed to apply coupon", { position: "bottom-center" }));
   };
 
   const showPurchaseCreditsAction = () => {
@@ -258,13 +194,11 @@ export default function UserAccount() {
   const handleCancelMembership = () => {
     axios
       .post(`${PROCESSOR_SERVER}/users/cancel_membership`, {}, getHeaders())
-      .then(function () {
+      .then(() => {
         getUserAPI();
-        toast.success("Membership canceled successfully!", { position: "bottom-center" });
+        toast.success("Membership canceled!", { position: "bottom-center" });
       })
-      .catch(function () {
-        toast.error("Failed to cancel membership", { position: "bottom-center" });
-      });
+      .catch(() => toast.error("Failed to cancel membership", { position: "bottom-center" }));
   };
 
   const logoutUser = () => {
@@ -276,33 +210,33 @@ export default function UserAccount() {
   const deleteAllGenerationsForUser = () => {
     axios
       .post(`${PROCESSOR_SERVER}/users/delete_generations`, {}, getHeaders())
-      .then(function () {
-        toast.success("All generations deleted successfully!", { position: "bottom-center" });
-      });
+      .then(() => toast.success("All generations deleted!", { position: "bottom-center" }))
+      .catch(() => toast.error("Failed to delete generations", { position: "bottom-center" }));
   };
 
   const deleteAllProjectsForUser = () => {
     axios
       .post(`${PROCESSOR_SERVER}/users/delete_projects`, {}, getHeaders())
-      .then(function () {
-        toast.success("All projects deleted successfully!", { position: "bottom-center" });
-      });
+      .then(() => toast.success("All projects deleted!", { position: "bottom-center" }))
+      .catch(() => toast.error("Failed to delete projects", { position: "bottom-center" }));
   };
 
   const deleteAccountForUser = () => {
     axios
       .post(`${PROCESSOR_SERVER}/users/delete_user`, {}, getHeaders())
-      .then(function () {
-        toast.success("Account deleted successfully!", { position: "bottom-center" });
+      .then(() => {
+        toast.success("Account deleted!", { position: "bottom-center" });
         resetUser();
         navigate("/");
-      });
+      })
+      .catch(() => toast.error("Failed to delete account", { position: "bottom-center" }));
   };
-  // ====== END: Endpoint Calls ======
 
-  // Handlers for toggles & single selects
-  const handleNotifyOnCompletionChange = (event) => {
-    const newVal = event.target.checked;
+  /* ------------------------------------------------------------------ */
+  /*  HANDLERS ‑ form widgets                                           */
+  /* ------------------------------------------------------------------ */
+  const handleNotifyOnCompletionChange = (e) => {
+    const newVal = e.target.checked;
     setNotifyOnCompletion(newVal);
     updateUserDetails({ selectedNotifyOnCompletion: newVal });
   };
@@ -317,7 +251,6 @@ export default function UserAccount() {
     updateUserDetails({ selectedAssistantModel: newVal.value });
   };
 
-  // Font preference change handlers
   const handleSpeakerFontChange = (newVal) => {
     setSpeakerFont(newVal);
     updateUserDetails({ expressGenerationSpeakerFont: newVal.value });
@@ -328,215 +261,303 @@ export default function UserAccount() {
     updateUserDetails({ expressGenerationTextFont: newVal.value });
   };
 
-  // Render label for current panel in the header
-  let currentPageLabel = "Account Information";
-  if (displayPanel === "images") currentPageLabel = "Image Library";
-  else if (displayPanel === "sounds") currentPageLabel = "Sound Library";
-  else if (displayPanel === "scenes") currentPageLabel = "Scene Library";
-  else if (displayPanel === "videos") currentPageLabel = "Video Library";
-  else if (displayPanel === "apiKeys") currentPageLabel = "API Keys";
-  else if (displayPanel === "billing") currentPageLabel = "Billing Information";
-  else if (displayPanel === "settings") currentPageLabel = "Settings";
+  const handleBackingTrackModelChange = (newVal) => {
+    setBackingTrackModel(newVal);
+    updateUserDetails({ backingTrackModel: newVal.value });
+  };
 
-  // Render the "Notify on completion" checkbox only if the user is verified
+  const handleAgentVideoModelChange = (newVal) => {
+    setAgentVideoModel(newVal);
+    updateUserDetails({ agentVideoModel: newVal.value });
+  };
+
+  const handleAgentImageModelChange = (newVal) => {
+    setAgentImageModel(newVal);
+    updateUserDetails({ agentImageModel: newVal.value });
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  RENDER HELPERS                                                    */
+  /* ------------------------------------------------------------------ */
+  const NavLink = ({ panel, label }) => (
+    <li
+      className={`mb-4 cursor-pointer ${displayPanel === panel ? "font-semibold" : ""}`}
+      onClick={() => {
+        setDisplayPanel(panel);
+        setSidebarOpen(false); // auto‑close on mobile
+      }}
+    >
+      {label}
+    </li>
+  );
+
+  const pageLabels = {
+    account: "Account Information",
+    images: "Image Library",
+    sounds: "Sound Library",
+    scenes: "Scene Library",
+    videos: "Video Library",
+    apiKeys: "API Keys",
+    billing: "Billing Information",
+    settings: "Settings",
+  };
+
+  /* ------------------------------------------------------------------ */
+  /*  ACCOUNT TYPE & ACTION BUTTON                                      */
+  /* ------------------------------------------------------------------ */
+  let accountType = "Free";
+  let accountActions = (
+    <SecondaryButton onClick={handleUpgradeToPremium}>Upgrade to Premium</SecondaryButton>
+  );
+  if (user.isPremiumUser) {
+    accountType = "Premium";
+    accountActions = (
+      <SecondaryButton onClick={handleCancelMembership}>Cancel Membership</SecondaryButton>
+    );
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  EMAIL NOTIFY TOGGLE (verified users only)                         */
+  /* ------------------------------------------------------------------ */
   let confirmationEmailActions = <span />;
   if (user.isEmailVerified) {
     confirmationEmailActions = (
       <div className="mt-4">
-        <div className="text-sm font-bold mt-2 mb-2">Email Notifications</div>
-        <label className="flex items-center cursor-pointer m-auto">
+        <div className="text-sm font-bold mb-2">Email Notifications</div>
+        <label className="flex items-center cursor-pointer">
           <input
             type="checkbox"
             checked={notifyOnCompletion}
             onChange={handleNotifyOnCompletionChange}
             className="mr-2"
           />
-          <span>Send Email Notifications on render</span>
+          <span>Send email when renders finish</span>
         </label>
       </div>
     );
   }
 
+  /* ------------------------------------------------------------------ */
+  /*  JSX                                                               */
+  /* ------------------------------------------------------------------ */
   return (
     <OverflowContainer>
       <ToastContainer />
-      <div className={`pt-[50px] ${bgColor} ${textColor}`}>
-        <div className="flex min-h-[100vh]">
-          {/* Left Navigation */}
-          <nav className={`w-32 p-4 ${bgColor} ${textColor} rounded-l-lg shadow-md border-r`}>
-            <ul className="w-32 relative">
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("account")}>
-                Account
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("images")}>
-                Images
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("sounds")}>
-                Sounds
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("scenes")}>
-                Scenes
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("videos")}>
-                Videos
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("apiKeys")}>
-                API Keys
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("billing")}>
-                Billing
-              </li>
-              <li className="mb-4 cursor-pointer" onClick={() => setDisplayPanel("settings")}>
-                Settings
-              </li>
+      <div className={`pt-[50px] min-h-screen flex flex-col ${bgColor} ${textColor} `}>
+        {/* ---------- MOBILE SIDEBAR OVERLAY ---------- */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-40 flex" aria-modal="true" role="dialog">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/40"
+              onClick={() => setSidebarOpen(false)}
+            />
+            {/* Drawer */}
+            <nav className={`relative z-50 w-64 p-6 ${bgColor} shadow-md border-r overflow-y-auto`}>
+              <FaTimes
+                className="absolute top-4 right-4 cursor-pointer"
+                onClick={() => setSidebarOpen(false)}
+              />
+              <ul>
+                <NavLink panel="account" label="Account" />
+                <NavLink panel="images" label="Images" />
+                <NavLink panel="sounds" label="Sounds" />
+                <NavLink panel="scenes" label="Scenes" />
+                <NavLink panel="videos" label="Videos" />
+                <NavLink panel="apiKeys" label="API Keys" />
+                <NavLink panel="billing" label="Billing" />
+                <NavLink panel="settings" label="Settings" />
+              </ul>
+            </nav>
+          </div>
+        )}
+
+        <div className="flex flex-1">
+          {/* ---------- DESKTOP SIDEBAR ---------- */}
+          <nav className={`hidden md:block w-32 p-4 ${bgColor} shadow-md border-r`}>
+            <ul>
+              <NavLink panel="account" label="Account" />
+              <NavLink panel="images" label="Images" />
+              <NavLink panel="sounds" label="Sounds" />
+              <NavLink panel="scenes" label="Scenes" />
+              <NavLink panel="videos" label="Videos" />
+              <NavLink panel="apiKeys" label="API Keys" />
+              <NavLink panel="billing" label="Billing" />
+              <NavLink panel="settings" label="Settings" />
             </ul>
           </nav>
 
-          {/* Panel Content */}
-          <div
-            className={`${bgColor} ${textColor} p-6 rounded-r-lg shadow-md flex-grow flex flex-col`}
-          >
+          {/* ---------- MAIN COLUMN ---------- */}
+          <div className={`flex-1 flex flex-col ${bgColor} ${textColor}`}>
             {/* Header */}
-            <div className="flex items-center mb-6">
-              <div className="flex-1 text-left">
-                <div onClick={() => navigate("/")} className="cursor-pointer flex items-center">
-                  <FaChevronCircleLeft className="mr-2" />
-                  <span>Back</span>
-                </div>
+            <div className="flex items-center p-4 border-b">
+              {/* Hamburger (mobile) */}
+              <button
+                className="md:hidden mr-4"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open navigation"
+              >
+                <FaBars size={20} />
+              </button>
+
+              <div
+                onClick={() => navigate("/")}
+                className="cursor-pointer flex items-center mr-4"
+              >
+                <FaChevronCircleLeft className="mr-2" />
+                <span>Back</span>
               </div>
-              <div className="flex-1 flex justify-center items-center">
-                <h2 className="text-2xl font-bold">{currentPageLabel}</h2>
-              </div>
-              <div className="flex-1"></div>
+
+              <h2 className="text-xl font-bold flex-1 text-center">
+                {pageLabels[displayPanel]}
+              </h2>
             </div>
 
-            {/* Render panel content dynamically */}
-            {displayPanel === "account" && (
-              <div className="flex flex-col flex-grow">
-                {/* User Info and Toggle Button Row */}
-                <div className="flex items-center justify-between mb-8">
-                  {/* Profile Information */}
-                  <div className="flex items-center">
-                    {user.profilePicture && (
-                      <img
-                        src={user.profilePicture}
-                        alt="Profile"
-                        className="w-16 h-16 rounded-full object-cover mr-4"
-                      />
-                    )}
-                    <div>
-                      <h2 className="text-2xl font-bold">{user.username}</h2>
-                      <p className={`text-sm ${secondaryTextColor}`}>{user.email}</p>
+            {/* Scrollable panel content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {/* ===== ACCOUNT PANEL ===== */}
+              {displayPanel === "account" && (
+                <div className="flex flex-col min-h-full">
+                  {/* Top row */}
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center">
+                      {user.profilePicture && (
+                        <img
+                          src={user.profilePicture}
+                          alt="Profile"
+                          className="w-16 h-16 rounded-full object-cover mr-4"
+                        />
+                      )}
+                      <div>
+                        <h2 className="text-2xl font-bold">{user.username}</h2>
+                        <p className={`text-sm ${secondaryTextColor}`}>{user.email}</p>
+                      </div>
+                    </div>
+                    <ToggleButton />
+                  </div>
+
+                  {/* Three‑column grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1">
+                    {/* Column 1 */}
+                    <div className={`p-6 rounded-lg shadow-md ${cardBgColor}`}>
+                      <h3 className="text-lg font-semibold mb-2">Account Type</h3>
+                      <p>{accountType}</p>
+                      <div className="mt-4">{accountActions}</div>
+
+                      {confirmationEmailActions}
+
+                      <div className="mt-4">
+                        <div className="text-sm font-bold mb-2">Assistant Model</div>
+                        <SingleSelect
+                          options={ASSISTANT_MODEL_TYPES}
+                          value={assistantModel}
+                          onChange={handleAssistantModelChange}
+                        />
+                      </div>
+
+                      <div className="mt-4">
+                        <div className="text-sm font-bold mb-2">Inference Model</div>
+                        <SingleSelect
+                          options={INFERENCE_MODEL_TYPES}
+                          value={inferenceModel}
+                          onChange={handleInferenceModelChange}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Column 2 */}
+                    <div className={`p-6 rounded-lg shadow-md ${cardBgColor}`}>
+                      <h3 className="text-lg font-semibold mb-2">Credits Remaining</h3>
+                      <p>{user.generationCredits}</p>
+                      <div className="mt-4">
+                        <SecondaryButton onClick={showPurchaseCreditsAction}>
+                          Purchase Credits
+                        </SecondaryButton>
+                      </div>
+
+                      <div className="mt-8">
+                        <h3 className="text-lg font-semibold mb-2">Next Credit Refill</h3>
+                        <p>{user.nextCreditRefill || "N/A"}</p>
+                      </div>
+                    </div>
+
+                    {/* Column 3 */}
+                    <div className={`p-6 rounded-lg shadow-md ${cardBgColor}`}>
+                      <h3 className="text-lg font-semibold mb-2">Agent Settings</h3>
+
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-1">Speaker Font</h4>
+                        <SingleSelect
+                          options={fontOptions}
+                          value={speakerFont}
+                          onChange={handleSpeakerFontChange}
+                        />
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-1">Text Font</h4>
+                        <SingleSelect
+                          options={fontOptions}
+                          value={textFont}
+                          onChange={handleTextFontChange}
+                        />
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-1">Backing Track Model</h4>
+                        <SingleSelect
+                          options={backingTrackModelOptions}
+                          value={backingTrackModel}
+                          onChange={handleBackingTrackModelChange}
+                        />
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-1">Agent Video Model</h4>
+                        <SingleSelect
+                          options={agentVideoModelOptions}
+                          value={agentVideoModel}
+                          onChange={handleAgentVideoModelChange}
+                        />
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold mb-1">Agent Image Model</h4>
+                        <SingleSelect
+                          options={agentImageModelOptions}
+                          value={agentImageModel}
+                          onChange={handleAgentImageModelChange}
+                        />
+                      </div>
                     </div>
                   </div>
-                  {/* Toggle Button */}
-                  <ToggleButton />
+
+                  {/* Sticky logout */}
+                  <div className="sticky bottom-0 bg-inherit pt-6">
+                    <SecondaryButton onClick={logoutUser} className="w-full">
+                      Logout
+                    </SecondaryButton>
+                  </div>
                 </div>
+              )}
 
-                {/* Account Details */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
-                  {/* Column 1: Account Type & Models */}
-                  <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
-                    <h3 className="text-lg font-semibold mb-2">Account Type</h3>
-                    <p>{accountType}</p>
-                    <div className="mt-4">{accountActions}</div>
-
-                    {confirmationEmailActions}
-
-                    <div className="mt-4">
-                      <div className="text-sm font-bold mt-2 mb-2">Assistant Model</div>
-                      <SingleSelect
-                        options={ASSISTANT_MODEL_TYPES}
-                        value={assistantModel}
-                        onChange={handleAssistantModelChange}
-                      />
-                    </div>
-
-                    <div className="mt-4">
-                      <div className="text-sm font-bold mt-2 mb-2">Inference Model</div>
-                      <SingleSelect
-                        options={INFERENCE_MODEL_TYPES}
-                        value={inferenceModel}
-                        onChange={handleInferenceModelChange}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Column 2: Credits + Next Refill */}
-                  <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
-                    <h3 className="text-lg font-semibold mb-2">Credits Remaining</h3>
-                    <p>{user.generationCredits}</p>
-                    <div className="mt-4">
-                      <SecondaryButton onClick={showPurchaseCreditsAction}>
-                        Purchase Credits
-                      </SecondaryButton>
-                    </div>
-
-                    <div className="mt-8">
-                      <h3 className="text-lg font-semibold mb-2">Next Credit Refill</h3>
-                      <p>{user.nextCreditRefill || "N/A"}</p>
-                    </div>
-                  </div>
-
-                  {/* Column 3: Image Model, Speaker Font & Text Font */}
-                  <div className={`p-6 rounded-lg shadow-md ${cardBgColor} ${textColor}`}>
-                    <h3 className="text-lg font-semibold mb-2">Agent Settings</h3>
-
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-2">Speaker Font</h3>
-                      <SingleSelect
-                        options={fontOptions}
-                        value={speakerFont}
-                        onChange={handleSpeakerFontChange}
-                      />
-                    </div>
-
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-2">Text Font</h3>
-                      <SingleSelect
-                        options={fontOptions}
-                        value={textFont}
-                        onChange={handleTextFontChange}
-                      />
-                    </div>
-
-                    <div className="mb-6">
-                      <h3 className="text-lg font-semibold mb-2">Backing Track Model</h3>
-                      <SingleSelect
-                        options={backingTrackModelOptions}
-                        value={backingTrackModel}
-                        onChange={handleBackingTrackModelChange}
-                      />
-                    </div>
-
-
-                  </div>
-                </div>
-
-                {/* Logout Button at Bottom */}
-                <div className="mt-auto pt-6">
-                  <SecondaryButton onClick={logoutUser} className="w-full">
-                    Logout
-                  </SecondaryButton>
-                </div>
-              </div>
-            )}
-
-            {displayPanel === "images" && <ImagePanelContent />}
-            {displayPanel === "sounds" && <MusicPanelContent />}
-            {displayPanel === "billing" && <BillingPanelContent />}
-            {displayPanel === "settings" && (
-              <SettingsPanelContent
-                logoutUser={logoutUser}
-                updateUserDetails={updateUserDetails}
-                user={user}
-                deleteAllProjectsForUser={deleteAllProjectsForUser}
-                deleteAllGenerationsForUser={deleteAllGenerationsForUser}
-                deleteAccountForUser={deleteAccountForUser}
-              />
-            )}
-            {displayPanel === "apiKeys" && <APIKeysPanelContent />}
-            {displayPanel === "scenes" && <SceneLibraryHome hideSelectButton={true} />}
+              {/* ===== OTHER PANELS ===== */}
+              {displayPanel === "images" && <ImagePanelContent />}
+              {displayPanel === "sounds" && <MusicPanelContent />}
+              {displayPanel === "billing" && <BillingPanelContent />}
+              {displayPanel === "settings" && (
+                <SettingsPanelContent
+                  logoutUser={logoutUser}
+                  updateUserDetails={updateUserDetails}
+                  user={user}
+                  deleteAllProjectsForUser={deleteAllProjectsForUser}
+                  deleteAllGenerationsForUser={deleteAllGenerationsForUser}
+                  deleteAccountForUser={deleteAccountForUser}
+                />
+              )}
+              {displayPanel === "apiKeys" && <APIKeysPanelContent />}
+              {displayPanel === "scenes" && <SceneLibraryHome hideSelectButton />}
+            </div>
           </div>
         </div>
       </div>

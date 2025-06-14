@@ -20,9 +20,9 @@ export default function OneshotEditorContainer() {
 
     if (!id) {
       const headers = getHeaders();
-      axios.post(`${API_SERVER}/vidgpt/create_blank`, {}, headers).then(function (response) {
+      axios.post(`${API_SERVER}/vidgenie/create_blank`, {}, headers).then(function (response) {
         const {sessionId} = response.data;
-        navigate(`/vidgpt/${sessionId}`);
+        navigate(`/vidgenie/${sessionId}`);
       });
     }
   }, []);

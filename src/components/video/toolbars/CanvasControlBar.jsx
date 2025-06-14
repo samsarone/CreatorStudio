@@ -43,9 +43,7 @@ export default function CanvasControlBar(props) {
   const navigate = useNavigate();
   let expressGenerationLink = null;
 
-  const routeToExpress = () => {
-    navigate(`/vidgpt/${sessionId}`);
-  };
+
 
   const showAddSubtitlesDialog = () => {
     openAlertDialog(

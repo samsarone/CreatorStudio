@@ -489,7 +489,7 @@ export default function SnowMaker() {
     };
     try {
       const headers = getHeaders();
-      await axios.post(`${API_SERVER}/vidgpt/create`, payload, headers);
+      await axios.post(`${API_SERVER}/vidgenie/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
       console.error('Error submitting theme text:', error);
