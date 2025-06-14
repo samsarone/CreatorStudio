@@ -26,6 +26,8 @@ import OnshotEditorCreator from '../oneshot_editor/OnshotEditorCreator.jsx';
 import QuickEditorLandingHome from "../quick_editor/QuickEditorLandingHome.jsx";
 import MobileVideoLandingHome from "../mobile/MobileVideoLandingHome.jsx";
 import LoginPage from "../auth/pages/LoginPage.jsx";
+import ForgotPasswordPage from "../auth/pages/ForgotPasswordPage.jsx";
+import ResetPasswordPage from "../auth/pages/ResetPasswordPage.jsx";
 import RegisterPage from "../auth/pages/RegisterPage.jsx";
 import AdVideoCreatorContainer from "../advideo_creator/AdVideoCreatorContainer.jsx";
 import AdVideoCreator from "../advideo_creator/AdVideoCreator.jsx";
@@ -119,7 +121,11 @@ export default function Home() {
         <Route path="/quick_video" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorLandingHome />} />
         <Route path="/vidgpt" element={<OneshotEditorContainer />} />
         <Route path="/vidgpt/:id" element={<OneshotEditorContainer />} />
+        <Route path="/vidgenie" element={<OneshotEditorContainer />} />
+        <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot_password" element={<ForgotPasswordPage />} />
+
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/vidgenie" element={<OneshotEditorContainer />} />
         <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
@@ -131,6 +137,7 @@ export default function Home() {
 
         <Route path="/infovidcreator" element={<SnowMakerContainer />} />
         <Route path="/infovidcreator/:id" element={<SnowMakerContainer />} />
+        <Route path="/reset_password" element={<ResetPasswordPage />} />
 
 
 
