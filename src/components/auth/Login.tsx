@@ -3,6 +3,8 @@ import { FaGoogle } from 'react-icons/fa6';
 import LoginButton from './LoginButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 
+import { Link } from 'react-router-dom';
+
 import axios from 'axios';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -105,9 +107,9 @@ export default function Login(props) {
         </form>
         <div>
           <div className="text-center text-xs text-neutral-500">
-            <a href="#" onClick={() => setCurrentLoginView('forgotPassword')}>
+          <Link to="/forgot_password" className="text-blue-600 hover:underline">
               Forgot password?
-            </a>
+            </Link>
           </div>
         </div>
         {showSignupButton && (

@@ -18,7 +18,11 @@ export default function VideoPromptGenerator(props) {
     setSelectedVideoGenerationModel,
     generationError,
     aspectRatio,
+    activeItemList,
   } = props;
+
+
+
 
   const { colorMode } = useColorMode();
   const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
@@ -51,6 +55,14 @@ export default function VideoPromptGenerator(props) {
     (m) => m.key === selectedVideoGenerationModel
   );
   const isImgToVidModel = selectedModelDef?.isImgToVidModel || false;
+
+    const hasImageItem =
+    Array.isArray(activeItemList) &&
+    activeItemList.some((it) => it?.type === "image");
+
+  const requiresImageButNone = isImgToVidModel && !hasImageItem;
+
+
 
   // ------------------
   //  Local Storage Defaults
@@ -255,6 +267,12 @@ export default function VideoPromptGenerator(props) {
   };
 
   const handleSubmit = () => {
+    if (requiresImageButNone) return;
+    // Validate prompt text
+    if (!videoPromptText || videoPromptText.trim().length === 0) {
+      return;
+    }
+
     // Build a payload to pass to your generation request
     const payload = {
       useStartFrame:
@@ -440,7 +458,14 @@ export default function VideoPromptGenerator(props) {
         />
       )}
 
+      {requiresImageButNone && (
+        <div className="mt-1 mb-1 text-center text-xs text-blue-400">
+          Please generate an image first to use this model.
+        </div>
+      )}
+
       <div className="text-center">
+        
         <CommonButton onClick={handleSubmit} isPending={aiVideoGenerationPending}>
           Submit
         </CommonButton>
