@@ -233,7 +233,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16', '1:1',
     ]
   },
-    {
+  {
     name: 'Kling 2.1 Pro',
     key: 'KLINGIMGTOVID2.1PRO',
     isExpressModel: true,
@@ -242,7 +242,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16', '1:1',
     ]
   },
-    {
+  {
     name: 'Kling 2.1 Standard',
     key: 'KLINGIMGTOVID2.1STANDARD',
     isImgToVidModel: false,
@@ -306,7 +306,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
 
-    {
+  {
     name: 'Veo3',
     key: 'VEO3',
     isImgToVidModel: false,
@@ -380,6 +380,17 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
 
   },
+
+  {
+    name: 'SeeDance Img2Vid',
+    key: 'SEEDANCEI2V',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16',
+
+    ]
+  }
 
 ];
 
@@ -590,7 +601,7 @@ export const MUSIC_PROVIDERS = [
     name: 'AudioCraft',
     key: 'AUDIOCRAFT'
   },
-    {
+  {
     name: 'Lyria 2',
     key: 'LYRIA2'
   },

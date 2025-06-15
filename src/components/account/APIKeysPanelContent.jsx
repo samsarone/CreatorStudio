@@ -30,7 +30,7 @@ export default function APIKeysPanelContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user && user.isPremiumUser) {
+    if (user && user.isEmailVerified) {
       fetchAPIKeys();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,21 +118,6 @@ export default function APIKeysPanelContent() {
     );
   };
 
-  // If user is not a premium user, show message and upgrade button
-  if (!user || (!user.isPremiumUser && !user.isPartnerUser )) {
-    return (
-      <div
-        className={`flex flex-col flex-grow items-center justify-center ${bgColor} ${textColor}`}
-      >
-        <p className="text-lg mb-4">
-          Sign up for a premium or professional plan to create API keys.
-        </p>
-        <SecondaryButton onClick={handleUpgradeToPremium}>
-          Upgrade Plan
-        </SecondaryButton>
-      </div>
-    );
-  }
 
   return (
     <div className={`flex flex-col flex-grow ${bgColor} ${textColor}`}>

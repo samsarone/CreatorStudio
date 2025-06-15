@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
+import OverflowContainer from '../../common/OverflowContainer.tsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -31,16 +33,16 @@ export default function ForgotPassword(props) {
   };
 
   return (
-    <div className="w-[300px] m-auto mt-8">
-      <div className="text-center font-bold text-2xl mb-4">Forgot Password</div>
+    <OverflowContainer>
+    <div className={`w-[300px] m-auto mt-16`}>
+      <div className={`text-center font-bold text-2xl mb-4 ${formTextColor}`}>Forgot Password</div>
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
       {success && <div className="text-blue-500 text-center mb-4">{success}</div>}
-      <p className="text-neutral-500 text-center mb-6">
+      <p className="text-neutral-400 text-center mb-6">
         Enter your email address below to reset your password.
       </p>
-      <form onSubmit={handleForgotPassword} className="w-full">
+      <form onSubmit={handleForgotPassword} className={`w-full ${formTextColor}` }>
         <div className="form-group">
-          <div className="text-xs text-left font-bold pl-1">Email</div>
           <input
             type="email"
             name="email"
@@ -56,10 +58,11 @@ export default function ForgotPassword(props) {
         </button>
       </form>
       <div className="mt-4 text-center text-xs text-neutral-500">
-        <a href="#" onClick={() => setCurrentLoginView('login')}>
+        <Link to="/login" className="text-blue-500 hover:text-blue-600">
           Back to Login
-        </a>
+        </Link>
       </div>
     </div>
+    </OverflowContainer>
   );
 }

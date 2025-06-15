@@ -844,33 +844,12 @@ const handlePauseRender = async () => {
         {/* 3️⃣  Action / status row  */}
         <div className="flex flex-wrap gap-2 mt-4 md:mt-0 items-center">
           {/* Pending */}
-{/* Pending */}
-{renderState === 'pending' && (
-  <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
-    <div className="flex items-center gap-2">
-      <span>Render pending</span>
-      <FaSpinner className="animate-spin" />
-    </div>
-
-    {/* NEW: Pause button */}
-    <button
-      type="button"
-      onClick={handlePauseRender}
-      className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-white flex items-center gap-1"
-    >
-      <FaTimes />
-      Pause
-    </button>
-  </div>
-)}
-
-{/* Paused */}
-{isPaused && (
-  <div className="flex items-center gap-2 w-full md:w-auto">
-    <span className="text-yellow-600 font-semibold">Render paused</span>
-  </div>
-)}
-
+          {renderState === 'pending' && (
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <span>Render pending</span>
+              <FaSpinner className="animate-spin" />
+            </div>
+          )}
 
           {/* Completed */}
           {renderState === 'complete' && (

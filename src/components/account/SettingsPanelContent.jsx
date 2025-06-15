@@ -20,6 +20,7 @@ export default function SettingsPanelContent(props) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [contentFilterRating, setContentFilterRating] = useState(3);
+  const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function SettingsPanelContent(props) {
     const headers = getHeaders();
     axios
       .post(
-        "/api/users/update_password", // Adjust API endpoint as needed
+        `${PROCESSOR_SERVER}/users/update_password`, // Adjust API endpoint as needed
         { currentPassword, newPassword },
         headers
       )

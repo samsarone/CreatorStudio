@@ -315,7 +315,7 @@ export const IMAGE_MODEL_PRICES = [
     ]
   },
 
-  
+
   {
     key: 'HIDREAMI1',
     prices: [
@@ -605,14 +605,14 @@ export const VIDEO_MODEL_PRICES = [
         price: 150
       },
     ],
-        units: [5, 10],
+    units: [5, 10],
   },
 
 
 
 
 
-    {
+  {
     key: 'KLINGIMGTOVID2.1MASTER',
     prices: [
       {
@@ -628,9 +628,9 @@ export const VIDEO_MODEL_PRICES = [
         price: 150
       },
     ],
-        units: [5, 10],
+    units: [5, 10],
   },
-    {
+  {
     key: 'KLINGIMGTOVID2.1PRO',
     prices: [
       {
@@ -646,9 +646,9 @@ export const VIDEO_MODEL_PRICES = [
         price: 50
       },
     ],
-        units: [5, 10],
+    units: [5, 10],
   },
-    {
+  {
     key: 'KLINGIMGTOVID2.1STANDARD',
     prices: [
       {
@@ -664,7 +664,7 @@ export const VIDEO_MODEL_PRICES = [
         price: 30
       },
     ],
-        units: [5, 10],
+    units: [5, 10],
   },
 
 
@@ -690,42 +690,27 @@ export const VIDEO_MODEL_PRICES = [
   },
 
   {
-    "key": "HAIPER2.0",
+    name: 'SeeDance Img2Vid',
+    key: 'SEEDANCEI2V',
+    isImgToVidModel: true,
+    isExpressModel: true,
+
     "prices": [
-      {
-        "aspectRatio": "1:1",
-        "price": 30
-      },
+
       {
         "aspectRatio": "16:9",
-        "price": 30
+        "price": 60
       },
       {
         "aspectRatio": "9:16",
-        "price": 30
+        "price": 60
       }
     ],
-    "units": [4, 8]
+    units: [5, 10]
   },
 
 
-  {
-    key: 'SDVIDEO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 15
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
+
   {
     key: 'HAILUO',
     prices: [
@@ -736,19 +721,7 @@ export const VIDEO_MODEL_PRICES = [
       },
     ]
   },
-  {
-    key: 'SKYREELSI2V',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ],
-  },
+
 
   {
     key: 'VEO',
@@ -794,7 +767,7 @@ export const VIDEO_MODEL_PRICES = [
         price: 700
       },
     ],
-    units: [ 8]
+    units: [8]
   },
 
   {
@@ -906,7 +879,7 @@ export const VIDEO_MODEL_PRICES = [
     ],
   },
 
-    {
+  {
     key: 'HUMMINGBIRDLIPSYNC',
     prices: [
       {
@@ -972,11 +945,8 @@ export const VIDEO_MODEL_PRICES = [
         "price": 60
       }
     ],
-
-
-    
-
   },
+
 
 
 ]
@@ -1001,7 +971,7 @@ export const ASSISTANT_MODEL_PRICES = [
       },
     ]
   },
-    {
+  {
     key: "GROK3",
     prices: [
       {
@@ -1106,7 +1076,7 @@ export const MUSIC_MODEL_PRICES = [
       }
     ]
   },
-    {
+  {
     key: 'LYRIA2',
     prices: [
       {
