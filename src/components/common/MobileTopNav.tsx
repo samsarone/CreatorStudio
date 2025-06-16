@@ -19,7 +19,7 @@ import { getHeaders } from '../../utils/web.jsx';
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function MobileTopNav(props) {
-  const { resetCurrentSession, addCustodyAddress } = props;
+  const { resetCurrentSession, addCustodyAddress, addNewVidGPTSession } = props;
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
@@ -79,7 +79,7 @@ export default function MobileTopNav(props) {
 
   const upgradeToPremiumTier = () => {
     const alertDialogComponent = <UpgradePlan />;
-    openAlertDialog(alertDialogComponent);
+
   };
 
   const createNewSession = () => {
@@ -178,7 +178,9 @@ export default function MobileTopNav(props) {
     addSessionButton = (
 
       <div className="">
-        <AddSessionDropdown createNewSession={createNewSessionDialog} gotoViewSessionsPage={gotoViewSessionsPage} />
+        <AddSessionDropdown createNewSession={createNewSessionDialog} gotoViewSessionsPage={gotoViewSessionsPage} 
+        addNewVidGPTSession={addNewVidGPTSession} 
+        />
       </div>
 
     );
