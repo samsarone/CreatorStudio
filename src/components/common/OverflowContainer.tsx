@@ -27,7 +27,7 @@ export default function OverflowContainer(props) {
   const isMobile = useMediaQuery({ maxWidth: 767 });
 
   return (
-    <div className='h-[100vh] overflow-y-auto' >
+    <div className='min-h-[100vh] overflow-y-auto pb-8' >
       {isMobile ? (
         <MobileTopNav
           resetCurrentSession={resetCurrentSession}
