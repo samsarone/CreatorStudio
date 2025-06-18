@@ -353,14 +353,19 @@ export default function OneshotEditor() {
     };
   }, []);
 
-  // On page load, if we have an `id`, fetch the session details
-  useEffect(() => {
-    if (id) {
-      resetForm();
-      getSessionDetails();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+
+
+  +useEffect(() => {
+  if (pollIntervalRef.current)   clearInterval(pollIntervalRef.current);
+  if (assistantPollRef.current)  clearInterval(assistantPollRef.current);
+
+  if (id) {
+    resetForm();
+    getSessionDetails();
+  }
+}, [id]);
+
+
 
   // -------------------------------------
   //  Assistant-related logic
@@ -477,6 +482,7 @@ export default function OneshotEditor() {
           videoActualLink = `${API_SERVER}/${response.videoLink}`;
         }
         setVideoLink(videoActualLink);
+        setIsGenerationPending(false);
         setShowResultDisplay(true);
         setExpressGenerationStatus(response.expressGenerationStatus);
       }
@@ -505,6 +511,7 @@ export default function OneshotEditor() {
         setExpressGenerationStatus(resData.expressGenerationStatus);
 
         if (resData.status === 'COMPLETED') {
+          setIsGenerationPending(false);
           clearInterval(pollIntervalRef.current);
           setIsGenerationPending(false);
           let videoActualLink;
@@ -666,21 +673,71 @@ export default function OneshotEditor() {
       {/* ─────────────────────  HEADER  ───────────────────── */}
       <div
         className={`
-          ${colorMode === 'dark' ? 'bg-neutral-950 text-white' : 'bg-white text-black'}
-          flex flex-col gap-6 md:flex-row md:justify-between p-4 pt-8 mt-8 rounded-md shadow-md
-        `}
+        ${colorMode === 'dark' ? 'bg-neutral-950 text-white' : 'bg-white text-black'}
+        flex flex-col  p-4 pt-8 mt-8 rounded-md shadow-md relative
+      `}
       >
-        {/* 1️⃣  Heading  */}
-        <div className="flex flex-col items-start text-lg font-bold -mt-1 pl-1">
-          <span className="mt-2">VidGenie Text to Vid Agent</span>
-          <span className="text-xs text-gray-400 mt-1">
-            Create 1‑shot videos from text prompts.
+        {/* 1️⃣  Heading – single row */}
+        <div className="flex flex-wrap items-baseline gap-2 text-lg font-bold text-center m-auto mt-1 pl-1 mb-4">
+          <span>VidGenie&nbsp;Text&nbsp;to&nbsp;Vid&nbsp;Agent</span>
+          <span className="text-xs text-gray-400 font-normal">
+            — Create&nbsp;1‑shot&nbsp;videos&nbsp;from&nbsp;text&nbsp;prompts.
           </span>
+
+
+          {renderState === 'pending' && (
+            <div
+              className="
+      absolute right-2            /* ➋ anchors to top‑right */
+      flex items-center gap-1
+      text-xs sm:text-sm                /* ➌ scales up on ≥sm */
+    "
+            >
+              <FaSpinner className="animate-spin h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Rendering…</span>
+              <span className="sr-only">Video is rendering</span>
+            </div>
+          )}
+
+
+
+
+          <div>
+
+
+
+            {/* ⓑ Desktop: action buttons (visible ≥ sm) */}
+
+          </div>
+
         </div>
 
-        {/* 2️⃣  Options row  */}
+
+        {/* ⓒ Mobile: action buttons (shown < sm) */}
+        {renderState === 'complete' && (
+          <div className="flex justify-center gap-2 mt-2 mb-4">
+            <PrimaryPublicButton className="bg-blue-600 px-3 py-1 rounded text-white">
+              <a
+                href={videoLink}
+                download={`Rendition_${dateNowStr}.mp4`}
+                className="underline"
+              >
+                Download
+              </a>
+            </PrimaryPublicButton>
+
+            <PrimaryPublicButton
+              className="bg-blue-600 px-3 py-1 rounded text-white"
+              onClick={viewInStudio}
+            >
+              View in Studio
+            </PrimaryPublicButton>
+          </div>
+        )}
+
+
+        {/* 2️⃣  Options row */}
         <div className="w-full">
-          {/* NEW: grid for clean mobile layout */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Aspect Ratio */}
             <div className="flex flex-col w-full">
@@ -704,7 +761,7 @@ export default function OneshotEditor() {
               <p className="text-xs mt-1">Image Model</p>
             </div>
 
-            {/* Image Style (if any) */}
+            {/* Image Style (conditional) */}
             {(() => {
               const imageModelConfig = IMAGE_GENERAITON_MODEL_TYPES.find(
                 (m) => m.key === selectedImageModel?.value
@@ -743,7 +800,7 @@ export default function OneshotEditor() {
               <p className="text-xs mt-1">Video Model</p>
             </div>
 
-            {/* Pixverse or other sub‑types */}
+            {/* Pixverse style or generic sub‑type */}
             {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
               <div className="flex flex-col w-full">
                 <SingleSelect
@@ -798,43 +855,6 @@ export default function OneshotEditor() {
           </div>
         </div>
 
-        {/* 3️⃣  Action / status row  */}
-        <div className="flex flex-wrap gap-2 mt-4 md:mt-0 items-center">
-          {/* Pending */}
-          {renderState === 'pending' && (
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <span>Render pending</span>
-              <FaSpinner className="animate-spin" />
-            </div>
-          )}
-
-          {/* Completed */}
-          {renderState === 'complete' && (
-            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-              <button className="bg-blue-600 px-3 py-1 rounded text-white">
-                <a
-                  href={videoLink}
-                  download={`Rendition_${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`}
-                  className="text-xs underline"
-                >
-                  Download
-                </a>
-              </button>
-              <button
-                className="bg-blue-600 px-3 py-1 rounded text-white"
-                onClick={viewInStudio}
-              >
-                View in Studio
-              </button>
-              <button
-                className="bg-blue-600 px-3 py-1 rounded text-white"
-                onClick={handleRenderAgain}
-              >
-                Render Again
-              </button>
-            </div>
-          )}
-        </div>
       </div>
       {/* ────────────────── /HEADER ────────────────── */}
 
@@ -872,9 +892,9 @@ export default function OneshotEditor() {
           maxRows={20}
           disabled={isFormDisabled}
           className={`
-            ${colorMode === 'dark' ? 'bg-gray-950 text-white' : 'bg-gray-50 text-black'}
-            w-full pl-4 pt-4 p-2 rounded mt-4
-          `}
+          ${colorMode === 'dark' ? 'bg-gray-950 text-white' : 'bg-gray-50 text-black'}
+          w-full pl-4 pt-4 p-2 rounded mt-4
+        `}
           placeholder="Enter a succinct prompt for your rendition…"
           name="promptText"
           value={promptText}
@@ -893,9 +913,9 @@ export default function OneshotEditor() {
           {/* Pricing Info */}
           <div
             className={`
-              ${colorMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'}
-              md:absolute md:right-0 top-0 p-2 rounded text-center mt-4 md:mt-0 w-full md:w-auto
-            `}
+            ${colorMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'}
+            md:absolute md:right-0 top-0 p-2 rounded text-center mt-4 md:mt-0 w-full md:w-auto
+          `}
           >
             {pricingInfoDisplay}
           </div>
@@ -911,4 +931,6 @@ export default function OneshotEditor() {
       />
     </div>
   );
+
+
 }

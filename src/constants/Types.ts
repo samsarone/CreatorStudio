@@ -479,10 +479,7 @@ export const ASSISTANT_MODEL_TYPES = [
     label: 'GPT 4.1',
     value: 'GPT4.1',
   },
-  {
-    label: 'GPT 4.5',
-    value: 'GPT4.5O',
-  },
+
   {
     label: 'GPT O3 Mini (H)',
     value: 'GPTO3MINI',
@@ -496,10 +493,7 @@ export const ASSISTANT_MODEL_TYPES = [
 ];
 
 export const INFERENCE_MODEL_TYPES = [
-  {
-    label: 'GPT 4.5',
-    value: 'GPT4.5O',
-  },
+
   {
     label: 'GPT O3 Mini (H)',
     value: 'GPTO3MINI',
