@@ -29,6 +29,13 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
 
+// =============== Polling constants ========================
+const DEFAULT_POLL = 5_000;     // 5 s while online
+const POLL_OFFLINE = 30_000;   // 30 s while offline
+const MAX_BACKOFF = 60_000;   // 1 min cap
+
+const POLL_DEFAULT = 5_000;      // 5 s while online & healthy
+
 export default function OneshotEditor() {
   const { user } = useUser();
   const { colorMode } = useColorMode();
@@ -49,6 +56,7 @@ export default function OneshotEditor() {
   const OFFLINE_POLL = 30_000;     // 30 s while offline
   const MAX_BACKOFF = 60_000;      // cap when server keeps 5xx-ing
 
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pollDelay, setPollDelay] = useState(DEFAULT_POLL);
 
@@ -68,7 +76,7 @@ export default function OneshotEditor() {
   const lastWakePoll = useRef(Date.now());
   useEffect(() => {
     const handleVisibility = () => {
-      if (!document.hidden && Date.now() - lastWakePoll.current > 2_000) {
+      if (!document.hidden && Date.now() - lastWakePoll.current > 2000) {
         lastWakePoll.current = Date.now();
         pollGenerationStatus(true);          // instant run
         startAssistantQueryPoll(true);       // 〃
@@ -103,6 +111,14 @@ export default function OneshotEditor() {
       });
     }
   };
+
+  // Poll “refs” (handles returned by setTimeout)
+  const pollTimeoutRef = useRef(null);
+  const assistantTimeoutRef = useRef(null);
+
+  // Track the *current* delay used by each poller so we can back‑off
+  const pollDelayRef = useRef(DEFAULT_POLL);
+  const assistantDelayRef = useRef(DEFAULT_POLL);
 
   // Assistant / Chatbot states
   const [sessionMessages, setSessionMessages] = useState([]);
@@ -356,14 +372,14 @@ export default function OneshotEditor() {
 
 
   +useEffect(() => {
-  if (pollIntervalRef.current)   clearInterval(pollIntervalRef.current);
-  if (assistantPollRef.current)  clearInterval(assistantPollRef.current);
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (assistantPollRef.current) clearInterval(assistantPollRef.current);
 
-  if (id) {
-    resetForm();
-    getSessionDetails();
-  }
-}, [id]);
+    if (id) {
+      resetForm();
+      getSessionDetails();
+    }
+  }, [id]);
 
 
 
@@ -459,9 +475,69 @@ export default function OneshotEditor() {
     // ...
   };
 
-  // -------------------------------------
-  //  Session & generation status
-  // -------------------------------------
+
+
+    const pollGenerationStatus = (immediate = false) => {
+    if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+    if (immediate) pollDelayRef.current = 0;
+
+    const doPoll = async () => {
+      let continuePolling = true;
+
+      try {
+        const headers = getHeaders();
+        const { data } = await axios.get(
+          `${API_SERVER}/quick_session/status?sessionId=${id}`,
+          headers
+        );
+
+        // Success → reset back‑off
+        pollDelayRef.current = DEFAULT_POLL;
+
+        setExpressGenerationStatus(data.expressGenerationStatus);
+
+        if (data.status === 'COMPLETED') {
+          continuePolling = false;
+          setIsGenerationPending(false);
+
+          const videoActualLink =
+            data.remoteURL?.length
+              ? data.remoteURL
+              : data.videoLink
+                ? `${API_SERVER}/${data.videoLink}`
+                : null;
+
+          setVideoLink(videoActualLink);
+        }
+
+        if (data.status === 'FAILED') {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setErrorMessage({
+            error: `Video generation failed. ${data.expressGenerationError}`,
+          });
+        }
+      } catch (err) {
+        // Error or offline ⇒ exponential back‑off
+        pollDelayRef.current = Math.min(
+          pollDelayRef.current ? pollDelayRef.current * 2 : DEFAULT_POLL,
+          MAX_BACKOFF
+        );
+        console.error('Generation poll error:', err?.message || err);
+      } finally {
+        if (continuePolling) {
+          const nextDelay = navigator.onLine ? pollDelayRef.current : OFFLINE_POLL;
+          pollIntervalRef.current = setTimeout(doPoll, nextDelay);
+        }
+      }
+    };
+
+    // Kick‑off
+    doPoll();
+  };
+
+
+
   const getSessionDetails = async () => {
     try {
       const headers = getHeaders();
@@ -494,54 +570,53 @@ export default function OneshotEditor() {
     }
   };
 
-  const pollGenerationStatus = () => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    pollErrorCountRef.current = 0;
 
-    pollIntervalRef.current = setInterval(async () => {
+
+
+  useEffect(() => {
+    if (!id) return;
+
+    // Abort helper for axios
+    const abort = new AbortController();
+    let timeoutId = null;
+    let cancelled = false;
+
+    const poll = async () => {
       try {
-        const headers = getHeaders();
-        const response = await axios.get(
+        const { data } = await axios.get(
           `${API_SERVER}/quick_session/status?sessionId=${id}`,
-          headers
+          { signal: abort.signal }
         );
-        pollErrorCountRef.current = 0;
 
-        const resData = response.data;
-        setExpressGenerationStatus(resData.expressGenerationStatus);
+        if (cancelled) return;              // ignore stale results
 
-        if (resData.status === 'COMPLETED') {
-          setIsGenerationPending(false);
-          clearInterval(pollIntervalRef.current);
-          setIsGenerationPending(false);
-          let videoActualLink;
-          if (resData.remoteURL && resData.remoteURL.length > 0) {
-            videoActualLink = resData.remoteURL;
-          } else if (resData.videoLink) {
-            videoActualLink = `${API_SERVER}/${videoLink}`;
-          }
-          setVideoLink(videoActualLink);
-        } else if (resData.status === 'FAILED') {
-          const errorMessage = resData.expressGenerationError;
-          clearInterval(pollIntervalRef.current);
-          setIsGenerationPending(false);
-          setErrorMessage({
-            error: `Video generation failed. ${errorMessage}`,
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching generation status:', error);
-        pollErrorCountRef.current += 1;
-        if (pollErrorCountRef.current >= 3) {
-          clearInterval(pollIntervalRef.current);
-          setIsGenerationPending(false);
-          setErrorMessage({
-            error: 'An unexpected error occurred while checking status (multiple retries failed).',
-          });
-        }
+        // …update state with `data` here…
+
+        timeoutId = window.setTimeout(
+          poll,
+          navigator.onLine ? POLL_DEFAULT : POLL_OFFLINE
+        );
+      } catch (err) {
+        // aborted -> silent; anything else -> handle + back‑off
+        if (axios.isCancel(err)) return;
+        if (cancelled) return;
+        timeoutId = window.setTimeout(poll, POLL_OFFLINE);
       }
-    }, 5000);
-  };
+    };
+
+    poll();                                 // kick‑off once
+
+    // Cleanup when id changes or component un‑mounts
+    return () => {
+      cancelled = true;
+      abort.abort();                        // kills in‑flight request
+      if (timeoutId !== null) clearTimeout(timeoutId);
+    };
+  }, [id]);
+
+
+
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -606,7 +681,7 @@ export default function OneshotEditor() {
     setUploadedImageDataUrl(null);
     setSelectedImageStyle(null);
     // Reset to default Cinematic if desired
-    setSelectedToneOption({ label: 'grounded', value: 'grounded' });
+    setSelectedToneOption({ label: 'muted', value: 'grounded' });
   };
 
   const viewInStudio = () => {
