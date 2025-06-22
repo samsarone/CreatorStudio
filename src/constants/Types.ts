@@ -266,13 +266,13 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isImgToVidModel: true,
   },
   {
-    name: 'Hailuo Minimax O1-Live',
+    name: 'Hailuo O2 Img2Vid',
     key: 'HAILUO',
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9'
     ],
-    isExpressModel: false,
+    isExpressModel: true,
   },
   {
     name: 'Haiper 2.0',

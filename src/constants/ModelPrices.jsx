@@ -719,7 +719,8 @@ export const VIDEO_MODEL_PRICES = [
         aspectRatio: '16:9',
         price: 60
       },
-    ]
+    ],
+    units: [6, 10]
   },
 
 
