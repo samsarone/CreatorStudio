@@ -55,8 +55,18 @@ const backingTrackModelOptions = [
 
 const agentVideoModelOptions = [
   { value: "RUNWAYML", label: "Runway Gen 4" },
-  { value: "PIXVERSEI2V", label: "Pixverse v4.5" },
+  { value: "SEEDANCEI2V", label: "Seedance I2V" },
 ];
+
+
+const defaultDurationOptions = [
+  { value: 30, label: "30 seconds" },
+  { value: 60, label: "1 minute" },
+  { value: 90, label: "1.5 minutes" },
+  { value: 120, label: "2 minutes" },
+];
+
+
 
 /* ------------------------------------------------------------------ */
 /*  COMPONENT                                                         */
@@ -89,6 +99,9 @@ export default function UserAccount() {
   const [speakerFont, setSpeakerFont] = useState(fontOptions[0]);
   const [textFont, setTextFont] = useState(fontOptions[0]);
 
+  const [defaultAgentDuration, setDefaultAgentDuration] = useState(defaultDurationOptions[0]);
+
+
   /* ------------------------------------------------------------------ */
   /*  EFFECT: Hydrate component with user‑specific preferences          */
   /* ------------------------------------------------------------------ */
@@ -119,6 +132,10 @@ export default function UserAccount() {
     );
     setAgentImageModel(
       agentImageModelOptions.find((f) => f.value === (user.agentImageModel || "GPTIMAGE1"))
+    );
+
+    setDefaultAgentDuration(
+      defaultDurationOptions.find((f) => f.value === (user.defaultAgentDuration || 30))
     );
   }, [user]);
 
@@ -181,6 +198,13 @@ export default function UserAccount() {
       </div>
     );
   };
+
+
+  const handleDefaultAgentDurationChange = (newVal) => {
+    setDefaultAgentDuration(newVal);
+    updateUserDetails({ defaultAgentDuration: newVal.value });
+  };
+
 
   const handleUpgradeToPremium = () => {
     openAlertDialog(
@@ -463,6 +487,11 @@ export default function UserAccount() {
                           onChange={handleInferenceModelChange}
                         />
                       </div>
+
+
+
+
+
                     </div>
 
                     {/* Column 2 */}
@@ -529,6 +558,18 @@ export default function UserAccount() {
                           onChange={handleAgentImageModelChange}
                         />
                       </div>
+
+
+
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-1">Default Agent Duration</h4>
+                        <SingleSelect
+                          options={defaultDurationOptions}
+                          value={defaultAgentDuration}
+                          onChange={handleDefaultAgentDurationChange}
+                        />
+                      </div>
+                      
                     </div>
                   </div>
 
