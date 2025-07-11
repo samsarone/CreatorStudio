@@ -482,8 +482,8 @@ export default function AdVideoCreator() {
       sessionID: id,
       aspectRatio: selectedAspectRatioOption?.value,
       // example: hard-coded
-      imageModel: 'GPTIMAGE1',
-      videoGenerationModel: 'RUNWAYML',
+      imageModel: 'IMAGEN4',
+      videoGenerationModel: 'SEEDANCEI2V',
       duration: selectedDurationOption?.value,
       // <-- Pass all Base64 images here
       startImages: uploadedImageDataUrls,

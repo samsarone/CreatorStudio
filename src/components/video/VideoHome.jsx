@@ -1657,19 +1657,14 @@ export default function VideoHome(props) {
 
 
   const applyAudioTrackVisualizerToProject = () => {
-
     toast.success(<div><FaCheck className='inline-flex mr-2' />  Requested apply audio visualizer to project!</div>, {
       position: "bottom-center",
       className: "custom-toast",
     });
-
-
-
+    
     const headers = getHeaders();
     axios.post(`${PROCESSOR_API_URL}/video_sessions/apply_audio_track_visualizer`, { id: id }, headers).then((response) => {
-
       const resData = response.data;
-
 
     });
 

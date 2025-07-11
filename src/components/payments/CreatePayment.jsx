@@ -36,8 +36,6 @@ export default function CreatePayment() {
 
   const requestApplyCreditsCoupon = (couponCode) => {
 
-
-
     axios.post(
         `${PROCESSOR_SERVER}/users/apply_credits_coupon`,
         { couponCode },
