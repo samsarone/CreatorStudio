@@ -51,7 +51,6 @@ export const UserProvider = ({ children }) => {
       const res = await axios.get(`${PROCESSOR_SERVER}/users/verify_token`, getHeaders());
       const userProfile = res.data;
       setUserState(userProfile);
-      localStorage.setItem('fid', userProfile.fid); // optional
       setUserInitiated(true);
       return userProfile;
     } catch (err) {

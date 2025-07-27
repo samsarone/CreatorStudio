@@ -22,6 +22,7 @@ import SceneLibraryHome from "../library/aivideo/SceneLibraryHome.jsx";
 import OverflowContainer from "../common/OverflowContainer.tsx";
 import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
+import { getSessionType } from '../../utils/environment.jsx';
 
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 

@@ -20,6 +20,11 @@ import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
+import { getSessionType } from '../../utils/environment.jsx';
+
+import  AddLicense  from '../license/AddLicense.jsx';
+
+
 
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
@@ -33,6 +38,8 @@ export default function TopNav(props) {
   const { colorMode } = useColorMode();
   const location = useLocation();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
+
+  const sessionType = getSessionType();
 
   const {
     downloadCurrentFrame,
@@ -146,6 +153,14 @@ export default function TopNav(props) {
   }, []);
 
 
+const showLicenseDialog = () => {
+  openAlertDialog(
+    <div className="relative">
+      <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
+      <AddLicense />
+    </div>
+  );
+};
 
   const homeAlertDialogComponent = (
     <div>
@@ -446,7 +461,7 @@ export default function TopNav(props) {
 
   let daysToUpdate = <span />;
   let userCreditsDisplay = <span />;
-  if (user && user._id) {
+  if (user && user._id && sessionType !== 'docker') {
     if (user.isPremiumUser) {
       daysToUpdate = <div>{nextUpdate} days until update</div>;
     } else {
@@ -455,8 +470,13 @@ export default function TopNav(props) {
     userCreditsDisplay = <div>{userCredits ? userCredits.toFixed(2) : '-'} credits</div>;
   }
 
+  if (user && user._id && sessionType === 'docker' && !user.isLicenseValid) {
+
+    userCreditsDisplay = <div onClick={showLicenseDialog}>Activate your License.</div>
+  }
+
   let errorMessageDisplay = <span />;
-  if (user && user._id) {
+  if (user && user._id && sessionType !== 'docker') {
     if (user.generationCredits <= 0) {
       errorMessageDisplay = <div className="text-xs font-bold ">
         <div className='text-red-500 '>

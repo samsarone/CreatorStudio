@@ -9,9 +9,12 @@ import LoadingImage from './util/LoadingImage';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
+const CURRENT_ENV = import.meta.env.VITE_CURRENT_ENV;
+
+
 export default function VideoEditorLandingHome() {
 
-  const { user, userFetching, userInitiated } = useUser();
+  const { user, userFetching, userInitiated,  setUser} = useUser();
   const [isGuest, setIsGuest] = useState(false);
   const navigate = useNavigate();
 
@@ -30,6 +33,21 @@ export default function VideoEditorLandingHome() {
   }
 
   if (isGuest) {
+
+    if (CURRENT_ENV === 'staging' || CURRENT_ENV === 'docker') {
+      axios.get(`${API_SERVER}/license/verify_user_license`).then((res) => {
+        const userData = res.data.data;
+
+        if (userData) {
+          localStorage.setItem('authToken', userData.authToken);
+          setUser(userData);
+          navigate('/my_sessions');
+        }
+
+      });
+      return;
+    }
+
     axios.get(`${API_SERVER}/video_sessions/fetch_guest_session`).then((res) => {
       const sessionData = res.data;
       if (sessionData) {

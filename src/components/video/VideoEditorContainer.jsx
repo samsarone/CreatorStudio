@@ -354,7 +354,7 @@ export default function VideoEditorContainer(props) {
   const [promptText, setPromptText] = useState("");
   const [videoPromptText, setVideoPromptText] = useState("");
 
-  const [selectedVideoGenerationModel, setSelectedVideoGenerationModel] = useState('LUMA');
+  const [selectedVideoGenerationModel, setSelectedVideoGenerationModel] = useState('RUNWAYML');
   const [selectedChain, setSelectedChain] = useState('');
   const [selectedAllocation, setSelectedAllocation] = useState(300);
   const [isTemplateSelectViewSelected, setIsTemplateSelectViewSelected] = useState(false);
@@ -1526,6 +1526,10 @@ export default function VideoEditorContainer(props) {
     }
     payload.sessionId = id;
 
+
+
+
+
     axios.post(`${PROCESSOR_API_URL}/audio/request_generate_audio`, payload, headers)
       .then((response) => {
         setAudioGenerationPending(true);
@@ -2278,9 +2282,12 @@ export default function VideoEditorContainer(props) {
       const updatedLayerIndex = newLayers.findIndex(
         (layer) => layer._id.toString() === selectedLayerId
       );
-      // Preload the hidden <video>
+
+
       const hiddenContainer = document.getElementById('hidden-video-container');
       const videoSrc = `${STATIC_CDN_URL}/${layerData.aiVideoRemoteLink}`;
+
+
       const video = document.createElement('video');
       video.src = videoSrc;
       video.preload = 'auto';

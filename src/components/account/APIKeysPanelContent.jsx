@@ -39,10 +39,14 @@ export default function APIKeysPanelContent() {
   const fetchAPIKeys = async () => {
     setLoading(true);
     try {
+
+      
       const headers = getHeaders();
       const response = await axios.get(`${PROCESSOR_SERVER}/users/api_keys`, headers);
       const apiKeyResponse = response.data.apiKeys || [];
 
+
+      
       setApiKeys(response.data.apiKeys || []);
     } catch (error) {
       console.error('Error fetching API keys:', error);

@@ -32,7 +32,7 @@ export default function OverlayPromptGenerateVideo(props) {
   // Filter out only text-to-video models & check if they have pricing for the current aspect ratio
   // -----------------------------
   const textToVidModels = VIDEO_GENERATION_MODEL_TYPES.filter(
-    (m) => m.isTextToVidModel
+    (m) => !m.isImgToVidModel
   );
 
   const modelOptions = textToVidModels
@@ -94,36 +94,35 @@ export default function OverlayPromptGenerateVideo(props) {
   // -----------------------------
   //  On first mount: pick default model from localStorage or first option
   // -----------------------------
-  useEffect(() => {
-    const defaultModel =
-      localStorage.getItem("defaultVideoModel") ||
-      (modelOptions.length > 0 ? modelOptions[0].props.value : "");
-    if (defaultModel) {
+useEffect(() => {
+  const defaultModel =
+    localStorage.getItem("defaultVideoModel") ||
+    (modelOptions.length > 0 ? modelOptions[0].props.value : "");
 
-     // setSelectedVideoGenerationModel(defaultModel);
-    }
-    // If that default model is HAILUO or HAIPER2.0, fetch local storage for optimizePrompt
-    if (defaultModel === "HAILUO" || defaultModel === "HAIPER2.0") {
-      const storedOptimizePrompt = localStorage.getItem("defaultOptimizePrompt");
-      setOptimizePrompt(storedOptimizePrompt === "true");
-    }
+  if (
+    defaultModel &&
+    defaultModel !== selectedVideoGenerationModel // prevent unnecessary re-setting
+  ) {
+    setSelectedVideoGenerationModel(defaultModel);
+  }
 
-    // Check for stored durations if the chosen default model has them
-    const modelPricing = VIDEO_MODEL_PRICES.find((p) => p.key === defaultModel);
-    if (modelPricing?.units?.length > 0) {
-      const storedDuration = localStorage.getItem(
-        "defaultDurationFor" + defaultModel
-      );
-      if (
-        storedDuration &&
-        modelPricing.units.includes(parseInt(storedDuration))
-      ) {
-        setSelectedDuration(parseInt(storedDuration));
-      } else {
-        setSelectedDuration(modelPricing.units[0]);
-      }
+  if (defaultModel === "HAILUO" || defaultModel === "HAIPER2.0") {
+    const storedOptimizePrompt = localStorage.getItem("defaultOptimizePrompt");
+    setOptimizePrompt(storedOptimizePrompt === "true");
+  }
+
+  const modelPricing = VIDEO_MODEL_PRICES.find((p) => p.key === defaultModel);
+  if (modelPricing?.units?.length > 0) {
+    const storedDuration = localStorage.getItem("defaultDurationFor" + defaultModel);
+    if (storedDuration && modelPricing.units.includes(parseInt(storedDuration))) {
+      setSelectedDuration(parseInt(storedDuration));
+    } else {
+      setSelectedDuration(modelPricing.units[0]);
     }
-  }, [modelOptions, setSelectedVideoGenerationModel]);
+  }
+}, [modelOptions]);
+
+
 
   // -----------------------------
   //  Whenever `selectedVideoGenerationModel` changes
@@ -186,6 +185,7 @@ export default function OverlayPromptGenerateVideo(props) {
   // -----------------------------
   const handleModelChange = (evt) => {
     const newModel = evt.target.value;
+
     setSelectedVideoGenerationModel(newModel);
     localStorage.setItem("defaultVideoModel", newModel);
   };

@@ -368,7 +368,8 @@ export const IMAGE_MODEL_PRICES = [
         price: 15
       },
     ]
-  }
+  },
+
 
 ]
 
@@ -489,35 +490,6 @@ export const IMAGE_EDIT_MODEL_PRICES = [
 
 
 export const VIDEO_MODEL_PRICES = [
-  {
-    key: 'LUMA',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ],
-    units: [5, 9]
-  },
-
-  {
-    key: 'LUMAFLASH2',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 30
-      },
-      {
-        aspectRatio: '9:16',
-        price: 30
-      },
-    ],
-    units: [5, 9]
-  },
 
 
   {
@@ -947,6 +919,25 @@ export const VIDEO_MODEL_PRICES = [
       }
     ],
   },
+
+  {
+    name: 'Sora T2V',
+    key: 'SORAT2V',
+    isImgToVidModel: false,
+    isExpressModel: false,
+
+    "prices": [
+      {
+        "aspectRatio": "16:9",
+        "price": 60
+      },
+      {
+        "aspectRatio": "9:16",
+        "price": 60
+      }
+    ],
+    units: [5, 10]
+  }
 
 
 
