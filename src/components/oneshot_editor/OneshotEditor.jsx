@@ -34,6 +34,7 @@ import {
 } from '../../constants/Types.ts';
 import { VIDEO_MODEL_PRICES, IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { getHeaders } from '../../utils/web.jsx';
+import { getSessionType } from '../../utils/environment.jsx';
 
 // ───────────────────────────────────────────────────────────
 //  Environment constants
@@ -58,6 +59,20 @@ export default function OneshotEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { openAlertDialog } = useAlertDialog();
+
+  const activeSessionIdRef = useRef(id);
+  const currentPollSessionIdRef = useRef(null);
+
+  const lastWakePoll = useRef(Date.now());
+
+  const currentEnv = getSessionType();
+
+
+
+  useEffect(() => {
+    activeSessionIdRef.current = id;
+  }, [id]);
+
 
   // ─────────────────────────────────────────────────────────
   //  Basic session & form state
@@ -93,19 +108,23 @@ export default function OneshotEditor() {
     };
   }, []);
 
-  // Fire one immediate poll when tab regains focus / device wakes
-  const lastWakePoll = useRef(Date.now());
   useEffect(() => {
     const handleVisibility = () => {
-      if (!document.hidden && Date.now() - lastWakePoll.current > 2000) {
+      if (
+        !document.hidden &&
+        Date.now() - lastWakePoll.current > 2000 &&
+        currentPollSessionIdRef.current !== id
+      ) {
         lastWakePoll.current = Date.now();
-        pollGenerationStatus(true); // generation
-        startAssistantQueryPoll(true); // assistant
+        pollGenerationStatus(id, true); // Restart fresh
+        startAssistantQueryPoll(true);  // Optional: restart assistant poll
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
+  }, [id]);
+
+
 
   // ─────────────────────────────────────────────────────────
   //  Polling handles / refs
@@ -306,7 +325,7 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   const [isDisabled, setIsDisabled] = useState(false);
   useEffect(() => {
-    if (!user || user.generationCredits < 300) {
+    if (!user || (user.generationCredits < 300 && currentEnv !== 'docker')) {
       setIsDisabled(true);
     } else {
       setIsDisabled(false);
@@ -330,39 +349,41 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
 
   useEffect(() => {
-  // Abort ALL polling
-  if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
-  if (assistantPollRef.current) clearInterval(assistantPollRef.current);
-  if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
-  if (assistantTimeoutRef.current) clearTimeout(assistantTimeoutRef.current);
+    // Abort ALL polling
+    if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+    if (assistantPollRef.current) clearInterval(assistantPollRef.current);
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    if (assistantTimeoutRef.current) clearTimeout(assistantTimeoutRef.current);
 
-  pollIntervalRef.current = null;
-  assistantPollRef.current = null;
-  pollTimeoutRef.current = null;
-  assistantTimeoutRef.current = null;
+    pollIntervalRef.current = null;
+    assistantPollRef.current = null;
+    pollTimeoutRef.current = null;
+    assistantTimeoutRef.current = null;
 
-  pollErrorCountRef.current = 0;
-  assistantErrorCountRef.current = 0;
-  pollDelayRef.current = DEFAULT_POLL;
-  assistantDelayRef.current = DEFAULT_POLL;
+    pollErrorCountRef.current = 0;
+    assistantErrorCountRef.current = 0;
+    pollDelayRef.current = DEFAULT_POLL;
+    assistantDelayRef.current = DEFAULT_POLL;
 
-  resetForm();
 
-  if (id) {
-    // Fetch session, and ONLY trigger polling if still pending
-    getSessionDetails().then((data) => {
-      if (data?.videoGenerationPending) {
-        pollGenerationStatus();
-      } else {
-        console.log("INSDIE ELSE BLOC");
-        // clear any existing pending polls
-        if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
-        if (assistantPollRef.current) clearInterval(assistantPollRef.current);
-        
-      }
-    });
-  }
-}, [id]);
+    resetForm();
+
+    if (currentPollSessionIdRef.current === id) return;
+
+    if (id) {
+      // Fetch session, and ONLY trigger polling if still pending
+      getSessionDetails().then((data) => {
+        if (data?.videoGenerationPending) {
+          pollGenerationStatus(id);
+        } else {
+          // clear any existing pending polls
+          if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+          if (assistantPollRef.current) clearInterval(assistantPollRef.current);
+
+        }
+      });
+    }
+  }, [id]);
 
 
   // ─────────────────────────────────────────────────────────
@@ -396,20 +417,28 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Generation‑status poller
   // ─────────────────────────────────────────────────────────
-  const pollGenerationStatus = (immediate = false) => {
+  const pollGenerationStatus = (sessionId = id, immediate = false) => {
+    // Always update current session polling ID
+    currentPollSessionIdRef.current = sessionId;
+
     if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
     if (immediate) pollDelayRef.current = 0;
 
     const doPoll = async () => {
+      if (currentPollSessionIdRef.current !== sessionId) {
+        // Abort polling: session has changed
+        return;
+      }
+
       let continuePolling = true;
+
       try {
         const headers = getHeaders();
         const { data } = await axios.get(
-          `${API_SERVER}/quick_session/status?sessionId=${id}`,
+          `${API_SERVER}/quick_session/status?sessionId=${sessionId}`,
           headers
         );
 
-        // Success → reset back‑off
         pollDelayRef.current = DEFAULT_POLL;
         setExpressGenerationStatus(data.expressGenerationStatus);
 
@@ -437,16 +466,16 @@ export default function OneshotEditor() {
         );
         console.error('Generation poll error:', err?.message || err);
       } finally {
-        if (continuePolling) {
+        if (continuePolling && currentPollSessionIdRef.current === sessionId) {
           const nextDelay = navigator.onLine ? pollDelayRef.current : OFFLINE_POLL;
           pollIntervalRef.current = setTimeout(doPoll, nextDelay);
         }
       }
     };
 
-    // Kick‑off
     doPoll();
   };
+
 
   // ─────────────────────────────────────────────────────────
   //  Assistant‑query poller
@@ -517,6 +546,7 @@ export default function OneshotEditor() {
   //  Fetch session details
   // ─────────────────────────────────────────────────────────
   const getSessionDetails = async () => {
+
     try {
       const headers = getHeaders();
       const { data } = await axios.get(
@@ -533,7 +563,7 @@ export default function OneshotEditor() {
       if (data.videoGenerationPending) {
         setIsGenerationPending(true);
         setShowResultDisplay(true);
-        pollGenerationStatus();
+        pollGenerationStatus(id);
       } else if (data.videoLink) {
         const link =
           data.remoteURL?.length
@@ -619,7 +649,7 @@ export default function OneshotEditor() {
     try {
       const headers = getHeaders();
       await axios.post(`${API_SERVER}/vidgenie/create`, payload, headers);
-      pollGenerationStatus();
+      pollGenerationStatus(id);
     } catch (err) {
       console.error('Error submitting render request:', err);
       setErrorMessage({ error: 'An unexpected error occurred.' });
@@ -681,16 +711,27 @@ export default function OneshotEditor() {
         className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
         onClick={togglePricingDetailsDisplay}
       >
-        {creditsPerSecondVideo}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video
+        {currentEnv === 'docker' ? (
+          <div>Pricing as charged by API providers.</div>
+        ) : (
+          <div>{creditsPerSecondVideo}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video</div>
+        )}
         <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
       </div>
       {pricingDetailsDisplay && (
         <div className="mt-1 text-sm w-full text-right">
-          <div>The total price will be shown at completion.</div>
-          <div>
-            For example, a 60&nbsp;s video will cost&nbsp;
-            {60 * creditsPerSecondVideo}&nbsp;credits.
-          </div>
+          {currentEnv === 'docker' ? (
+            <div>Pricing as charged by API providers.</div>
+          ) : (
+            <>
+              <div>The total price will be shown at completion.</div>
+              <div>
+                For example, a 60&nbsp;s video will cost&nbsp;
+                {60 * creditsPerSecondVideo}&nbsp;credits.
+              </div>
+            </>
+          )}
+
         </div>
       )}
     </div>

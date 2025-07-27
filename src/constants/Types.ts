@@ -225,6 +225,16 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
+    name: 'Sora T2V',
+    key: 'SORAT2V',
+    isExpressModel: false,
+    isTransitionModel: false,
+    isImgToVidModel: false,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1'
+    ]
+  },
+  {
     name: 'Kling 2.1 Master',
     key: 'KLINGIMGTOVID2.1MASTER',
     isExpressModel: false,

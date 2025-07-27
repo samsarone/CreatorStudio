@@ -803,7 +803,9 @@ export default function VideoEditorToolbar(props) {
       isInstrumental: isInstrumental,
       model: selectedMusicProvider.key,
     };
-    if (selectedMusicProvider.key === 'AUDIOCRAFT' || selectedMusicProvider.key === 'CASSETTEAI') {
+    if (selectedMusicProvider.key === 'AUDIOCRAFT' || selectedMusicProvider.key === 'CASSETTEAI' || 
+        selectedMusicProvider.key === 'LYRIA2'
+    ) {
       body.duration = Number(musicDuration);
     }
     submitGenerateMusicRequest(body);
