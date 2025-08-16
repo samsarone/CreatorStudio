@@ -18,9 +18,9 @@ import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
+import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
+
 import LoadingImageTransparent from './util/LoadingImageTransparent.jsx';
-
-
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -167,7 +167,7 @@ export default function VideoHome(props) {
 
 
 
-  
+
 
 
 
@@ -1355,7 +1355,7 @@ export default function VideoHome(props) {
       layer: newLayer,
       clipData: clipPayload
     };
-    
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layer`, reqPayload, headers).then((response) => {
       const resData = response.data;
       const { session, layer } = resData;
@@ -1661,7 +1661,7 @@ export default function VideoHome(props) {
       position: "bottom-center",
       className: "custom-toast",
     });
-    
+
     const headers = getHeaders();
     axios.post(`${PROCESSOR_API_URL}/video_sessions/apply_audio_track_visualizer`, { id: id }, headers).then((response) => {
       const resData = response.data;
@@ -1686,50 +1686,65 @@ export default function VideoHome(props) {
 
 
   const editorContainerDisplay = (
-    <VideoEditorContainer
-      selectedLayerIndex={selectedLayerIndex}
-      layers={layers}
-      key={`layer_canvas_${selectedLayerIndex}`}
-      currentLayerSeek={currentLayerSeek}
-      currentEditorView={currentEditorView}
-      setCurrentEditorView={setCurrentEditorView}
-      toggleFrameDisplayType={toggleFrameDisplayType}
-      setFrameEditDisplay={setFrameEditDisplay}
-      currentLayer={currentLayer}
-      setCurrentLayerSeek={setCurrentLayerSeek}
-      updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
-      updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
-      activeItemList={activeItemList}
-      setActiveItemList={setActiveItemList}
-      isLayerSeeking={isLayerSeeking}
-      showAddAudioToProjectDialog={showAddAudioToProjectDialog}
-      generationImages={generationImages}
-      setGenerationImages={setGenerationImages}
-      updateCurrentActiveLayer={updateCurrentActiveLayer}
-      videoSessionDetails={videoSessionDetails}
-      setVideoSessionDetails={setVideoSessionDetails}
-      toggleHideItemInLayer={toggleHideItemInLayer}
-      updateLayerMask={updateLayerMask}
-      resetLayerMask={resetLayerMask}
-      pollForLayersUpdate={pollForLayersUpdate}
-      setIsCanvasDirty={setIsCanvasDirty}
-      updateCurrentLayer={updateCurrentLayer}
-      applyAnimationToAllLayers={applyAnimationToAllLayers}
-      isExpressGeneration={videoSessionDetails.isExpressGeneration}
-      aspectRatio={videoSessionDetails.aspectRatio}
-      displayZoomType={displayZoomType}
-      toggleStageZoom={toggleStageZoom}
-      stageZoomScale={stageZoomScale}
-      updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
-      updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
-      totalDuration={totalDuration}
-      isUpdateLayerPending={isUpdateLayerPending}
-      isVideoPreviewPlaying={isVideoPreviewPlaying}
-      audioLayers={audioLayers}
-      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
-      setAudioLayers={setAudioLayers}
+    <div className=''>
+      <VideoEditorContainer
+        selectedLayerIndex={selectedLayerIndex}
+        layers={layers}
+        key={`layer_canvas_${selectedLayerIndex}`}
+        currentLayerSeek={currentLayerSeek}
+        currentEditorView={currentEditorView}
+        setCurrentEditorView={setCurrentEditorView}
+        toggleFrameDisplayType={toggleFrameDisplayType}
+        setFrameEditDisplay={setFrameEditDisplay}
+        currentLayer={currentLayer}
+        setCurrentLayerSeek={setCurrentLayerSeek}
+        updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
+        updateSessionLayerActiveItemListAnimations={updateSessionLayerActiveItemListAnimations}
+        activeItemList={activeItemList}
+        setActiveItemList={setActiveItemList}
+        isLayerSeeking={isLayerSeeking}
+        showAddAudioToProjectDialog={showAddAudioToProjectDialog}
+        generationImages={generationImages}
+        setGenerationImages={setGenerationImages}
+        updateCurrentActiveLayer={updateCurrentActiveLayer}
+        videoSessionDetails={videoSessionDetails}
+        setVideoSessionDetails={setVideoSessionDetails}
+        toggleHideItemInLayer={toggleHideItemInLayer}
+        updateLayerMask={updateLayerMask}
+        resetLayerMask={resetLayerMask}
+        pollForLayersUpdate={pollForLayersUpdate}
+        setIsCanvasDirty={setIsCanvasDirty}
+        updateCurrentLayer={updateCurrentLayer}
+        applyAnimationToAllLayers={applyAnimationToAllLayers}
+        isExpressGeneration={videoSessionDetails.isExpressGeneration}
+        aspectRatio={videoSessionDetails.aspectRatio}
+        displayZoomType={displayZoomType}
+        toggleStageZoom={toggleStageZoom}
+        stageZoomScale={stageZoomScale}
+        updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
+        updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
+        totalDuration={totalDuration}
+        isUpdateLayerPending={isUpdateLayerPending}
+        isVideoPreviewPlaying={isVideoPreviewPlaying}
+        audioLayers={audioLayers}
+        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        setAudioLayers={setAudioLayers}
 
-    />
+        setIsLayerSeeking={setIsLayerSeeking}
+
+        setSelectedLayerIndex={setSelectedLayerIndex}
+        setSelectedLayer={setSelectedLayer}
+
+
+
+
+
+      />
+
+
+
+
+    </div>
   );
 
 
@@ -1796,7 +1811,7 @@ export default function VideoHome(props) {
           publishVideoSession={publishVideoSession}
           generateMeta={generateMeta}
           sessionMetadata={sessionMetadata}
-          updateAllAudioLayersOneShot={updateAllAudioLayersOneShot} 
+          updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
         />
       </div>
     )
@@ -1883,7 +1898,7 @@ export default function VideoHome(props) {
               generateMeta={generateMeta}
               sessionMetadata={sessionMetadata}
               isGuestSession={isGuestSession}
-              updateAllAudioLayersOneShot={updateAllAudioLayersOneShot} 
+              updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
             />
           </div>
           <div className='w-[90%] bg-cyber-black inline-block'>
@@ -1895,6 +1910,24 @@ export default function VideoHome(props) {
               </div>
             )}
             {editorContainerDisplay}
+            <div className="sticky bottom-0 w-[82%]">
+              <FrameToolbarHorizontal
+                key={`layers-${layers.length}`}
+                layers={layers}
+                selectedLayerIndex={selectedLayerIndex}
+                setSelectedLayerIndex={setSelectedLayerIndex}
+                setSelectedLayer={setSelectedLayer}
+                totalDuration={totalDuration}
+                currentLayerSeek={currentLayerSeek}
+                setCurrentLayerSeek={setNewSeek}
+                onLayersOrderChange={updateSessionLayersOrder}
+                submitRenderVideo={submitRenderVideo}
+                isVideoGenerating={isVideoGenerating}
+                downloadLink={downloadLink}
+                isGuestSession={isGuestSession}
+                setIsLayerSeeking={setIsLayerSeeking}
+              />
+            </div>
           </div>
           <AssistantHome
             submitAssistantQuery={submitAssistantQuery}
@@ -1917,6 +1950,7 @@ export default function VideoHome(props) {
           toastClassName="custom-toast"
           bodyClassName="custom-toast-body"
         />
+
 
       </div>
     </CommonContainer>

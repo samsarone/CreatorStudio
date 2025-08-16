@@ -2216,8 +2216,6 @@ export default function FrameToolbar(props) {
                 )}
 
                 <div className={`inline-flex h-full ${trackSliderML}`}>
-
-
                   <ReactSlider
                     key={`slider_layer_seek`}
                     className="modern-vertical-slider-seek"
@@ -2241,7 +2239,7 @@ export default function FrameToolbar(props) {
 
                 <div className='inline-flex dual-thumb h-auto w-[30px] ml-1'>
                   <DualThumbSlider
-                    key={`dk_${totalDurationInFrames}`}
+
                     min={0}
                     max={totalDurationInFrames}
                     value={effectiveVisibleDisplaySliderRange}

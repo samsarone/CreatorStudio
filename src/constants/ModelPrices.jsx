@@ -353,6 +353,28 @@ export const IMAGE_MODEL_PRICES = [
   },
 
   {
+
+    key: 'SEEDREAM',
+
+
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
+  },
+
+
+  {
     key: 'FLITE',
     prices: [
       {
@@ -478,7 +500,7 @@ export const IMAGE_EDIT_MODEL_PRICES = [
         price: 15
       },
     ]
-  },
+  }
 
 
 
@@ -695,6 +717,19 @@ export const VIDEO_MODEL_PRICES = [
     units: [6, 10]
   },
 
+  {
+    key: 'HAILUOPRO',
+    prices: [
+
+      {
+        aspectRatio: '16:9',
+        price: 100
+      },
+    ],
+    units: [6]
+  },
+
+
 
   {
     key: 'VEO',
@@ -896,9 +931,26 @@ export const VIDEO_MODEL_PRICES = [
         aspectRatio: '16:9',
         price: 60
       },
-    ]
+    ],
+    units: [5, 7],
+    isImgToVidModel: true,
+    isExpressModel: true,
   },
 
+
+  {
+    key: 'WANI2V5B',
+    prices: [
+
+      {
+        aspectRatio: '16:9',
+        price: 100
+      },
+    ],
+    units: [5],
+    isImgToVidModel: true,
+    isExpressModel: true,
+  },
 
 
   {
@@ -982,7 +1034,27 @@ export const ASSISTANT_MODEL_PRICES = [
         price: 6
       },
     ]
-  }
+  },
+    {
+    key: "GPT5",
+    prices: [
+      {
+        operationType: "words",
+        tokens: 1000,
+        price: 6
+      },
+    ]
+  },
+    {
+    key: "GPT5MINI",
+    prices: [
+      {
+        operationType: "words",
+        tokens: 1000,
+        price: 6
+      },
+    ]
+  },
 ]
 
 export const THEME_MODEL_PRICES = [
