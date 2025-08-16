@@ -1,15 +1,14 @@
-import React from 'react';
-import './Loader.css'; // Import the custom CSS styles
+import React from "react";
+import "./Loader.css";
 
-const Loader = () => {
+export default function Loader({ label = "Loading…" }) {
   return (
-    <div className="loader-background flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <div className="muted-loader mb-8"></div>
-        <div className="muted-text">Loading...</div>
+    <div className="loader-wrap">
+      <div className="loader-center">
+        <div className="loader-ring" role="status" aria-live="polite" aria-busy="true" />
+        <div className="loader-shadow" aria-hidden="true" />
+        <p className="loader-label">{label}</p>
       </div>
     </div>
   );
-};
-
-export default Loader;
+}
