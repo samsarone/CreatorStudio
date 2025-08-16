@@ -13,6 +13,8 @@ import {
   IMAGE_GENERAITON_MODEL_TYPES,
   IMAGE_EDIT_MODEL_TYPES
 } from '../../constants/Types.ts';
+
+
 import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
 import UploadImageDialog from '../editor/utils/UploadImageDialog.jsx';
 import VideoCanvasContainer from './editor/VideoCanvasContainer.jsx';
@@ -72,6 +74,11 @@ export default function VideoEditorContainer(props) {
     setIsVideoPreviewPlaying,
     audioLayers,
     setAudioLayers,
+
+    layers,
+
+
+
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -2560,8 +2567,9 @@ export default function VideoEditorContainer(props) {
               setVideoPromptText={setVideoPromptText}
 
               downloadCurrentFrame={downloadCurrentFrame}
-
             />
+
+
           </div>
         );
       }
@@ -2719,6 +2727,10 @@ export default function VideoEditorContainer(props) {
       <div className='block'>
         <div className='text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8 '>
           {viewDisplay}
+
+
+
+
         </div>
         {editorToolbarDisplay}
         <ToastContainer

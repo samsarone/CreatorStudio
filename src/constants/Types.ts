@@ -118,6 +118,13 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
 
+
+  {
+    name: 'Seedream',
+    key: 'SEEDREAM',
+    isExpressModel: true,
+  },
+
   {
     name: 'F-Lite',
     key: 'FLITE',
@@ -206,8 +213,6 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   },
 
 
-
-
 ];
 
 
@@ -246,7 +251,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Kling 2.1 Pro',
     key: 'KLINGIMGTOVID2.1PRO',
-    isExpressModel: true,
+    isExpressModel: false,
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
@@ -276,7 +281,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isImgToVidModel: true,
   },
   {
-    name: 'Hailuo O2 Img2Vid',
+    name: 'Hailuo O2 Standard',
     key: 'HAILUO',
     isImgToVidModel: true,
     supportedAspectRatios: [
@@ -284,6 +289,16 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ],
     isExpressModel: true,
   },
+  {
+    name: 'Hailuo O2 Pro',
+    key: 'HAILUOPRO',
+    isImgToVidModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ],
+    isExpressModel: true,
+  },
+
   {
     name: 'Haiper 2.0',
     key: 'HAIPER2.0',
@@ -347,14 +362,24 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
-    name: 'Wan I2V',
+    name: 'Wan 2.2 I2V',
     key: 'WANI2V',
     isImgToVidModel: true,
-    isExpressModel: false,
+    isExpressModel: true,
     supportedAspectRatios: [
       '16:9'
     ]
   },
+  {
+    name: 'Wan 2.2 5B I2V',
+    key: 'WANI2V5B',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ]
+  },
+
   {
     name: 'Pika2.2 I2V',
     key: 'PIKA2.2I2V',
@@ -500,6 +525,11 @@ export const ASSISTANT_MODEL_TYPES = [
     value: 'GPTO3',
   },
 
+  {
+    label: 'GPT 5',
+    value: 'GPT5',
+  },
+
 ];
 
 export const INFERENCE_MODEL_TYPES = [
@@ -516,6 +546,14 @@ export const INFERENCE_MODEL_TYPES = [
     label: 'GPT O3',
     value: 'GPTO3',
   },
+  {
+    label: 'GPT 5 High',
+    value: 'GPT5',
+  },
+  {
+    label: 'GPT 5 Mini',
+    value: 'GPT5MINI',
+  }
 
 ]
 

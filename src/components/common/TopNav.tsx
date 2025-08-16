@@ -336,13 +336,21 @@ const showLicenseDialog = () => {
 
   } else {
     userProfile = (
-      <div className="mt-1 flex justify-end">
-        <button
-          className="m-auto text-center min-w-16 rounded-lg shadow-lg text-neutral-100 bg-cyber-black pl-8 pr-8 pt-1 pb-2 font-bold text-lg"
-          onClick={showLoginDialog}
-        >
-          <IoMdLogIn className="inline-flex" /> Login
-        </button>
+      <div className=" flex justify-end">
+<button
+  className={`
+    m-auto text-center min-w-16 rounded-lg shadow-lg
+    pl-8 pr-8 pt-1 pb-2 font-bold text-lg
+    transition duration-200 border-2 cursor-pointer bg-gray-900 border-gray-800
+    ${colorMode === 'dark'
+      ? 'text-neutral-100 bg-cyber-black hover:bg-neutral-800 hover:text-blue-400'
+      : 'text-neutral-900 bg-blue-300 hover:bg-blue-400 hover:text-white'}
+  `}
+  onClick={showLoginDialog}
+>
+  <IoMdLogIn className="inline-flex" /> Login
+</button>
+
       </div>
     );
   }

@@ -37,7 +37,6 @@ export default function VideoEditorLandingHome() {
     if (CURRENT_ENV === 'staging' || CURRENT_ENV === 'docker') {
       axios.get(`${API_SERVER}/license/verify_user_license`).then((res) => {
         const userData = res.data.data;
-
         if (userData) {
           localStorage.setItem('authToken', userData.authToken);
           setUser(userData);
