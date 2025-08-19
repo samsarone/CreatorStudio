@@ -61,7 +61,7 @@ export default function VideoEditorLandingHome() {
       axios.get(`${API_SERVER}/video_sessions/validate_session?sessionId=${videoSessionId}`, headers).then((res) => {
         const sessionData = res.data;
         if (sessionData) {
-          navigate(`/video/${videoSessionId}`);
+          navigate(`/vidgenie/${videoSessionId}`);
         } else {
           localStorage.removeItem('videoSessionId');
           createNewSession();
