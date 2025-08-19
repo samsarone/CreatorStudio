@@ -783,10 +783,10 @@ export default function VideoEditorToolbar(props) {
 
     if (selectedMusicProvider.key === 'AUDIOCRAFT') {
       // Validate musicDuration
-      if (isNaN(musicDuration) || musicDuration < 1 || musicDuration > 120) {
+      if (isNaN(musicDuration) || musicDuration < 1 || musicDuration > 180) {
         toast.error(
           <div>
-            <FaTimes className="inline-flex mr-2" /> Duration must be between 1 and 120 seconds.
+            <FaTimes className="inline-flex mr-2" /> Duration must be between 1 and 180 seconds.
           </div>,
           {
             position: "bottom-center",
@@ -796,6 +796,8 @@ export default function VideoEditorToolbar(props) {
         return;
       }
     }
+
+    console.log(selectedMusicProvider.key);
 
     const body = {
       prompt: promptText,
@@ -930,7 +932,7 @@ export default function VideoEditorToolbar(props) {
                   type="number"
                   name="musicDuration"
                   min="1"
-                  max="120"
+                  max="180"
                   value={musicDuration}
                   onChange={(e) => setMusicDuration(e.target.value)}
                   className={`w-full ${bgColor} ${text2Color} p-1`}

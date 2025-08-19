@@ -85,16 +85,13 @@ export default function Home() {
         localStorage.setItem('videoSessionId', sessionData._id);
         let currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
         if (currentMediaFlowPath && currentMediaFlowPath === 'vidgpt') {
-          const finalUrl = appendQueryParams(`/vidgpt/${sessionData._id}`);
+          const finalUrl = appendQueryParams(`/vidgenie/${sessionData._id}`);
           navigate(finalUrl);
         } else {
-          const finalUrl = appendQueryParams(`/video/${sessionData._id}`);
+          const finalUrl = appendQueryParams(`/vidgenie/${sessionData._id}`);
           navigate(finalUrl);
         }
       } else {
-    
-    //    localStorage.setItem("setAskForPaymentModal", "true");
-
         navigate(appendQueryParams('/my_sessions'));
       }
     }).catch(function(err) {

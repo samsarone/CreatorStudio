@@ -1,3 +1,4 @@
+
 import React, {
   useState,
   useEffect,
@@ -46,9 +47,9 @@ const PROCESSOR_API_URL = API_SERVER;
 // ───────────────────────────────────────────────────────────
 //  Polling constants
 // ───────────────────────────────────────────────────────────
-const DEFAULT_POLL = 5_000;    // 5 s while online & healthy
-const OFFLINE_POLL = 30_000;   // 30 s while offline
-const MAX_BACKOFF = 60_000;    // 1 min cap
+const DEFAULT_POLL = 5_000;    // 5 s while online & healthy
+const OFFLINE_POLL = 30_000;   // 30 s while offline
+const MAX_BACKOFF = 60_000;    // 1 min cap
 
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
@@ -67,7 +68,18 @@ export default function OneshotEditor() {
 
   const currentEnv = getSessionType();
 
+  // ✨ UI tokens for light/dark surfaces
+  const surfaceCard =
+    colorMode === 'dark'
+      ? 'bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-slate-950/80 text-white border border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur'
+      : 'bg-gradient-to-br from-white to-slate-50 text-slate-900 border border-slate-200 shadow-sm';
 
+  const controlShell =
+    colorMode === 'dark'
+      ? 'bg-white/5 ring-1 ring-white/10 hover:ring-white/20'
+      : 'bg-white ring-1 ring-slate-200 hover:ring-slate-300';
+
+  const mutedText = colorMode === 'dark' ? 'text-white/60' : 'text-slate-500';
 
   useEffect(() => {
     activeSessionIdRef.current = id;
@@ -180,7 +192,7 @@ export default function OneshotEditor() {
   });
 
   // ─────────────────────────────────────────────────────────
-  //  Aspect‑ratio select
+  //  Aspect-ratio select
   // ─────────────────────────────────────────────────────────
   const aspectRatioOptions = [
     { label: '16:9 (Landscape)', value: '16:9' },
@@ -193,7 +205,7 @@ export default function OneshotEditor() {
   });
 
   // ─────────────────────────────────────────────────────────
-  //  Image‑model select & styles
+  //  Image-model select & styles
   // ─────────────────────────────────────────────────────────
   const expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
     .filter((m) => {
@@ -223,7 +235,7 @@ export default function OneshotEditor() {
     return null;
   });
 
-  // When image‑model changes, verify / reset style
+  // When image-model changes, verify / reset style
   useEffect(() => {
     if (!selectedImageModel) return;
     const modelCfg = IMAGE_GENERAITON_MODEL_TYPES.find(
@@ -241,7 +253,7 @@ export default function OneshotEditor() {
   }, [selectedImageModel]);
 
   // ─────────────────────────────────────────────────────────
-  //  Video‑model select
+  //  Video-model select
   // ─────────────────────────────────────────────────────────
   const expressVideoModels = useMemo(() => {
     return VIDEO_GENERATION_MODEL_TYPES
@@ -259,7 +271,7 @@ export default function OneshotEditor() {
     return found || expressVideoModels[0];
   });
 
-  // Video‑model subtype (Pixverse or otherwise)
+  // Video-model subtype (Pixverse or otherwise)
   const [selectedVideoModelSubType, setSelectedVideoModelSubType] = useState(null);
   useEffect(() => {
     if (selectedVideoModel?.value?.startsWith('PIXVERSE')) {
@@ -333,7 +345,7 @@ export default function OneshotEditor() {
   }, [user]);
 
   // ─────────────────────────────────────────────────────────
-  //  CLEAN‑UP ALL POLLS WHEN COMPONENT UNMOUNTS
+  //  CLEAN-UP ALL POLLS WHEN COMPONENT UNMOUNTS
   // ─────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
@@ -365,7 +377,6 @@ export default function OneshotEditor() {
     pollDelayRef.current = DEFAULT_POLL;
     assistantDelayRef.current = DEFAULT_POLL;
 
-
     resetForm();
 
     if (currentPollSessionIdRef.current === id) return;
@@ -379,7 +390,6 @@ export default function OneshotEditor() {
           // clear any existing pending polls
           if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
           if (assistantPollRef.current) clearInterval(assistantPollRef.current);
-
         }
       });
     }
@@ -415,7 +425,7 @@ export default function OneshotEditor() {
   }
 
   // ─────────────────────────────────────────────────────────
-  //  Generation‑status poller
+  //  Generation-status poller
   // ─────────────────────────────────────────────────────────
   const pollGenerationStatus = (sessionId = id, immediate = false) => {
     // Always update current session polling ID
@@ -478,7 +488,7 @@ export default function OneshotEditor() {
 
 
   // ─────────────────────────────────────────────────────────
-  //  Assistant‑query poller
+  //  Assistant-query poller
   // ─────────────────────────────────────────────────────────
   const startAssistantQueryPoll = () => {
     const headers = getHeaders();
@@ -502,7 +512,7 @@ export default function OneshotEditor() {
           }
         })
         .catch((err) => {
-          console.error('Assistant‑poll error:', err);
+          console.error('Assistant-poll error:', err);
           assistantErrorCountRef.current += 1;
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
@@ -591,14 +601,14 @@ export default function OneshotEditor() {
   };
 
   // ─────────────────────────────────────────────────────────
-  //  Toggle inline‑playback
+  //  Toggle inline-playback
   // ─────────────────────────────────────────────────────────
   const handleToggleVideo = (videoId) => {
     setExpandedVideoId((prev) => (prev === videoId ? null : videoId));
   };
 
   // ─────────────────────────────────────────────────────────
-  //  Handle prompt‑starter image upload
+  //  Handle prompt-starter image upload
   // ─────────────────────────────────────────────────────────
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -611,7 +621,7 @@ export default function OneshotEditor() {
   };
 
   // ─────────────────────────────────────────────────────────
-  //  Submit the text‑to‑video request
+  //  Submit the text-to-video request
   // ─────────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -708,18 +718,22 @@ export default function OneshotEditor() {
   const pricingInfoDisplay = (
     <div className="relative">
       <div
-        className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer"
+        className={`flex justify-end items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
         onClick={togglePricingDetailsDisplay}
       >
         {currentEnv === 'docker' ? (
           <div>Pricing as charged by API providers.</div>
         ) : (
-          <div>{creditsPerSecondVideo}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video</div>
+          <div className="inline-flex items-center">
+            {creditsPerSecondVideo}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video
+          </div>
         )}
-        <FaChevronCircleDown className="inline-flex ml-1 mt-1" />
+        <FaChevronCircleDown
+          className={`inline-flex ml-1 transition-transform duration-300 ${pricingDetailsDisplay ? 'rotate-180' : ''}`}
+        />
       </div>
       {pricingDetailsDisplay && (
-        <div className="mt-1 text-sm w-full text-right">
+        <div className={`mt-2 text-sm text-right ${mutedText} transition-opacity duration-300`}>
           {currentEnv === 'docker' ? (
             <div>Pricing as charged by API providers.</div>
           ) : (
@@ -731,14 +745,13 @@ export default function OneshotEditor() {
               </div>
             </>
           )}
-
         </div>
       )}
     </div>
   );
 
   // ─────────────────────────────────────────────────────────
-  //  Render‑state helpers
+  //  Render-state helpers
   // ─────────────────────────────────────────────────────────
   const renderState = useMemo(() => {
     if (isGenerationPending) return 'pending';
@@ -754,23 +767,48 @@ export default function OneshotEditor() {
   //  JSX
   // ─────────────────────────────────────────────────────────
   return (
-    <div className="mt-5 relative">
+    <div className="mt-5 relative max-w-6xl mx-auto px-3 sm:px-6">
       {/* ───────── HEADER ───────── */}
       <div
         className={`
-          ${colorMode === 'dark' ? 'bg-neutral-950 text-white' : 'bg-white text-black'}
-          flex flex-col p-4 pt-8 mt-8 rounded-md shadow-md relative
+          ${surfaceCard}
+          relative flex flex-col p-6 sm:p-8 mt-6 rounded-2xl transition-shadow duration-300 hover:shadow-xl
         `}
       >
         {/* 1️⃣ Heading */}
-        <div className="flex flex-wrap items-baseline gap-2 text-lg font-bold text-center m-auto mt-1 pl-1 mb-4">
-          <span>VidGenie&nbsp;Text‑to‑Vid&nbsp;Agent</span>
-          <span className="text-xs text-gray-400 font-normal">
-            —&nbsp;Create&nbsp;1‑shot&nbsp;videos&nbsp;from&nbsp;text&nbsp;prompts.
-          </span>
+        <div className="flex flex-wrap items-center gap-2 text-center sm:text-left">
+          <div className="flex-1">
+            <div className="text-xl sm:text-2xl font-semibold tracking-tight">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400">
+                VidGenie&nbsp;Text-to-Vid&nbsp;Agent
+              </span>
+            </div>
+            <div className={`text-xs ${mutedText} mt-1`}>
+              — Create 1-shot videos from text prompts.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={viewInStudio}
+            className={`
+              inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-1.5 rounded-full
+              transition-all duration-200
+              ${colorMode === 'dark'
+                ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
+                : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
+              }
+            `}
+          >
+            View in Studio
+          </button>
 
           {renderState === 'pending' && (
-            <div className="absolute right-2 flex items-center gap-1 text-xs sm:text-sm">
+            <div
+              className="flex items-center gap-1 text-xs sm:text-sm ml-auto"
+              aria-live="polite"
+              role="status"
+            >
               <FaSpinner className="animate-spin h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Rendering…</span>
               <span className="sr-only">Video is rendering</span>
@@ -780,8 +818,8 @@ export default function OneshotEditor() {
 
         {/* Mobile action buttons (complete state) */}
         {renderState === 'complete' && (
-          <div className="flex justify-center gap-2 mt-2 mb-4">
-            <PrimaryPublicButton className="bg-blue-600 px-3 py-1 rounded text-white">
+          <div className="flex justify-center gap-2 mt-4 mb-2">
+            <PrimaryPublicButton className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
               <a
                 href={videoLink}
                 download={`Rendition_${dateNowStr}.mp4`}
@@ -791,7 +829,7 @@ export default function OneshotEditor() {
               </a>
             </PrimaryPublicButton>
             <PrimaryPublicButton
-              className="bg-blue-600 px-3 py-1 rounded text-white"
+              className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
               onClick={viewInStudio}
             >
               View&nbsp;in&nbsp;Studio
@@ -800,28 +838,32 @@ export default function OneshotEditor() {
         )}
 
         {/* 2️⃣ Options grid */}
-        <div className="w-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="w-full mt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {/* Aspect Ratio */}
-            <div className="flex flex-col w-full">
-              <SingleSelect
-                value={selectedAspectRatioOption}
-                onChange={setSelectedAspectRatioOption}
-                options={aspectRatioOptions}
-                className="w-full md:w-40"
-              />
-              <p className="text-xs mt-1">Aspect Ratio</p>
+            <div className="group w-full">
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <SingleSelect
+                  value={selectedAspectRatioOption}
+                  onChange={setSelectedAspectRatioOption}
+                  options={aspectRatioOptions}
+                  className="w-full"
+                />
+              </div>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>Aspect Ratio</p>
             </div>
 
             {/* Image Model */}
-            <div className="flex flex-col w-full">
-              <SingleSelect
-                value={selectedImageModel}
-                onChange={setSelectedImageModel}
-                options={expressImageModels}
-                className="w-full md:w-40"
-              />
-              <p className="text-xs mt-1">Image Model</p>
+            <div className="group w-full">
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <SingleSelect
+                  value={selectedImageModel}
+                  onChange={setSelectedImageModel}
+                  options={expressImageModels}
+                  className="w-full"
+                />
+              </div>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>Image Model</p>
             </div>
 
             {/* Image Style (conditional) */}
@@ -831,14 +873,16 @@ export default function OneshotEditor() {
               );
               if (modelCfg?.imageStyles) {
                 return (
-                  <div className="flex flex-col w-full">
-                    <SingleSelect
-                      value={selectedImageStyle}
-                      onChange={setSelectedImageStyle}
-                      options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
-                      className="w-full md:w-40"
-                    />
-                    <p className="text-xs mt-1">Image Style</p>
+                  <div className="group w-full">
+                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                      <SingleSelect
+                        value={selectedImageStyle}
+                        onChange={setSelectedImageStyle}
+                        options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
+                        className="w-full"
+                      />
+                    </div>
+                    <p className={`text-[11px] mt-1 ${mutedText}`}>Image Style</p>
                   </div>
                 );
               }
@@ -846,62 +890,72 @@ export default function OneshotEditor() {
             })()}
 
             {/* Video Model */}
-            <div className="flex flex-col w-full">
-              <SingleSelect
-                value={selectedVideoModel}
-                onChange={setSelectedVideoModel}
-                options={expressVideoModels}
-                className="w-full md:w-40"
-              />
-              <p className="text-xs mt-1">Video Model</p>
+            <div className="group w-full">
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <SingleSelect
+                  value={selectedVideoModel}
+                  onChange={setSelectedVideoModel}
+                  options={expressVideoModels}
+                  className="w-full"
+                />
+              </div>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>Video Model</p>
             </div>
 
             {/* Pixverse Style */}
             {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
-              <div className="flex flex-col w-full">
-                <SingleSelect
-                  value={selectedVideoModelSubType}
-                  onChange={setSelectedVideoModelSubType}
-                  options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
-                  className="w-full md:w-40"
-                />
-                <p className="text-xs mt-1">Pixverse Style</p>
+              <div className="group w-full">
+                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                  <SingleSelect
+                    value={selectedVideoModelSubType}
+                    onChange={setSelectedVideoModelSubType}
+                    options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
+                    className="w-full"
+                  />
+                </div>
+                <p className={`text-[11px] mt-1 ${mutedText}`}>Pixverse Style</p>
               </div>
             )}
 
-            {/* Generic Sub‑type */}
+            {/* Generic Sub-type */}
             {selectedVideoModel?.modelSubTypes?.length && selectedVideoModelSubType && (
-              <div className="flex flex-col w-full">
-                <SingleSelect
-                  value={selectedVideoModelSubType}
-                  onChange={setSelectedVideoModelSubType}
-                  options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
-                  className="w-full md:w-40"
-                />
-                <p className="text-xs mt-1">Video Sub‑Type</p>
+              <div className="group w-full">
+                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                  <SingleSelect
+                    value={selectedVideoModelSubType}
+                    onChange={setSelectedVideoModelSubType}
+                    options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
+                    className="w-full"
+                  />
+                </div>
+                <p className={`text-[11px] mt-1 ${mutedText}`}>Video Sub-Type</p>
               </div>
             )}
 
             {/* Duration */}
-            <div className="flex flex-col w-full">
-              <SingleSelect
-                value={selectedDurationOption}
-                onChange={setSelectedDurationOption}
-                options={durationOptions}
-                className="w-full md:w-40"
-              />
-              <p className="text-xs mt-1">Max Duration</p>
+            <div className="group w-full">
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <SingleSelect
+                  value={selectedDurationOption}
+                  onChange={setSelectedDurationOption}
+                  options={durationOptions}
+                  className="w-full"
+                />
+              </div>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>Max Duration</p>
             </div>
 
             {/* Tone */}
-            <div className="flex flex-col w-full">
-              <SingleSelect
-                value={selectedToneOption}
-                onChange={setSelectedToneOption}
-                options={toneOptions}
-                className="w-full md:w-40"
-              />
-              <p className="text-xs mt-1">Video Tone</p>
+            <div className="group w-full">
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <SingleSelect
+                  value={selectedToneOption}
+                  onChange={setSelectedToneOption}
+                  options={toneOptions}
+                  className="w-full"
+                />
+              </div>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>Video Tone</p>
             </div>
           </div>
         </div>
@@ -910,12 +964,14 @@ export default function OneshotEditor() {
 
       {/* Error */}
       {errorMessage?.error && !showResultDisplay && (
-        <div className="text-red-500 mt-2 font-semibold">{errorMessage.error}</div>
+        <div className="text-red-500 mt-3 font-semibold bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+          {errorMessage.error}
+        </div>
       )}
 
       {/* Progress indicator / result */}
       {showResultDisplay && (
-        <div className="mt-4 transition-all duration-500 ease-in-out">
+        <div className="mt-5 transition-all duration-500 ease-out">
           <ProgressIndicator
             isGenerationPending={isGenerationPending}
             expressGenerationStatus={expressGenerationStatus}
@@ -927,12 +983,12 @@ export default function OneshotEditor() {
         </div>
       )}
 
-      {/* Prompt‑starter preview */}
+      {/* Prompt-starter preview */}
       {uploadedImageDataUrl && (
         <img
           src={uploadedImageDataUrl}
           alt="Prompt starter"
-          className="mt-4 max-h-40 rounded shadow"
+          className="mt-4 max-h-40 rounded-xl shadow-md ring-1 ring-black/5 hover:shadow-lg transition"
         />
       )}
 
@@ -943,8 +999,12 @@ export default function OneshotEditor() {
           maxRows={20}
           disabled={isFormDisabled}
           className={`
-            ${colorMode === 'dark' ? 'bg-gray-950 text-white' : 'bg-gray-50 text-black'}
-            w-full pl-4 pt-4 p-2 rounded mt-4
+            w-full pl-4 pt-4 p-2 rounded-2xl mt-4 resize-none placeholder:opacity-60
+            focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+            ${colorMode === 'dark'
+              ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+              : 'bg-gray-50 text-black ring-slate-200 focus:ring-indigo-500/50'
+            }
           `}
           placeholder="Enter a succinct prompt for your rendition…"
           name="promptText"
@@ -956,6 +1016,7 @@ export default function OneshotEditor() {
             <PrimaryPublicButton
               type="submit"
               isDisabled={isFormDisabled || isSubmitting}
+              className="px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
             >
               {isSubmitting ? 'Submitting…' : 'Submit'}
             </PrimaryPublicButton>
@@ -964,8 +1025,11 @@ export default function OneshotEditor() {
           {/* Pricing */}
           <div
             className={`
-              ${colorMode === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'}
-              md:absolute md:right-0 top-0 p-2 rounded text-center mt-4 md:mt-0 w-full md:w-auto
+              md:absolute md:right-0 top-0 p-3 rounded-xl text-center mt-4 md:mt-0 w-full md:w-auto transition
+              ${colorMode === 'dark'
+                ? 'bg-gray-900/70 text-white ring-1 ring-white/10'
+                : 'bg-gray-100 text-black ring-1 ring-slate-200'
+              }
             `}
           >
             {pricingInfoDisplay}
@@ -974,12 +1038,14 @@ export default function OneshotEditor() {
       </form>
 
       {/* ───────── Assistant Chat ───────── */}
-      <AssistantHome
-        submitAssistantQuery={submitAssistantQuery}
-        sessionMessages={sessionMessages}
-        isAssistantQueryGenerating={isAssistantQueryGenerating}
-        getSessionImageLayers={getSessionImageLayers}
-      />
+      <div className={`mt-6 ${colorMode === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-2xl p-3 sm:p-4 ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'} transition-shadow hover:shadow-sm`}>
+        <AssistantHome
+          submitAssistantQuery={submitAssistantQuery}
+          sessionMessages={sessionMessages}
+          isAssistantQueryGenerating={isAssistantQueryGenerating}
+          getSessionImageLayers={getSessionImageLayers}
+        />
+      </div>
     </div>
   );
 }
