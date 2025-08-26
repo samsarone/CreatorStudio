@@ -7,6 +7,8 @@ import { FaSpinner } from 'react-icons/fa';
 import './home.css';
 import ScreenLoader from './util/ScreenLoader';
 
+import LoadingImage from './util/LoadingImage.jsx';
+
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 const CURRENT_ENV = import.meta.env.VITE_CURRENT_ENV;

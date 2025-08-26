@@ -20,7 +20,6 @@ import UploadImageDialog from '../editor/utils/UploadImageDialog.jsx';
 import VideoCanvasContainer from './editor/VideoCanvasContainer.jsx';
 import VideoEditorToolbar from './toolbars/VideoEditorToolbar.jsx'
 import LoadingImage from './util/LoadingImage.jsx';
-import LoadingImageTransparent from './util/LoadingImageTransparent.jsx';
 import LoadingImageBase from './util/LoadingImageBase.jsx';
 
 
