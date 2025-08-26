@@ -18,7 +18,11 @@ import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
+
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
+
+import ScreenLoader from './util/ScreenLoader.jsx';
+
 
 import LoadingImageTransparent from './util/LoadingImageTransparent.jsx';
 import { ToastContainer, toast } from 'react-toastify';
@@ -1905,7 +1909,7 @@ export default function VideoHome(props) {
 
             {canvasProcessLoading && (
               <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">
-                <LoadingImageTransparent />
+                <ScreenLoader />
 
               </div>
             )}

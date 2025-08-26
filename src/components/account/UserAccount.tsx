@@ -25,6 +25,7 @@ import SingleSelect from "../common/SingleSelect.jsx";
 import { getSessionType } from '../../utils/environment.jsx';
 
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
+import { set } from "mongoose";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -67,6 +68,10 @@ const defaultDurationOptions = [
   { value: 120, label: "2 minutes" },
 ];
 
+  const agentSoundEffectModelOptions = [
+    { value: "MMAUDIOV2", label: "MMAudio V2" },
+    { value: "MIRELOAI", label: "Mirelo AI (Default)" },
+  ];
 
 
 /* ------------------------------------------------------------------ */
@@ -101,6 +106,15 @@ export default function UserAccount() {
   const [textFont, setTextFont] = useState(fontOptions[0]);
 
   const [defaultAgentDuration, setDefaultAgentDuration] = useState(defaultDurationOptions[0]);
+
+  const [agentSoundEffectModel, setAgentSoundEffectModel] = useState(agentSoundEffectModelOptions[1]); // default: MIRELOAI
+
+
+
+  const handleAgentSoundEffectModelChange = (newVal) => {
+    setAgentSoundEffectModel(newVal);
+    updateUserDetails({ agentSoundEffectModel: newVal.value });
+  };
 
 
   /* ------------------------------------------------------------------ */
@@ -138,6 +152,15 @@ export default function UserAccount() {
     setDefaultAgentDuration(
       defaultDurationOptions.find((f) => f.value === (user.defaultAgentDuration || 30))
     );
+
+    setAgentSoundEffectModel(
+      agentSoundEffectModelOptions.find(
+        (f) => f.value === (user.agentSoundEffectModel || "MIRELOAI")
+      ) || agentSoundEffectModelOptions[1]
+    );
+
+
+
   }, [user]);
 
   /* ------------------------------------------------------------------ */
@@ -149,6 +172,8 @@ export default function UserAccount() {
   /*  HELPERS ‑ API calls & updates                                     */
   /* ------------------------------------------------------------------ */
   const updateUserDetails = (payload) => {
+
+
     axios
       .post(`${PROCESSOR_SERVER}/users/update`, payload, getHeaders())
       .then(() => {
@@ -300,6 +325,7 @@ export default function UserAccount() {
     setAgentImageModel(newVal);
     updateUserDetails({ agentImageModel: newVal.value });
   };
+
 
   /* ------------------------------------------------------------------ */
   /*  RENDER HELPERS                                                    */
@@ -561,6 +587,15 @@ export default function UserAccount() {
                       </div>
 
 
+                      <div className="mb-6">
+                        <h4 className="font-semibold mb-1">Sound Effect Model</h4>
+                        <SingleSelect
+                          options={agentSoundEffectModelOptions}
+                          value={agentSoundEffectModel}
+                          onChange={handleAgentSoundEffectModelChange}
+                        />
+                      </div>
+
 
                       <div className="mb-6">
                         <h4 className="font-semibold mb-1">Default Agent Duration</h4>
@@ -570,7 +605,7 @@ export default function UserAccount() {
                           onChange={handleDefaultAgentDurationChange}
                         />
                       </div>
-                      
+
                     </div>
                   </div>
 

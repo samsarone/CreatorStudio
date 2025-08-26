@@ -1,6 +1,7 @@
 import React, { useState, useContext, createContext } from 'react';
 import axios from 'axios';
 import { getHeaders, getAuthToken } from '../utils/web'; // Adjust the path if needed
+import { useNavigate } from 'react-router-dom';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API || 'http://localhost:3002';
 
@@ -19,6 +20,8 @@ export const UserProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
   const [userFetching, setUserFetching] = useState(true);
   const [userInitiated, setUserInitiated] = useState(false);
+
+  const { navigate } = useNavigate();
 
   const setUserApi = (profile) => {
     // Placeholder for future use
@@ -56,6 +59,7 @@ export const UserProvider = ({ children }) => {
     } catch (err) {
       console.error('Error verifying user token:', err);
       resetUser();
+      navigate("/");
     } finally {
       setUserFetching(false);
     }
