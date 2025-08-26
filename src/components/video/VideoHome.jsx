@@ -23,8 +23,6 @@ import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizon
 
 import ScreenLoader from './util/ScreenLoader.jsx';
 
-
-import LoadingImageTransparent from './util/LoadingImageTransparent.jsx';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
