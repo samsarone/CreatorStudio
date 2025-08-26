@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getHeaders } from '../../utils/web';
 import { FaSpinner } from 'react-icons/fa';
 import './home.css';
-import LoadingImage from './util/LoadingImage';
+import ScreenLoader from './util/ScreenLoader';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -49,7 +49,9 @@ export default function VideoEditorLandingHome() {
 
     axios.get(`${API_SERVER}/video_sessions/fetch_guest_session`).then((res) => {
       const sessionData = res.data;
-      if (sessionData) {
+      if (sessionData && sessionData._id) {
+        console.log("HERE");
+        
         navigate(`/video/${sessionData._id}`);
       }
     });

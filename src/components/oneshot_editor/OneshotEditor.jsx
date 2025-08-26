@@ -842,7 +842,7 @@ export default function OneshotEditor() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {/* Aspect Ratio */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
                   value={selectedAspectRatioOption}
                   onChange={setSelectedAspectRatioOption}
@@ -855,7 +855,7 @@ export default function OneshotEditor() {
 
             {/* Image Model */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
                   value={selectedImageModel}
                   onChange={setSelectedImageModel}
@@ -874,7 +874,7 @@ export default function OneshotEditor() {
               if (modelCfg?.imageStyles) {
                 return (
                   <div className="group w-full">
-                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                       <SingleSelect
                         value={selectedImageStyle}
                         onChange={setSelectedImageStyle}
@@ -891,7 +891,7 @@ export default function OneshotEditor() {
 
             {/* Video Model */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
                   value={selectedVideoModel}
                   onChange={setSelectedVideoModel}
@@ -905,7 +905,7 @@ export default function OneshotEditor() {
             {/* Pixverse Style */}
             {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
               <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                   <SingleSelect
                     value={selectedVideoModelSubType}
                     onChange={setSelectedVideoModelSubType}
@@ -920,7 +920,7 @@ export default function OneshotEditor() {
             {/* Generic Sub-type */}
             {selectedVideoModel?.modelSubTypes?.length && selectedVideoModelSubType && (
               <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                   <SingleSelect
                     value={selectedVideoModelSubType}
                     onChange={setSelectedVideoModelSubType}
@@ -934,7 +934,7 @@ export default function OneshotEditor() {
 
             {/* Duration */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
                   value={selectedDurationOption}
                   onChange={setSelectedDurationOption}
@@ -947,7 +947,7 @@ export default function OneshotEditor() {
 
             {/* Tone */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px]`}>
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
                   value={selectedToneOption}
                   onChange={setSelectedToneOption}

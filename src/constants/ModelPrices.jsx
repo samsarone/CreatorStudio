@@ -905,6 +905,25 @@ export const VIDEO_MODEL_PRICES = [
     ],
   },
 
+    {
+    key: 'CREATIFYLIPSYNC',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 10
+      },
+      {
+        aspectRatio: '9:16',
+        price: 10
+      },
+    ],
+  },
+
+
   {
     key: 'MMAUDIOV2',
     prices: [
@@ -923,6 +942,25 @@ export const VIDEO_MODEL_PRICES = [
     ],
     units: [5, 10]
   },
+    {
+    key: 'MIRELOAI',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 10
+      },
+      {
+        aspectRatio: '9:16',
+        price: 10
+      },
+    ],
+    units: [5, 10]
+  },
+
   {
     key: 'WANI2V',
     prices: [

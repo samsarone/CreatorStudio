@@ -15,20 +15,22 @@ export default function VideoAiVideoOptionsViewer(props) {
   const [showSoundEffectPrompt, setShowSoundEffectPrompt] = useState(false);
   const [soundEffectPrompt, setSoundEffectPrompt] = useState('');
 
-
-  // 2) Define options for SingleSelect
+  // Lip sync options
   const lipSyncOptions = [
     { label: 'HummingBird Lip Sync', value: 'HUMMINGBIRDLIPSYNC' },
     { label: 'Latent Sync', value: 'LATENTSYNC' },
     { label: 'Sync Lip Sync', value: 'SYNCLIPSYNC' },
-    {label: 'Kling Lip Sync', value: 'KLINGLIPSYNC'},
-    
-    
+    { label: 'Kling Lip Sync', value: 'KLINGLIPSYNC' },
+    {label: 'Creatify Lip Sync', value: 'CREATIFYLIPSYNC' }
   ];
-
-  // 1) Define state for the lip sync selection
   const [selectedLipSyncOption, setSelectedLipSyncOption] = useState(lipSyncOptions[0]);
 
+  // NEW: Sound effect options + selection
+  const soundEffectOptions = [
+    { label: 'MMAudio V2', value: 'MMAUDIOV2' },
+    { label: 'Mirelo AI', value: 'MIRELOAI' }
+  ];
+  const [selectedSoundEffectOption, setSelectedSoundEffectOption] = useState(soundEffectOptions[0]);
 
   const handleDeleteLayer = () => {
     if (removeVideoLayer) {
@@ -36,10 +38,8 @@ export default function VideoAiVideoOptionsViewer(props) {
     }
   };
 
-  // 3) Modify lip sync request handler to include the selected value
   const handleRequestLipSync = () => {
     if (requestLipSyncToSpeech && selectedLipSyncOption) {
-      // Pass the selected sync option as the second argument
       requestLipSyncToSpeech(selectedLipSyncOption.value);
     }
   };
@@ -52,6 +52,8 @@ export default function VideoAiVideoOptionsViewer(props) {
     if (requestAddSyncedSoundEffect) {
       const payload = {
         prompt: soundEffectPrompt,
+        // Pass the selected model value with the request
+        model: selectedSoundEffectOption?.value
       };
       requestAddSyncedSoundEffect(payload);
     }
@@ -59,35 +61,28 @@ export default function VideoAiVideoOptionsViewer(props) {
     setSoundEffectPrompt('');
   };
 
-  // 4) Conditionally render lip sync UI if this is a character
   const lipSyncOptionViewer = currentLayerHasSpeechLayer ? (
-      <div className="mb-4 flex flex-col items-center">
-        {/* SingleSelect for lip sync type */}
-        <div className='text-sm mb-2'>
-          Lip Sync
-        </div>
-        <div className="w-48 mb-2">
-          <SingleSelect
-            options={lipSyncOptions}
-            value={selectedLipSyncOption}
-            onChange={setSelectedLipSyncOption}
-            classNamePrefix="lipSyncSelect"
-            isSearchable={false}
-          />
-        </div>
-
-        {/* Request Lip Sync button */}
-        <SecondaryButton onClick={handleRequestLipSync}>
-          Request Lip Sync 
-        </SecondaryButton>
+    <div className="mb-4 flex flex-col items-center">
+      <div className="text-sm mb-2">Lip Sync</div>
+      <div className="w-48 mb-2">
+        <SingleSelect
+          options={lipSyncOptions}
+          value={selectedLipSyncOption}
+          onChange={setSelectedLipSyncOption}
+          classNamePrefix="lipSyncSelect"
+          isSearchable={false}
+        />
       </div>
-    ) : (
-      <div className="mb-2 text-sm">
-        <p>Create a speech layer</p>
-        <p>to generate lipsync</p>
-      </div>
-    );
-
+      <SecondaryButton onClick={handleRequestLipSync}>
+        Request Lip Sync
+      </SecondaryButton>
+    </div>
+  ) : (
+    <div className="mb-2 text-sm">
+      <p>Create a speech layer</p>
+      <p>to generate lipsync</p>
+    </div>
+  );
 
   return (
     <div className="flex flex-col items-center justify-center mt-2 mx-auto">
@@ -95,14 +90,28 @@ export default function VideoAiVideoOptionsViewer(props) {
       {lipSyncOptionViewer}
 
       {/* Sound Effect Section */}
-      <div className="mt-2 mb-2">
+      <div className="mt-2 mb-2 flex flex-col items-center">
+        <div className="text-sm mb-2">Sound Effect</div>
+
+        {/* NEW: Sound effect model select */}
+        <div className="w-48 mb-2">
+          <SingleSelect
+            options={soundEffectOptions}
+            value={selectedSoundEffectOption}
+            onChange={setSelectedSoundEffectOption}
+            classNamePrefix="soundEffectSelect"
+            isSearchable={false}
+          />
+        </div>
+
         <SecondaryButton onClick={handleRequestSoundEffect}>
           Request Sound Effect
         </SecondaryButton>
+
         {showSoundEffectPrompt && (
-          <div className="flex flex-col items-center mt-2">
+          <div className="flex flex-col items-center mt-2 w-full">
             <textarea
-              className="text-sm p-1 bg-gray-800 border border-gray-300 rounded"
+              className="w-48 text-sm p-1 bg-gray-800 border border-gray-300 rounded"
               placeholder="Enter prompt for effect"
               value={soundEffectPrompt}
               onChange={(e) => setSoundEffectPrompt(e.target.value)}

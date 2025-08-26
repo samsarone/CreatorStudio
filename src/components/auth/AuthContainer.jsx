@@ -93,7 +93,8 @@ export default function AuthContainer(props) {
     axios.get(`${API_SERVER}/video_sessions/get_session`, headers)
       .then((res) => {
         const sessionData = res.data;
-        if (sessionData) {
+
+        if (sessionData && sessionData._id) {
           localStorage.setItem('videoSessionId', sessionData._id);
 
           // Navigate based on the current path
@@ -141,8 +142,7 @@ export default function AuthContainer(props) {
 
   let authoComponent;
 
-  console.log("CURRENT LOGIN VIEW:", currentLoginView);
-  
+
 
   if (currentLoginView === 'login') {
     authoComponent = (

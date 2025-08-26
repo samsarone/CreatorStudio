@@ -2387,6 +2387,7 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestAddSyncedSoundEffect = (payload) => {
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -2395,9 +2396,12 @@ export default function VideoEditorContainer(props) {
     const reqPayload = {
       sessionId: id,
       currentLayerId: currentLayer._id.toString(),
-      model: 'MMAUDIOV2',
+      model: payload.model ||   'MMAUDIOV2',
       ...payload,
     };
+
+
+
     setAiVideoPollType(null);
 
     setIsAIVideoGenerationPending(true);
