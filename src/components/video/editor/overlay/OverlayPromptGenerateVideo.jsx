@@ -32,7 +32,7 @@ export default function OverlayPromptGenerateVideo(props) {
   // Filter out only text-to-video models & check if they have pricing for the current aspect ratio
   // -----------------------------
   const textToVidModels = VIDEO_GENERATION_MODEL_TYPES.filter(
-    (m) => !m.isImgToVidModel
+    (m) => m.isTextToVidModel
   );
 
   const modelOptions = textToVidModels
@@ -61,6 +61,7 @@ export default function OverlayPromptGenerateVideo(props) {
   );
 
   const isImgToVidModel = selectedModelDef?.isImgToVidModel || false;
+  const isTextToVidModel = selectedModelDef?.isTextToVidModel || false;
 
   // -----------------------------
   // Local state & Local Storage
@@ -243,13 +244,13 @@ useEffect(() => {
       useStartFrame:
         selectedVideoGenerationModel === "SDVIDEO"
           ? true
-          : isImgToVidModel
+          : isImgToVidModel && !isTextToVidModel
           ? useStartFrame
           : false,
       useEndFrame:
         selectedVideoGenerationModel === "SDVIDEO"
           ? false
-          : isImgToVidModel
+          : isImgToVidModel && !isTextToVidModel
           ? useEndFrame
           : false,
       combineLayers,

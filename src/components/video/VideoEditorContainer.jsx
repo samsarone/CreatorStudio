@@ -776,6 +776,16 @@ export default function VideoEditorContainer(props) {
       maskImageData = await exportMaskedGroupAsBlackAndWhite();
     }
 
+    console.log(selectedEditModelValue);
+
+    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANA') {
+      console.log("NANO BANANA SELECTED");
+
+      submitNanoBananaOutpaintRequest();
+      return;
+
+    }
+
     const formData = new FormData(evt.target);
     const promptText = formData.get('promptText');
     const guidanceScale = formData.get('guidanceScale');
@@ -796,6 +806,8 @@ export default function VideoEditorContainer(props) {
     if (maskImageData) {
       payload['maskImage'] = maskImageData;
     }
+
+
 
     setOutpaintError(null);
     const headers = getHeaders();
@@ -830,6 +842,24 @@ export default function VideoEditorContainer(props) {
         );
       });
   };
+
+  const submitNanoBananaOutpaintRequest = () => {
+
+
+    const payload = {
+      sessionId: id,
+      layerId: currentLayer._id.toString(),
+      prompt: promptText,
+      model: selectedEditModel,
+    };
+
+
+
+
+
+
+
+  }
 
   // Poll for generation status
   async function startGenerationPoll() {
@@ -2395,7 +2425,7 @@ export default function VideoEditorContainer(props) {
     const reqPayload = {
       sessionId: id,
       currentLayerId: currentLayer._id.toString(),
-      model: payload.model ||   'MMAUDIOV2',
+      model: payload.model || 'MMAUDIOV2',
       ...payload,
     };
 

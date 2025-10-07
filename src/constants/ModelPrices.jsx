@@ -353,6 +353,25 @@ export const IMAGE_MODEL_PRICES = [
   },
 
   {
+    key: 'NANOBANANA',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 15
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
+  },
+
+
+  {
 
     key: 'SEEDREAM',
 
@@ -391,6 +410,25 @@ export const IMAGE_MODEL_PRICES = [
       },
     ]
   },
+
+  {
+    key: 'HUNYUAN',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 40
+      },
+      {
+        aspectRatio: '16:9',
+        price: 40
+      },
+      {
+        aspectRatio: '9:16',
+        price: 40
+      },
+    ]
+  },
+
 
 
 ]
@@ -500,8 +538,26 @@ export const IMAGE_EDIT_MODEL_PRICES = [
         price: 15
       },
     ]
-  }
+  },
 
+
+  {
+    key: 'NANOBANANAEDIT',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 10
+      },
+      {
+        aspectRatio: '16:9',
+        price: 15
+      },
+      {
+        aspectRatio: '9:16',
+        price: 15
+      },
+    ]
+  },
 
 
 
@@ -531,6 +587,46 @@ export const VIDEO_MODEL_PRICES = [
       },
     ]
   },
+
+  {
+    key: 'KLINGTXTTOVIDTURBO',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 60
+      },
+      {
+        aspectRatio: '16:9',
+        price: 60
+      },
+      {
+        aspectRatio: '9:16',
+        price: 60
+      },
+    ],
+    units: [5, 10],
+  },
+
+  {
+    key: 'KLINGIMGTOVIDTURBO',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 60
+      },
+      {
+        aspectRatio: '16:9',
+        price: 60
+      },
+      {
+        aspectRatio: '9:16',
+        price: 60
+      },
+    ],
+    units: [5, 10],
+
+  },
+
   {
     key: 'KLINGIMGTOVIDSTANDARD',
     prices: [
@@ -662,6 +758,37 @@ export const VIDEO_MODEL_PRICES = [
   },
 
 
+  {
+    key: 'SORA2',
+    prices: [
+
+      {
+        aspectRatio: '16:9',
+        price: 100
+      },
+      {
+        aspectRatio: '9:16',
+        price: 100
+      },
+    ],
+    units: [8],
+  },
+
+    {
+    key: 'SORA2PRO',
+    prices: [
+
+      {
+        aspectRatio: '16:9',
+        price: 300
+      },
+      {
+        aspectRatio: '9:16',
+        price: 300
+      },
+    ],
+    units: [8],
+  },
 
 
 
@@ -777,6 +904,70 @@ export const VIDEO_MODEL_PRICES = [
     ],
     units: [8]
   },
+
+  {
+    key: 'VEO3I2V',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 700
+      },
+      {
+        aspectRatio: '16:9',
+        price: 700
+      },
+      {
+        aspectRatio: '9:16',
+        price: 700
+      },
+    ],
+    units: [8]
+  },
+  {
+    key: 'VEO3I2VFLASH',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 300
+      },
+      {
+        aspectRatio: '16:9',
+        price: 300
+      },
+      {
+        aspectRatio: '9:16',
+        price: 300
+      },
+    ],
+    units: [8]
+  },
+
+
+
+
+  //   {
+  //   name: 'VEO3 Img2Vid',
+  //   key: 'VEO3I2V',
+  //   isImgToVidModel: true,
+  //   isExpressModel: true,
+  //   supportedAspectRatios: [
+  //     '16:9', '9:16',
+  //   ]
+  // },
+
+
+  // {
+  //   name: 'VEO3 Flash Img2Vid',
+  //   key: 'VEO3I2VFLASH',
+  //   isImgToVidModel: true,
+  //   isExpressModel: true,
+  //   supportedAspectRatios: [
+  //     '16:9', '9:16',
+  //   ]
+  // },
+
+
+
 
   {
     key: 'PIXVERSEI2VFAST',
@@ -905,7 +1096,7 @@ export const VIDEO_MODEL_PRICES = [
     ],
   },
 
-    {
+  {
     key: 'CREATIFYLIPSYNC',
     prices: [
       {
@@ -942,7 +1133,7 @@ export const VIDEO_MODEL_PRICES = [
     ],
     units: [5, 10]
   },
-    {
+  {
     key: 'MIRELOAI',
     prices: [
       {
@@ -1027,7 +1218,11 @@ export const VIDEO_MODEL_PRICES = [
       }
     ],
     units: [5, 10]
-  }
+  },
+
+
+
+
 
 
 
@@ -1073,7 +1268,7 @@ export const ASSISTANT_MODEL_PRICES = [
       },
     ]
   },
-    {
+  {
     key: "GPT5",
     prices: [
       {
@@ -1083,7 +1278,7 @@ export const ASSISTANT_MODEL_PRICES = [
       },
     ]
   },
-    {
+  {
     key: "GPT5MINI",
     prices: [
       {

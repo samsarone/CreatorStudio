@@ -212,6 +212,17 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: false,
   },
 
+  {
+    name: 'Nano Banana',
+    key: 'NANOBANANA',
+    isExpressModel: true,
+  },
+  {
+    name: 'Hunyuan',
+    key: 'HUNYUAN',
+    isExpressModel: true,
+  },
+
 
 ];
 
@@ -230,6 +241,28 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
+    name: 'Sora 2',
+    key: 'SORA2',
+    isExpressModel: true,
+    isTransitionModel: false,
+    isImgToVidModel: true,
+    isTextToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
+  },
+  {
+    name: 'Sora 2 Pro',
+    key: 'SORA2PRO',
+    isExpressModel: true,
+    isTransitionModel: false,
+    isImgToVidModel: true,
+    isTextToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16'
+    ]
+  },
+  {
     name: 'Sora T2V',
     key: 'SORAT2V',
     isExpressModel: false,
@@ -239,37 +272,22 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16', '1:1'
     ]
   },
+
   {
-    name: 'Kling 2.1 Master',
-    key: 'KLINGIMGTOVID2.1MASTER',
-    isExpressModel: false,
+    name: 'Kling 2.5 Img2Vid',
+    key: 'KLINGIMGTOVIDTURBO',
+    isExpressModel: true,
     isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
     ]
   },
+
   {
-    name: 'Kling 2.1 Pro',
-    key: 'KLINGIMGTOVID2.1PRO',
+    name: 'Kling 2.5 Txt2Vid',
+    key: 'KLINGTXTTOVIDTURBO',
     isExpressModel: false,
-    isImgToVidModel: true,
-    supportedAspectRatios: [
-      '16:9', '9:16', '1:1',
-    ]
-  },
-  {
-    name: 'Kling 2.1 Standard',
-    key: 'KLINGIMGTOVID2.1STANDARD',
     isImgToVidModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16', '1:1',
-    ]
-  },
-  {
-    name: 'Kling 1.6 Pro',
-    key: 'KLINGIMGTOVIDPRO',
-    isExpressModel: false,
-    isImgToVidModel: true,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
     ]
@@ -319,6 +337,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isImgToVidModel: false,
 
   },
+
+
+
 
   {
     name: 'Veo2 Img2Vid',
@@ -425,7 +446,29 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16',
 
     ]
-  }
+  },
+
+  {
+    name: 'VEO3 Img2Vid',
+    key: 'VEO3I2V',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ]
+  },
+
+
+  {
+    name: 'VEO3 Flash Img2Vid',
+    key: 'VEO3I2VFLASH',
+    isImgToVidModel: true,
+    isExpressModel: true,
+    supportedAspectRatios: [
+      '16:9'
+    ]
+  },
+
 
 ];
 
@@ -436,6 +479,13 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
 
 
 export const IMAGE_EDIT_MODEL_TYPES = [
+
+  // {
+  //   name: 'Nano Banana',
+  //   key: 'NANOBANANA',
+  //   editType: 'prompt',
+  //   isPromptEnabled: true
+  // },
   {
     name: 'Bria Eraser',
     key: 'BRIA_ERASER',
@@ -457,6 +507,8 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     isPromptEnabled: false
 
   },
+
+
 
 
   {
