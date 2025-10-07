@@ -332,7 +332,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     previousViewRef.current = currentView;
   }, [currentView]);
 
-  let imageStackList = <span />;
+  let imageStackList = null;
 
   if (activeItemList && activeItemList.length > 0) {
 

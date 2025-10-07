@@ -334,13 +334,17 @@ export default function VideoHome(props) {
 
 
   useEffect(() => {
-
-    if (currentLayerToBeUpdated !== null) {
+    if (
+      Array.isArray(layers) &&
+      typeof currentLayerToBeUpdated === 'number' &&
+      currentLayerToBeUpdated >= 0 &&
+      currentLayerToBeUpdated < layers.length
+    ) {
       setCurrentLayer(layers[currentLayerToBeUpdated]);
       setSelectedLayerIndex(currentLayerToBeUpdated);
       setLayerListRequestAdded(true);
     }
-  }, [currentLayerToBeUpdated]);
+  }, [currentLayerToBeUpdated, layers]);
 
 
   const showLoginDialog = () => {
@@ -1518,6 +1522,18 @@ export default function VideoHome(props) {
 
   const updateCurrentLayerAndLayerList = (layerList, updatedLayerIndex) => {
     setLayers(layerList);
+
+    if (
+      Array.isArray(layerList) &&
+      typeof updatedLayerIndex === 'number' &&
+      updatedLayerIndex >= 0 &&
+      updatedLayerIndex < layerList.length
+    ) {
+      setCurrentLayer(layerList[updatedLayerIndex]);
+      setSelectedLayerIndex(updatedLayerIndex);
+      setLayerListRequestAdded(true);
+    }
+
     setCurrentLayerToBeUpdated(updatedLayerIndex);
   };
 
