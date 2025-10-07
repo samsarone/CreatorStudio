@@ -710,10 +710,24 @@ export default function OneshotEditor() {
   const [pricingDetailsDisplay, setPricingDetailsDisplay] = useState(false);
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
-  let creditsPerSecondVideo = 10;
-  if (selectedVideoModel.value === 'VEOI2V') creditsPerSecondVideo = 60;
-  if (selectedVideoModel.value === 'LUMAFLASH2') creditsPerSecondVideo = 6;
-  if (selectedVideoModel.value === 'KLINGIMGTOVID2.1MASTER') creditsPerSecondVideo = 40;
+  const creditsPerSecondVideo = useMemo(() => {
+  const key = selectedVideoModel?.value || '';
+    if (key === 'KLINGIMGTOVIDTURBO') return 15;
+  if (key === 'VEO3I2VFLASH') return 30;
+  if (key === 'VEO3I2V') return 60;
+  if (key === 'SORA2') return 30;
+  if (key === 'SORA2PRO') return 70;
+  return 10; // default
+}, [selectedVideoModel]);
+
+
+  const expectedCreditsPerSecond = useMemo(() => {
+    let base = creditsPerSecondVideo;
+    if (selectedImageModel?.value === 'HUNYUAN') {
+      base = base * 1.5;
+    }
+    return base;
+  }, [creditsPerSecondVideo, selectedImageModel]);
 
   const pricingInfoDisplay = (
     <div className="relative">
@@ -725,7 +739,7 @@ export default function OneshotEditor() {
           <div>Pricing as charged by API providers.</div>
         ) : (
           <div className="inline-flex items-center">
-            {creditsPerSecondVideo}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video
+{expectedCreditsPerSecond}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video
           </div>
         )}
         <FaChevronCircleDown

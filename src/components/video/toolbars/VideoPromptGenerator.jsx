@@ -55,12 +55,15 @@ export default function VideoPromptGenerator(props) {
     (m) => m.key === selectedVideoGenerationModel
   );
   const isImgToVidModel = selectedModelDef?.isImgToVidModel || false;
+  const isTextToVidModel = selectedModelDef?.isTextToVidModel || false;
 
-    const hasImageItem =
+  const hasImageItem =
     Array.isArray(activeItemList) &&
     activeItemList.some((it) => it?.type === "image");
 
-  const requiresImageButNone = isImgToVidModel && !hasImageItem;
+  const requiresImageButNone =
+    isImgToVidModel && !isTextToVidModel && !hasImageItem;
+  const useImgToVidSettings = isImgToVidModel && hasImageItem;
 
 
 
@@ -278,10 +281,15 @@ export default function VideoPromptGenerator(props) {
       useStartFrame:
         selectedVideoGenerationModel === "SDVIDEO"
           ? true
-          : isImgToVidModel
+          : useImgToVidSettings
           ? useStartFrame
           : false,
-      useEndFrame: false,
+      useEndFrame:
+        selectedVideoGenerationModel === "SDVIDEO"
+          ? false
+          : useImgToVidSettings
+          ? useEndFrame
+          : false,
       combineLayers,
       clipLayerToAiVideo,
     };
@@ -343,9 +351,9 @@ export default function VideoPromptGenerator(props) {
           </div>
         </div>
 
-        {/* Start / End Frame & Trim Scene Checkboxes (only if model is img-to-vid) */}
+        {/* Start / End Frame & Trim Scene Checkboxes (only if we have an image to drive img-to-vid) */}
         <div className="flex w-full items-center mt-2 flex-wrap">
-          {isImgToVidModel && (
+          {useImgToVidSettings && (
             <>
               {/* Start Frame Checkbox */}
               <label className="inline-flex items-center text-sm mr-4">
@@ -466,7 +474,11 @@ export default function VideoPromptGenerator(props) {
 
       <div className="text-center">
         
-        <CommonButton onClick={handleSubmit} isPending={aiVideoGenerationPending}>
+        <CommonButton
+          onClick={handleSubmit}
+          isPending={aiVideoGenerationPending}
+          isDisabled={requiresImageButNone}
+        >
           Submit
         </CommonButton>
       </div>
