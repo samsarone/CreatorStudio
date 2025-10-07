@@ -38,12 +38,18 @@ export default function VideoUnderlay(props) {
 
           // Update the video element's src if it's mounted
           if (videoRef.current) {
+            const targetVideo = videoRef.current;
+            targetVideo.pause();
+            targetVideo.src = newVideoSrc;
 
-            
-            videoRef.current.src = newVideoSrc;
-            videoRef.current.play().catch(error => {
-              console.error('Video play error: ', error);
-            });
+            const playAttempt = targetVideo.play();
+            if (playAttempt && typeof playAttempt.catch === 'function') {
+              playAttempt.catch((error) => {
+                if (error?.name !== 'AbortError') {
+                  console.error('Video play error: ', error);
+                }
+              });
+            }
           }
         };
 
