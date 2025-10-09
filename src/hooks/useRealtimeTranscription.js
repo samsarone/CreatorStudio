@@ -143,6 +143,7 @@ function resolveEphemeralKey(payload) {
 
 export function useRealtimeTranscription({
   transcriptEndpoint,
+  transcriptHeaders,
   onTranscription,
   onSessionStarted,
   onSessionEnded,
@@ -331,11 +332,19 @@ export function useRealtimeTranscription({
     if (!transcriptEndpoint) {
       throw new Error('Missing transcription endpoint.');
     }
-    const headers = getHeaders();
-    if (!headers) {
+    const candidateHeaders = transcriptHeaders ?? getHeaders();
+    const authHeader =
+      candidateHeaders?.headers?.Authorization ||
+      candidateHeaders?.headers?.authorization ||
+      candidateHeaders?.Authorization ||
+      candidateHeaders?.authorization;
+    if (!authHeader) {
       throw new Error('Authentication required before using voice input.');
     }
-    const { data } = await axios.get(transcriptEndpoint, headers);
+    const requestConfig = candidateHeaders?.headers
+      ? candidateHeaders
+      : { headers: candidateHeaders };
+    const { data } = await axios.get(transcriptEndpoint, requestConfig);
     const { token, model, url } = resolveEphemeralKey(data);
     if (!token) {
       throw new Error('Ephemeral token response missing credentials.');
@@ -346,7 +355,7 @@ export function useRealtimeTranscription({
       data?.session?.url ||
       `${REALTIME_BASE_URL}?model=${encodeURIComponent(realtimeModel)}`;
     return { token, realtimeModel, targetUrl };
-  }, [preferredModel, transcriptEndpoint]);
+  }, [preferredModel, transcriptEndpoint, transcriptHeaders]);
 
   const startTranscription = useCallback(async () => {
     if (!isSupported) {
