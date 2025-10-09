@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useRef,
   useMemo,
+  useCallback,
 } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import CommonButton from '../common/CommonButton.tsx';
@@ -13,6 +14,8 @@ import {
   FaSpinner,
   FaTimes,
   FaImage,
+  FaMicrophone,
+  FaStopCircle,
 } from 'react-icons/fa';
 import { FaYoutube } from 'react-icons/fa6';
 import axios from 'axios';
@@ -36,6 +39,7 @@ import {
 import { VIDEO_MODEL_PRICES, IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
+import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 
 // ───────────────────────────────────────────────────────────
 //  Environment constants
@@ -60,6 +64,9 @@ export default function OneshotEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { openAlertDialog } = useAlertDialog();
+  const showLoginDialog = useCallback(() => {
+    openAlertDialog(<AuthContainer />);
+  }, [openAlertDialog]);
 
   const activeSessionIdRef = useRef(id);
   const currentPollSessionIdRef = useRef(null);
@@ -173,6 +180,242 @@ export default function OneshotEditor() {
   const [uploadedImageFile, setUploadedImageFile] = useState(null);
   const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState(null);
   const fileInputRef = useRef(null);
+  const [voiceStatusMessage, setVoiceStatusMessage] = useState(null);
+  const [voiceError, setVoiceError] = useState(null);
+  const [isBrowserRecognitionActive, setIsBrowserRecognitionActive] = useState(false);
+  const voiceBasePromptRef = useRef('');
+  const voiceTranscriptRef = useRef('');
+  const voiceStatusTimeoutRef = useRef(null);
+  const browserRecognitionRef = useRef(null);
+  const speechRecognitionCtor = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }, []);
+  const isBrowserSpeechSupported = Boolean(speechRecognitionCtor);
+
+  const handleVoiceSessionStarted = useCallback(() => {
+    setVoiceError(null);
+    setVoiceStatusMessage('Listening…');
+    voiceTranscriptRef.current = '';
+  }, []);
+
+  const handleVoiceSessionEnded = useCallback(() => {
+    setVoiceStatusMessage('Recording stopped.');
+    voiceBasePromptRef.current = '';
+    voiceTranscriptRef.current = '';
+  }, []);
+
+  const handleVoiceTranscription = useCallback((transcript, isFinal) => {
+    const base = voiceBasePromptRef.current || '';
+
+    const sanitizeTranscript = (value) => {
+      if (!value) return '';
+      let cleaned = value.replace(/I['’]m listening and ready whenever you are!/gi, '');
+      cleaned = cleaned.replace(/\s+/g, ' ').trimStart();
+      return cleaned;
+    };
+
+    const cleanedTranscript = sanitizeTranscript(transcript);
+    if (!cleanedTranscript) {
+      voiceTranscriptRef.current = '';
+      if (isFinal) {
+        setVoiceStatusMessage('No speech detected.');
+      }
+      return;
+    }
+
+    if (cleanedTranscript === voiceTranscriptRef.current) {
+      return;
+    }
+    voiceTranscriptRef.current = cleanedTranscript;
+
+    setPromptText(`${base}${cleanedTranscript}`);
+    if (isFinal) {
+      voiceBasePromptRef.current = `${base}${cleanedTranscript}`;
+    }
+
+    setVoiceStatusMessage(isFinal ? 'Transcript captured.' : 'Transcribing…');
+  }, []);
+
+  const {
+    startTranscription: startVoiceTranscription,
+    stopTranscription: stopVoiceTranscription,
+    isSupported: isVoiceSupported,
+    isInitializing: isVoiceInitializing,
+    isRecording: isVoiceRecording,
+    error: realtimeVoiceError,
+  } = useRealtimeTranscription({
+    transcriptEndpoint: `${API_SERVER}/video_session/get_transcription_key`,
+    onTranscription: handleVoiceTranscription,
+    onSessionStarted: handleVoiceSessionStarted,
+    onSessionEnded: handleVoiceSessionEnded,
+    onError: (message) => setVoiceError(message),
+  });
+
+  const startBrowserRecognition = useCallback(() => {
+    if (!speechRecognitionCtor) {
+      return false;
+    }
+
+    try {
+      const recognition = new speechRecognitionCtor();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      const browserLanguage = typeof navigator !== 'undefined' && navigator.language
+        ? navigator.language
+        : 'en-US';
+      recognition.lang = browserLanguage;
+
+      recognition.onstart = () => {
+        handleVoiceSessionStarted();
+        setIsBrowserRecognitionActive(true);
+      };
+
+      recognition.onerror = (event) => {
+        const message =
+          event.error === 'not-allowed'
+            ? 'Microphone access denied.'
+            : 'Speech recognition encountered an error.';
+        setVoiceError(message);
+      };
+
+      recognition.onend = () => {
+        browserRecognitionRef.current = null;
+        setIsBrowserRecognitionActive(false);
+        handleVoiceSessionEnded();
+      };
+
+      recognition.onresult = (event) => {
+        if (!event.results?.length) return;
+        let combined = '';
+        for (let i = 0; i < event.results.length; i += 1) {
+          combined += event.results[i][0].transcript;
+        }
+        const latest = event.results[event.results.length - 1];
+        handleVoiceTranscription(combined, latest?.isFinal ?? false);
+      };
+
+      browserRecognitionRef.current = recognition;
+      recognition.start();
+      return true;
+    } catch (err) {
+      console.error('Browser speech recognition error:', err);
+      browserRecognitionRef.current = null;
+      setIsBrowserRecognitionActive(false);
+      setVoiceError('Unable to start browser speech recognition.');
+      return false;
+    }
+  }, [handleVoiceSessionEnded, handleVoiceSessionStarted, handleVoiceTranscription, speechRecognitionCtor]);
+
+  const stopBrowserRecognition = useCallback(() => {
+    const recognition = browserRecognitionRef.current;
+    if (!recognition) return;
+
+    recognition.onstart = null;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+
+    try {
+      recognition.stop();
+    } catch {
+      /* ignore */
+    }
+
+    browserRecognitionRef.current = null;
+    setIsBrowserRecognitionActive(false);
+    handleVoiceSessionEnded();
+  }, [handleVoiceSessionEnded]);
+
+  const stopAllVoiceCapture = useCallback(() => {
+    if (isVoiceRecording || isVoiceInitializing) {
+      stopVoiceTranscription();
+    }
+    stopBrowserRecognition();
+  }, [isVoiceInitializing, isVoiceRecording, stopBrowserRecognition, stopVoiceTranscription]);
+
+  const isVoiceBusy = isVoiceRecording || isVoiceInitializing || isBrowserRecognitionActive;
+
+  const handleToggleVoiceRecording = useCallback(() => {
+    if (isVoiceBusy) {
+      stopAllVoiceCapture();
+      return;
+    }
+
+    if (!user) {
+      showLoginDialog();
+      return;
+    }
+
+    if (!isBrowserSpeechSupported && !isVoiceSupported) {
+      setVoiceError('Voice capture is not supported in this browser.');
+      return;
+    }
+
+    const currentPrompt = promptText || '';
+    voiceBasePromptRef.current =
+      currentPrompt && !/\s$/.test(currentPrompt)
+        ? `${currentPrompt} `
+        : currentPrompt;
+    voiceTranscriptRef.current = '';
+
+    setVoiceError(null);
+    setVoiceStatusMessage('Connecting…');
+
+    if (isBrowserSpeechSupported) {
+      const started = startBrowserRecognition();
+      if (!started && isVoiceSupported) {
+        startVoiceTranscription();
+      }
+      return;
+    }
+
+    startVoiceTranscription();
+  }, [
+    isVoiceBusy,
+    stopAllVoiceCapture,
+    user,
+    showLoginDialog,
+    isBrowserSpeechSupported,
+    isVoiceSupported,
+    promptText,
+    startBrowserRecognition,
+    startVoiceTranscription,
+  ]);
+
+  useEffect(() => {
+    if (realtimeVoiceError) {
+      setVoiceError(realtimeVoiceError);
+    }
+  }, [realtimeVoiceError]);
+
+  useEffect(() => {
+    if (voiceStatusTimeoutRef.current) {
+      clearTimeout(voiceStatusTimeoutRef.current);
+      voiceStatusTimeoutRef.current = null;
+    }
+    if (!voiceStatusMessage) return;
+    if (isVoiceBusy) return;
+    voiceStatusTimeoutRef.current = setTimeout(() => {
+      setVoiceStatusMessage(null);
+      voiceStatusTimeoutRef.current = null;
+    }, 2500);
+    return () => {
+      if (voiceStatusTimeoutRef.current) {
+        clearTimeout(voiceStatusTimeoutRef.current);
+        voiceStatusTimeoutRef.current = null;
+      }
+    };
+  }, [voiceStatusMessage, isVoiceBusy]);
+
+  useEffect(() => {
+    return () => {
+      if (voiceStatusTimeoutRef.current) {
+        clearTimeout(voiceStatusTimeoutRef.current);
+      }
+      stopAllVoiceCapture();
+    };
+  }, [stopAllVoiceCapture]);
 
   // ─────────────────────────────────────────────────────────
   //  Fetch latest videos (once)
@@ -394,14 +637,6 @@ export default function OneshotEditor() {
       });
     }
   }, [id]);
-
-
-  // ─────────────────────────────────────────────────────────
-  //  Helper: show login dialog
-  // ─────────────────────────────────────────────────────────
-  const showLoginDialog = () => {
-    openAlertDialog(<AuthContainer />);
-  };
 
   // ─────────────────────────────────────────────────────────
   //  Handle download
@@ -635,6 +870,9 @@ export default function OneshotEditor() {
       return;
     }
     if (!id) return;
+    if (isVoiceBusy) {
+      stopAllVoiceCapture();
+    }
 
     setErrorMessage(null);
     setIsSubmitting(true);
@@ -673,6 +911,11 @@ export default function OneshotEditor() {
   //  Reset the entire form
   // ─────────────────────────────────────────────────────────
   const resetForm = () => {
+    stopAllVoiceCapture();
+    voiceBasePromptRef.current = '';
+    voiceTranscriptRef.current = '';
+    setVoiceStatusMessage(null);
+    setVoiceError(null);
     setPromptText('');
     setShowResultDisplay(false);
     setErrorMessage(null);
@@ -1008,23 +1251,76 @@ export default function OneshotEditor() {
 
       {/* ───────── Submission form ───────── */}
       <form onSubmit={handleSubmit}>
-        <TextareaAutosize
-          minRows={8}
-          maxRows={20}
-          disabled={isFormDisabled}
-          className={`
-            w-full pl-4 pt-4 p-2 rounded-2xl mt-4 resize-none placeholder:opacity-60
-            focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
-            ${colorMode === 'dark'
-              ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
-              : 'bg-gray-50 text-black ring-slate-200 focus:ring-indigo-500/50'
+        <div className="relative mt-4">
+          <TextareaAutosize
+            minRows={8}
+            maxRows={20}
+            disabled={isFormDisabled}
+            readOnly={isVoiceBusy}
+            className={`
+              w-full pl-4 pt-4 pr-16 p-2 rounded-2xl resize-none placeholder:opacity-60
+              focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+              ${colorMode === 'dark'
+                ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                : 'bg-gray-50 text-black ring-slate-200 focus:ring-indigo-500/50'
+              }
+              ${isVoiceBusy ? 'opacity-95' : ''}
+            `}
+            placeholder="Enter a succinct prompt for your rendition…"
+            name="promptText"
+            value={promptText}
+            onChange={(e) => setPromptText(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={handleToggleVoiceRecording}
+            disabled={!isVoiceSupported && !isBrowserSpeechSupported}
+            aria-pressed={isVoiceBusy}
+            className={`
+              absolute bottom-3 right-3 h-11 w-11 rounded-full flex items-center justify-center
+              transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
+              ${colorMode === 'dark'
+                ? 'bg-indigo-500/80 hover:bg-indigo-500 text-white focus:ring-indigo-400/70 focus:ring-offset-slate-900'
+                : 'bg-indigo-500 hover:bg-indigo-600 text-white focus:ring-indigo-500/40 focus:ring-offset-white'}
+              ${isVoiceBusy ? 'animate-pulse scale-105' : ''}
+              ${isVoiceInitializing && !isBrowserRecognitionActive ? 'opacity-70 cursor-wait' : 'cursor-pointer'}
+              ${(!isVoiceSupported && !isBrowserSpeechSupported) ? 'opacity-40 cursor-not-allowed hover:bg-indigo-500' : ''}
+            `}
+            title={
+              (!isVoiceSupported && !isBrowserSpeechSupported)
+                ? 'Voice capture not supported in this browser'
+                : isVoiceBusy
+                  ? 'Tap to stop recording'
+                  : 'Tap to start voice dictation'
             }
-          `}
-          placeholder="Enter a succinct prompt for your rendition…"
-          name="promptText"
-          value={promptText}
-          onChange={(e) => setPromptText(e.target.value)}
-        />
+          >
+            {isVoiceInitializing && !isBrowserRecognitionActive ? (
+              <FaSpinner className="animate-spin text-lg" />
+            ) : isVoiceBusy ? (
+              <FaStopCircle className="text-lg" />
+            ) : (
+              <FaMicrophone className="text-lg" />
+            )}
+            <span className="sr-only">
+              {isVoiceBusy ? 'Stop voice recording' : 'Start voice recording'}
+            </span>
+          </button>
+        </div>
+        <div className="mt-2 text-xs">
+          {voiceError ? (
+            <span className="text-red-500">{voiceError}</span>
+          ) : voiceStatusMessage ? (
+            <span className={colorMode === 'dark' ? 'text-white/70' : 'text-slate-600'}>
+              {voiceStatusMessage}
+            </span>
+          ) : (
+            <span className={colorMode === 'dark' ? 'text-white/50' : 'text-slate-400'}>
+              {isBrowserSpeechSupported || isVoiceSupported
+                ? 'Use the microphone button to dictate your prompt in real time.'
+                : 'Voice dictation is unavailable in this browser.'}
+            </span>
+          )}
+        </div>
         <div className="mt-4 relative">
           <div className="flex justify-center">
             <PrimaryPublicButton

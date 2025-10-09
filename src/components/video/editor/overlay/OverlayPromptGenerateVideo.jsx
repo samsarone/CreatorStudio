@@ -93,35 +93,28 @@ export default function OverlayPromptGenerateVideo(props) {
   const [selectedModelSubType, setSelectedModelSubType] = useState("");
 
   // -----------------------------
-  //  On first mount: pick default model from localStorage or first option
+  //  Ensure the selected model is valid, preferring localStorage or first option
   // -----------------------------
-useEffect(() => {
-  const defaultModel =
-    localStorage.getItem("defaultVideoModel") ||
-    (modelOptions.length > 0 ? modelOptions[0].props.value : "");
+  useEffect(() => {
+    const availableKeys = modelOptions.map((option) => option.props.value);
+    if (availableKeys.length === 0) return;
 
-  if (
-    defaultModel &&
-    defaultModel !== selectedVideoGenerationModel // prevent unnecessary re-setting
-  ) {
-    setSelectedVideoGenerationModel(defaultModel);
-  }
+    const storedModel = localStorage.getItem("defaultVideoModel");
+    const fallbackModel = storedModel && availableKeys.includes(storedModel)
+      ? storedModel
+      : availableKeys[0];
 
-  if (defaultModel === "HAILUO" || defaultModel === "HAIPER2.0") {
-    const storedOptimizePrompt = localStorage.getItem("defaultOptimizePrompt");
-    setOptimizePrompt(storedOptimizePrompt === "true");
-  }
-
-  const modelPricing = VIDEO_MODEL_PRICES.find((p) => p.key === defaultModel);
-  if (modelPricing?.units?.length > 0) {
-    const storedDuration = localStorage.getItem("defaultDurationFor" + defaultModel);
-    if (storedDuration && modelPricing.units.includes(parseInt(storedDuration))) {
-      setSelectedDuration(parseInt(storedDuration));
-    } else {
-      setSelectedDuration(modelPricing.units[0]);
+    if (
+      selectedVideoGenerationModel &&
+      availableKeys.includes(selectedVideoGenerationModel)
+    ) {
+      return;
     }
-  }
-}, [modelOptions]);
+
+    if (fallbackModel && fallbackModel !== selectedVideoGenerationModel) {
+      setSelectedVideoGenerationModel(fallbackModel);
+    }
+  }, [modelOptions, selectedVideoGenerationModel, setSelectedVideoGenerationModel]);
 
 
 
