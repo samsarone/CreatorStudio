@@ -25,10 +25,17 @@ export default function SingleSelect(props) {
   return (
     <Select
       isSearchable={isSearchable}
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+      menuPosition="fixed"
       styles={{
+        menuPortal: (provided) => ({
+          ...provided,
+          zIndex: 9999,
+        }),
         menu: (provided) => ({
           ...provided,
           backgroundColor: formSelectBgColor,
+          zIndex: 9999,
         }),
         singleValue: (provided) => ({
           ...provided,
