@@ -54,6 +54,8 @@ const PROCESSOR_API_URL = API_SERVER;
 const DEFAULT_POLL = 5_000;    // 5 s while online & healthy
 const OFFLINE_POLL = 30_000;   // 30 s while offline
 const MAX_BACKOFF = 60_000;    // 1 min cap
+const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
 
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
@@ -74,6 +76,28 @@ export default function OneshotEditor() {
   const lastWakePoll = useRef(Date.now());
 
   const currentEnv = getSessionType();
+
+  const voiceSessionStartRef = useRef(null);
+  const voiceSessionTimeoutRef = useRef(null);
+  const voiceWordCountRef = useRef(0);
+  const voiceWordLimitRef = useRef(VOICE_TRANSCRIPTION_WORD_LIMIT);
+  const stopAllVoiceCaptureRef = useRef(() => {});
+  const voiceSessionTimeoutLabelRef = useRef('10 minutes');
+
+  const clearVoiceSessionTimeout = useCallback(() => {
+    if (voiceSessionTimeoutRef.current) {
+      clearTimeout(voiceSessionTimeoutRef.current);
+      voiceSessionTimeoutRef.current = null;
+    }
+  }, []);
+
+  const countWords = useCallback((value) => {
+    if (!value) return 0;
+    return value
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean).length;
+  }, []);
 
   const transcriptHeaders = useMemo(() => getHeaders(), [user]);
 
@@ -195,17 +219,66 @@ export default function OneshotEditor() {
   }, []);
   const isBrowserSpeechSupported = Boolean(speechRecognitionCtor);
 
-  const handleVoiceSessionStarted = useCallback(() => {
+  const handleVoiceSessionStarted = useCallback((sessionInfo) => {
     setVoiceError(null);
     setVoiceStatusMessage('Listening…');
     voiceTranscriptRef.current = '';
-  }, []);
+    voiceWordCountRef.current = 0;
+    const rawLimit = sessionInfo?.maxTranscriptWords;
+    const parsedLimit =
+      typeof rawLimit === 'number'
+        ? rawLimit
+        : rawLimit
+          ? parseInt(rawLimit, 10)
+          : null;
+    voiceWordLimitRef.current =
+      Number.isFinite(parsedLimit) && parsedLimit > 0
+        ? parsedLimit
+        : VOICE_TRANSCRIPTION_WORD_LIMIT;
+    const now = Date.now();
+    voiceSessionStartRef.current = now;
+    clearVoiceSessionTimeout();
+    let timeoutMs = VOICE_SESSION_TIMEOUT_MS;
+    if (sessionInfo?.expiresAt) {
+      const expiresAtMs = new Date(sessionInfo.expiresAt).getTime();
+      if (!Number.isNaN(expiresAtMs)) {
+        timeoutMs = Math.min(
+          VOICE_SESSION_TIMEOUT_MS,
+          Math.max(0, expiresAtMs - now),
+        );
+      }
+    }
+    let timeoutLabel = '10 minutes';
+    if (timeoutMs <= 0 || timeoutMs < 60_000) {
+      timeoutLabel = 'less than a minute';
+    } else {
+      const timeoutMinutes = Math.ceil(timeoutMs / 60_000);
+      timeoutLabel = timeoutMinutes === 1 ? '1 minute' : `${timeoutMinutes} minutes`;
+    }
+    voiceSessionTimeoutLabelRef.current = timeoutLabel;
+    if (timeoutMs <= 0) {
+      setVoiceStatusMessage(null);
+      setVoiceError(`Voice session expired after ${voiceSessionTimeoutLabelRef.current}.`);
+      stopAllVoiceCaptureRef.current?.();
+      return;
+    }
+    voiceSessionTimeoutRef.current = setTimeout(() => {
+      setVoiceStatusMessage(null);
+      setVoiceError(`Voice session expired after ${voiceSessionTimeoutLabelRef.current}.`);
+      stopAllVoiceCaptureRef.current?.();
+    }, timeoutMs);
+  }, [clearVoiceSessionTimeout]);
 
   const handleVoiceSessionEnded = useCallback(() => {
+    clearVoiceSessionTimeout();
+    voiceSessionStartRef.current = null;
+    voiceWordCountRef.current = 0;
+    voiceWordLimitRef.current = VOICE_TRANSCRIPTION_WORD_LIMIT;
+    voiceSessionTimeoutLabelRef.current = '10 minutes';
     setVoiceStatusMessage('Recording stopped.');
     voiceBasePromptRef.current = '';
     voiceTranscriptRef.current = '';
-  }, []);
+  }, [clearVoiceSessionTimeout]);
 
   const handleVoiceTranscription = useCallback((transcript, isFinal) => {
     const base = voiceBasePromptRef.current || '';
@@ -226,6 +299,23 @@ export default function OneshotEditor() {
       return;
     }
 
+    const wordLimit = voiceWordLimitRef.current || VOICE_TRANSCRIPTION_WORD_LIMIT;
+    const totalWords = countWords(cleanedTranscript);
+    if (totalWords > wordLimit) {
+      const limitedTranscript = cleanedTranscript
+        .split(/\s+/)
+        .slice(0, wordLimit)
+        .join(' ');
+      voiceTranscriptRef.current = limitedTranscript;
+      setPromptText(`${base}${limitedTranscript}`);
+      voiceBasePromptRef.current = `${base}${limitedTranscript}`;
+      setVoiceStatusMessage(null);
+      setVoiceError(`Transcription limit reached (${wordLimit} words per session).`);
+      stopAllVoiceCaptureRef.current?.();
+      return;
+    }
+    voiceWordCountRef.current = totalWords;
+
     if (cleanedTranscript === voiceTranscriptRef.current) {
       return;
     }
@@ -237,7 +327,7 @@ export default function OneshotEditor() {
     }
 
     setVoiceStatusMessage(isFinal ? 'Transcript captured.' : 'Transcribing…');
-  }, []);
+  }, [countWords]);
 
   const {
     startTranscription: startVoiceTranscription,
@@ -331,11 +421,31 @@ export default function OneshotEditor() {
   }, [handleVoiceSessionEnded]);
 
   const stopAllVoiceCapture = useCallback(() => {
+    clearVoiceSessionTimeout();
+    voiceSessionStartRef.current = null;
+    voiceWordCountRef.current = 0;
+    voiceWordLimitRef.current = VOICE_TRANSCRIPTION_WORD_LIMIT;
+    voiceSessionTimeoutLabelRef.current = '10 minutes';
     if (isVoiceRecording || isVoiceInitializing) {
       stopVoiceTranscription();
     }
     stopBrowserRecognition();
-  }, [isVoiceInitializing, isVoiceRecording, stopBrowserRecognition, stopVoiceTranscription]);
+  }, [
+    clearVoiceSessionTimeout,
+    isVoiceInitializing,
+    isVoiceRecording,
+    stopBrowserRecognition,
+    stopVoiceTranscription,
+  ]);
+
+  useEffect(() => {
+    stopAllVoiceCaptureRef.current = stopAllVoiceCapture;
+    return () => {
+      if (stopAllVoiceCaptureRef.current === stopAllVoiceCapture) {
+        stopAllVoiceCaptureRef.current = () => {};
+      }
+    };
+  }, [stopAllVoiceCapture]);
 
   const isVoiceBusy = isVoiceRecording || isVoiceInitializing || isBrowserRecognitionActive;
 
@@ -349,6 +459,13 @@ export default function OneshotEditor() {
       setVoiceStatusMessage(null);
       setVoiceError('Please login to continue');
       showLoginDialog();
+      return;
+    }
+
+    const isEmailVerified = user?.isEmailVerified ?? user?.emailVerified ?? false;
+    if (!isEmailVerified) {
+      setVoiceStatusMessage(null);
+      setVoiceError('Please verify your email to use voice transcription.');
       return;
     }
 

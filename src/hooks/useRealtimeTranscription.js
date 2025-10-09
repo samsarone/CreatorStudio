@@ -354,7 +354,11 @@ export function useRealtimeTranscription({
       url ||
       data?.session?.url ||
       `${REALTIME_BASE_URL}?model=${encodeURIComponent(realtimeModel)}`;
-    return { token, realtimeModel, targetUrl };
+    const metadata = {
+      expiresAt: data?.expiresAt || null,
+      maxTranscriptWords: data?.maxTranscriptWords ?? null,
+    };
+    return { token, realtimeModel, targetUrl, metadata };
   }, [preferredModel, transcriptEndpoint, transcriptHeaders]);
 
   const startTranscription = useCallback(async () => {
@@ -379,7 +383,7 @@ export function useRealtimeTranscription({
       });
       microphoneStreamRef.current = stream;
 
-      const { token, realtimeModel, targetUrl } =
+      const { token, realtimeModel, targetUrl, metadata } =
         await requestEphemeralToken();
 
       const peerConnection = new RTCPeerConnection();
@@ -452,6 +456,8 @@ export function useRealtimeTranscription({
       }
       onSessionStarted?.({
         model: realtimeModel,
+        expiresAt: metadata?.expiresAt,
+        maxTranscriptWords: metadata?.maxTranscriptWords,
       });
 
       dataChannel.addEventListener('open', () => {
