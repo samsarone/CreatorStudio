@@ -11,8 +11,14 @@ export default function PromptGenerator(props) {
 
   const { colorMode } = useColorMode();
 
-  const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
-  const textBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200 border-gray-600 border-2";
+  const selectShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const textareaShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
   const modelOptionMap = IMAGE_GENERAITON_MODEL_TYPES.map((model) => {
     return (
@@ -40,7 +46,7 @@ export default function PromptGenerator(props) {
             Model
           </div>
         </div>
-        <select onChange={setSelectedModelDisplay} className={`${selectBG} inline-flex w-[75%]`}>
+        <select onChange={setSelectedModelDisplay} className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}>
           {modelOptionMap}
         </select>
       </div>
@@ -48,7 +54,7 @@ export default function PromptGenerator(props) {
       <TextareaAutosize
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Add prompt text here"
-        className={`${textBG} w-full m-auto p-4 rounded-lg`}
+        className={`${textareaShell} w-full m-auto px-3 py-3 rounded-xl bg-transparent`}
         minRows={3}
       />
 

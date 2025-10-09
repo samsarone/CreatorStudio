@@ -40,6 +40,8 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
 
   const tagBg = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
   const iconColor = colorMode === 'dark' ? 'text-white' : 'text-black';
+  const sliderAccent = colorMode === 'dark' ? '#6366f1' : '#2563eb';
+  const sliderTrack = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
   // -----------------------------------------
 
   const itemsPerPage = 50;
@@ -241,7 +243,11 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
                     max={duration}
                     value={currentTime}
                     onChange={handleSeekChange}
-                    className="mx-2 flex-1"
+                    className="mx-2 flex-1 appearance-none h-2 rounded-full"
+                    style={{
+                      accentColor: sliderAccent,
+                      background: `linear-gradient(to right, ${sliderAccent} 0%, ${sliderAccent} ${(duration ? (currentTime / duration) : 0) * 100}%, ${sliderTrack} ${(duration ? (currentTime / duration) : 0) * 100}%, ${sliderTrack} 100%)`,
+                    }}
                   />
                   <span className="text-sm">{formatTime(duration)}</span>
                 </div>

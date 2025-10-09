@@ -3,6 +3,7 @@ import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import './audioTrack/audioTrackSlider.css';
 import AudioLevelsTrackSlider from './AudioLevelsTrackSlider';
+import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 const AudioTrackSlider = (props) => {
   const { audioTrack, onUpdate, selectedFrameRange, isStartVisible, isEndVisible,
@@ -11,6 +12,7 @@ const AudioTrackSlider = (props) => {
    } = props;
 
   const audioTrackId = audioTrack._id;
+  const { colorMode } = useColorMode();
   const [min, max] = selectedFrameRange;
 
   const [audioDuration, setAudioDuration] = useState(0);
@@ -160,6 +162,15 @@ const AudioTrackSlider = (props) => {
   }
 
   const renderTrack = (props, state) => {
+    const baseTrackStyle = {
+      backgroundColor: colorMode === 'dark' ? '#0f172a' : '#e2e8f0',
+    };
+    const activeTrackStyle = {
+      backgroundColor: audioTrack.isDisplaySelected
+        ? (colorMode === 'dark' ? 'rgba(129,140,248,0.45)' : 'rgba(79,70,229,0.25)')
+        : (colorMode === 'dark' ? 'rgba(148,163,184,0.35)' : 'rgba(148,163,184,0.4)'),
+    };
+
     if (state.index === 1) {
       return (
         <div
@@ -174,18 +185,20 @@ const AudioTrackSlider = (props) => {
              e.stopPropagation();
           }}
 
-          className={`track audio_range_track-${audioTrackId} ${props.className}`}
+          className={`track rounded-full audio_range_track-${audioTrackId} ${props.className ?? ''}`}
+          style={{ ...props.style, ...activeTrackStyle }}
         />
       );
     } else {
-      return <div {...props} className={`track audio_range_track-${audioTrackId}`} />;
+      return (
+        <div
+          {...props}
+          className={`track rounded-full audio_range_track-${audioTrackId}`}
+          style={{ ...props.style, ...baseTrackStyle }}
+        />
+      );
     }
   };
-
-  let sliderTrackClass = "track";
-  if (audioTrack.isDisplaySelected) {
-    sliderTrackClass = "user-selected-track";
-  }
 
   let audioLevelsDisplaySlider = <span />;
   if (audioTrack.isAudioLevelsDisplaySelected) {
@@ -198,8 +211,6 @@ const AudioTrackSlider = (props) => {
 <>
     <ReactSlider
       className="vertical-slider audio-track-slider-component mr-1 ml-1" 
-      thumbClassName="thumb train-thumb"
-      trackClassName={sliderTrackClass}
       orientation="vertical"
       min={min}
       max={max}
@@ -214,7 +225,15 @@ const AudioTrackSlider = (props) => {
 
         if (shouldRenderThumb) {
           return (
-            <div {...props}>
+            <div
+              {...props}
+              className={`flex items-center justify-center rounded-full border shadow w-5 h-3 ${
+                colorMode === 'dark'
+                  ? 'bg-white border-white/40 text-slate-800'
+                  : 'bg-indigo-500 border-indigo-200 text-white'
+              }`}
+              style={{ ...props.style }}
+            >
               <FaGripLines />
             </div>
           );

@@ -76,9 +76,15 @@ export default function OverlayPromptGenerator(props) {
   // ─────────────────────────────────────────────────────────
   //  Theme-based styling
   // ─────────────────────────────────────────────────────────
-  const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
-  const textBG =
-    colorMode === "dark" ? "bg-gray-800" : "bg-gray-200 border-gray-600 border-2";
+  const selectShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const textareaShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const checkboxText = colorMode === "dark" ? "text-slate-200" : "text-slate-600";
 
   // ─────────────────────────────────────────────────────────
   //  Compute cost for the selected model + aspect ratio
@@ -145,7 +151,7 @@ export default function OverlayPromptGenerator(props) {
   return (
     <div>
       {/* ───────────────────────── Model + Style row ───────────────────────── */}
-      <div className="flex w-full mt-2 mb-2 justify-center items-center space-x-4 shadow-lg">
+      <div className="flex w-full mt-2 mb-4 justify-center items-center space-x-4">
         {/* Model Selection */}
         <div className="flex items-center space-x-2">
           <div className="text-md font-bold flex items-center">
@@ -160,7 +166,7 @@ export default function OverlayPromptGenerator(props) {
           </div>
           <select
             onChange={setSelectedModelDisplay}
-            className={`${selectBG} p-1 rounded`}
+            className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
             value={selectedGenerationModel}
           >
             {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -183,7 +189,7 @@ export default function OverlayPromptGenerator(props) {
                 <select
                   onChange={handleImageStyleChange}
                   value={selectedImageStyle || ""}
-                  className={`${selectBG} p-1 rounded`}
+                  className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
                 >
                   {modelDef.imageStyles.map((style) => (
                     <option key={style} value={style}>
@@ -199,7 +205,7 @@ export default function OverlayPromptGenerator(props) {
       </div>
 
       {/* ───────────────────────── Checkboxes (Retry/Speaker) ───────────────────────── */}
-      <div className="inline-flex items-center ml-4 space-x-4">
+      <div className={`flex flex-wrap items-center gap-4 px-1 ${checkboxText}`}>
         {/* Retry on fail */}
         <label className="flex items-center text-xs font-semibold">
           <input
@@ -245,8 +251,8 @@ export default function OverlayPromptGenerator(props) {
       <TextareaAutosize
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Describe your prompt to generate an image"
-        className={`${textBG} w-full m-auto p-2 rounded-lg mt-2`}
-        minRows={2}
+        className={`${textareaShell} w-full m-auto px-3 py-3 rounded-xl mt-3 bg-transparent`}
+        minRows={3}
         value={promptText}
       />
 

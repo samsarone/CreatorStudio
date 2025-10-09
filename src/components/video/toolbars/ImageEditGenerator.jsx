@@ -31,8 +31,10 @@ export default function ImageEditGenerator(props) {
 
   let editOptionsDisplay = <span />;
 
-  const formElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800 ";
-  const textElementBG = colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800 border-gray-600 border-2";
+  const inputShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
 
 
@@ -46,20 +48,20 @@ export default function ImageEditGenerator(props) {
 
     editOptionsDisplay = (<div className="grid grid-cols-3 gap-1">
       <div>
-        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="guidanceScale" defaultValue={5} />
+        <input type="text" className={`${inputShell} w-[96%] px-3 py-2 rounded-md`} name="guidanceScale" defaultValue={5} />
         <div className="text-xs ">
           Guidance
         </div>
       </div>
       <div>
-        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="numInferenceSteps" defaultValue={30} />
+        <input type="text" className={`${inputShell} w-[96%] px-3 py-2 rounded-md`} name="numInferenceSteps" defaultValue={30} />
         <div className="text-xs">
           Inference
         </div>
       </div>
       <div>
 
-        <input type="text" className={`${formElementBG} w-[96%] pl-2 pr-2`} name="strength" defaultValue={0.99} />
+        <input type="text" className={`${inputShell} w-[96%] px-3 py-2 rounded-md`} name="strength" defaultValue={0.99} />
         <div className="text-xs">
           Strength
         </div>
@@ -79,8 +81,13 @@ export default function ImageEditGenerator(props) {
 
 
   if (selectedEditModelValue.isPromptEnabled) {
-    promptTextArea = <textarea name="promptText" onChange={(evt) => setPromptText((evt.target.value))}
-      className={`${textElementBG} w-full m-auto p-4 rounded-lg`} />
+    promptTextArea = (
+      <textarea
+        name="promptText"
+        onChange={(evt) => setPromptText((evt.target.value))}
+        className={`${inputShell} w-full m-auto px-3 py-3 rounded-xl bg-transparent`}
+      />
+    )
   }
 
   return (
@@ -91,7 +98,7 @@ export default function ImageEditGenerator(props) {
             <div className="text-xs font-bold">
               Model
             </div>
-            <select onChange={setSelectedModelDisplay} className={`${formElementBG} inline-flex w-[75%]`}>
+            <select onChange={setSelectedModelDisplay} className={`${inputShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}>
               {modelOptionMap}
             </select>
           </div>

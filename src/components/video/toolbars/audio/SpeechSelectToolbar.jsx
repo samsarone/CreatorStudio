@@ -1,4 +1,4 @@
-// SpeechSelectToolbar.js
+// SpeechSelectToolbar.jsx
 import React, { useEffect, useState } from 'react';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import { TOOLBAR_ACTION_VIEW } from '../../../../constants/Types.ts';
@@ -8,42 +8,44 @@ import SingleSelect from '../../../common/SingleSelect.jsx';
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
 export default function SpeechSelectToolbar(props) {
-  const { audioLayer, submitAddTrackToProject, setCurrentCanvasAction,
-    currentLayer
-   } = props;
+  const {
+    audioLayer,
+    submitAddTrackToProject,
+    setCurrentCanvasAction,
+    currentLayer,
+  } = props;
+
   const [startTime, setStartTime] = useState(0);
-  const [duration, setDuration] = useState(audioLayer.duration || 5); // Default duration from audioLayer or 5
-  const [volume, setVolume] = useState(100); // Default volume is 100
+  const [duration, setDuration] = useState(audioLayer.duration || 5);
+  const [volume, setVolume] = useState(100);
   const [addSubtitles, setAddSubtitles] = useState(true);
 
+  const subtitleOptions = [
+    { value: 'groupRows', label: 'Group Rows' },
+    { value: 'groupWords', label: 'Group Words' },
+    { value: 'highlightWords', label: 'Highlight Words' },
+  ];
 
+  const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOptions[0]);
 
-const subtitleOptions = [
-  { value: 'groupRows', label: 'Group Rows' },
-  { value: 'groupWords', label: 'Group Words' },
-  { value: 'highlightWords', label: 'Highlight Words' },
-];
-
-useEffect(() => {
-  setStartTime(currentLayer.durationOffset);
-  setDuration(audioLayer.duration);
-
-}, [currentLayer, audioLayer]);
-
-const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOptions[0]);
+  useEffect(() => {
+    setStartTime(currentLayer.durationOffset);
+    setDuration(audioLayer.duration);
+  }, [currentLayer, audioLayer]);
 
   const { colorMode } = useColorMode();
 
-  let bgColor = "bg-gray-900";
-  if (colorMode === 'light') {
-    bgColor = "bg-neutral-50 text-neutral-900";
-  }
-  const text2Color = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
+  const panelSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const inputSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/60 text-slate-100 border border-white/10'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const textEmphasis = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
 
-  // Construct the full audio URL for speech
-  // Assuming that speech audio is stored in audioLayer.localAudioLinks[0]
   const audioUrl = `${PROCESSOR_API_URL}/${audioLayer.localAudioLinks[0]}`;
-
 
   const handleSubmit = (evt) => {
     evt.preventDefault();
@@ -52,25 +54,25 @@ const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOpt
       duration: parseFloat(duration),
       volume: parseFloat(volume),
       endTime: parseFloat(startTime) + parseFloat(duration),
-     // selectedSubtitleOption: selectedSubtitleOption.value,
-      addSubtitles: addSubtitles,
+      addSubtitles,
       speakerCharacterName: audioLayer.speakerCharacterName,
-
+      subtitleOption: selectedSubtitleOption?.value,
     };
 
-    submitAddTrackToProject(0, payload); // Pass 0 as index
+    submitAddTrackToProject(0, payload);
   };
 
   return (
-    <div className={`${bgColor} ${text2Color} p-2`}>
-      <div className="mt-2">
+    <div className={`${panelSurface} p-4 rounded-xl space-y-4`}>
+      <div>
         <audio controls className="w-full">
           <source src={audioUrl} type="audio/mpeg" />
           Your browser does not support the audio element.
         </audio>
       </div>
-      <form onSubmit={handleSubmit} className={`${bgColor} mt-4`}>
-        <div className="grid grid-cols-3 gap-2 items-center">
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-3 gap-3 items-center">
           <div>
             <input
               type="number"
@@ -78,7 +80,7 @@ const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOpt
               placeholder="Start Time (secs)"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className={`h-[30px] ${bgColor} w-full border-2 border-gray-200 pl-2`}
+              className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
             />
             <div className="text-xs text-center mt-1">Start</div>
           </div>
@@ -89,7 +91,7 @@ const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOpt
               placeholder="Duration (secs)"
               value={duration}
               onChange={(e) => setDuration(e.target.value)}
-              className={`h-[30px] ${bgColor} w-full border-2 border-gray-200 pl-2`}
+              className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
             />
             <div className="text-xs text-center mt-1">Duration</div>
           </div>
@@ -100,40 +102,39 @@ const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOpt
               placeholder="Volume"
               value={volume}
               onChange={(e) => setVolume(e.target.value)}
-              className={`h-[30px] ${bgColor} w-full border-2 border-gray-200 pl-2`}
+              className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
             />
             <div className="text-xs text-center mt-1">Volume</div>
           </div>
         </div>
-        <div>
 
-        <div className="inline-flex">
-                  <input
-                    type="checkbox"
-                    checked={addSubtitles}
-                    onChange={(e) => setAddSubtitles(e.target.checked)}
-                    className="mr-2"
-                  />
-                  <label className={`text-xs ${text2Color}`}>Subtitles</label>
-                </div>
+        <div className="flex items-center justify-between">
+          <label className="inline-flex items-center text-xs">
+            <input
+              type="checkbox"
+              checked={addSubtitles}
+              onChange={(e) => setAddSubtitles(e.target.checked)}
+              className="mr-2"
+            />
+            <span className={textEmphasis}>Subtitles</span>
+          </label>
+        </div>
 
-
-
-
-                {addSubtitles && (
-          <div className="mb-2">
-            <label htmlFor="subtitleOptionSelect" className="block">
-              Subtitle Options:
+        {addSubtitles && (
+          <div className="space-y-2 text-xs">
+            <label htmlFor="subtitleOptionSelect" className={`block font-medium ${textEmphasis}`}>
+              Subtitle Options
             </label>
-
+            <SingleSelect
+              id="subtitleOptionSelect"
+              options={subtitleOptions}
+              value={selectedSubtitleOption}
+              onChange={(option) => setSelectedSubtitleOption(option)}
+            />
           </div>
         )}
 
-
-
-        </div>
-
-        <div className="mt-4 flex justify-between">
+        <div className="pt-2 flex justify-between">
           <SecondaryButton type="submit">Add to Project</SecondaryButton>
           <SecondaryButton onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}>
             Cancel

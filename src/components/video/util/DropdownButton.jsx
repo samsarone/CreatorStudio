@@ -16,9 +16,14 @@ function DropdownButton(props) {
   const { colorMode } = useColorMode();
 
   // Container & hover colors separated
-  const containerBg = colorMode === 'dark' ? 'bg-gray-900' : 'bg-neutral-200';
-  const itemHoverBg = colorMode === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-neutral-300';
-  const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-700';
+  const containerBg =
+    colorMode === 'dark'
+      ? 'bg-slate-950/85 text-slate-100 border border-white/10 shadow-lg shadow-slate-900/40'
+      : 'bg-white text-slate-800 border border-slate-200 shadow-sm';
+  const itemHoverBg =
+    colorMode === 'dark'
+      ? 'hover:bg-slate-900/60'
+      : 'hover:bg-slate-100';
 
   useEffect(() => {
     const storedOption = localStorage.getItem('defaultAddLayerSubOption');
@@ -60,10 +65,7 @@ function DropdownButton(props) {
       {/* MAIN "Add" BUTTON */}
       <button
         onClick={toggleDropdown}
-        className={`inline-flex justify-center w-full px-4 py-2
-          text-sm font-medium border border-gray-300
-          rounded-md shadow-sm focus:outline-none
-          ${textColor} ${containerBg} ${itemHoverBg}`}
+        className={`inline-flex justify-center w-full px-4 py-2 text-sm font-medium rounded-md focus:outline-none transition-colors duration-150 ${containerBg} ${itemHoverBg}`}
       >
         <FaPlus className="mr-2" />
         <span className="text-xs">Add</span>
@@ -72,18 +74,14 @@ function DropdownButton(props) {
       {/* MAIN DROPDOWN MENU */}
       {isOpen && (
         <div
-          className={`absolute right-0 mt-2 w-32 origin-top-right 
-                      rounded-md shadow-lg ring-1 ring-black ring-opacity-5
-                      ${textColor} ${containerBg}`}
+          className={`absolute right-0 mt-2 w-36 origin-top-right rounded-lg shadow-xl shadow-slate-900/30 ring-1 ring-black/5 ${containerBg}`}
           style={{ zIndex: 100 }}
         >
           <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
             
             {/* PARENT ITEM for "Add layer" */}
             <div
-              className={`px-2 py-2 text-sm w-full text-left
-                          flex items-center justify-between
-                          cursor-pointer ${textColor} ${itemHoverBg}`}
+              className={`px-3 py-2 text-sm w-full text-left flex items-center justify-between cursor-pointer transition-colors duration-150 ${itemHoverBg}`}
               onClick={toggleSubMenu}
               role="menuitem"
             >
@@ -95,22 +93,19 @@ function DropdownButton(props) {
             {isSubMenuOpen && (
               <div className="ml-4 mt-1 space-y-1">
                 <button
-                  className={`block px-2 py-1 text-sm text-left w-full 
-                              focus:outline-none ${textColor} ${itemHoverBg}`}
+                  className={`block px-3 py-1.5 text-sm text-left w-full rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
                   onClick={() => handleAddLayerClick('below')}
                 >
                   Below current
                 </button>
                 <button
-                  className={`block px-2 py-1 text-sm text-left w-full 
-                              focus:outline-none ${textColor} ${itemHoverBg}`}
+                  className={`block px-3 py-1.5 text-sm text-left w-full rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
                   onClick={() => handleAddLayerClick('end')}
                 >
                   At end
                 </button>
                 <button
-                  className={`block px-2 py-1 text-sm text-left w-full 
-                              focus:outline-none ${textColor} ${itemHoverBg}`}
+                  className={`block px-3 py-1.5 text-sm text-left w-full rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
                   onClick={() => handleAddLayerClick('beginning')}
                 >
                   At beginning
@@ -121,8 +116,7 @@ function DropdownButton(props) {
             {/* COPY CURRENT LAYER */}
             <button
               onClick={copyCurrentLayer}
-              className={`block px-2 py-2 text-sm w-full text-left
-                          focus:outline-none ${textColor} ${itemHoverBg}`}
+              className={`block px-3 py-2 text-sm w-full text-left rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
               role="menuitem"
             >
               Copy current
@@ -134,8 +128,7 @@ function DropdownButton(props) {
                 showBatchLayerDialog();
                 setIsOpen(false);
               }}
-              className={`block px-2 py-2 text-sm w-full text-left
-                          focus:outline-none ${textColor} ${itemHoverBg}`}
+              className={`block px-3 py-2 text-sm w-full text-left rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
               role="menuitem"
             >
               Add Batch

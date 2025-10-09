@@ -35,11 +35,14 @@ export default function MusicSelectToolbar(props) {
     setAudioData(newAudioLayers);
   }
 
-  let bgColor = "bg-gray-900 ";
-  if (colorMode === 'light') {
-    bgColor = "bg-neutral-50  text-neutral-900 ";
-  }
-  const text2Color = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
+  const panelSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const inputSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/60 border border-white/10 text-slate-100'
+      : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
 
   const latestLayer = audioData[audioData.length - 1];
   if (!latestLayer) {
@@ -83,33 +86,35 @@ export default function MusicSelectToolbar(props) {
     let optionsSelectDisplay = <span />;
     if (layer.isOptionSelected) {
       optionsSelectDisplay = (
-        <div className={`${bgColor} mt-2`}>
-          <form onSubmit={(evt) => addTrackSubmit(evt, index)} className={`${bgColor}`}>
-            <div className='grid grid-cols-3 gap-1 '>
-              <div>
-                <input type='text' name="track" placeholder='Start timestamp (secs)' defaultValue={0}
-                  className={` h-[30px] ${bgColor} w-[60px] m-auto
-          border-2 border-gray-200 pl-2`} />
-                <div className='text-xs'>
-                  Start Time (secs)
-                </div>
-              </div>
-              <div>
-                <input type='text' name="volume" placeholder='Volume' defaultValue={100} className={` h-[30px]
-                 ${bgColor} 
-          border-2 border-gray-200 pl-2 w-[60px] m-auto`}
-                />
-                <div className='text-xs'>
-                  Volume
-                </div>
-              </div>
-
-              <div>
-                <SecondaryButton type="submit">
-                  Add
-                </SecondaryButton>
+        <div className={`${panelSurface} mt-3 rounded-lg p-3`}>
+          <form onSubmit={(evt) => addTrackSubmit(evt, index)} className="grid grid-cols-3 gap-3 items-end">
+            <div>
+              <input
+                type='text'
+                name="track"
+                placeholder='Start timestamp (secs)'
+                defaultValue={0}
+                className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
+              />
+              <div className='text-xs mt-1 text-center'>
+                Start Time (secs)
               </div>
             </div>
+            <div>
+              <input
+                type='text'
+                name="volume"
+                placeholder='Volume'
+                defaultValue={100}
+                className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
+              />
+              <div className='text-xs mt-1 text-center'>
+                Volume
+              </div>
+            </div>
+            <SecondaryButton type="submit" className="w-full">
+              Add
+            </SecondaryButton>
           </form>
         </div>
       )
@@ -143,18 +148,18 @@ export default function MusicSelectToolbar(props) {
 
   
   return (
-
-    <div className={`${bgColor} ${text2Color}`}>
-      <div className="mt-2">
-        <button onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)}>
+    <div className={`${panelSurface} rounded-xl p-4 space-y-4`}>
+      <div>
+        <button
+          className="text-sm font-medium underline-offset-4 hover:underline"
+          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)}
+        >
           Back
         </button>
-        <div>
-          {audioPreviewDisplay}
-        </div>
+      </div>
+      <div className="space-y-4">
+        {audioPreviewDisplay}
       </div>
     </div>
-
-
   );
 }

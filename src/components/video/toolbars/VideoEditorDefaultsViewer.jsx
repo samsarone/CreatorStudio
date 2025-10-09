@@ -96,12 +96,12 @@ export default function VideoEditorDefaultsViewer(props) {
 
   const bgColor =
     colorMode === 'light'
-      ? 'bg-neutral-50 text-neutral-900'
-      : 'bg-cyber-black border-neutral-800';
+      ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
+      : 'bg-slate-950/85 text-slate-100 border border-white/10 backdrop-blur-sm';
   const buttonBgcolor =
     colorMode === 'light'
-      ? 'bg-stone-200 text-neutral-900'
-      : 'bg-gray-900 text-white';
+      ? 'bg-slate-100 text-slate-900 border border-slate-200 shadow-sm'
+      : 'bg-slate-900/70 text-white border border-white/10';
   const text2Color =
     colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
 

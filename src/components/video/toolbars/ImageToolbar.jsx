@@ -92,28 +92,51 @@ export default function ImageToolbar(props) {
     updateTargetActiveLayerConfig(itemId, newConfig);
   };
 
-  const iconColor = colorMode === 'dark' ? 'text-neutral-200' : 'text-grey-800';
+  const iconColor = colorMode === 'dark' ? 'text-neutral-200' : 'text-slate-600';
+  const fieldShell = colorMode === 'dark'
+    ? 'bg-slate-900/60 text-slate-100 border border-white/10'
+    : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const accentColor = colorMode === 'dark' ? '#6366f1' : '#2563eb';
+  const trackColor = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
 
-  const bgColor = colorMode === 'dark' ? `bg-gray-900` : `bg-neutral-300`;
+  const panelStyles = {
+    position: 'absolute',
+    left: Math.max(pos.x, 0),
+    top: Math.max(pos.y, 0),
+    background: colorMode === 'dark' ? 'rgba(3, 7, 18, 0.95)' : 'rgba(248, 250, 252, 0.98)',
+    border: colorMode === 'dark'
+      ? '1px solid rgba(148, 163, 184, 0.25)'
+      : '1px solid rgba(148, 163, 184, 0.45)',
+    boxShadow: colorMode === 'dark'
+      ? '0 20px 50px rgba(15, 23, 42, 0.55)'
+      : '0 20px 45px rgba(15, 23, 42, 0.12)',
+    color: colorMode === 'dark' ? '#e2e8f0' : '#0f172a',
+    width: '512px',
+    borderRadius: '14px',
+    padding: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    zIndex: 100,
+    backdropFilter: 'blur(6px)'
+  };
 
-  const textColor = colorMode === 'dark' ? `text-white` : `text-black`;
-
-
-  let posX = pos.x;
-  if (posX < 0) {
-    posX = 0;
-  }
-  let posY = pos.y;
-  if (posY < 0) {
-    posY = 0;
-  } 
+  const getSliderStyle = (value, min, max) => {
+    const numValue = Number(value);
+    const safeValue = Number.isFinite(numValue) ? Math.min(Math.max(numValue, min), max) : min;
+    const percent = ((safeValue - min) / (max - min)) * 100;
+    return {
+      accentColor,
+      background: `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${percent}%, ${trackColor} ${percent}%, ${trackColor} 100%)`,
+      height: '8px',
+      borderRadius: '9999px',
+      outline: 'none',
+      transition: 'background 0.25s ease',
+    };
+  };
 
   return (
-    <div key={pos.id} style={{
-      position: 'absolute', left: posX, top: posY, background: "#030712",
-      width: "512px", borderRadius: "5px", padding: "5px", paddingTop: "1px", paddingBottom: "1px", display: "flex", flexDirection: "column", alignItems: "center",
-      zIndex: 100
-    }}>
+    <div key={pos.id} style={panelStyles}>
       <div className='flex flex-row w-full'>
         <div className='basis-1/2'>
           <div className='grid grid-cols-4'>
@@ -124,7 +147,7 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'x')}
                 onBlur={() => handleInputBlur('x')}
                 placeholder="X"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
               />
               <div className='text-xs text-center'>
                 X
@@ -137,7 +160,7 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'y')}
                 onBlur={() => handleInputBlur('y')}
                 placeholder="Y"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm` }
+                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
               />
               <div className='text-xs text-center'>
                 Y
@@ -150,7 +173,7 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'width')}
                 onBlur={() => handleInputBlur('width')}
                 placeholder="W"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
               />
               <div className='text-xs text-center'>
                 W
@@ -163,7 +186,7 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'height')}
                 onBlur={() => handleInputBlur('height')}
                 placeholder="H"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
               />
               <div className='text-xs text-center'>
                 H
@@ -228,7 +251,8 @@ export default function ImageToolbar(props) {
               onChange={handleSliderChange}
               onMouseUp={handleSliderChangeEnd}
               onTouchEnd={handleSliderChangeEnd}
-              style={{ width: '100%' }}
+              style={getSliderStyle(filterValue, selectedFilter.min, selectedFilter.max)}
+              className="w-full appearance-none rounded-full"
             />
           )}
         </div>

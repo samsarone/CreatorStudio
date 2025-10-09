@@ -8,8 +8,8 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
   const parentRef = useRef(null);
   const { colorMode } = useColorMode();
 
-  const graphColor = colorMode === 'light' ? 'blue' : '#fafaf9';
-  const bgColor = colorMode === 'light' ? 'bg-cyber-white' : 'bg-gray-950';
+  const graphColor = colorMode === 'light' ? '#2563eb' : '#f8fafc';
+  const backgroundShade = colorMode === 'light' ? '#f8fafc' : '#020617';
 
   // Debounce viewRange
   const [debouncedViewRange] = useDebounce(viewRange, 200); // Debounce delay in milliseconds
@@ -39,7 +39,7 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
       const endSample = Math.min(audioBuffer.length, Math.ceil(viewEnd * sampleRate));
       const channelData = audioBuffer.getChannelData(0).slice(startSample, endSample);
 
-      ctx.fillStyle = bgColor;
+      ctx.fillStyle = backgroundShade;
       ctx.fillRect(0, 0, width, height);
 
       ctx.lineWidth = 1;
@@ -80,7 +80,10 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
   }, []);
 
   return (
-    <div ref={parentRef} className='h-[82vh] w-full relative'>
+    <div
+      ref={parentRef}
+      className={`h-[82vh] w-full relative ${colorMode === 'dark' ? 'bg-slate-950/80' : 'bg-slate-50'} rounded-xl border ${colorMode === 'dark' ? 'border-white/10' : 'border-slate-200'} overflow-hidden`}
+    >
       <canvas ref={canvasRef} width="120" />
     </div>
   );

@@ -35,12 +35,18 @@ export default function OneshotEditorContainer() {
     }
   }, [id]);
 
-  const bgColor = colorMode === 'dark' ? 'bg-gray-900' : 'bg-gray-100';
-  const textColor = colorMode === 'dark' ? 'text-gray-200' : 'text-gray-900';
+  const outerShell =
+    colorMode === 'dark'
+      ? 'bg-slate-950 text-slate-100'
+      : 'bg-gradient-to-br from-white via-slate-50 to-sky-50 text-slate-900';
+  const subtleGradient =
+    colorMode === 'dark'
+      ? 'bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950'
+      : 'bg-gradient-to-b from-white via-sky-50 to-slate-100';
   return (
-    <div className={`${bgColor}`}>
+    <div className={`${outerShell} ${subtleGradient} min-h-screen`}>
       <OverflowContainer>
-        <div className='container m-auto'>
+        <div className='container m-auto py-6 md:py-10'>
           <OneshotEditor />
         </div>
       </OverflowContainer>
