@@ -23,42 +23,50 @@ export default function ImageLibrary(props) {
     setSelectedImage(null);
   };
 
-  const bgColor = colorMode === 'dark' ? 'bg-gray-800 ' : 'bg-gray-200';
-
-  const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
+  const panelSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const cardSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/60 border border-white/10'
+      : 'bg-white border border-slate-200 shadow-sm';
 
   const imagesLinks = generationImages.map((image) => {
     const imageLink = getRemoteImageLink(image.src);
     return (
-      <div key={imageLink} className={`image-item `}>
+      <div key={imageLink} className={`image-item ${cardSurface} rounded-xl overflow-hidden transition-transform duration-150 hover:shadow-lg hover:-translate-y-1`}>
         <img
           src={imageLink}
           alt="generationImage"
           onClick={() => handleImageClick(imageLink)}
-          style={{ cursor: 'pointer' }}
+          className="w-full h-full object-cover cursor-pointer"
         />
         {selectedImage === imageLink && (
-          <SecondaryButton onClick={() => handleSelect(imageLink)}
-          >Select</SecondaryButton>
+          <div className="p-2">
+            <SecondaryButton onClick={() => handleSelect(imageLink)} className="w-full justify-center">
+              Select
+            </SecondaryButton>
+          </div>
         )}
       </div>
     );
   });
 
   return (
-    <div className={`w-full h-full overflow-y-auto ${bgColor}  ${textColor} pl-2 pr-2 pt-4 pb-4 mt-[50px]`}>
+    <div className={`w-full h-full overflow-y-auto ${panelSurface} rounded-2xl pl-4 pr-4 pt-6 pb-6 mt-[50px] space-y-4`}>
       <div className='mb-2 mt-2'>
-        <div className='inline-flex float-left' onClick={() => resetImageLibrary()}>
-          <FaChevronCircleLeft className='inline-flex ml-2 mr-2 text-lg' />
-          <div className='inline-flex '>
-            Back
-          </div>
-
+        <div
+          className='inline-flex float-left cursor-pointer items-center gap-2 text-sm font-medium'
+          onClick={() => resetImageLibrary()}
+        >
+          <FaChevronCircleLeft className='text-lg' />
+          <span>Back</span>
         </div>
         <h2 className='text-lg font-bold'>Image Library</h2>
       </div>
 
-      <div className='grid grid-cols-4 gap-1'>
+      <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3'>
         {imagesLinks}
       </div>
     </div>

@@ -79,12 +79,12 @@ export default function OneshotEditor() {
   const surfaceCard =
     colorMode === 'dark'
       ? 'bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-slate-950/80 text-white border border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur'
-      : 'bg-gradient-to-br from-white to-slate-50 text-slate-900 border border-slate-200 shadow-sm';
+      : 'bg-gradient-to-br from-white via-slate-50 to-blue-50 text-slate-900 border border-slate-200/70 shadow-lg shadow-slate-200/60';
 
   const controlShell =
     colorMode === 'dark'
       ? 'bg-white/5 ring-1 ring-white/10 hover:ring-white/20'
-      : 'bg-white ring-1 ring-slate-200 hover:ring-slate-300';
+      : 'bg-white/95 ring-1 ring-slate-200/70 hover:ring-slate-300 shadow-sm';
 
   const mutedText = colorMode === 'dark' ? 'text-white/60' : 'text-slate-500';
 
@@ -1017,7 +1017,6 @@ export default function OneshotEditor() {
   }, [isGenerationPending, videoLink]);
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
-  const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
   // ─────────────────────────────────────────────────────────
@@ -1262,7 +1261,7 @@ export default function OneshotEditor() {
               focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
               ${colorMode === 'dark'
                 ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
-                : 'bg-gray-50 text-black ring-slate-200 focus:ring-indigo-500/50'
+                : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
               }
               ${isVoiceBusy ? 'opacity-95' : ''}
             `}
@@ -1338,7 +1337,7 @@ export default function OneshotEditor() {
               md:absolute md:right-0 top-0 p-3 rounded-xl text-center mt-4 md:mt-0 w-full md:w-auto transition
               ${colorMode === 'dark'
                 ? 'bg-gray-900/70 text-white ring-1 ring-white/10'
-                : 'bg-gray-100 text-black ring-1 ring-slate-200'
+                : 'bg-white text-slate-900 ring-1 ring-slate-200'
               }
             `}
           >

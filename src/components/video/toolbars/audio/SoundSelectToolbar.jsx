@@ -17,11 +17,14 @@ export default function SoundSelectToolbar(props) {
 
   const { colorMode } = useColorMode();
 
-  let bgColor = "bg-gray-900";
-  if (colorMode === 'light') {
-    bgColor = "bg-neutral-50 text-neutral-900";
-  }
-  const text2Color = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
+  const panelSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const inputSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/60 border border-white/10 text-slate-100'
+      : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
 
   // Construct the full audio URL
   const audioUrl = `${PROCESSOR_API_URL}/${audioLayer.localAudioLinks[0]}`;
@@ -40,7 +43,7 @@ export default function SoundSelectToolbar(props) {
   };
 
   return (
-    <div className={`${bgColor} ${text2Color}`}>
+    <div className={`${panelSurface} rounded-xl p-4 space-y-4`}>
       <div className="mt-2">
         <audio controls className="w-full">
           <source src={audioUrl} type="audio/mpeg" />
@@ -48,8 +51,8 @@ export default function SoundSelectToolbar(props) {
         </audio>
       </div>
       <div className="mt-2">
-        <form onSubmit={handleSubmit} className={`${bgColor}`}>
-          <div className="grid grid-cols-3 gap-2 items-center">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-3 gap-3 items-center">
             <div>
               <input
                 type="number"
@@ -57,7 +60,7 @@ export default function SoundSelectToolbar(props) {
                 placeholder="Start Time (secs)"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className={`h-[30px] ${bgColor} w-[80px] m-auto border-2 border-gray-200 pl-2`}
+                className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
               />
               <div className="text-xs text-center">Start Time</div>
             </div>
@@ -68,7 +71,7 @@ export default function SoundSelectToolbar(props) {
                 placeholder="Duration (secs)"
                 value={duration}
                 onChange={(e) => setDuration(e.target.value)}
-                className={`h-[30px] ${bgColor} w-[80px] m-auto border-2 border-gray-200 pl-2`}
+                className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
               />
               <div className="text-xs text-center">Duration</div>
             </div>
@@ -79,7 +82,7 @@ export default function SoundSelectToolbar(props) {
                 placeholder="Volume"
                 value={volume}
                 onChange={(e) => setVolume(e.target.value)}
-                className={`h-[30px] ${bgColor} w-[60px] m-auto border-2 border-gray-200 pl-2`}
+                className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
               />
               <div className="text-xs text-center">Volume</div>
             </div>

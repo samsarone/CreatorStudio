@@ -37,8 +37,22 @@ export default function ListVideoSessions() {
 
   const navigate = useNavigate();
   const { colorMode } = useColorMode();
-  const bgColor = colorMode === 'dark' ? 'bg-gray-900' : 'bg-neutral-300';
-  const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
+  const containerSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950 text-slate-100'
+      : 'bg-slate-50 text-slate-900';
+  const cardSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/70 border border-white/10 shadow-lg shadow-slate-900/40'
+      : 'bg-white border border-slate-200 shadow-md shadow-slate-200/60';
+  const resetButtonClass =
+    colorMode === 'dark'
+      ? 'bg-rose-500/90 hover:bg-rose-500 text-white'
+      : 'bg-rose-500 hover:bg-rose-600 text-white';
+  const paginationButtonClass =
+    colorMode === 'dark'
+      ? 'bg-slate-800 hover:bg-slate-700 text-white border border-white/10'
+      : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm';
 
   // On mount, load defaults from localStorage if present
   useEffect(() => {
@@ -220,7 +234,7 @@ export default function ListVideoSessions() {
   return (
     <OverflowContainer>
       <div
-        className={`p-4 pt-8 pb-8 h-full w-full min-h-[100vh] mt-[50px] ${bgColor} ${textColor}`}
+        className={`p-6 md:p-8 h-full w-full min-h-[100vh] mt-[50px] ${containerSurface}`}
       >
         {/* Top Section: Filters + Reset + Pagination controls */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
@@ -251,7 +265,7 @@ export default function ListVideoSessions() {
             {/* Reset Button */}
             <button
               onClick={handleResetFilters}
-              className="px-4 py-2 bg-red-600 text-white rounded"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${resetButtonClass}`}
             >
               Reset
             </button>
@@ -262,7 +276,7 @@ export default function ListVideoSessions() {
             <button
               onClick={handlePrevPage}
               disabled={page <= 1}
-              className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${paginationButtonClass}`}
             >
               Prev
             </button>
@@ -272,7 +286,7 @@ export default function ListVideoSessions() {
             <button
               onClick={handleNextPage}
               disabled={page >= totalPages}
-              className="px-4 py-2 bg-gray-700 text-white rounded disabled:opacity-50"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${paginationButtonClass}`}
             >
               Next
             </button>
@@ -293,18 +307,21 @@ export default function ListVideoSessions() {
             return (
               <div
                 key={index}
-                className="cursor-pointer"
+                className={`cursor-pointer group ${cardSurface} rounded-2xl overflow-hidden transition-transform duration-200 hover:-translate-y-1`}
                 onClick={() => gotoPage(session)}
               >
-                <div className="text-neutral-100 text-center mb-2">
+                <div className="text-sm font-medium text-center mb-2 px-4 pt-4">
                   {session.name}
                 </div>
                 <img
                   src={sessionPreviewImage}
                   onError={(e) => (e.target.src = '/q2.png')}
-                  className="w-64 h-64 object-cover rounded-lg"
+                  className="w-full h-56 object-cover"
                   alt={`Session ${index + 1}`}
                 />
+                <div className="px-4 pb-4 text-xs text-slate-500">
+                  Tap to open in Studio
+                </div>
               </div>
             );
           })}

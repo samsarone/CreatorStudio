@@ -102,23 +102,27 @@ export default function ProgressIndicator(props) {
     videoActualLink = `${PROCESSOR_API_URL}/${videoLink}`;
   }
 
-  const bgColor = colorMode === 'dark' ? 'bg-gray-900' : 'bg-gray-100';
-  const bg2Color = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
-  const bg3Color = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
-
-  const textColor = colorMode === 'dark' ? 'text-gray-200' : 'text-gray-900';
+  const panelShell =
+    colorMode === 'dark'
+      ? 'bg-slate-950/80 text-slate-100 border border-white/10 shadow-[0_6px_24px_rgba(15,23,42,0.4)]'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const progressTrack = colorMode === 'dark' ? 'bg-white/10' : 'bg-slate-200';
+  const errorPanel =
+    colorMode === 'dark'
+      ? 'bg-red-900/70 text-red-200 border border-red-800/70'
+      : 'bg-red-50 text-red-700 border border-red-200';
 
   return (
-    <div className={`${bgColor} ${textColor} p-4 pt-1 rounded `}>
+    <div className={`${panelShell} rounded-2xl p-4 pt-3 transition-shadow duration-200`}>
 
       {/* Error message display */}
       {errorMessage && (
-        <div className="bg-red-800 p-2 rounded mb-2">
+        <div className={`${errorPanel} p-3 rounded-xl mb-3`}>
           {errorMessage.error}
 
           <div>
             <button
-              className="text-red-300 mt-1 hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"
               onClick={viewInStudio}
             >
               View in Studio
@@ -131,9 +135,9 @@ export default function ProgressIndicator(props) {
       {isGenerationPending && expressGenerationStatus ? (
         <div className="clear-both mt-4 flex items-center">
           {/* Progress Bar */}
-          <div className={`w-full ${bg2Color} rounded overflow-hidden mr-4`}>
+          <div className={`w-full ${progressTrack} rounded-full overflow-hidden mr-4 h-3`}>
             <div
-              className="h-4 bg-blue-500 transition-all duration-300"
+              className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>

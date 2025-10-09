@@ -1,6 +1,7 @@
 // src/components/util/RangeOverlaySlider.js
 import React, { useEffect, useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
+import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
 export default function RangeOverlaySlider({
   min,
@@ -15,6 +16,7 @@ export default function RangeOverlaySlider({
   const [sliderValues, setSliderValues] = useState(value);
   const [initialValue, setInitialValue] = useState(null);
   const sliderRef = useRef(null);
+  const { colorMode } = useColorMode();
 
   // Define constants for minimum duration
   const MIN_LAYER_DURATION = 0.1; // Minimum layer duration in seconds
@@ -56,13 +58,31 @@ export default function RangeOverlaySlider({
       <ReactSlider
         ref={sliderRef}
         className={`range-overlay-slider h-full m-auto`}
-        thumbClassName="thumb"
-        trackClassName="track"
         min={min}
         max={max}
         value={sliderValues}
         onChange={handleSliderChange}
         renderThumb={(props) => <div {...props} />}
+        renderTrack={(props, state) => {
+          const isActiveSegment = state.index === 1;
+          const classes = `track rounded-full ${
+            isActiveSegment
+              ? colorMode === 'dark'
+                ? 'bg-indigo-500/35'
+                : 'bg-sky-300/60'
+              : colorMode === 'dark'
+                ? 'bg-slate-900/50'
+                : 'bg-slate-200'
+          }`;
+
+          return (
+            <div
+              {...props}
+              className={`${classes} ${props.className ?? ''}`}
+              style={{ ...props.style }}
+            />
+          );
+        }}
         onBeforeChange={() => {
           setInitialValue(sliderValues);
         }}

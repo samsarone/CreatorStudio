@@ -5,7 +5,6 @@ import Loader from '../../common/Loader';
 
 export default function LoadingImage() {
   const { colorMode } = useColorMode();
-  const bgColor = colorMode === 'dark' ? 'bg-gray-600 text-neutral-50' : 'bg-gray-200 text-neutral-900';
   
   return (
     <Loader />

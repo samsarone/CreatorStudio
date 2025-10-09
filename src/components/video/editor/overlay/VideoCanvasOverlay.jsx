@@ -61,43 +61,53 @@ export default function VideoCanvasOverlay(props) {
       topH = "top-[60vh]";
     }
 
-    let bgColor = `bg-black`;
-    if (colorMode === "light") {
-      bgColor = `bg-neutral-200`;
-    }
+    const overlaySurface =
+      colorMode === "dark"
+        ? "bg-slate-950/85 text-slate-100 border border-white/10 shadow-[0_20px_60px_rgba(8,15,40,0.65)]"
+        : "bg-white/90 text-slate-900 border border-slate-200 shadow-xl shadow-slate-200/60";
+    const tabBase =
+      colorMode === "dark"
+        ? "bg-slate-900/60 text-slate-300 border border-white/10 hover:text-white"
+        : "bg-slate-100 text-slate-600 border border-slate-200 hover:text-slate-900";
+    const tabActive =
+      colorMode === "dark"
+        ? "bg-indigo-500/25 text-white border border-indigo-400/40 shadow-sm"
+        : "bg-indigo-500/10 text-indigo-600 border border-indigo-200 shadow-sm";
+    const closeButtonColor =
+      colorMode === "dark"
+        ? "text-slate-300 hover:text-white"
+        : "text-slate-500 hover:text-slate-800";
+
     return (
       <div
         className={`
           absolute ${topH} left-1/2 transform -translate-x-1/2 
           z-10
-          ${bgColor} bg-opacity-60 backdrop-blur-sm
-          flex flex-col items-center 
+          ${overlaySurface} backdrop-blur
+          flex flex-col items-center
           px-4 py-2
-          rounded-lg
-          shadow-md
+          rounded-2xl
           min-w-[512px]
         `}
       >
         {/* Close Button */}
         <button
           onClick={onCloseOverlay}
-          className="absolute top-4 right-4 text-white hover:text-gray-300"
+          className={`absolute top-4 right-4 transition-colors duration-150 ${closeButtonColor}`}
         >
           <FaTimes size={18} />
         </button>
 
         {/* Tab Buttons */}
-        <div className="flex space-x-4 mb-2">
+        <div className="flex space-x-3 mb-2">
           <button
-            className={`px-4 py-1 rounded 
-               ${selectedTab === "image" ? "bg-stone-800 text-white shadow-sm shadow-neutral-600" : "bg-gray-800 shadow-none"}`}
+            className={`px-4 py-1.5 rounded-full transition-colors duration-150 ${selectedTab === "image" ? tabActive : tabBase}`}
             onClick={() => setSelectedTab("image")}
           >
             Generate Image
           </button>
           <button
-            className={`px-4 py-1 rounded 
-               ${selectedTab === "video" ? "bg-stone-800 text-white shadow-sm shadow-neutral-600" : "bg-gray-800 shadow-none"}`}
+            className={`px-4 py-1.5 rounded-full transition-colors duration-150 ${selectedTab === "video" ? tabActive : tabBase}`}
             onClick={() => setSelectedTab("video")}
           >
             Generate Video

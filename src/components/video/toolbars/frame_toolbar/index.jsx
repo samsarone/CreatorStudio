@@ -94,13 +94,24 @@ export default function FrameToolbar(props) {
 
   const { colorMode } = useColorMode();
 
-  const bgColor = colorMode === 'light' ? 'bg-cyber-white' : 'bg-gray-800';
-  const bg2Color = colorMode === 'light' ? 'bg-stone-200' : 'bg-gray-700';
-  let bg3Color = colorMode === 'light' ? 'bg-neutral-100' : 'bg-neutral-800';
+  const bgColor =
+    colorMode === 'light'
+      ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
+      : 'bg-slate-950/85 text-slate-100 border border-white/10 backdrop-blur-sm';
+  const bg2Color =
+    colorMode === 'light'
+      ? 'bg-slate-100 border border-slate-200'
+      : 'bg-slate-900/60 border border-white/10';
+  let bg3Color =
+    colorMode === 'light'
+      ? 'bg-slate-50 border border-slate-200'
+      : 'bg-slate-900/40 border border-white/10';
   const bgSelectedColor =
-    colorMode === 'light' ? 'bg-stone-200 shadow-lg' : 'bg-stone-950 shadow-lg';
-  const textColor = colorMode === 'light' ? 'text-cyber-black' : 'text-neutral-100';
-  const borderColor = colorMode === 'light' ? 'border-gray-300' : 'border-gray-600';
+    colorMode === 'light'
+      ? 'bg-indigo-50 border border-indigo-200 shadow-lg'
+      : 'bg-indigo-950/50 border border-indigo-500/40 shadow-lg';
+  const textColor = colorMode === 'light' ? 'text-slate-800' : 'text-slate-100';
+  const borderColor = colorMode === 'light' ? 'border-slate-200' : 'border-white/10';
 
   const [highlightBoundaries, setHighlightBoundaries] = useState({ start: 0, height: 0 });
   const totalDurationInFrames = Math.floor(totalDuration * 30); // Convert total duration to frames (30 fps)
@@ -1687,14 +1698,18 @@ export default function FrameToolbar(props) {
   }
 
   let mtop = 'mt-[52px]';
-  let bg5Color = `bg-neutral-900`;
-  if (colorMode === 'light') {
-    bg5Color = `bg-neutral-100`;
-  }
+  const collapsedToggleSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/80 text-slate-100 border border-white/10 shadow-sm shadow-slate-950/40'
+      : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
+  const expandedToggleSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950/90 text-slate-100 border border-white/10 shadow-sm shadow-slate-950/40'
+      : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
   let expandButtonLabel = (
-    <div className={`relative w-full cursor-pointer pb-1 block  ${bg5Color}`}>
+    <div className={`relative w-full cursor-pointer pb-1 px-3 rounded-lg transition-colors duration-150 ${collapsedToggleSurface}`}>
       <div className='inline-block'>Expand</div>
-      <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px] ' />
+      <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
     </div>
   );
 
@@ -1707,19 +1722,16 @@ export default function FrameToolbar(props) {
 
   if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
     expandButtonLabel = (
-
-      <div className='absolute right-0 top-0 w-32 cursor-pointer pb-1 block  bg-neutral-950 '>
-        <FaChevronLeft className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px] ' />
+      <div className={`absolute right-0 top-0 w-32 cursor-pointer pb-1 px-3 rounded-lg transition-colors duration-150 ${expandedToggleSurface}`}>
+        <FaChevronLeft className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
         <div className='inline-block'>Collapse</div>
       </div>
-
     );
   }
 
-  let textActiveColor = 'text-neutral-900';
-  if (showUpdateLayerPortal) {
-    textActiveColor = 'text-neutral-100';
-  }
+  const textActiveColor = showUpdateLayerPortal
+    ? (colorMode === 'dark' ? 'text-slate-100' : 'text-indigo-600')
+    : (colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500');
 
 
 

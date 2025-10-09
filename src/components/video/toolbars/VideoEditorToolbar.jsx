@@ -679,20 +679,44 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  let bgColor = "bg-gray-800 border-stone-600";
-  if (colorMode === 'light') {
-    bgColor = "bg-neutral-50 text-neutral-900";
-  }
-  let buttonBgcolor = "bg-gray-900 text-white";
-  if (colorMode === 'light') {
-    buttonBgcolor = "bg-stone-200 text-neutral-900";
-  }
-  let textInnerColor = colorMode === 'dark' ? 'text-neutral-900' : 'text-white';
+  const panelSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-950/85 border border-white/10 text-slate-100 backdrop-blur-sm'
+      : 'bg-white border border-slate-200 text-slate-900 shadow-xl shadow-slate-200/50';
+  const inputSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900/60 border border-white/10'
+      : 'bg-white border border-slate-200 shadow-sm';
+  const interactiveTile =
+    colorMode === 'dark'
+      ? 'bg-indigo-500/20 border border-indigo-400/30'
+      : 'bg-indigo-50 border border-indigo-200';
+  const buttonBgcolor =
+    colorMode === 'dark'
+      ? 'bg-slate-900/70 border border-white/10 text-white'
+      : 'bg-slate-100 border border-slate-200 text-slate-900 shadow-sm';
+  const textInnerColor = colorMode === 'dark' ? 'text-neutral-900' : 'text-white';
   const text2Color = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
-  let formSelectBgColor = colorMode === 'dark' ? '#030712' : '#f3f4f6';
-  let formSelectTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
-  let formSelectSelectedTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
-  let formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
+  const formSelectBgColor = colorMode === 'dark' ? '#030712' : '#f8fafc';
+  const formSelectTextColor = colorMode === 'dark' ? '#f3f4f6' : '#0f172a';
+  const formSelectSelectedTextColor = formSelectTextColor;
+  const formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
+  const sliderAccent = colorMode === 'dark' ? '#6366f1' : '#2563eb';
+  const sliderTrack = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
+
+  const getSliderStyle = (value, min, max) => {
+    const numValue = Number(value);
+    const safeValue = Number.isFinite(numValue) ? Math.min(Math.max(numValue, min), max) : min;
+    const percent = ((safeValue - min) / (max - min)) * 100;
+    return {
+      accentColor: sliderAccent,
+      background: `linear-gradient(to right, ${sliderAccent} 0%, ${sliderAccent} ${percent}%, ${sliderTrack} ${percent}%, ${sliderTrack} 100%)`,
+      height: '8px',
+      borderRadius: '9999px',
+      outline: 'none',
+      transition: 'background 0.25s ease',
+    };
+  };
 
   let animateOptionsDisplay = <span />;
   const animationOptions = [
@@ -935,7 +959,7 @@ export default function VideoEditorToolbar(props) {
                   max="180"
                   value={musicDuration}
                   onChange={(e) => setMusicDuration(e.target.value)}
-                  className={`w-full ${bgColor} ${text2Color} p-1`}
+                  className={`w-full ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
                 />
               </div>
             </div>
@@ -944,7 +968,7 @@ export default function VideoEditorToolbar(props) {
             <TextareaAutosize
               name="promptText"
               placeholder="Add prompt text here"
-              className={`w-full h-20 ${bgColor} ${text2Color} p-1`}
+              className={`w-full h-24 ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
               minRows={3}
             />
             <div className="flex flex-row mt-2">
@@ -984,7 +1008,7 @@ export default function VideoEditorToolbar(props) {
             playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
             currentlyPlayingSpeaker={currentlyPlayingSpeaker}
             audioGenerationPending={audioGenerationPending}
-            bgColor={bgColor}
+            bgColor={inputSurface}
             text2Color={text2Color}
             showAdvancedOptions={false}
             setShowAdvancedOptions={() => { }}
@@ -1071,13 +1095,13 @@ export default function VideoEditorToolbar(props) {
                 min="2"
                 max="40"
                 defaultValue="5"
-                className={`w-full ${bgColor} ${text2Color} p-1`}
+                className={`w-full ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
               />
             </div>
             <TextareaAutosize
               name="promptText"
               placeholder="Add prompt text here"
-              className={`w-full h-20 ${bgColor} ${text2Color} p-1`}
+              className={`w-full h-24 ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
               minRows={3}
             />
             <div className="flex flex-row">
@@ -1104,9 +1128,10 @@ export default function VideoEditorToolbar(props) {
             type="range"
             min="1"
             max="50"
-            className="w-full"
+            className="w-full appearance-none rounded-full"
             value={pencilWidth}
             onChange={(e) => setPencilWidth(e.target.value)}
+            style={getSliderStyle(Number(pencilWidth), 1, 50)}
           />
           <label className="block mt-2 mb-2">Color:</label>
           <input
@@ -1124,9 +1149,10 @@ export default function VideoEditorToolbar(props) {
             type="range"
             min="1"
             max="100"
-            className="w-full"
+            className="w-full appearance-none rounded-full"
             value={eraserWidth}
             onChange={(e) => setEraserWidth(e.target.value)}
+            style={getSliderStyle(Number(eraserWidth), 1, 100)}
           />
         </div>
       );
@@ -1135,8 +1161,8 @@ export default function VideoEditorToolbar(props) {
       <div>
         <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${pencilOptionsVisible ? 'bg-gray-800' : bgColor
-              } transition-colors duration-300`}
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${pencilOptionsVisible ? interactiveTile : inputSurface
+              } ${text2Color} transition-colors duration-300`}
           >
             <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}>
               <FaPencilAlt className="text-2xl m-auto cursor-pointer" />
@@ -1145,8 +1171,8 @@ export default function VideoEditorToolbar(props) {
           </div>
 
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${eraserOptionsVisible ? 'bg-gray-800' : bgColor
-              } transition-colors duration-300`}
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${eraserOptionsVisible ? interactiveTile : inputSurface
+              } ${text2Color} transition-colors duration-300`}
           >
             <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}>
               <FaEraser className="text-2xl m-auto cursor-pointer" />
@@ -1155,8 +1181,8 @@ export default function VideoEditorToolbar(props) {
           </div>
 
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
-              } transition-colors duration-300`}
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${cursorSelectOptionVisible ? interactiveTile : inputSurface
+              } ${text2Color} transition-colors duration-300`}
           >
             <div onClick={() => combineCurrentLayerItems()}>
               <LuCombine className="text-2xl m-auto cursor-pointer" />
@@ -1175,7 +1201,7 @@ export default function VideoEditorToolbar(props) {
     selectOptionsDisplay = (
       <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
         <div
-          className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${cursorSelectOptionVisible ? 'bg-gray-800' : bgColor
+          className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${cursorSelectOptionVisible ? interactiveTile : inputSurface
             } transition-colors duration-300`}
           onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY)}
         >
@@ -1183,7 +1209,7 @@ export default function VideoEditorToolbar(props) {
           <div className="text-[10px] tracking-tight m-auto text-center">Select Layer</div>
         </div>
         <div
-          className={`text-center m-auto align-center p-1 h-[50px] rounded-sm ${bgColor} transition-colors duration-300`}
+          className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${inputSurface} transition-colors duration-300`}
           onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY)}
         >
           <PiSelectionAll className="text-2xl m-auto cursor-pointer" />
@@ -1470,18 +1496,21 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  let collapseButtonColor = `bg-neutral-900`;
-  if (colorMode === 'light') {
-    collapseButtonColor = `bg-neutral-50`;
-  }
   return (
     <div
-      className={`border-l-2 ${bgColor} h-full m-auto fixed top-0 overflow-y-auto pl-2 r-4 ${containerWidth} pr-2 right-0 toolbar-container`}
+      className={`${panelSurface} h-full m-auto fixed top-0 overflow-y-auto pl-3 pr-3 ${containerWidth} right-0 toolbar-container`}
     >
       <div>
-        <div className="sticky top-[50px] bg-neutral-900 z-10 p-2">
+        <div
+          className={`sticky top-[50px] z-10 p-3 rounded-xl transition-colors duration-200 ${colorMode === 'dark'
+            ? 'bg-slate-950/90 border border-white/10 backdrop-blur'
+            : 'bg-white/95 border border-slate-200 shadow-sm'}`}
+        >
           {collapseButton}
-          <div onClick={showEditorExpandedView} className='m-auto text-white text-center'>
+          <div
+            onClick={showEditorExpandedView}
+            className={`m-auto text-center text-sm font-medium ${colorMode === 'dark' ? 'text-slate-100' : 'text-slate-700'}`}
+          >
             {expandButtonLabel}
           </div>
         </div>

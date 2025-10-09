@@ -22,11 +22,14 @@ export default function OverlayPromptGenerateVideo(props) {
   } = props;
 
   const { colorMode } = useColorMode();
-  const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
-  const textBG =
+  const selectShell =
     colorMode === "dark"
-      ? "bg-gray-800"
-      : "bg-gray-200 border-gray-600 border-2";
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const textareaShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
   // -----------------------------
   // Filter out only text-to-video models & check if they have pricing for the current aspect ratio
@@ -301,33 +304,28 @@ export default function OverlayPromptGenerateVideo(props) {
   );
 
   return (
-    <div className="relative p-2">
-      {/* Close Button */}
-
-      <div className="text-white text-xs">
-        Generate an image first to see more model options.
+    <div className="relative p-3 space-y-4">
+      <div className={`text-xs ${colorMode === "dark" ? "text-slate-300" : "text-slate-500"}`}>
+        Generate an image first to unlock more video model options and controls.
       </div>
+
       {/* Top row: Model selection + cost tooltip */}
-      <div className="flex w-full mt-2 mb-2 justify-center items-center space-x-4 shadow-lg p-3 rounded">
+      <div className={`flex w-full flex-wrap justify-center items-center gap-4 rounded-xl px-4 py-3 ${colorMode === "dark" ? "bg-slate-900/60 border border-white/10" : "bg-white border border-slate-200 shadow-sm"}`}>
         {/* Model label + cost tooltip */}
         <div className="flex items-center space-x-2">
-          <div className="text-md font-bold flex items-center">
+          <div className="text-sm font-semibold flex items-center">
             Model
             <a
               data-tooltip-id="modelCostTooltip"
               data-tooltip-content={`Currently selected model cost: ${modelPrice} Credits`}
             >
-              <FaQuestionCircle
-                className="ml-1"
-                data-tip
-                data-for="modelCostTooltip"
-              />
+              <FaQuestionCircle className="ml-1 text-xs" />
             </a>
             <Tooltip id="modelCostTooltip" place="right" effect="solid" />
           </div>
           <select
             onChange={handleModelChange}
-            className={`${selectBG} p-1 rounded`}
+            className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
             value={selectedVideoGenerationModel}
           >
             {modelOptions}
@@ -337,11 +335,11 @@ export default function OverlayPromptGenerateVideo(props) {
         {/* Model subType (if any) */}
         {selectedModelDef?.modelSubTypes?.length > 0 && (
           <div className="flex items-center space-x-2">
-            <div className="text-xs font-bold">Scene Type</div>
+            <div className="text-xs font-semibold">Scene Type</div>
             <select
               value={selectedModelSubType}
               onChange={handleModelSubTypeChange}
-              className={`${selectBG} p-1 rounded`}
+              className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
             >
               {selectedModelDef.modelSubTypes.map((subType) => (
                 <option key={subType} value={subType}>
@@ -355,10 +353,10 @@ export default function OverlayPromptGenerateVideo(props) {
         {/* Duration (if pricing info has units) */}
         {pricingForSelectedModel?.units && (
           <div className="flex items-center space-x-2">
-            <div className="text-xs font-bold">Duration</div>
+            <div className="text-xs font-semibold">Duration</div>
             <select
               onChange={handleDurationChange}
-              className={`${selectBG} p-1 rounded`}
+              className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
               value={selectedDuration || ""}
             >
               {pricingForSelectedModel.units.map((u) => (
@@ -372,19 +370,84 @@ export default function OverlayPromptGenerateVideo(props) {
       </div>
 
       {/* Second row: checkboxes (only relevant for certain models) */}
-      <div className="flex flex-wrap items-center mb-2 space-x-4 px-1">
-        {/* Start frame / End frame for Img-to-Vid */}
+      <div className={`flex flex-wrap items-center gap-3 px-1 text-xs ${colorMode === "dark" ? "text-slate-200" : "text-slate-600"}`}>
+        {isImgToVidModel && !isTextToVidModel && (
+          <label
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${useStartFrame ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={useStartFrame}
+              onChange={handleStartFrameChange}
+            />
+            <span>Use start frame</span>
+          </label>
+        )}
 
+        {isImgToVidModel && !isTextToVidModel && (
+          <label
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${useEndFrame ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={useEndFrame}
+              onChange={handleEndFrameChange}
+            />
+            <span>Use end frame</span>
+          </label>
+        )}
 
+        {isImgToVidModel && (
+          <label
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${combineLayers ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={combineLayers}
+              onChange={handleCombineLayersChange}
+            />
+            <span>Combine layers</span>
+          </label>
+        )}
 
+        {isImgToVidModel && (
+          <label
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${clipLayerToAiVideo ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={clipLayerToAiVideo}
+              onChange={handleClipLayerChange}
+            />
+            <span>Clip to AI video</span>
+          </label>
+        )}
+
+        {(selectedVideoGenerationModel === "HAILUO" || selectedVideoGenerationModel === "HAIPER2.0") && (
+          <label
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${optimizePrompt ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={optimizePrompt}
+              onChange={(e) => handleOptimizePromptChange(e.target.checked)}
+            />
+            <span>Optimize prompt</span>
+          </label>
+        )}
       </div>
 
       {/* Prompt Textarea (hide if it's SDVIDEO, which doesn't use text prompt) */}
       {selectedVideoGenerationModel !== "SDVIDEO" && (
         <TextareaAutosize
           onChange={(evt) => setVideoPromptText(evt.target.value)}
-          placeholder="Add prompt text here"
-          className={`${textBG} w-full p-2 rounded-lg`}
+          placeholder="Describe the motion, pacing, and cinematic details you want…"
+          className={`${textareaShell} w-full px-3 py-3 rounded-xl bg-transparent`}
           minRows={3}
           value={videoPromptText}
         />

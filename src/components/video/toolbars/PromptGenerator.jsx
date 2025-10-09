@@ -68,11 +68,14 @@ export default function PromptGenerator(props) {
   // ------------------------------------------------------------------
   // UI style helpers
   // ------------------------------------------------------------------
-  const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
-  const textBG =
+  const selectShell =
     colorMode === "dark"
-      ? "bg-gray-800"
-      : "bg-gray-200 border-gray-600 border-2";
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const textareaShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
   // ------------------------------------------------------------------
   // Find the cost of the current model + aspect ratio, if any
@@ -151,7 +154,7 @@ export default function PromptGenerator(props) {
         </div>
         <select
           onChange={handleModelChange}
-          className={`${selectBG} inline-flex w-[75%]`}
+          className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
           value={selectedGenerationModel}
         >
           {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -177,7 +180,7 @@ export default function PromptGenerator(props) {
               <select
                 onChange={handleImageStyleChange}
                 value={selectedImageStyle || ""}
-                className={`${selectBG} inline-flex w-[75%]`}
+                className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
               >
                 {modelDef.imageStyles.map((style) => (
                   <option key={style} value={style}>
@@ -242,8 +245,8 @@ export default function PromptGenerator(props) {
       <TextareaAutosize
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Add prompt text here"
-        className={`${textBG} w-full m-auto p-4 rounded-lg`}
-        minRows={3}
+        className={`${textareaShell} w-full m-auto rounded-xl px-3 py-3 bg-transparent`}
+        minRows={4}
         value={promptText}
       />
 

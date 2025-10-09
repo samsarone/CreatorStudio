@@ -25,11 +25,14 @@ export default function VideoPromptGenerator(props) {
 
 
   const { colorMode } = useColorMode();
-  const selectBG = colorMode === "dark" ? "bg-gray-800" : "bg-gray-200";
-  const textBG =
+  const selectShell =
     colorMode === "dark"
-      ? "bg-gray-800"
-      : "bg-gray-200 border-gray-600 border-2";
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const textareaShell =
+    colorMode === "dark"
+      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
   // Build <option> list by checking if the model has a price for the selected aspect ratio
   const modelOptionMap = VIDEO_GENERATION_MODEL_TYPES
@@ -388,7 +391,7 @@ export default function VideoPromptGenerator(props) {
         <div className="flex w-full items-center mt-2">
           <select
             onChange={setSelectedModelDisplay}
-            className={`${selectBG} w-full border border-gray-300 rounded-md p-1`}
+            className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
             value={selectedVideoGenerationModel}
           >
             {modelOptionMap}
@@ -402,7 +405,7 @@ export default function VideoPromptGenerator(props) {
             <div className="flex w-full items-center mt-2">
               <select
                 onChange={handleDurationChange}
-                className={`${selectBG} w-full border border-gray-300 rounded-md p-1`}
+                className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
                 value={selectedDuration || ""}
               >
                 {modelPricing.units.map((unit) => (
@@ -424,7 +427,7 @@ export default function VideoPromptGenerator(props) {
               <select
                 value={selectedModelSubType}
                 onChange={handleModelSubTypeChange}
-                className={`${selectBG} w-full border border-gray-300 rounded-md p-1`}
+                className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
               >
                 {PIXVERRSE_VIDEO_STYLES.map((style) => (
                   <option key={style} value={style}>
@@ -441,7 +444,7 @@ export default function VideoPromptGenerator(props) {
               <select
                 value={selectedModelSubType}
                 onChange={handleModelSubTypeChange}
-                className={`${selectBG} w-full border border-gray-300 rounded-md p-1`}
+                className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
               >
                 {selectedModelDef.modelSubTypes.map((subType) => (
                   <option key={subType} value={subType}>
@@ -460,7 +463,7 @@ export default function VideoPromptGenerator(props) {
         <TextareaAutosize
           onChange={(evt) => setVideoPromptText(evt.target.value)}
           placeholder="Add prompt text here"
-          className={`${textBG} w-full m-auto p-4 rounded-lg`}
+          className={`${textareaShell} w-full m-auto rounded-xl px-3 py-3 bg-transparent`}
           minRows={3}
           value={videoPromptText}
         />

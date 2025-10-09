@@ -2726,17 +2726,30 @@ export default function VideoEditorContainer(props) {
   )
 
 
+  const mainWorkspaceShell =
+    colorMode === 'dark'
+      ? 'bg-slate-950 text-slate-100'
+      : 'bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900';
+  const toolbarShell =
+    colorMode === 'dark'
+      ? 'bg-slate-950/80 border-l border-white/10'
+      : 'bg-white border-l border-slate-200 shadow-sm';
+  const collapsedToolbarShell =
+    colorMode === 'dark'
+      ? 'bg-slate-950/80 border-l border-white/10'
+      : 'bg-white border-l border-slate-200 shadow-sm';
+
   if (displayZoomType === 'fill') {
     let editorToolbarDisplay = <span />;
     if (mimialEditorDisplay) {
       editorToolbarDisplay = (
-        <div className='w-[2%] inline-block bg-gray-800 '>
+        <div className={`w-[2%] inline-block ${collapsedToolbarShell}`}>
           <VideoEditorToolbarMinimal onToggleDisplay={onToggleEditorMinimalDisplay} />
         </div>
       );
     } else {
       editorToolbarDisplay = (
-        <div className='w-[18%] inline-block bg-gray-800'>
+        <div className={`w-[18%] inline-block ${toolbarShell}`}>
           {editorToolbarExpanded}
           <ToastContainer
             position='bottom-center'
@@ -2757,8 +2770,8 @@ export default function VideoEditorContainer(props) {
     }
 
     return (
-      <div className='block'>
-        <div className='text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8 '>
+      <div className={`${mainWorkspaceShell} block min-h-screen`}>
+        <div className='text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8'>
           {viewDisplay}
 
 
@@ -2785,11 +2798,11 @@ export default function VideoEditorContainer(props) {
   }
 
   return (
-    <div className='block'>
-      <div className='text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8 '>
+    <div className={`${mainWorkspaceShell} block min-h-screen`}>
+      <div className='text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8'>
         {viewDisplay}
       </div>
-      <div className='w-[18%] inline-block bg-gray-800 '>
+      <div className={`w-[18%] inline-block ${toolbarShell}`}>
         {editorToolbarExpanded}
       </div>
     </div>

@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import ReactSlider from "react-slider";
 import { FaChevronLeft, FaChevronRight, FaDownload } from "react-icons/fa";
+import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 
 export default function FrameToolbarHorizontal({
   layers,
@@ -22,6 +23,7 @@ export default function FrameToolbarHorizontal({
   const layerRefs = useRef({}); // NEW: hold refs to each layer tile
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const { colorMode } = useColorMode();
 
   // Fixed virtual width so the rail is always wider than the viewport on load
   const railPixelWidth = 2400;
@@ -153,7 +155,11 @@ export default function FrameToolbarHorizontal({
     return (
       <button
         onClick={onDownload}
-        className="px-3 py-2 rounded-lg text-xs bg-neutral-700 text-white hover:bg-neutral-600 inline-flex items-center gap-2"
+        className={`px-3 py-2 rounded-lg text-xs inline-flex items-center gap-2 transition-colors duration-150 ${
+          colorMode === "dark"
+            ? "bg-slate-900/80 text-slate-100 border border-white/10 hover:bg-slate-900"
+            : "bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-100"
+        }`}
       >
         <FaDownload />
         Download
@@ -162,20 +168,50 @@ export default function FrameToolbarHorizontal({
   };
 
   return (
-    <div className="bg-neutral-900 text-neutral-100 border-t border-neutral-800">
+    <div
+      className={`${
+        colorMode === "dark"
+          ? "bg-slate-950 text-slate-100 border-t border-white/10"
+          : "bg-white text-slate-800 border-t border-slate-200 shadow-sm"
+      }`}
+    >
       {/* Seek */}
       <div className="px-3 pb-2">
         <ReactSlider
           key="horizontal-seek-slider"
           className="modern-horizontal-slider w-full h-6 flex items-center"
-          thumbClassName="thumb h-4 w-4 rounded-full bg-white"
-          trackClassName="track h-[3px] bg-neutral-700"
           min={0}
           max={totalFrames}
           value={currentLayerSeek}
           onChange={handleSeek}
+          renderTrack={(props, state) => (
+            <div
+              {...props}
+              className={`h-[3px] rounded-full ${
+                state.index === 0
+                  ? colorMode === "dark"
+                    ? "bg-indigo-500/40"
+                    : "bg-indigo-500/30"
+                  : colorMode === "dark"
+                    ? "bg-slate-900/60"
+                    : "bg-slate-200"
+              }`}
+              style={{ ...props.style }}
+            />
+          )}
+          renderThumb={(props) => (
+            <div
+              {...props}
+              className={`h-4 w-4 rounded-full shadow ${
+                colorMode === "dark"
+                  ? "bg-white border border-white/40"
+                  : "bg-indigo-500 border border-indigo-200"
+              }`}
+              style={{ ...props.style }}
+            />
+          )}
         />
-        <div className="text-[10px] text-neutral-400 mt-1">
+        <div className={`text-[10px] mt-1 ${colorMode === "dark" ? "text-slate-400" : "text-slate-500"}`}>
           {(currentLayerSeek / fps).toFixed(2)}s / {totalDuration.toFixed(2)}s
         </div>
       </div>
@@ -183,7 +219,11 @@ export default function FrameToolbarHorizontal({
       {/* Scroll controls */}
       <div className="px-3 flex items-center gap-2">
         <button
-          className={`p-2 rounded-md bg-neutral-800 ${canScrollLeft ? "" : "opacity-40 cursor-not-allowed"}`}
+          className={`p-2 rounded-md transition-colors duration-150 ${
+            colorMode === "dark"
+              ? "bg-slate-900/80 text-slate-100 border border-white/10"
+              : "bg-white text-slate-600 border border-slate-200 shadow-sm"
+          } ${canScrollLeft ? "" : "opacity-40 cursor-not-allowed"}`}
           onClick={() => canScrollLeft && scrollByAmount(-400)}
           aria-label="Scroll left"
         >
@@ -195,7 +235,7 @@ export default function FrameToolbarHorizontal({
           <Droppable droppableId="rail" direction="horizontal">
             {(provided) => (
               <div
-                className="flex-1 overflow-x-auto" // CHANGED: this is now the Droppable itself
+        className="flex-1 overflow-x-auto" // CHANGED: this is now the Droppable itself
                 ref={(node) => {
                   // attach both droppable ref and our local railRef
                   provided.innerRef(node);
@@ -221,7 +261,13 @@ export default function FrameToolbarHorizontal({
                               {...drag.draggableProps}
                               {...drag.dragHandleProps}
                               className={`mx-1 rounded-xl shadow-sm border ${
-                                isSelected ? "border-blue-400 bg-blue-900/40" : "border-neutral-700 bg-neutral-800"
+                                isSelected
+                                  ? colorMode === "dark"
+                                    ? "border-indigo-400/80 bg-indigo-500/30"
+                                    : "border-indigo-300 bg-indigo-100"
+                                  : colorMode === "dark"
+                                    ? "border-slate-800 bg-slate-900/70"
+                                    : "border-slate-200 bg-slate-100"
                               } cursor-pointer flex items-center justify-center select-none`}
                               style={{
                                 width: widthPx,
@@ -260,7 +306,11 @@ export default function FrameToolbarHorizontal({
         </DragDropContext>
 
         <button
-          className={`p-2 rounded-md bg-neutral-800 ${canScrollRight ? "" : "opacity-40 cursor-not-allowed"}`}
+          className={`p-2 rounded-md transition-colors duration-150 ${
+            colorMode === "dark"
+              ? "bg-slate-900/80 text-slate-100 border border-white/10"
+              : "bg-white text-slate-600 border border-slate-200 shadow-sm"
+          } ${canScrollRight ? "" : "opacity-40 cursor-not-allowed"}`}
           onClick={() => canScrollRight && scrollByAmount(400)}
           aria-label="Scroll right"
         >

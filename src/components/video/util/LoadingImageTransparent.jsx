@@ -5,7 +5,6 @@ import Loader from '../../common/Loader';
 
 export default function LoadingImageTransparent() {
   const { colorMode } = useColorMode();
-  const bgColor = colorMode === 'dark' ? 'text-neutral-50' : 'text-neutral-900';
   
   return (
     <Loader />
