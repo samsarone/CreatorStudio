@@ -1927,6 +1927,8 @@ export default function FrameToolbar(props) {
     </div>
   );
 
+  let btnLeftMargin = 'ml-2';
+
   if (isGuestSession && downloadLink) {
     submitRenderDisplay = (
       <div>
@@ -1935,6 +1937,7 @@ export default function FrameToolbar(props) {
         </PublicPrimaryButton>
       </div>
     )
+    btnLeftMargin = 'ml-0';
   } else {
     if (renderedVideoPath && !isCanvasDirty) {
 
@@ -2178,7 +2181,7 @@ export default function FrameToolbar(props) {
               </div>
             </div>
 
-            <div className='btn-container flex-w-full ml-2 mb-1'>
+            <div className={`btn-container flex-w-full ${btnLeftMargin} mb-1`}>
               <div className={`basis-1/2 inline-flex ${buttonGroupMT}`}>
                 {submitRenderFullActionDisplay}
               </div>

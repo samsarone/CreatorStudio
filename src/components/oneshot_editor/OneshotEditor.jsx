@@ -75,6 +75,8 @@ export default function OneshotEditor() {
 
   const currentEnv = getSessionType();
 
+  const transcriptHeaders = useMemo(() => getHeaders(), [user]);
+
   // ✨ UI tokens for light/dark surfaces
   const surfaceCard =
     colorMode === 'dark'
@@ -246,6 +248,7 @@ export default function OneshotEditor() {
     error: realtimeVoiceError,
   } = useRealtimeTranscription({
     transcriptEndpoint: `${API_SERVER}/video_session/get_transcription_key`,
+    transcriptHeaders,
     onTranscription: handleVoiceTranscription,
     onSessionStarted: handleVoiceSessionStarted,
     onSessionEnded: handleVoiceSessionEnded,
@@ -343,6 +346,8 @@ export default function OneshotEditor() {
     }
 
     if (!user) {
+      setVoiceStatusMessage(null);
+      setVoiceError('Please login to continue');
       showLoginDialog();
       return;
     }
