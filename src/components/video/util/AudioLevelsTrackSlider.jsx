@@ -72,15 +72,34 @@ export default function AudioLevelsTrackSlider(props) {
     setSelectedThumbIndex(null);
   };
 
-  const renderTrack = (props, state) => (
-    <div {...props} ref={sliderRef} onClick={handleSliderClick} className={props.className} />
-  );
+  const renderTrack = (props, state) => {
+    const { key, className, style, ...trackProps } = props;
+    return (
+      <div
+        key={key}
+        {...trackProps}
+        ref={sliderRef}
+        className={className}
+        style={style}
+        onClick={handleSliderClick}
+      />
+    );
+  };
 
-  const renderThumb = (props, state) => (
-    <div {...props} onClick={(e) => handleThumbClick(e, state.index)}>
-      <FaGripLines />
-    </div>
-  );
+  const renderThumb = (props, state) => {
+    const { key, className, style, ...thumbProps } = props;
+    return (
+      <div
+        key={key}
+        {...thumbProps}
+        className={className}
+        style={style}
+        onClick={(e) => handleThumbClick(e, state.index)}
+      >
+        <FaGripLines />
+      </div>
+    );
+  };
 
   const sliderValues = thumbs.map((thumb) => thumb.position);
   const selectedThumb = thumbs[selectedThumbIndex];

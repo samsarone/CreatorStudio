@@ -30,6 +30,10 @@ export default function OverlayPromptGenerateVideo(props) {
     colorMode === "dark"
       ? "bg-slate-900/60 text-slate-100 border border-white/10"
       : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const chipShell =
+    colorMode === "dark"
+      ? "bg-slate-900/40 border border-white/10 text-slate-300 hover:bg-slate-900/60"
+      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50";
 
   // -----------------------------
   // Filter out only text-to-video models & check if they have pricing for the current aspect ratio

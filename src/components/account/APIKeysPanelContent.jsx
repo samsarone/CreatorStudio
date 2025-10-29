@@ -2,22 +2,18 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaEye, FaEyeSlash, FaTrash, FaTimes } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaTrash } from 'react-icons/fa';
 import SecondaryButton from '../common/SecondaryButton.tsx';
 import { getHeaders } from '../../utils/web.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useUser } from '../../contexts/UserContext.jsx';
-import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
-import UpgradePlan from '../payments/UpgradePlan.tsx';
-
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function APIKeysPanelContent() {
   const { colorMode } = useColorMode();
   const { user } = useUser();
-  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
   const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-800';
   const bgColor = colorMode === 'dark' ? 'bg-neutral-900' : 'bg-neutral-100';
@@ -30,7 +26,7 @@ export default function APIKeysPanelContent() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user && user.isEmailVerified) {
+    if (user) {
       fetchAPIKeys();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,10 +40,7 @@ export default function APIKeysPanelContent() {
       const headers = getHeaders();
       const response = await axios.get(`${PROCESSOR_SERVER}/users/api_keys`, headers);
       const apiKeyResponse = response.data.apiKeys || [];
-
-
-      
-      setApiKeys(response.data.apiKeys || []);
+      setApiKeys(apiKeyResponse);
     } catch (error) {
       console.error('Error fetching API keys:', error);
       toast.error('Failed to fetch API keys', {
@@ -108,20 +101,6 @@ export default function APIKeysPanelContent() {
     const middle = '*'.repeat(key.length - visibleChars * 2);
     return `${start}${middle}${end}`;
   };
-
-  const handleUpgradeToPremium = () => {
-    const alertDialogComponent = <UpgradePlan />;
-    openAlertDialog(
-      <div>
-        <FaTimes
-          className="absolute top-2 right-2 cursor-pointer"
-          onClick={closeAlertDialog}
-        />
-        {alertDialogComponent}
-      </div>
-    );
-  };
-
 
   return (
     <div className={`flex flex-col flex-grow ${bgColor} ${textColor}`}>

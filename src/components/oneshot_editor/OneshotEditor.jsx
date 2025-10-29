@@ -1078,8 +1078,8 @@ export default function OneshotEditor() {
   const creditsPerSecondVideo = useMemo(() => {
   const key = selectedVideoModel?.value || '';
     if (key === 'KLINGIMGTOVIDTURBO') return 15;
-  if (key === 'VEO3I2VFLASH') return 30;
-  if (key === 'VEO3I2V') return 60;
+  if (key === 'VEO3.1I2VFAST') return 30;
+  if (key === 'VEO3.1I2V') return 60;
   if (key === 'SORA2') return 30;
   if (key === 'SORA2PRO') return 70;
   return 10; // default

@@ -62,7 +62,17 @@ export default function RangeOverlaySlider({
         max={max}
         value={sliderValues}
         onChange={handleSliderChange}
-        renderThumb={(props) => <div {...props} />}
+        renderThumb={(props) => {
+          const { key, className, style, ...thumbProps } = props;
+          return (
+            <div
+              key={key}
+              {...thumbProps}
+              className={className}
+              style={style}
+            />
+          );
+        }}
         renderTrack={(props, state) => {
           const isActiveSegment = state.index === 1;
           const classes = `track rounded-full ${
@@ -75,11 +85,13 @@ export default function RangeOverlaySlider({
                 : 'bg-slate-200'
           }`;
 
+          const { key, className: incomingClass, style, ...trackProps } = props;
           return (
             <div
-              {...props}
-              className={`${classes} ${props.className ?? ''}`}
-              style={{ ...props.style }}
+              key={key}
+              {...trackProps}
+              className={`${classes} ${incomingClass ?? ''}`}
+              style={style}
             />
           );
         }}

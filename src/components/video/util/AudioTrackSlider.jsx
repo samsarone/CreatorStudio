@@ -172,9 +172,11 @@ const AudioTrackSlider = (props) => {
     };
 
     if (state.index === 1) {
+      const { key, className, style, ...trackProps } = props;
       return (
         <div
-          {...props}
+          key={key}
+          {...trackProps}
           ref={trackRef}
           onMouseDown={handleRangeMouseDown}
 
@@ -185,16 +187,18 @@ const AudioTrackSlider = (props) => {
              e.stopPropagation();
           }}
 
-          className={`track rounded-full audio_range_track-${audioTrackId} ${props.className ?? ''}`}
-          style={{ ...props.style, ...activeTrackStyle }}
+          className={`track rounded-full audio_range_track-${audioTrackId} ${className ?? ''}`}
+          style={{ ...style, ...activeTrackStyle }}
         />
       );
     } else {
+      const { key, style, ...trackProps } = props;
       return (
         <div
-          {...props}
+          key={key}
+          {...trackProps}
           className={`track rounded-full audio_range_track-${audioTrackId}`}
-          style={{ ...props.style, ...baseTrackStyle }}
+          style={{ ...style, ...baseTrackStyle }}
         />
       );
     }
@@ -224,15 +228,17 @@ const AudioTrackSlider = (props) => {
           (index === 0 && isStartVisible) || (index === 1 && isEndVisible);
 
         if (shouldRenderThumb) {
+          const { key, className, style, ...thumbProps } = props;
           return (
             <div
-              {...props}
+              key={key}
+              {...thumbProps}
               className={`flex items-center justify-center rounded-full border shadow w-5 h-3 ${
                 colorMode === 'dark'
                   ? 'bg-white border-white/40 text-slate-800'
                   : 'bg-indigo-500 border-indigo-200 text-white'
-              }`}
-              style={{ ...props.style }}
+              } ${className ?? ''}`}
+              style={style}
             >
               <FaGripLines />
             </div>

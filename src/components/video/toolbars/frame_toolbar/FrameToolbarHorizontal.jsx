@@ -184,32 +184,40 @@ export default function FrameToolbarHorizontal({
           max={totalFrames}
           value={currentLayerSeek}
           onChange={handleSeek}
-          renderTrack={(props, state) => (
-            <div
-              {...props}
-              className={`h-[3px] rounded-full ${
-                state.index === 0
-                  ? colorMode === "dark"
-                    ? "bg-indigo-500/40"
-                    : "bg-indigo-500/30"
-                  : colorMode === "dark"
-                    ? "bg-slate-900/60"
-                    : "bg-slate-200"
-              }`}
-              style={{ ...props.style }}
-            />
-          )}
-          renderThumb={(props) => (
-            <div
-              {...props}
-              className={`h-4 w-4 rounded-full shadow ${
-                colorMode === "dark"
-                  ? "bg-white border border-white/40"
-                  : "bg-indigo-500 border border-indigo-200"
-              }`}
-              style={{ ...props.style }}
-            />
-          )}
+          renderTrack={(props, state) => {
+            const { key, className, style, ...trackProps } = props;
+            return (
+              <div
+                key={key}
+                {...trackProps}
+                className={`h-[3px] rounded-full ${
+                  state.index === 0
+                    ? colorMode === "dark"
+                      ? "bg-indigo-500/40"
+                      : "bg-indigo-500/30"
+                    : colorMode === "dark"
+                      ? "bg-slate-900/60"
+                      : "bg-slate-200"
+                } ${className ?? ""}`}
+                style={style}
+              />
+            );
+          }}
+          renderThumb={(props) => {
+            const { key, className, style, ...thumbProps } = props;
+            const baseClass =
+              colorMode === "dark"
+                ? "bg-white border border-white/40"
+                : "bg-indigo-500 border border-indigo-200";
+            return (
+              <div
+                key={key}
+                {...thumbProps}
+                className={`${className ?? ""} h-4 w-4 rounded-full shadow ${baseClass}`}
+                style={style}
+              />
+            );
+          }}
         />
         <div className={`text-[10px] mt-1 ${colorMode === "dark" ? "text-slate-400" : "text-slate-500"}`}>
           {(currentLayerSeek / fps).toFixed(2)}s / {totalDuration.toFixed(2)}s

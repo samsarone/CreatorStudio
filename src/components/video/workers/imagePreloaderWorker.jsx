@@ -1,7 +1,12 @@
 /* eslint-disable no-restricted-globals */
-const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
+let API_SERVER = '';
 
 self.onmessage = async function (e) {
+  if (e?.data?.type === 'CONFIG') {
+    API_SERVER = e.data.apiServer || '';
+    return;
+  }
+
   const { layers } = e.data;
 
   const fetchPromises = layers.flatMap(layer => {
@@ -29,4 +34,6 @@ export function getRemoteImageLink(imagePath) {
   } else if (imagePath.includes('/video/')) {
     return `${API_SERVER}${imagePath}`;
   }
+
+  return imagePath;
 }

@@ -18,6 +18,7 @@ import { FaTwitter, FaStar } from 'react-icons/fa6';
 import AuthContainer from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
+import { toast } from 'react-toastify';
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
@@ -188,7 +189,7 @@ const showLicenseDialog = () => {
     </div>
   );
 
-  const { user, setUser } = useUser();
+  const { user, setUser, getUserAPI } = useUser();
   const navigate = useNavigate();
 
   const [userProfileData, setUserProfileData] = useState({});
@@ -396,7 +397,22 @@ const showLicenseDialog = () => {
   };
 
   const requestApplyCreditsCoupon = (couponCode) => {
-    console.log("APPLY CREDITS COUPON " + couponCode);
+    if (!couponCode) {
+      toast.error("Please enter a coupon code", { position: "bottom-center" });
+      return;
+    }
+
+    axios
+      .post(`${PROCESSOR_SERVER}/users/apply_credits_coupon`, { couponCode }, getHeaders())
+      .then(() => {
+        toast.success("Coupon applied!", { position: "bottom-center" });
+        if (typeof getUserAPI === "function") {
+          getUserAPI();
+        }
+      })
+      .catch(() => {
+        toast.error("Failed to apply coupon", { position: "bottom-center" });
+      });
   }
 
   const openPurchaseCreditsDialog = () => {

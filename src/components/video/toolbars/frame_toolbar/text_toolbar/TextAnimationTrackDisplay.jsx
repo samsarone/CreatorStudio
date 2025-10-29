@@ -64,25 +64,35 @@ export default function TextAnimationTrackDisplay(props) {
           updateTrackAnimationBoundaries(value[0], value[1]);
         }
       }}
-      renderTrack={(props) => (
-        <div
-          {...props}
-          className={`track text-animation-track ${isAnimationSelected ? 'animation-selected' : ''} ${props.className}`}
-          onMouseDown={handleTrackMouseDown}
-          onClick={handleTrackClick}
-        />
-      )}
-      renderThumb={(props) => (
-        <div
-          {...props}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleTrackClick(e); // Selecting on thumb click as well
-          }}
-        >
-          <FaDiamond className='text-xs mt-[-2px]'/>
-        </div>
-      )}
+      renderTrack={(props) => {
+        const { key, className, style, ...trackProps } = props;
+        return (
+          <div
+            key={key}
+            {...trackProps}
+            className={`track text-animation-track ${isAnimationSelected ? 'animation-selected' : ''} ${className ?? ''}`}
+            style={style}
+            onMouseDown={handleTrackMouseDown}
+            onClick={handleTrackClick}
+          />
+        );
+      }}
+      renderThumb={(props) => {
+        const { key, style, ...thumbProps } = props;
+        return (
+          <div
+            key={key}
+            {...thumbProps}
+            style={style}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleTrackClick(e); // Selecting on thumb click as well
+            }}
+          >
+            <FaDiamond className='text-xs mt-[-2px]'/>
+          </div>
+        );
+      }}
     />
   );
 }
