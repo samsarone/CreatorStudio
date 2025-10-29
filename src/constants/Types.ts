@@ -353,8 +353,21 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
-    name: 'Veo3',
-    key: 'VEO3',
+    name: 'Veo3.1',
+    key: 'VEO3.1',
+    isImgToVidModel: false,
+    isExpressModel: false,
+    isTextToVidModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16',
+    ]
+
+  },
+
+
+  {
+    name: 'Veo3.1 Fast',
+    key: 'VEO3.1FAST',
     isImgToVidModel: false,
     isExpressModel: false,
     isTextToVidModel: true,
@@ -449,23 +462,25 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   },
 
   {
-    name: 'VEO3 Img2Vid',
-    key: 'VEO3I2V',
+    name: 'VEO3.1 Img2Vid',
+    key: 'VEO3.1I2V',
     isImgToVidModel: true,
     isExpressModel: true,
     supportedAspectRatios: [
-      '16:9'
+      '16:9',
+      '9:16'
     ]
   },
 
 
   {
-    name: 'VEO3 Flash Img2Vid',
-    key: 'VEO3I2VFLASH',
+    name: 'VEO3.1 Fast Img2Vid',
+    key: 'VEO3.1I2VFAST',
     isImgToVidModel: true,
     isExpressModel: true,
     supportedAspectRatios: [
-      '16:9'
+      '16:9',
+      '9:16'
     ]
   },
 

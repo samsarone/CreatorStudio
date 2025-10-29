@@ -774,7 +774,7 @@ export const VIDEO_MODEL_PRICES = [
     units: [8],
   },
 
-    {
+  {
     key: 'SORA2PRO',
     prices: [
 
@@ -887,7 +887,7 @@ export const VIDEO_MODEL_PRICES = [
     units: [5, 8]
   },
   {
-    key: 'VEO3',
+    key: 'VEO3.1',
     prices: [
       {
         aspectRatio: '1:1',
@@ -906,7 +906,26 @@ export const VIDEO_MODEL_PRICES = [
   },
 
   {
-    key: 'VEO3I2V',
+    key: 'VEO3.1FAST',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 300
+      },
+      {
+        aspectRatio: '16:9',
+        price: 300
+      },
+      {
+        aspectRatio: '9:16',
+        price: 300
+      },
+    ],
+    units: [8]
+  },
+
+  {
+    key: 'VEO3.1I2V',
     prices: [
       {
         aspectRatio: '1:1',
@@ -924,7 +943,7 @@ export const VIDEO_MODEL_PRICES = [
     units: [8]
   },
   {
-    key: 'VEO3I2VFLASH',
+    key: 'VEO3.1I2VFAST',
     prices: [
       {
         aspectRatio: '1:1',
@@ -943,28 +962,6 @@ export const VIDEO_MODEL_PRICES = [
   },
 
 
-
-
-  //   {
-  //   name: 'VEO3 Img2Vid',
-  //   key: 'VEO3I2V',
-  //   isImgToVidModel: true,
-  //   isExpressModel: true,
-  //   supportedAspectRatios: [
-  //     '16:9', '9:16',
-  //   ]
-  // },
-
-
-  // {
-  //   name: 'VEO3 Flash Img2Vid',
-  //   key: 'VEO3I2VFLASH',
-  //   isImgToVidModel: true,
-  //   isExpressModel: true,
-  //   supportedAspectRatios: [
-  //     '16:9', '9:16',
-  //   ]
-  // },
 
 
 

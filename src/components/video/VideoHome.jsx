@@ -1411,22 +1411,49 @@ export default function VideoHome(props) {
   }
 
   const publishVideoSession = (payload) => {
-
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
       return;
     }
 
+    const normalizedTags = typeof payload.tags === 'string'
+      ? payload.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+      : Array.isArray(payload.tags)
+        ? payload.tags.map((tag) => tag.trim()).filter(Boolean)
+        : [];
 
-    const payloadTags = payload.tags.split(',');
-    payload.tags = payloadTags;
-    payload.aspectRatio = aspectRatio;
+    const publishPayload = {
+      ...payload,
+      tags: normalizedTags,
+      aspectRatio: aspectRatio,
+      ispublishedVideo: true,
+    };
 
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/publish_session`, payload, headers).then((dataRes) => {
-      const sessionData = dataRes.data;
-      setVideoSessionDetails(sessionData);
-    });
+    axios
+      .post(`${PROCESSOR_API_URL}/video_sessions/publish_session`, publishPayload, headers)
+      .then((response) => {
+        const publicationData = response.data;
+        setVideoSessionDetails((prevDetails) => {
+          if (!prevDetails) {
+            return prevDetails;
+          }
+
+          return {
+            ...prevDetails,
+            ispublishedVideo: true,
+            publishedTitle: publishPayload.title,
+            publishedDescription: publishPayload.description,
+            publishedTags: normalizedTags,
+            publishedAspectRatio: publishPayload.aspectRatio,
+            publishedVideoURL: publicationData?.videoURL || prevDetails.publishedVideoURL || prevDetails.remoteURL,
+            publishedAt: publicationData?.updatedAt || prevDetails.publishedAt || new Date().toISOString(),
+          };
+        });
+      })
+      .catch((error) => {
+        console.error('Error publishing video session:', error);
+      });
   }
 
   const updateCurrentActiveLayer = (imageItem) => {

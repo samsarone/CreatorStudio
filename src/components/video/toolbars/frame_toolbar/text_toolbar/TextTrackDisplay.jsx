@@ -73,16 +73,19 @@ const TextTrackDisplay = (props) => {
   }
 
   const renderTrack = (props, state) => {
+    const { key, className, style, ...trackProps } = props;
     return (
       <div
-        {...props}
+        key={key}
+        {...trackProps}
         ref={trackRef}
+        style={style}
         onMouseDown={(e) => {
           e.preventDefault();
           e.stopPropagation();
         }}
         onClick={textTrackClicked}
-        className={`track text_track-${textItemId} ${props.className}`}
+        className={`track text_track-${textItemId} ${className ?? ''}`}
       />
     );
   };
@@ -135,8 +138,9 @@ const TextTrackDisplay = (props) => {
           }
         }}
         renderThumb={(props, state) => {
+          const { key, style, ...thumbProps } = props;
           return (
-            <div {...props}>
+            <div key={key} {...thumbProps} style={style}>
               <FaGripLines />
             </div>
           );

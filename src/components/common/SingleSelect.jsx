@@ -2,6 +2,8 @@ import React from 'react';
 import Select from 'react-select';
 import { useColorMode } from '../../contexts/ColorMode';
 
+const MENU_Z_INDEX = 11050; // Keep dropdown above modals like AlertDialog
+
 export default function SingleSelect(props) {
   const {
     options,
@@ -30,12 +32,12 @@ export default function SingleSelect(props) {
       styles={{
         menuPortal: (provided) => ({
           ...provided,
-          zIndex: 9999,
+          zIndex: MENU_Z_INDEX,
         }),
         menu: (provided) => ({
           ...provided,
           backgroundColor: formSelectBgColor,
-          zIndex: 9999,
+          zIndex: MENU_Z_INDEX,
         }),
         singleValue: (provided) => ({
           ...provided,
@@ -71,6 +73,10 @@ export default function SingleSelect(props) {
         placeholder: (provided) => ({
           ...provided,
           color: formSelectTextColor,     // This ensures placeholder text has the same color
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          maxWidth: 'calc(100% - 16px)',
         }),
       }}
       options={options}
