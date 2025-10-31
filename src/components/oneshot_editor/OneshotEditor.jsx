@@ -29,6 +29,7 @@ import SingleSelect from '../common/SingleSelect.jsx';
 import ProgressIndicator from './ProgressIndicator.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import PrimaryPublicButton from '../common/buttons/PrimaryPublicButton.tsx';
+import PublishOptionsDialog from '../video/toolbars/frame_toolbar/PublishOptionsDialog.jsx';
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
@@ -65,7 +66,7 @@ export default function OneshotEditor() {
   const { colorMode } = useColorMode();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { openAlertDialog } = useAlertDialog();
+  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const showLoginDialog = useCallback(() => {
     openAlertDialog(<AuthContainer />);
   }, [openAlertDialog]);
@@ -126,6 +127,8 @@ export default function OneshotEditor() {
   const [promptText, setPromptText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isUnpublishing, setIsUnpublishing] = useState(false);
 
   // ─────────────────────────────────────────────────────────
   //  Online / offline & polling support
@@ -781,6 +784,95 @@ export default function OneshotEditor() {
     }
   }
 
+  const publishQuickSession = async (formPayload) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    setIsPublishing(true);
+
+    try {
+      const normalizedTags =
+        typeof formPayload.tags === 'string'
+          ? formPayload.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+          : Array.isArray(formPayload.tags)
+            ? formPayload.tags.map((tag) => tag.trim()).filter(Boolean)
+            : [];
+
+      const sessionId = formPayload?.id || id;
+
+      const publishPayload = {
+        ...formPayload,
+        id: sessionId,
+        tags: normalizedTags,
+        aspectRatio: sessionDetails?.aspectRatio,
+        ispublishedVideo: true,
+      };
+
+      await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/publish_session`,
+        publishPayload,
+        headers
+      );
+
+      await getSessionDetails();
+    } catch (error) {
+      console.error('Error publishing quick session:', error);
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handlePublishClick = () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    openAlertDialog(
+      <PublishOptionsDialog
+        onClose={closeAlertDialog}
+        onSubmit={(payload) => {
+          closeAlertDialog();
+          publishQuickSession(payload);
+        }}
+        extraProps={{ sessionId: id }}
+      />
+    );
+  };
+
+  const handleUnpublishClick = async () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    const confirmation = window.confirm('Are you sure you want to unpublish this video?');
+    if (!confirmation) {
+      return;
+    }
+
+    setIsUnpublishing(true);
+
+    try {
+      await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/unpublish_session`,
+        { sessionId: id },
+        headers
+      );
+
+      await getSessionDetails();
+    } catch (error) {
+      console.error('Error unpublishing quick session:', error);
+    } finally {
+      setIsUnpublishing(false);
+    }
+  };
+
   // ─────────────────────────────────────────────────────────
   //  Generation-status poller
   // ─────────────────────────────────────────────────────────
@@ -1195,7 +1287,7 @@ export default function OneshotEditor() {
         </div>
 
         {/* Mobile action buttons (complete state) */}
-        {renderState === 'complete' && (
+        {renderState === 'complete' && sessionDetails && (
           <div className="flex justify-center gap-2 mt-4 mb-2">
             <PrimaryPublicButton className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
               <a
@@ -1211,6 +1303,26 @@ export default function OneshotEditor() {
               onClick={viewInStudio}
             >
               View&nbsp;in&nbsp;Studio
+            </PrimaryPublicButton>
+            <PrimaryPublicButton
+              extraClasses="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+              onClick={
+                sessionDetails.ispublishedVideo
+                  ? handleUnpublishClick
+                  : handlePublishClick
+              }
+              isPending={
+                sessionDetails.ispublishedVideo ? isUnpublishing : isPublishing
+              }
+              isDisabled={isPublishing || isUnpublishing}
+            >
+              {sessionDetails.ispublishedVideo
+                ? isUnpublishing
+                  ? 'Unpublishing…'
+                  : 'Unpublish'
+                : isPublishing
+                  ? 'Publishing…'
+                  : 'Publish'}
             </PrimaryPublicButton>
           </div>
         )}

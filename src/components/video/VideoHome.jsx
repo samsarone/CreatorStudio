@@ -1456,6 +1456,57 @@ export default function VideoHome(props) {
       });
   }
 
+  const unpublishVideoSession = () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    const sessionId = (videoSessionDetails?._id || id) ?? null;
+    if (!sessionId) {
+      return;
+    }
+
+    const confirmation = window.confirm('Are you sure you want to unpublish this video?');
+    if (!confirmation) {
+      return;
+    }
+
+    axios
+      .post(
+        `${PROCESSOR_API_URL}/video_sessions/unpublish_session`,
+        { sessionId },
+        headers
+      )
+      .then(() => {
+        setVideoSessionDetails((prevDetails) => {
+          if (!prevDetails) {
+            return prevDetails;
+          }
+
+          return {
+            ...prevDetails,
+            ispublishedVideo: false,
+            publishedTitle: null,
+            publishedDescription: null,
+            publishedTags: [],
+            publishedAspectRatio: null,
+            publishedVideoURL: null,
+            publishedAt: null,
+            publishedOriginalPrompt: null,
+            publishedSplashImage: null,
+            publishedImageModel: null,
+            publishedVideoModel: null,
+            publishedPublicationId: null,
+          };
+        });
+      })
+      .catch((error) => {
+        console.error('Error unpublishing video session:', error);
+      });
+  };
+
   const updateCurrentActiveLayer = (imageItem) => {
 
     // stripe any query params from the image src
@@ -1854,6 +1905,8 @@ export default function VideoHome(props) {
           isGuestSession={isGuestSession}
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
           publishVideoSession={publishVideoSession}
+          unpublishVideoSession={unpublishVideoSession}
+          isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
           generateMeta={generateMeta}
           sessionMetadata={sessionMetadata}
           updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
@@ -1940,6 +1993,8 @@ export default function VideoHome(props) {
               updateSessionLayersOnServer={updateSessionLayersOnServer}
               regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
               publishVideoSession={publishVideoSession}
+              unpublishVideoSession={unpublishVideoSession}
+              isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
               generateMeta={generateMeta}
               sessionMetadata={sessionMetadata}
               isGuestSession={isGuestSession}

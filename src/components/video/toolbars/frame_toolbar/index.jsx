@@ -75,8 +75,10 @@ export default function FrameToolbar(props) {
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
     publishVideoSession,
+    unpublishVideoSession,
     isGuestSession,
     updateAllAudioLayersOneShot,
+    isSessionPublished,
 
   } = props;
 
@@ -1911,13 +1913,24 @@ export default function FrameToolbar(props) {
     });
   }
 
-  dropdownItems.push({
-    label: "Publish",
-    onClick: () => {
-      // open your Publish dialog
-      showPublishOptionsDialog();
-    },
-  });
+  if (isSessionPublished) {
+    dropdownItems.push({
+      label: "Unpublish",
+      onClick: () => {
+        if (typeof unpublishVideoSession === 'function') {
+          unpublishVideoSession();
+        }
+      },
+    });
+  } else {
+    dropdownItems.push({
+      label: "Publish",
+      onClick: () => {
+        // open your Publish dialog
+        showPublishOptionsDialog();
+      },
+    });
+  }
 
   let submitRenderDisplay = (
     <div>
