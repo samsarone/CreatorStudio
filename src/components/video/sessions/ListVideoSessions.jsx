@@ -77,12 +77,18 @@ export default function ListVideoSessions() {
     localStorage.setItem('currentSessionsPage', page.toString());
 
     const headers = getHeaders();
+    let isCancelled = false;
+
     axios
       .get(
         `${PROCESSOR_API}/video_sessions/list?page=${page}&limit=${limit}&renderType=${renderType}&aspectRatio=${aspectRatio}`,
         headers
       )
       .then(function (response) {
+        if (isCancelled) {
+          return;
+        }
+
         // Expecting { data, total, totalPages, currentPage, pageSize } from the server
         const { data, totalPages } = response.data;
         setSessionList(data);
@@ -96,8 +102,14 @@ export default function ListVideoSessions() {
         }
       })
       .catch((error) => {
-        console.error('Error fetching session list:', error);
+        if (!isCancelled) {
+          console.error('Error fetching session list:', error);
+        }
       });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [page, limit, renderType, aspectRatio]);
 
   // Handle filter changes
@@ -129,9 +141,21 @@ export default function ListVideoSessions() {
   };
 
   // Navigation
-  const gotoPage = (session) => {
-    const newSessionId = session.id.toString();
+  const gotoPage = (event, session) => {
+    const sessionIdentifier = session?.id ?? session?._id;
+    if (!sessionIdentifier) {
+      return;
+    }
+
+    const newSessionId = sessionIdentifier.toString();
     localStorage.setItem('sessionId', newSessionId);
+    localStorage.setItem('videoSessionId', newSessionId);
+
+    if (event?.metaKey || event?.ctrlKey) {
+      window.open(`/video/${newSessionId}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     navigate(`/video/${newSessionId}`);
   };
 
@@ -306,9 +330,9 @@ export default function ListVideoSessions() {
 
             return (
               <div
-                key={index}
+                key={session?.id ?? session?._id ?? index}
                 className={`cursor-pointer group ${cardSurface} rounded-2xl overflow-hidden transition-transform duration-200 hover:-translate-y-1`}
-                onClick={() => gotoPage(session)}
+                onClick={(event) => gotoPage(event, session)}
               >
                 <div className="text-sm font-medium text-center mb-2 px-4 pt-4">
                   {session.name}
