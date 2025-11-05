@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useContext } from 'react';
+import React, { useEffect, useState, useRef, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
@@ -9,12 +9,11 @@ import MusicLibraryHome from '../library/audio/MusicLibraryHome.jsx';
 import { IoMdLogIn } from 'react-icons/io';
 
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import { IoMdWallet } from 'react-icons/io';
 import Login from '../auth/Login.tsx';
 import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
-import { FaTwitter, FaStar } from 'react-icons/fa6';
+import { FaTwitter, FaStar, FaArrowUpRightFromSquare } from 'react-icons/fa6';
 import AuthContainer from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
@@ -38,7 +37,7 @@ export default function TopNav(props) {
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const location = useLocation();
-  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
+  const { openAlertDialog, closeAlertDialog, isAlertDialogOpen } = useAlertDialog();
 
   const sessionType = getSessionType();
 
@@ -57,6 +56,8 @@ export default function TopNav(props) {
     totalEffectiveDuration,
 
   } = useContext(NavCanvasControlContext);
+  const zeroCreditsPopupShownRef = useRef(false);
+  const zeroCreditsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   let bgColor = 'from-indigo-900 via-blue-950 to-blue-900 text-neutral-50';
 
@@ -152,7 +153,6 @@ export default function TopNav(props) {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
-
 
 const showLicenseDialog = () => {
   openAlertDialog(
@@ -321,38 +321,35 @@ const showLicenseDialog = () => {
     }
 
     userProfile = (
-      <div className="flex items-center justify-end cursor-pointer" >
-        <div className="flex flex-col text-left mr-2">
-          <div className="text-md max-w-[90px] whitespace-nowrap overflow-hidden text-ellipsis">
-            <h1 className='text-center '>{user.username ? user.username : user.email}</h1>
+      <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col text-right leading-tight">
+          <div className="text-sm font-semibold max-w-[140px] whitespace-nowrap overflow-hidden text-ellipsis">
+            {user.username ? user.username : user.email}
           </div>
           <div onClick={upgradeToPremiumTier} className="cursor-pointer">
             {userTierDisplay}
           </div>
         </div>
-        <FaCog className='inline-flex text-2lg ' onClick={gotoUserAccount} />
+        <FaCog className="text-lg cursor-pointer" onClick={gotoUserAccount} />
       </div>
     );
 
 
   } else {
     userProfile = (
-      <div className=" flex justify-end">
-<button
-  className={`
-    m-auto text-center min-w-16 rounded-lg shadow-lg
-    pl-8 pr-8 pt-1 pb-2 font-bold text-lg
-    transition duration-200 border-2 cursor-pointer bg-gray-900 border-gray-800
-    ${colorMode === 'dark'
-      ? 'text-neutral-100 bg-cyber-black hover:bg-neutral-800 hover:text-blue-400'
-      : 'text-neutral-900 bg-blue-300 hover:bg-blue-400 hover:text-white'}
-  `}
-  onClick={showLoginDialog}
->
-  <IoMdLogIn className="inline-flex" /> Login
-</button>
-
-      </div>
+      <button
+        className={`
+          inline-flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold shadow-lg transition duration-200
+          ${colorMode === 'dark'
+            ? 'text-neutral-100 bg-cyber-black border-gray-800 hover:bg-neutral-800 hover:text-blue-400'
+            : 'text-neutral-900 bg-blue-300 border-blue-200 hover:bg-blue-400 hover:text-white'}
+        `}
+        type="button"
+        onClick={showLoginDialog}
+      >
+        <IoMdLogIn className="text-base" />
+        <span>Login</span>
+      </button>
     );
   }
 
@@ -371,8 +368,14 @@ const showLicenseDialog = () => {
     }
   };
 
-  const purchaseCreditsForUser = (amountToPurchase) => {
-    const purchaseAmountRequest = parseInt(amountToPurchase);
+  const purchaseCreditsForUser = useCallback((amountToPurchase) => {
+    const purchaseAmountRequest = parseInt(amountToPurchase, 10);
+
+    if (Number.isNaN(purchaseAmountRequest) || purchaseAmountRequest <= 0) {
+      toast.error("Select a valid amount to purchase.", { position: "bottom-center" });
+      return;
+    }
+
     const headers = getHeaders();
 
     const payload = {
@@ -386,17 +389,20 @@ const showLicenseDialog = () => {
         const data = dataRes.data;
 
         if (data.url) {
-          window.open(data.url, "_blank");
+          window.open(data.url, "_blank", "noopener,noreferrer");
+          toast.success("Redirecting to checkout…", { position: "bottom-center" });
         } else {
           console.error("Failed to get Stripe payment URL");
+          toast.error("Unable to open checkout. Please try again.", { position: "bottom-center" });
         }
       })
       .catch(function (error) {
         console.error("Error during payment process", error);
+        toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
       });
-  };
+  }, []);
 
-  const requestApplyCreditsCoupon = (couponCode) => {
+  const requestApplyCreditsCoupon = useCallback((couponCode) => {
     if (!couponCode) {
       toast.error("Please enter a coupon code", { position: "bottom-center" });
       return;
@@ -413,9 +419,9 @@ const showLicenseDialog = () => {
       .catch(() => {
         toast.error("Failed to apply coupon", { position: "bottom-center" });
       });
-  }
+  }, [getUserAPI]);
 
-  const openPurchaseCreditsDialog = () => {
+  const openPurchaseCreditsDialog = useCallback(() => {
 
     const alertDialogContent = (
       <div>
@@ -427,7 +433,57 @@ const showLicenseDialog = () => {
 
     openAlertDialog(alertDialogContent, undefined, false);
 
-  }
+  }, [closeAlertDialog, openAlertDialog, purchaseCreditsForUser, requestApplyCreditsCoupon]);
+
+  useEffect(() => {
+    const clearPendingTimeout = () => {
+      if (zeroCreditsTimeoutRef.current) {
+        clearTimeout(zeroCreditsTimeoutRef.current);
+        zeroCreditsTimeoutRef.current = null;
+      }
+    };
+
+    if (!user || !user._id) {
+      zeroCreditsPopupShownRef.current = false;
+      clearPendingTimeout();
+      return;
+    }
+
+    const rawCredits = (user as { generationCredits?: number | string }).generationCredits;
+    const credits = typeof rawCredits === 'number' ? rawCredits : rawCredits ? parseFloat(rawCredits as string) : null;
+
+    if (credits === null || Number.isNaN(credits)) {
+      clearPendingTimeout();
+      return;
+    }
+
+    if (credits > 0) {
+      zeroCreditsPopupShownRef.current = false;
+      clearPendingTimeout();
+      return;
+    }
+
+    if (isAlertDialogOpen) {
+      clearPendingTimeout();
+      return;
+    }
+
+    if (zeroCreditsPopupShownRef.current || zeroCreditsTimeoutRef.current) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      zeroCreditsPopupShownRef.current = true;
+      zeroCreditsTimeoutRef.current = null;
+      openPurchaseCreditsDialog();
+    }, 600);
+
+    zeroCreditsTimeoutRef.current = timeoutId;
+
+    return () => {
+      clearPendingTimeout();
+    };
+  }, [user, isAlertDialogOpen, openPurchaseCreditsDialog]);
 
   const showAddNewMovieMakerSession = () => {
     const headers = getHeaders();
@@ -468,17 +524,17 @@ const showLicenseDialog = () => {
 
   if (user && user._id) {
     addSessionButton = (
-      <div className="inline-flex float-right">
-        <div className="inline-flex ml-2 mr-2">
-          <AddSessionDropdown createNewSession={createNewSession} gotoViewSessionsPage={gotoViewSessionsPage}
-            addNewExpressSession={addNewExpressSession}
-            addNewVidGPTSession={addNewVidGPTSession}
-            showAddNewMovieMakerSession={showAddNewMovieMakerSession}
-            betaOptionVisible={betaOptionVisible}
-            showAddNewAdVideoSession={showAddNewAdVideoSession}
-            addNewSnowMakerSession={addNewSnowMakerSession}
-          />
-        </div>
+      <div className="inline-flex items-center">
+        <AddSessionDropdown
+          createNewSession={createNewSession}
+          gotoViewSessionsPage={gotoViewSessionsPage}
+          addNewExpressSession={addNewExpressSession}
+          addNewVidGPTSession={addNewVidGPTSession}
+          showAddNewMovieMakerSession={showAddNewMovieMakerSession}
+          betaOptionVisible={betaOptionVisible}
+          showAddNewAdVideoSession={showAddNewAdVideoSession}
+          addNewSnowMakerSession={addNewSnowMakerSession}
+        />
       </div>
     );
   }
@@ -500,6 +556,7 @@ const showLicenseDialog = () => {
   }
 
   let errorMessageDisplay = <span />;
+  let verificationReminderDisplay = <span />;
   if (user && user._id && sessionType !== 'docker') {
     if (user.generationCredits <= 0) {
       errorMessageDisplay = <div className="text-xs font-bold ">
@@ -512,6 +569,22 @@ const showLicenseDialog = () => {
       </div>;
     }
   }
+
+  if (user && user._id && !user.isEmailVerified) {
+    verificationReminderDisplay = (
+      <div
+        className="text-xs font-semibold text-amber-500 dark:text-amber-300 cursor-pointer"
+        onClick={gotoUserAccount}
+      >
+        Verify email to get access to all features
+      </div>
+    );
+  }
+
+  const galleryLinkClasses =
+    colorMode === 'dark'
+      ? 'text-cyan-200 hover:text-white'
+      : 'text-blue-600 hover:text-blue-800';
 
 
 
@@ -581,32 +654,40 @@ const showLicenseDialog = () => {
 
 
   return (
-    <div className={`bg-gradient-to-r ${bgColor} h-[50px] fixed w-[100vw] shadow-lg z-20`}>
-      {/* Change grid to 3 columns */}
-      <div className="grid grid-flow-col	 h-full">
-        {/* Left Section: Logo */}
-        <div className="flex items-center pl-0 mt-[-6px]">
-          <img src={'/logo_main.png'} className="cursor-pointer ml-4 mt-1 w-[45px] h-[45px]" onClick={gotoHome} alt="Logo" />
+    <div className={`bg-gradient-to-r ${bgColor} fixed top-0 inset-x-0 h-[56px] shadow-lg z-20`}>
+      <div className="flex h-full w-full items-center gap-4 px-4 sm:px-6">
+        <div className="flex flex-shrink-0 items-center">
+          <img
+            src={'/logo_main.png'}
+            className="h-10 w-10 cursor-pointer"
+            onClick={gotoHome}
+            alt="Logo"
+          />
         </div>
-
-        {/* Center Section: CanvasControlBar */}
-        <div className="flex justify-center items-center pt-2 mt-1">
+        <div className="flex flex-1 items-center justify-center min-w-0 h-full">
           {controlbarView}
-
         </div>
-
-        {/* Right Section: User Profile and Actions */}
-        <div className="flex justify-end items-center pr-4">
-          <div className="flex justify-end space-x-4">
-            {errorMessageDisplay}
-            <div>{addSessionButton}</div>
-
-            <div className="text-xs text-left mr-2 ">
-              <div className='pt-2'>{userCreditsDisplay}</div>
-              <div>{daysToUpdate}</div>
-            </div>
-            <div>{userProfile}</div>
-
+        <div className="flex items-center justify-end gap-3 flex-shrink-0 text-xs sm:text-sm">
+          {verificationReminderDisplay}
+          <a
+            href="https://gallery.samsar.one"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`hidden sm:inline-flex items-center gap-1 text-xs font-semibold transition-colors ${galleryLinkClasses}`}
+          >
+            Visit Gallery
+            <FaArrowUpRightFromSquare className="text-[10px]" />
+          </a>
+          {errorMessageDisplay}
+          <div className="flex items-center">
+            {addSessionButton}
+          </div>
+          <div className="flex flex-col items-end text-xs leading-tight text-right">
+            <div>{userCreditsDisplay}</div>
+            <div>{daysToUpdate}</div>
+          </div>
+          <div className="flex items-center justify-end">
+            {userProfile}
           </div>
         </div>
       </div>

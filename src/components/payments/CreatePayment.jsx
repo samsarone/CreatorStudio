@@ -16,7 +16,7 @@ const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 export default function CreatePayment() {
   const [selectedTab, setSelectedTab] = useState('upgradePlan');
   const { colorMode } = useColorMode();
-    const { user, resetUser, getUserAPI } = useUser();
+    const { getUserAPI } = useUser();
 
   // Helper function to derive button styles based on selection and theme
   const getButtonClass = (isActive) => {
@@ -50,6 +50,35 @@ export default function CreatePayment() {
       .catch(function (error) {
         console.error("Error applying coupon", error);
         toast.error("Failed to apply coupon", { position: "bottom-center" });
+      });
+  };
+
+  const purchaseCreditsForUser = (amountToPurchase) => {
+    const purchaseAmountRequest = parseInt(amountToPurchase, 10);
+
+    if (Number.isNaN(purchaseAmountRequest) || purchaseAmountRequest <= 0) {
+      toast.error("Select a valid amount to purchase.", { position: "bottom-center" });
+      return;
+    }
+
+    axios
+      .post(
+        `${PROCESSOR_SERVER}/users/purchase_credits`,
+        { amount: purchaseAmountRequest },
+        getHeaders()
+      )
+      .then((res) => {
+        const { url } = res.data;
+        if (url) {
+          window.open(url, "_blank", "noopener,noreferrer");
+          toast.success("Redirecting to checkout…", { position: "bottom-center" });
+        } else {
+          toast.error("Failed to generate payment URL", { position: "bottom-center" });
+        }
+      })
+      .catch((error) => {
+        console.error("Error during payment process", error);
+        toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
       });
   };
 
@@ -102,7 +131,10 @@ export default function CreatePayment() {
             {selectedTab === 'upgradePlan' ? (
               <UpgradePlan />
             ) : (
-              <AddCreditsDialog requestApplyCreditsCoupon={requestApplyCreditsCoupon} />
+              <AddCreditsDialog
+                purchaseCreditsForUser={purchaseCreditsForUser}
+                requestApplyCreditsCoupon={requestApplyCreditsCoupon}
+              />
             )}
           </div>
         </div>

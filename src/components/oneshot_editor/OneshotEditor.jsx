@@ -803,11 +803,17 @@ export default function OneshotEditor() {
 
       const sessionId = formPayload?.id || id;
 
+      const aspectRatioForPublish =
+        sessionDetails?.aspectRatio ||
+        sessionDetails?.publishedAspectRatio ||
+        selectedAspectRatioOption?.value ||
+        null;
+
       const publishPayload = {
         ...formPayload,
         id: sessionId,
         tags: normalizedTags,
-        aspectRatio: sessionDetails?.aspectRatio,
+        aspectRatio: aspectRatioForPublish,
         ispublishedVideo: true,
       };
 
@@ -1258,20 +1264,22 @@ export default function OneshotEditor() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={viewInStudio}
-            className={`
-              inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-1.5 rounded-full
-              transition-all duration-200
-              ${colorMode === 'dark'
-                ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
-                : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
-              }
-            `}
-          >
-            View in Studio
-          </button>
+          {renderState !== 'complete' && (
+            <button
+              type="button"
+              onClick={viewInStudio}
+              className={`
+                inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-1.5 rounded-full
+                transition-all duration-200
+                ${colorMode === 'dark'
+                  ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
+                  : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
+                }
+              `}
+            >
+              View in Studio
+            </button>
+          )}
 
           {renderState === 'pending' && (
             <div
@@ -1289,15 +1297,6 @@ export default function OneshotEditor() {
         {/* Mobile action buttons (complete state) */}
         {renderState === 'complete' && sessionDetails && (
           <div className="flex justify-center gap-2 mt-4 mb-2">
-            <PrimaryPublicButton className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
-              <a
-                href={videoLink}
-                download={`Rendition_${dateNowStr}.mp4`}
-                className="underline"
-              >
-                Download
-              </a>
-            </PrimaryPublicButton>
             <PrimaryPublicButton
               className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
               onClick={viewInStudio}
@@ -1323,6 +1322,15 @@ export default function OneshotEditor() {
                 : isPublishing
                   ? 'Publishing…'
                   : 'Publish'}
+            </PrimaryPublicButton>
+            <PrimaryPublicButton className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
+              <a
+                href={videoLink}
+                download={`Rendition_${dateNowStr}.mp4`}
+                className="underline"
+              >
+                Download
+              </a>
             </PrimaryPublicButton>
           </div>
         )}
