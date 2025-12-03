@@ -434,6 +434,25 @@ export const IMAGE_MODEL_PRICES = [
 ]
 
 export const IMAGE_EDIT_MODEL_PRICES = [
+
+    {
+    key: 'NANOBANANAPROEDIT',
+    prices: [
+      {
+        aspectRatio: '1:1',
+        price: 30,
+      },
+      {
+        aspectRatio: '16:9',
+        price: 30,
+      },
+      {
+        aspectRatio: '9:16',
+        price: 30,
+      },
+    ],
+  },
+  
   {
     key: 'FLUX1PROFILL',
     prices: [

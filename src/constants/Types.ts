@@ -213,8 +213,8 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   },
 
   {
-    name: 'Nano Banana',
-    key: 'NANOBANANA',
+    name: 'Nano Banana Pro',
+    key: 'NANOBANANAPRO',
     isExpressModel: true,
   },
   {
@@ -495,12 +495,12 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
 
 export const IMAGE_EDIT_MODEL_TYPES = [
 
-  // {
-  //   name: 'Nano Banana',
-  //   key: 'NANOBANANA',
-  //   editType: 'prompt',
-  //   isPromptEnabled: true
-  // },
+  {
+    name: 'Nano Banana Pro Edit',
+    key: 'NANOBANANAPROEDIT',
+    editType: 'prompt',
+    isPromptEnabled: true
+  },
   {
     name: 'Bria Eraser',
     key: 'BRIA_ERASER',
@@ -597,18 +597,17 @@ export const ASSISTANT_MODEL_TYPES = [
     value: 'GPT5',
   },
 
+    {
+    label: 'GPT 5.1',
+    value: 'GPT5.1',
+  },
+
+
 ];
 
 export const INFERENCE_MODEL_TYPES = [
 
-  {
-    label: 'GPT O3 Mini (H)',
-    value: 'GPTO3MINI',
-  },
-  {
-    label: 'GPT 4.1',
-    value: 'GPT4.1',
-  },
+
   {
     label: 'GPT O3',
     value: 'GPTO3',
@@ -620,7 +619,12 @@ export const INFERENCE_MODEL_TYPES = [
   {
     label: 'GPT 5 Mini',
     value: 'GPT5MINI',
-  }
+  },
+  {
+    label: 'GPT 5.1',
+    value: 'GPT5.1',
+  },
+
 
 ]
 
