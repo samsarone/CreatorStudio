@@ -1,6 +1,6 @@
-import React, { useState, useContext, createContext } from 'react';
+import React, { useState, useContext, createContext, useCallback } from 'react';
 import axios from 'axios';
-import { getHeaders, getAuthToken } from '../utils/web'; // Adjust the path if needed
+import { getHeaders, getAuthToken, clearAuthData } from '../utils/web'; // Adjust the path if needed
 import { useNavigate } from 'react-router-dom';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API || 'http://localhost:3002';
@@ -21,7 +21,7 @@ export const UserProvider = ({ children }) => {
   const [userFetching, setUserFetching] = useState(true);
   const [userInitiated, setUserInitiated] = useState(false);
 
-  const { navigate } = useNavigate();
+  const navigate = useNavigate();
 
   const setUserApi = (profile) => {
     // Placeholder for future use
@@ -33,17 +33,16 @@ export const UserProvider = ({ children }) => {
 
   const getUser = () => user;
 
-  const resetUser = () => {
+  const resetUser = useCallback(() => {
     setUserState(null);
-    localStorage.clear();
-    // Clear authToken cookie
-    document.cookie = `authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
-  };
+    clearAuthData();
+  }, []);
 
-  const getUserAPI = async () => {
+  const getUserAPI = useCallback(async () => {
     const authToken = getAuthToken();
 
     if (!authToken || authToken === 'undefined') {
+      setUserFetching(false);
       setUserInitiated(true);
       return null;
     }
@@ -59,11 +58,12 @@ export const UserProvider = ({ children }) => {
     } catch (err) {
       console.error('Error verifying user token:', err);
       resetUser();
+      setUserInitiated(true);
       navigate("/");
     } finally {
       setUserFetching(false);
     }
-  };
+  }, [navigate, resetUser]);
 
   return (
     <UserContext.Provider

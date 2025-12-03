@@ -56,8 +56,6 @@ export default function TopNav(props) {
     totalEffectiveDuration,
 
   } = useContext(NavCanvasControlContext);
-  const zeroCreditsPopupShownRef = useRef(false);
-  const zeroCreditsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   let bgColor = 'from-indigo-900 via-blue-950 to-blue-900 text-neutral-50';
 
@@ -436,54 +434,8 @@ const showLicenseDialog = () => {
   }, [closeAlertDialog, openAlertDialog, purchaseCreditsForUser, requestApplyCreditsCoupon]);
 
   useEffect(() => {
-    const clearPendingTimeout = () => {
-      if (zeroCreditsTimeoutRef.current) {
-        clearTimeout(zeroCreditsTimeoutRef.current);
-        zeroCreditsTimeoutRef.current = null;
-      }
-    };
-
-    if (!user || !user._id) {
-      zeroCreditsPopupShownRef.current = false;
-      clearPendingTimeout();
-      return;
-    }
-
-    const rawCredits = (user as { generationCredits?: number | string }).generationCredits;
-    const credits = typeof rawCredits === 'number' ? rawCredits : rawCredits ? parseFloat(rawCredits as string) : null;
-
-    if (credits === null || Number.isNaN(credits)) {
-      clearPendingTimeout();
-      return;
-    }
-
-    if (credits > 0) {
-      zeroCreditsPopupShownRef.current = false;
-      clearPendingTimeout();
-      return;
-    }
-
-    if (isAlertDialogOpen) {
-      clearPendingTimeout();
-      return;
-    }
-
-    if (zeroCreditsPopupShownRef.current || zeroCreditsTimeoutRef.current) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      zeroCreditsPopupShownRef.current = true;
-      zeroCreditsTimeoutRef.current = null;
-      openPurchaseCreditsDialog();
-    }, 600);
-
-    zeroCreditsTimeoutRef.current = timeoutId;
-
-    return () => {
-      clearPendingTimeout();
-    };
-  }, [user, isAlertDialogOpen, openPurchaseCreditsDialog]);
+    // Auto-popup for zero credits removed.
+  }, []);
 
   const showAddNewMovieMakerSession = () => {
     const headers = getHeaders();
@@ -557,18 +509,6 @@ const showLicenseDialog = () => {
 
   let errorMessageDisplay = <span />;
   let verificationReminderDisplay = <span />;
-  if (user && user._id && sessionType !== 'docker') {
-    if (user.generationCredits <= 0) {
-      errorMessageDisplay = <div className="text-xs font-bold ">
-        <div className='text-red-500 '>
-          You are out of credits
-        </div>
-        <div className='underline text-blue-600 cursor-pointer' onClick={openPurchaseCreditsDialog}>
-          Purchase More
-        </div>
-      </div>;
-    }
-  }
 
   if (user && user._id && !user.isEmailVerified) {
     verificationReminderDisplay = (

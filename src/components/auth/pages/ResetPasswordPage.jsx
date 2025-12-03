@@ -1,10 +1,97 @@
 // src/components/auth/ResetPasswordPage.jsx
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import OverflowContainer from '../../common/OverflowContainer.tsx'; // keep as‑is if TSX
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+
+const translations = {
+  en: {
+    title: 'Reset your password',
+    emailLabel: 'Email',
+    passwordLabel: 'New password',
+    confirmPasswordLabel: 'Confirm new password',
+    submit: 'Reset password',
+    submitting: 'Submitting...',
+    success: 'Password updated! Redirecting to login...',
+    errors: {
+      email: 'Email is required',
+      password: 'New password is required',
+      mismatch: 'Passwords do not match',
+      code: 'Reset code is missing or invalid',
+      generic: 'Something went wrong',
+    },
+    remember: 'Remembered your password?',
+    login: 'Log in',
+    language: 'Language',
+    resendTitle: 'Need a new reset link?',
+    resendBody: 'If your link expired or is incorrect, request another email.',
+    resendButton: 'Send new reset email',
+    resendSuccess: 'If this email exists, a new reset link has been sent.',
+    resendError: 'Unable to send reset email. Please try again.',
+  },
+  es: {
+    title: 'Restablece tu contraseña',
+    emailLabel: 'Correo electrónico',
+    passwordLabel: 'Nueva contraseña',
+    confirmPasswordLabel: 'Confirmar contraseña',
+    submit: 'Restablecer contraseña',
+    submitting: 'Enviando...',
+    success: '¡Contraseña actualizada! Redirigiendo al inicio...',
+    errors: {
+      email: 'El correo es obligatorio',
+      password: 'La nueva contraseña es obligatoria',
+      mismatch: 'Las contraseñas no coinciden',
+      code: 'El enlace de restablecimiento no es válido',
+      generic: 'Ha ocurrido un error',
+    },
+    remember: '¿Recordaste tu contraseña?',
+    login: 'Iniciar sesión',
+    language: 'Idioma',
+    resendTitle: '¿Necesitas un nuevo enlace?',
+    resendBody: 'Si el enlace venció o es incorrecto, solicita otro correo.',
+    resendButton: 'Enviar nuevo correo',
+    resendSuccess: 'Si el correo existe, se envió un nuevo enlace.',
+    resendError: 'No se pudo enviar el correo. Inténtalo nuevamente.',
+  },
+  fr: {
+    title: 'Réinitialisez votre mot de passe',
+    emailLabel: 'E-mail',
+    passwordLabel: 'Nouveau mot de passe',
+    confirmPasswordLabel: 'Confirmer le mot de passe',
+    submit: 'Réinitialiser le mot de passe',
+    submitting: 'Envoi...',
+    success: 'Mot de passe mis à jour ! Redirection...',
+    errors: {
+      email: "L'e-mail est requis",
+      password: 'Le nouveau mot de passe est requis',
+      mismatch: 'Les mots de passe ne correspondent pas',
+      code: 'Le lien de réinitialisation est invalide',
+      generic: 'Une erreur est survenue',
+    },
+    remember: 'Vous vous souvenez de votre mot de passe ?',
+    login: 'Se connecter',
+    language: 'Langue',
+    resendTitle: "Besoin d'un nouveau lien ?",
+    resendBody: 'Si le lien a expiré ou est incorrect, demandez un nouvel e-mail.',
+    resendButton: 'Envoyer un nouvel e-mail',
+    resendSuccess: 'Si cet e-mail existe, un nouveau lien a été envoyé.',
+    resendError: "Impossible d'envoyer l'e-mail. Réessayez.",
+  },
+};
+
+const languageOptions = [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+];
+
+const getInitialLanguage = (urlLang) => {
+  const saved = typeof window !== 'undefined' ? localStorage.getItem('preferredLanguage') : null;
+  const browser = typeof navigator !== 'undefined' && navigator.language ? navigator.language.split('-')[0] : null;
+  return (urlLang || saved || browser || 'en').toLowerCase();
+};
 
 export default function ResetPasswordPage() {
   const navigate  = useNavigate();
@@ -14,6 +101,7 @@ export default function ResetPasswordPage() {
   const params  = new URLSearchParams(location.search);
   const urlEmail = params.get('email') || '';          // ?email=jane@doe.com
   const urlCode  = params.get('code');                 // ?code=ABC123
+  const urlLang  = params.get('lang');
 
   /* ——— component state ——— */
   const [email,           setEmail]           = useState(urlEmail);
@@ -22,17 +110,36 @@ export default function ResetPasswordPage() {
   const [submitting,      setSubmitting]      = useState(false);
   const [error,           setError]           = useState(null);
   const [success,         setSuccess]         = useState(false);
+  const [language,        setLanguage]        = useState(() => getInitialLanguage(urlLang));
+  const [allowResend,     setAllowResend]     = useState(!urlCode);
+  const [resendStatus,    setResendStatus]    = useState(null);
+
+  const copy = useMemo(() => translations[language] || translations.en, [language]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('preferredLanguage', language);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    if (!urlCode) {
+      setError(copy.errors.code);
+    }
+  }, [urlCode, copy.errors.code]);
 
   /* ——— form submit ——— */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setResendStatus(null);
+    setAllowResend(false);
 
     // minimal checks
-    if (!email)                     { setError('Email is required'); return; }
-    if (!password)                  { setError('New password is required'); return; }
-    if (password !== confirmPassword) { setError('Passwords do not match'); return; }
-    if (!urlCode)                   { setError('Reset code is missing or invalid'); return; }
+    if (!email)                     { setError(copy.errors.email); setAllowResend(true); return; }
+    if (!password)                  { setError(copy.errors.password); setAllowResend(true); return; }
+    if (password !== confirmPassword) { setError(copy.errors.mismatch); return; }
+    if (!urlCode)                   { setError(copy.errors.code); setAllowResend(true); return; }
 
     try {
       setSubmitting(true);
@@ -45,9 +152,30 @@ export default function ResetPasswordPage() {
       setSuccess(true);
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Something went wrong';
+      const msg = err?.response?.data?.error || err?.response?.data?.message || copy.errors.generic;
       setError(msg);
+      const lowered = msg?.toString().toLowerCase() || '';
+      if (lowered.includes('expired') || lowered.includes('invalid') || lowered.includes('token')) {
+        setAllowResend(true);
+      }
       setSubmitting(false);
+    }
+  };
+
+  const requestNewLink = async () => {
+    if (!email) {
+      setError(copy.errors.email);
+      return;
+    }
+
+    try {
+      setResendStatus('pending');
+      await axios.post(`${PROCESSOR_SERVER}/users/forgot_password`, { email, language });
+      setResendStatus('success');
+      setError(null);
+    } catch (err) {
+      console.error('Error requesting new reset email:', err);
+      setResendStatus('error');
     }
   };
 
@@ -57,7 +185,7 @@ export default function ResetPasswordPage() {
       <div className="w-full flex flex-col items-center justify-center pt-20">
         <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
           <h1 className="text-2xl font-semibold text-center mb-6">
-            Reset your password
+            {copy.title}
           </h1>
 
           {error && (
@@ -66,15 +194,30 @@ export default function ResetPasswordPage() {
             </div>
           )}
 
+          <div className="mb-4">
+            <label className="block text-sm mb-1">{copy.language}</label>
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500"
+            >
+              {languageOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {success ? (
             <div className="text-green-400 text-center">
-              ✔️ Password updated! Redirecting to login…
+              {copy.success}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email field (pre‑filled but editable) */}
               <div>
-                <label className="block mb-1 text-sm">Email</label>
+                <label className="block mb-1 text-sm">{copy.emailLabel}</label>
                 <input
                   type="email"
                   value={email}
@@ -85,7 +228,7 @@ export default function ResetPasswordPage() {
 
               {/* New password */}
               <div>
-                <label className="block mb-1 text-sm">New password</label>
+                <label className="block mb-1 text-sm">{copy.passwordLabel}</label>
                 <input
                   type="password"
                   value={password}
@@ -96,7 +239,7 @@ export default function ResetPasswordPage() {
 
               {/* Confirm */}
               <div>
-                <label className="block mb-1 text-sm">Confirm new password</label>
+                <label className="block mb-1 text-sm">{copy.confirmPasswordLabel}</label>
                 <input
                   type="password"
                   value={confirmPassword}
@@ -112,16 +255,36 @@ export default function ResetPasswordPage() {
                             ${submitting ? 'bg-indigo-400' : 'bg-indigo-500 hover:bg-indigo-600'}
                             transition-colors`}
               >
-                {submitting ? 'Submitting…' : 'Reset password'}
+                {submitting ? copy.submitting : copy.submit}
               </button>
             </form>
           )}
 
+          {allowResend && !success && (
+            <div className="mt-4 border border-gray-700 rounded p-3 bg-gray-900/50">
+              <div className="font-semibold mb-1">{copy.resendTitle}</div>
+              <div className="text-sm text-gray-300 mb-2">{copy.resendBody}</div>
+              <button
+                className="w-full bg-indigo-500 hover:bg-indigo-600 text-white rounded py-2 font-medium disabled:opacity-60"
+                onClick={requestNewLink}
+                disabled={resendStatus === 'pending'}
+              >
+                {resendStatus === 'pending' ? copy.submitting : copy.resendButton}
+              </button>
+              {resendStatus === 'success' && (
+                <div className="text-green-400 text-sm mt-2">{copy.resendSuccess}</div>
+              )}
+              {resendStatus === 'error' && (
+                <div className="text-red-400 text-sm mt-2">{copy.resendError}</div>
+              )}
+            </div>
+          )}
+
           {!success && (
             <div className="text-center mt-4">
-              Remembered your password?{' '}
+              {copy.remember}{' '}
               <Link to="/login" className="underline">
-                Log in
+                {copy.login}
               </Link>
             </div>
           )}

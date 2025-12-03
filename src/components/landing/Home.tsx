@@ -145,7 +145,7 @@ export default function Home() {
 
         <Route path="/my_sessions" element={<ListVideoSessions />} />
         <Route path="/create_payment" element={<CreatePayment />} />
-        <Route path="/account" element={<UserAccount />} />
+        <Route path="/account/*" element={<UserAccount />} />
         <Route path="/publication/:id" element={<PublicationHome />} />
         <Route path="/verify" element={<VerificationHome />} />
         <Route path="/verify_email" element={<EmailVerificationHome />} />
