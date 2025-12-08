@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { getHeaders } from '../../utils/web';
+import { getHeaders, persistAuthToken } from '../../utils/web';
 import { FaSpinner } from 'react-icons/fa';
 import './home.css';
 import ScreenLoader from './util/ScreenLoader';
@@ -40,7 +40,7 @@ export default function VideoEditorLandingHome() {
       axios.get(`${API_SERVER}/license/verify_user_license`).then((res) => {
         const userData = res.data.data;
         if (userData) {
-          localStorage.setItem('authToken', userData.authToken);
+          persistAuthToken(userData.authToken);
           setUser(userData);
           navigate('/my_sessions');
         }

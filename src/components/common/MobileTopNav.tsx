@@ -203,7 +203,30 @@ export default function MobileTopNav(props) {
     <div className={`bg-gradient-to-r ${bgColor} h-[50px] fixed w-[100vw] shadow-lg z-10`}>
       <div className="flex flex-basis">
         <div className='basis-1/4'>
-          <img src={'/logo_main.png'} className="cursor-pointer h-[44px] w-[44px] ml-2 mt-1 mr-2" onClick={gotoHome} />
+          <button
+            onClick={gotoHome}
+            className={`group ml-2 mr-2 mt-1 flex items-center gap-1 rounded-md border px-2 py-[6px] text-left shadow-sm backdrop-blur transition 
+              ${colorMode === 'dark'
+                ? 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                : 'border-white/40 bg-white/15 hover:border-white/60 hover:bg-white/25'}`}
+          >
+            <span
+              className={`text-[11px] font-black uppercase tracking-[0.22em] transition-colors 
+                ${colorMode === 'dark'
+                  ? 'text-slate-100 group-hover:text-cyan-100'
+                  : 'text-white group-hover:text-slate-100'}`}
+            >
+              Samsar
+            </span>
+            <span
+              className={`text-[11px] font-black uppercase tracking-[0.22em] transition-colors 
+                ${colorMode === 'dark'
+                  ? 'text-cyan-300 group-hover:text-white'
+                  : 'text-white/90 group-hover:text-white'}`}
+            >
+              One
+            </span>
+          </button>
         </div>
         <div className="basis-3/4  ">
           <div className="text-xs inline-flex">

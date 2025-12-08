@@ -6,6 +6,7 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { Link } from 'react-router-dom';
 
 import axios from 'axios';
+import { persistAuthToken } from '../../utils/web';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -33,7 +34,7 @@ export default function Login(props) {
       .then((dataRes) => {
         const userData = dataRes.data;
         const authToken = userData.authToken;
-        localStorage.setItem('authToken', authToken);
+        persistAuthToken(authToken);
         setUser(userData);
         closeAlertDialog();
         getOrCreateUserSession();

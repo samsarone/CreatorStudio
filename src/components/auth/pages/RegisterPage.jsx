@@ -2,7 +2,7 @@ import React from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
-import { getHeaders } from '../../../utils/web.jsx';
+import { getHeaders, persistAuthToken } from '../../../utils/web.jsx';
 import Register from '../Register.tsx';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 
@@ -60,7 +60,7 @@ export default function RegisterPage() {
       .then((dataRes) => {
         const userData = dataRes.data;
         const authToken = userData.authToken;
-        localStorage.setItem('authToken', authToken);
+        persistAuthToken(authToken);
         setUser(userData);
         closeAlertDialog(); // no-op here
         getOrCreateUserSession();

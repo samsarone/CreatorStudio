@@ -560,7 +560,7 @@ const showLicenseDialog = () => {
 
   }
 
-  let controlbarView = <span />;
+  let controlbarView: React.ReactNode = null;
   if (location.pathname.includes('/video/')) {
     controlbarView = (
       <CanvasControlBar
@@ -583,29 +583,44 @@ const showLicenseDialog = () => {
       />
     );
   } else if (location.pathname.includes('/vidgenie/')) {
-    controlbarView = (
-      <div className="absolute text-center w-full ">
-
-      </div>
-
-    )
+    controlbarView = <div />;
   }
 
 
 
   return (
     <div className={`bg-gradient-to-r ${bgColor} fixed top-0 inset-x-0 h-[56px] shadow-lg z-20`}>
-      <div className="flex h-full w-full items-center gap-4 px-4 sm:px-6">
-        <div className="flex flex-shrink-0 items-center">
-          <img
-            src={'/logo_main.png'}
-            className="h-10 w-10 cursor-pointer"
+      <div className="grid h-full w-full grid-cols-[10%_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
+        <div className="flex h-full items-center justify-center px-[2px]">
+          <button
             onClick={gotoHome}
-            alt="Logo"
-          />
+            className={`group flex w-full max-w-[220px] items-center justify-center gap-0 rounded-md border border-transparent px-3 py-[8px] text-left shadow-none transition 
+              ${colorMode === 'dark'
+                ? 'bg-gradient-to-br from-white/10 via-white/6 to-white/0 hover:from-white/14 hover:via-white/9 hover:to-white/4'
+                : 'bg-gradient-to-br from-white/30 via-sky-50/20 to-blue-50/10 text-neutral-900 hover:from-white/40 hover:via-sky-50/30 hover:to-blue-50/20'}`}
+          >
+            <span
+              className={`pl-[10px] pr-[6px] text-[12px] sm:text-[14px] font-black uppercase tracking-[0.14em] transition-colors 
+                ${colorMode === 'dark'
+                  ? 'text-slate-100 group-hover:text-cyan-100'
+                  : 'text-white group-hover:text-slate-100'}`}
+            >
+              Samsar
+            </span>
+            <span
+              className={`pl-[6px] pr-[10px] text-[12px] sm:text-[14px] font-black uppercase tracking-[0.14em] transition-colors 
+                ${colorMode === 'dark'
+                  ? 'text-cyan-300 group-hover:text-white'
+                  : 'text-white/90 group-hover:text-white'}`}
+            >
+              One
+            </span>
+          </button>
         </div>
-        <div className="flex flex-1 items-center justify-center min-w-0 h-full">
-          {controlbarView}
+        <div className="flex items-center justify-center min-w-0 h-full py-[2px]">
+          <div className="flex h-full w-full items-center justify-center translate-y-[4px]">
+            {controlbarView}
+          </div>
         </div>
         <div className="flex items-center justify-end gap-3 flex-shrink-0 text-xs sm:text-sm">
           {verificationReminderDisplay}

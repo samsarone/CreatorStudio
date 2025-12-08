@@ -6,6 +6,7 @@ import Home from './components/landing/Home.tsx'
 import { NavCanvasControlProvider } from './contexts/NavCanvasControlContext.jsx';
 import { ColorModeProvider  } from './contexts/ColorMode.jsx';
 import { BrowserRouter } from 'react-router-dom';
+import CookieConsentBanner from './components/common/CookieConsentBanner';
 
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
             </AlertDialogProvider>
           </UserProvider>
       </BrowserRouter>
+      <CookieConsentBanner />
     </div>
   );
 }

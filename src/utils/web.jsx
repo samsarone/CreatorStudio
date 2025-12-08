@@ -1,3 +1,87 @@
+const AUTH_COOKIE_NAME = 'authToken';
+const COOKIE_CONSENT_KEY = 'samsar_cookie_consent';
+const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+
+function getCookieDomain() {
+  if (typeof window === 'undefined') return '';
+  const { hostname } = window.location;
+  return hostname.includes('samsar.one') ? '.samsar.one' : '';
+}
+
+function expireAuthCookie(domain) {
+  if (typeof document === 'undefined') return;
+  const domainAttr = domain ? ` domain=${domain};` : '';
+  document.cookie = `${AUTH_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;${domainAttr}`;
+}
+
+export function clearAuthCookies() {
+  if (typeof document === 'undefined') return;
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const domainParts = hostname ? hostname.split('.').filter(Boolean) : [];
+
+  const domainOptions = new Set(['']);
+  if (hostname) {
+    domainOptions.add(hostname);
+  }
+  if (hostname && hostname.includes('samsar.one')) {
+    domainOptions.add('.samsar.one');
+  }
+
+  for (let i = 0; i < domainParts.length - 1; i += 1) {
+    const domain = domainParts.slice(i).join('.');
+    domainOptions.add(domain);
+    domainOptions.add(`.${domain}`);
+  }
+
+  domainOptions.forEach((domain) => {
+    expireAuthCookie(domain);
+  });
+}
+
+export function getCookieConsentStatus() {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(COOKIE_CONSENT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function hasAcceptedCookies() {
+  return getCookieConsentStatus() === 'accepted';
+}
+
+export function saveCookieConsentStatus(status) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(COOKIE_CONSENT_KEY, status);
+  } catch (e) {
+    console.warn('Unable to store cookie consent preference', e);
+  }
+
+  if (status === 'rejected') {
+    clearAuthCookies();
+  }
+}
+
+export function setAuthCookieIfConsented(token) {
+  if (!token || typeof document === 'undefined') return;
+
+  if (!hasAcceptedCookies()) {
+    clearAuthCookies();
+    return;
+  }
+
+  const sharedDomain = getCookieDomain();
+  const domainAttr = sharedDomain ? `; domain=${sharedDomain}` : '';
+  const secureAttr =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+
+  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(
+    token
+  )}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax${secureAttr}${domainAttr}`;
+}
+
 // helpers/auth.jsx
 
 export function getAuthToken() {
@@ -8,7 +92,9 @@ export function getAuthToken() {
 
   // 2. Cookie fallback
   if (typeof document === 'undefined') return null; // SSR guard
-  const match = document.cookie.match(/(?:^|;\s*)authToken=([^;]+)/);
+  const match = document.cookie.match(
+    new RegExp(`(?:^|;\\s*)${AUTH_COOKIE_NAME}=([^;]+)`)
+  );
   if (!match) return null;
 
   const token = decodeURIComponent(match[1]);
@@ -34,36 +120,48 @@ export function getHeaders() {
   };
 }
 
+export function persistAuthToken(token) {
+  if (!token || typeof window === 'undefined') return;
+
+  try {
+    localStorage.setItem('authToken', token);
+  } catch (err) {
+    console.warn('Unable to store auth token in localStorage', err);
+  }
+
+  setAuthCookieIfConsented(token);
+}
+
 export function clearAuthData() {
   if (typeof window !== 'undefined') {
+    let consentStatus = null;
+    try {
+      consentStatus = localStorage.getItem(COOKIE_CONSENT_KEY);
+    } catch (err) {
+      console.warn('Unable to read cookie consent status before clearing storage', err);
+    }
+
     try {
       localStorage.clear();
     } catch (err) {
       console.warn('Failed to clear localStorage during logout', err);
     }
+
+    if (consentStatus) {
+      try {
+        localStorage.setItem(COOKIE_CONSENT_KEY, consentStatus);
+      } catch (err) {
+        console.warn('Failed to restore cookie consent preference', err);
+      }
+    }
+    try {
+      sessionStorage.removeItem('authToken');
+    } catch (err) {
+      console.warn('Failed to clear sessionStorage during logout', err);
+    }
   }
 
-  if (typeof document === 'undefined') return;
-
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  const domainParts = hostname.split('.').filter(Boolean);
-
-  // Collect domain permutations so we clear shared cookies set on parent domains.
-  const domainOptions = new Set(['']);
-  if (hostname) {
-    domainOptions.add(hostname);
-  }
-
-  for (let i = 0; i < domainParts.length - 1; i += 1) {
-    const domain = domainParts.slice(i).join('.');
-    domainOptions.add(domain);
-    domainOptions.add(`.${domain}`);
-  }
-
-  domainOptions.forEach((domain) => {
-    const domainAttr = domain ? ` domain=${domain};` : '';
-    document.cookie = `authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;${domainAttr}`;
-  });
+  clearAuthCookies();
 }
 
 export const cleanJsonTheme = (payload) => {
