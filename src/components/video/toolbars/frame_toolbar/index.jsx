@@ -1709,7 +1709,7 @@ export default function FrameToolbar(props) {
       ? 'bg-slate-950/90 text-slate-100 border border-white/10 shadow-sm shadow-slate-950/40'
       : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
   let expandButtonLabel = (
-    <div className={`relative w-full cursor-pointer pb-1 px-3 rounded-lg transition-colors duration-150 ${collapsedToggleSurface}`}>
+    <div className={`relative w-full cursor-pointer pt-2 pb-1 px-3 rounded-lg transition-colors duration-150 ${collapsedToggleSurface}`}>
       <div className='inline-block'>Expand</div>
       <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
     </div>
@@ -1724,7 +1724,7 @@ export default function FrameToolbar(props) {
 
   if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
     expandButtonLabel = (
-      <div className={`absolute right-0 top-0 w-32 cursor-pointer pb-1 px-3 rounded-lg transition-colors duration-150 ${expandedToggleSurface}`}>
+      <div className={`absolute right-0 top-0 w-32 cursor-pointer pt-2 pb-1 px-3 rounded-lg transition-colors duration-150 ${expandedToggleSurface}`}>
         <FaChevronLeft className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
         <div className='inline-block'>Collapse</div>
       </div>
@@ -2186,13 +2186,13 @@ export default function FrameToolbar(props) {
     >
       <div className={`${mtContainer}`}>
         <div className={`w-full pb-1 border-r-2 ${bgColor} border-stone-600`}>
-          <div>
-            <div className=' m-auto text-center'>
-              {layerActionCurrentView}
-              <div onClick={toggleShowExpandedTrackView} className='m-auto'>
-                {expandButtonLabel}
-              </div>
-            </div>
+      <div>
+        <div className=' m-auto text-center'>
+          {layerActionCurrentView}
+          <div onClick={toggleShowExpandedTrackView} className='m-auto mt-1'>
+            {expandButtonLabel}
+          </div>
+        </div>
 
             <div className={`btn-container flex-w-full ${btnLeftMargin} mb-1`}>
               <div className={`basis-1/2 inline-flex ${buttonGroupMT}`}>

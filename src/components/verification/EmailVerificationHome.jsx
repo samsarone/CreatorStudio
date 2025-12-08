@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import axios from 'axios';
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import { FaSpinner } from 'react-icons/fa6';
+import { persistAuthToken } from '../../utils/web';
 
 const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
 
@@ -21,7 +22,7 @@ export default function EmailVerificationHome() {
     axios.post(`${PROCESSOR_API}/users/verify_email`, payload).then(function(dataRes) {
       const response = dataRes.data;
       if (response && response.authToken) {
-        localStorage.setItem('authToken', response.authToken);
+        persistAuthToken(response.authToken);
         window.location.href = '/';
       }
     });

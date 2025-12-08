@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { FaS, FaSpinner } from 'react-icons/fa6';
 import { useNavigate } from 'react-router-dom';
 import Loader from '../common/Loader';
+import { persistAuthToken } from '../../utils/web';
 
 
 export default function VerificationHome() {
@@ -11,7 +12,7 @@ export default function VerificationHome() {
   const authToken = query.get('authToken');
   useEffect(() => {
     if (authToken) {
-      localStorage.setItem('authToken', authToken);
+      persistAuthToken(authToken);
       const channel = new BroadcastChannel('oauth_channel');
       channel.postMessage('oauth_complete');
       window.close();
