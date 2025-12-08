@@ -40,7 +40,7 @@ export default function Login(props) {
         getOrCreateUserSession();
       })
       .catch((err) => {
-        console.error('Error during user login:', err);
+        
 
         // Attempt to grab server error message
         if (err.response && err.response.data && err.response.data.message) {

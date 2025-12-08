@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { FaChevronCircleDown, FaChevronCircleUp, FaTimesCircle } from 'react-icons/fa';
-import Select from 'react-select'
-import SingleSelect from '../../../common/SingleSelect';
 
 export default function TextToolbar(props) {
   const { pos, moveItem, index, applyFilter, removeItem, colorMode, flipImageVertical,

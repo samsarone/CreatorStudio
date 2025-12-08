@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaChevronCircleDown, FaSpinner, FaTimes, FaImage } from 'react-icons/fa';
+import { FaChevronCircleDown, FaSpinner } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
@@ -18,11 +18,9 @@ import {
   PIXVERRSE_VIDEO_STYLES,
 } from '../../constants/Types.ts';
 
-import { getOperationExpectedPricing } from '../../constants/pricing/VidGPTPricing.jsx';
 import ProgressIndicator from '../oneshot_editor/ProgressIndicator.jsx';
-import { FaYoutube } from 'react-icons/fa6';
 import AssistantHome from '../assistant/AssistantHome.jsx';
-import { VIDEO_MODEL_PRICES, IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
+import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
@@ -312,7 +310,7 @@ export default function SnowMaker() {
       link.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error('Error downloading video:', error);
+      
     }
   }
 
@@ -341,7 +339,7 @@ export default function SnowMaker() {
           }
         })
         .catch((err) => {
-          console.error('Error polling assistant query:', err);
+          
           assistantErrorCountRef.current += 1;
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
@@ -370,7 +368,7 @@ export default function SnowMaker() {
         startAssistantQueryPoll();
       })
       .catch((err) => {
-        console.error('Assistant query error:', err);
+        
         setIsAssistantQueryGenerating(false);
       });
   };
@@ -409,7 +407,7 @@ export default function SnowMaker() {
         setSessionMessages(response.sessionMessages);
       }
     } catch (err) {
-      console.error('Error fetching session details:', err);
+      
     }
   };
 
@@ -448,7 +446,7 @@ export default function SnowMaker() {
           });
         }
       } catch (error) {
-        console.error('Error fetching generation status:', error);
+        
         pollErrorCountRef.current += 1;
 
         if (pollErrorCountRef.current >= 3) {
@@ -492,7 +490,7 @@ export default function SnowMaker() {
       await axios.post(`${API_SERVER}/vidgenie/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
-      console.error('Error submitting theme text:', error);
+      
       setErrorMessage({ error: 'An unexpected error occurred.' });
       setIsGenerationPending(false);
     } finally {
@@ -759,4 +757,3 @@ export default function SnowMaker() {
     </div>
   );
 }
-

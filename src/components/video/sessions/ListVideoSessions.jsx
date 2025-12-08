@@ -103,7 +103,7 @@ export default function ListVideoSessions() {
       })
       .catch((error) => {
         if (!isCancelled) {
-          console.error('Error fetching session list:', error);
+          
         }
       });
 

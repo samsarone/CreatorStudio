@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useState, useRef, useContext, useCallback } from "react";
+import React, { forwardRef, useEffect, useState, useRef, useContext } from "react";
 import { Stage, Layer, Group, Line, Image as KonvaImage, Rect } from 'react-konva';
 
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
@@ -448,7 +448,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         imageObj.src = base64Image;
       }
     } catch (error) {
-      console.error('Error fetching segmentation data:', error);
+      
     }
   };
 
@@ -508,7 +508,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     const stage = ref.current.getStage();
     const imageNode = stage.findOne(`#${maskBaseImageId}`);
     if (!imageNode || !imageNode.image()) {
-      console.error('No valid image node found.');
+      
       return;
     }
 
@@ -536,7 +536,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     const stage = ref.current.getStage();
     const imageNode = stage.findOne(`#${maskBaseImageId}`);
     if (!imageNode || !imageNode.image()) {
-      console.error('No valid image node found.');
+      
       return;
     }
 

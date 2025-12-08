@@ -4,7 +4,7 @@ import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { getHeaders } from '../../../utils/web';
 import { useNavigate } from 'react-router-dom';
 
-import { FaVideo, FaForward, FaStar, FaQuestionCircle } from "react-icons/fa";
+import { FaVideo, FaStar, FaQuestionCircle } from "react-icons/fa";
 
 // 1) Import react-tooltip
 import 'react-tooltip/dist/react-tooltip.css';

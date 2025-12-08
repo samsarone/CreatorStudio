@@ -17,7 +17,6 @@ import {
   FaMicrophone,
   FaStopCircle,
 } from 'react-icons/fa';
-import { FaYoutube } from 'react-icons/fa6';
 import axios from 'axios';
 
 import { useUser } from '../../contexts/UserContext.jsx';
@@ -37,7 +36,7 @@ import {
   IDEOGRAM_IMAGE_STYLES,
   PIXVERRSE_VIDEO_STYLES,
 } from '../../constants/Types.ts';
-import { VIDEO_MODEL_PRICES, IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
+import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
@@ -395,7 +394,7 @@ export default function OneshotEditor() {
       recognition.start();
       return true;
     } catch (err) {
-      console.error('Browser speech recognition error:', err);
+      
       browserRecognitionRef.current = null;
       setIsBrowserRecognitionActive(false);
       setVoiceError('Unable to start browser speech recognition.');
@@ -780,7 +779,7 @@ export default function OneshotEditor() {
       link.remove();
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      console.error('Error downloading video:', err);
+      
     }
   }
 
@@ -825,7 +824,7 @@ export default function OneshotEditor() {
 
       await getSessionDetails();
     } catch (error) {
-      console.error('Error publishing quick session:', error);
+      
     } finally {
       setIsPublishing(false);
     }
@@ -873,7 +872,7 @@ export default function OneshotEditor() {
 
       await getSessionDetails();
     } catch (error) {
-      console.error('Error unpublishing quick session:', error);
+      
     } finally {
       setIsUnpublishing(false);
     }
@@ -929,7 +928,7 @@ export default function OneshotEditor() {
           pollDelayRef.current ? pollDelayRef.current * 2 : DEFAULT_POLL,
           MAX_BACKOFF
         );
-        console.error('Generation poll error:', err?.message || err);
+        
       } finally {
         if (continuePolling && currentPollSessionIdRef.current === sessionId) {
           const nextDelay = navigator.onLine ? pollDelayRef.current : OFFLINE_POLL;
@@ -967,7 +966,7 @@ export default function OneshotEditor() {
           }
         })
         .catch((err) => {
-          console.error('Assistant-poll error:', err);
+          
           assistantErrorCountRef.current += 1;
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
@@ -997,7 +996,7 @@ export default function OneshotEditor() {
       )
       .then(() => startAssistantQueryPoll())
       .catch((err) => {
-        console.error('Assistant query error:', err);
+        
         setIsAssistantQueryGenerating(false);
       });
   };
@@ -1044,7 +1043,7 @@ export default function OneshotEditor() {
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
     } catch (err) {
-      console.error('Error fetching session details:', err);
+      
     }
   };
 
@@ -1119,7 +1118,7 @@ export default function OneshotEditor() {
       await axios.post(`${API_SERVER}/vidgenie/create`, payload, headers);
       pollGenerationStatus(id);
     } catch (err) {
-      console.error('Error submitting render request:', err);
+      
       setErrorMessage({ error: 'An unexpected error occurred.' });
       setIsGenerationPending(false);
     } finally {

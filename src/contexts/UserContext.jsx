@@ -56,7 +56,7 @@ export const UserProvider = ({ children }) => {
       setUserInitiated(true);
       return userProfile;
     } catch (err) {
-      console.error('Error verifying user token:', err);
+      
       resetUser();
       setUserInitiated(true);
       navigate("/");

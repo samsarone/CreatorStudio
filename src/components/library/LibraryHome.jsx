@@ -28,7 +28,6 @@ export default function LibraryHome(props) {
   };
 
   const handleBack = () => {
-    console.log('Back button clicked');
     resetImageLibrary();
   };
 

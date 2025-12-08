@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaTimes, FaQuestionCircle } from "react-icons/fa";
+import { FaQuestionCircle } from "react-icons/fa";
 import CommonButton from "../../../common/CommonButton.tsx";
 import { VIDEO_GENERATION_MODEL_TYPES } from "../../../../constants/Types.ts";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";

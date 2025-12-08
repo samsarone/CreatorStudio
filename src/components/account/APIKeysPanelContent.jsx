@@ -42,7 +42,7 @@ export default function APIKeysPanelContent() {
       const apiKeyResponse = response.data.apiKeys || [];
       setApiKeys(apiKeyResponse);
     } catch (error) {
-      console.error('Error fetching API keys:', error);
+      
       toast.error('Failed to fetch API keys', {
         position: 'bottom-center',
       });
@@ -61,7 +61,7 @@ export default function APIKeysPanelContent() {
         position: 'bottom-center',
       });
     } catch (error) {
-      console.error('Error creating API key:', error);
+      
       toast.error('Failed to create API key', {
         position: 'bottom-center',
       });
@@ -77,7 +77,7 @@ export default function APIKeysPanelContent() {
         position: 'bottom-center',
       });
     } catch (error) {
-      console.error('Error deleting API key:', error);
+      
       toast.error('Failed to delete API key', {
         position: 'bottom-center',
       });

@@ -1,6 +1,5 @@
 import React from 'react';
-import { FaRegClone, FaCut, FaRedo, FaTimes } from 'react-icons/fa';
-import { FaCheck, FaCopy, } from 'react-icons/fa6';
+import { FaCheck } from 'react-icons/fa6';
 
 import { MdOutlineRefresh } from "react-icons/md";
 

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
-import { FaCheck, FaCopy, } from 'react-icons/fa6';
+import { FaCheck } from 'react-icons/fa6';
 
 import { MdOutlineRefresh } from "react-icons/md";
 

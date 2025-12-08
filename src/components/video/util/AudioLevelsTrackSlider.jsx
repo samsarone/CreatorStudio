@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import './audioLevelsTrackSlider.css';

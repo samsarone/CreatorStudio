@@ -1,7 +1,6 @@
 import React, { forwardRef, useEffect, useState, useRef } from "react";
 import { Stage, Layer, Group, Line, Circle } from 'react-konva';
 import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
-import { useImage } from 'react-konva-utils';
 import ResizableImage from "./ResizableImage.tsx";
 import ResizableText from "./ResizableText.tsx";
 import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';

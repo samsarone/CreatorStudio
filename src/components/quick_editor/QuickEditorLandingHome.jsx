@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { getHeaders } from '../../utils/web';
+import { getHeaders, getAuthToken } from '../../utils/web';
 import { FaSpinner } from 'react-icons/fa';
 
 
@@ -15,9 +15,8 @@ export default function QuickEditorLandingHome() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const userToken = localStorage.getItem('authToken');
+    const userToken = getAuthToken();
     if (!userToken || ((!user || !user._id) && !userFetching)) {
-      console.log('User not found, redirecting to login');
       setIsGuest(true);
     }
   }, [user, userFetching]);

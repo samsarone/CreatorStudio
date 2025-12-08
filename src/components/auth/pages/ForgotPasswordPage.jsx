@@ -79,7 +79,7 @@ export default function ForgotPassword(props) {
         setError(null);
       })
       .catch((err) => {
-        console.error('Error sending password reset email:', err);
+        
         setError(copy.error);
         setSuccess(null);
       });

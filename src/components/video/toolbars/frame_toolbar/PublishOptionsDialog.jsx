@@ -34,7 +34,7 @@ export default function PublishOptionsDialog(props) {
       // Convert tags array to a comma-separated string if present
       setTags(sessionMeta.tags ? sessionMeta.tags.join(', ') : '');
     } catch (error) {
-      console.error('Error generating meta:', error);
+      
     }
   };
 

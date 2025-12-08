@@ -173,7 +173,7 @@ export default function BillingPanelContent() {
       );
       setBillingHistory(res.data?.payments || []);
     } catch (err) {
-      console.error("Failed to fetch billing history", err);
+      
     } finally {
       setIsHistoryLoading(false);
     }
@@ -196,7 +196,7 @@ export default function BillingPanelContent() {
         toast.error("Failed to generate payment URL", { position: "bottom-center" });
       }
     } catch (err) {
-      console.error("Payment process failed", err);
+      
       toast.error("Payment process failed", { position: "bottom-center" });
     } finally {
       setIsPurchasing(false);
@@ -262,7 +262,7 @@ export default function BillingPanelContent() {
         upgradeWindow.location.href = data.url;
       }
     } catch (error) {
-      console.error("Upgrade plan error:", error);
+      
       setUpgradeError("Failed to upgrade the plan. Please try again.");
       toast.error("Upgrade failed");
       if (upgradeWindow && !upgradeWindow.closed) {

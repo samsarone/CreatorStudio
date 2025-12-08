@@ -1,31 +1,23 @@
 const AUTH_COOKIE_NAME = 'authToken';
+const AUTH_TOKEN_KEY = 'authToken';
 const COOKIE_CONSENT_KEY = 'samsar_cookie_consent';
-const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+let inMemoryAuthToken = null;
 
-function getCookieDomain() {
-  if (typeof window === 'undefined') return '';
-  const { hostname } = window.location;
-  return hostname.includes('samsar.one') ? '.samsar.one' : '';
-}
-
-function expireAuthCookie(domain) {
+const expireAuthCookie = (domain) => {
   if (typeof document === 'undefined') return;
   const domainAttr = domain ? ` domain=${domain};` : '';
   document.cookie = `${AUTH_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;${domainAttr}`;
-}
+};
 
 export function clearAuthCookies() {
+  // Clear any legacy auth cookies that may still be present.
   if (typeof document === 'undefined') return;
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   const domainParts = hostname ? hostname.split('.').filter(Boolean) : [];
 
   const domainOptions = new Set(['']);
-  if (hostname) {
-    domainOptions.add(hostname);
-  }
-  if (hostname && hostname.includes('samsar.one')) {
-    domainOptions.add('.samsar.one');
-  }
+  if (hostname) domainOptions.add(hostname);
+  if (hostname && hostname.includes('samsar.one')) domainOptions.add('.samsar.one');
 
   for (let i = 0; i < domainParts.length - 1; i += 1) {
     const domain = domainParts.slice(i).join('.');
@@ -33,9 +25,7 @@ export function clearAuthCookies() {
     domainOptions.add(`.${domain}`);
   }
 
-  domainOptions.forEach((domain) => {
-    expireAuthCookie(domain);
-  });
+  domainOptions.forEach(expireAuthCookie);
 }
 
 export function getCookieConsentStatus() {
@@ -56,7 +46,7 @@ export function saveCookieConsentStatus(status) {
   try {
     localStorage.setItem(COOKIE_CONSENT_KEY, status);
   } catch (e) {
-    console.warn('Unable to store cookie consent preference', e);
+    // Ignore storage errors when persisting cookie consent.
   }
 
   if (status === 'rejected') {
@@ -64,48 +54,32 @@ export function saveCookieConsentStatus(status) {
   }
 }
 
-export function setAuthCookieIfConsented(token) {
-  if (!token || typeof document === 'undefined') return;
-
-  if (!hasAcceptedCookies()) {
-    clearAuthCookies();
-    return;
-  }
-
-  const sharedDomain = getCookieDomain();
-  const domainAttr = sharedDomain ? `; domain=${sharedDomain}` : '';
-  const secureAttr =
-    typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
-
-  document.cookie = `${AUTH_COOKIE_NAME}=${encodeURIComponent(
-    token
-  )}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax${secureAttr}${domainAttr}`;
-}
-
 // helpers/auth.jsx
 
 export function getAuthToken() {
-  // 1. localStorage (fast path)
-  const fromStorage =
-    typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-  if (fromStorage) return fromStorage;
+  if (inMemoryAuthToken) return inMemoryAuthToken;
+  if (typeof window === 'undefined') return null;
 
-  // 2. Cookie fallback
-  if (typeof document === 'undefined') return null; // SSR guard
-  const match = document.cookie.match(
-    new RegExp(`(?:^|;\\s*)${AUTH_COOKIE_NAME}=([^;]+)`)
-  );
-  if (!match) return null;
-
-  const token = decodeURIComponent(match[1]);
-
-  // 3. Cache into localStorage for next time
   try {
-    localStorage.setItem('authToken', token);
-  } catch {
-    /* ignore quota / private‑mode errors */
+    const sessionToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (sessionToken) {
+      inMemoryAuthToken = sessionToken;
+      return sessionToken;
+    }
+
+    // Migrate any legacy localStorage token into sessionStorage, then remove it.
+    const legacyToken = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (legacyToken) {
+      inMemoryAuthToken = legacyToken;
+      sessionStorage.setItem(AUTH_TOKEN_KEY, legacyToken);
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      return legacyToken;
+    }
+  } catch (err) {
+    // Ignore storage read errors to avoid breaking auth flow.
   }
-  return token;
+
+  return null;
 }
 
 export function getHeaders() {
@@ -124,43 +98,31 @@ export function persistAuthToken(token) {
   if (!token || typeof window === 'undefined') return;
 
   try {
-    localStorage.setItem('authToken', token);
+    sessionStorage.setItem(AUTH_TOKEN_KEY, token);
   } catch (err) {
-    console.warn('Unable to store auth token in localStorage', err);
+    // Ignore storage write errors; token will only live in memory.
   }
 
-  setAuthCookieIfConsented(token);
+  inMemoryAuthToken = token;
 }
 
 export function clearAuthData() {
   if (typeof window !== 'undefined') {
-    let consentStatus = null;
     try {
-      consentStatus = localStorage.getItem(COOKIE_CONSENT_KEY);
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
     } catch (err) {
-      console.warn('Unable to read cookie consent status before clearing storage', err);
+      // Ignore storage clear errors.
     }
 
+    // Clear any legacy storage locations that may still hold the token.
     try {
-      localStorage.clear();
+      localStorage.removeItem(AUTH_TOKEN_KEY);
     } catch (err) {
-      console.warn('Failed to clear localStorage during logout', err);
-    }
-
-    if (consentStatus) {
-      try {
-        localStorage.setItem(COOKIE_CONSENT_KEY, consentStatus);
-      } catch (err) {
-        console.warn('Failed to restore cookie consent preference', err);
-      }
-    }
-    try {
-      sessionStorage.removeItem('authToken');
-    } catch (err) {
-      console.warn('Failed to clear sessionStorage during logout', err);
+      // Ignore storage clear errors.
     }
   }
 
+  inMemoryAuthToken = null;
   clearAuthCookies();
 }
 

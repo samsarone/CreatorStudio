@@ -1,22 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import TopNav from "./TopNav.tsx";
 import { AlertDialog } from "./AlertDialog.tsx";
-import { useUser } from "../../contexts/UserContext";
-import { getHeaders } from '../../utils/web.jsx';
-
-import axios from 'axios';
-const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
 export default function CommonContainer(props) {
-  const { children, isVideoPreviewPlaying, setIsVideoPreviewPlaying, downloadCurrentFrame } = props;
-
-
-  const { getUserAPI, user, setUser } = useUser();
+  const { children, isVideoPreviewPlaying, setIsVideoPreviewPlaying, downloadCurrentFrame, resetSession } = props;
 
   const resetCurrentSession = () => {
-    if (props.resetSession) {
-      props.resetSession();
+    if (resetSession) {
+      resetSession();
 
     }
   }

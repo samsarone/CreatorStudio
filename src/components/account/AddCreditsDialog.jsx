@@ -46,8 +46,6 @@ export default function AddCreditsDialog(props) {
 
     if (typeof purchaseCreditsForUser === 'function') {
       purchaseCreditsForUser(selectedOption.value);
-    } else {
-      console.error('purchaseCreditsForUser handler is not provided');
     }
   };
 
@@ -61,8 +59,6 @@ export default function AddCreditsDialog(props) {
 
     if (typeof requestApplyCreditsCoupon === 'function') {
       requestApplyCreditsCoupon(trimmedCode);
-    } else {
-      console.error('requestApplyCreditsCoupon handler is not provided');
     }
   };
 

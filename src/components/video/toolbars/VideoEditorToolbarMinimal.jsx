@@ -1,6 +1,6 @@
 import React from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
-import { FaChevronCircleRight , FaChevronCircleLeft} from 'react-icons/fa';
+import { FaChevronCircleLeft} from 'react-icons/fa';
 export default function VideoEditorToolbarMinimal(props) {
 
   const { onToggleDisplay } = props;

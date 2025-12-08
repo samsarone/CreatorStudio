@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
-import { Stage, Layer, Rect, Text } from 'react-konva';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -195,7 +194,7 @@ export default function EditorHome(props) {
       }
       setSessionDetails(response.data);
     }).catch((error) => {
-      console.error(error);
+      
     });
   }, [id]);
 
@@ -255,7 +254,7 @@ export default function EditorHome(props) {
       }).then((response) => {
 
       }).catch((error) => {
-        console.error(error);
+        
       });
     }
   }, [user, id]);
@@ -324,7 +323,7 @@ export default function EditorHome(props) {
       });
       return dataUrl;
     } else {
-      console.error('Base group not found');
+      
       return null;
     }
   };
@@ -363,7 +362,7 @@ export default function EditorHome(props) {
       const dataUrl = offscreenCanvas.toDataURL('image/png', 1); // Ensure full quality
       return dataUrl;
     } else {
-      console.error('Mask group not found');
+      
       return null;
     }
   };
@@ -406,7 +405,7 @@ export default function EditorHome(props) {
       const dataUrl = offscreenCanvas.toDataURL();
       return dataUrl;
     } else {
-      console.error('Mask group not found');
+      
       return null;
     }
   };
@@ -516,7 +515,7 @@ export default function EditorHome(props) {
         window.location.href = `${PUBLISHER_URL}/p/${publicationId}`;
 
       }).catch(function (err) {
-        console.error(err);
+        
         setIsPublicationPending(false);
       });
     }

@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import AceEditor from 'react-ace';
-import { cleanJsonTheme } from '../../utils/web.jsx';
-import { FaTimes } from 'react-icons/fa';
-import { FaMusic, FaPlay, FaSpinner, FaPause, FaArrowRight, FaChevronDown, FaChevronUp, FaMinus } from 'react-icons/fa6';
+import { FaPlay, FaPause, FaArrowRight, FaChevronDown } from 'react-icons/fa6';
 import { useUser } from '../../contexts/UserContext.jsx';
 import ace from 'ace-builds';
 import { popularLanguages, getFontFamilyForLanguage } from '../../utils/language.jsx';
@@ -29,7 +26,6 @@ import { getHeaders } from '../../utils/web.jsx';
 import ProgressIndicator from '../oneshot_editor/ProgressIndicator.jsx';
 
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
-import { OPENAI_SPEAKER_TYPES } from '../../constants/Types.ts';
 import { useNavigate } from 'react-router-dom';
 import { franc } from 'franc';
 import AudioSelect from '../common/AudioSelect.jsx';
@@ -240,7 +236,7 @@ export default function QuickEditor() {
         }
       })
       .catch((err) => {
-        console.error('Error fetching session details', err);
+        
       });
   }, [id]);
 
@@ -497,7 +493,7 @@ export default function QuickEditor() {
         }
       })
       .catch((err) => {
-        console.log('Error fetching session details:', err);
+        // Swallow fetch errors; UI can retry or show stale data.
       });
 
     return () => {
@@ -525,7 +521,7 @@ export default function QuickEditor() {
           }
         })
         .catch((err) => {
-          console.log('Poll error:', err);
+          // Ignore transient poll errors; next interval will retry.
         });
     }, 3000);
   };
@@ -664,7 +660,7 @@ export default function QuickEditor() {
         }
       })
       .catch((error) => {
-        console.error('Error during payment process', error);
+        
       });
   };
 

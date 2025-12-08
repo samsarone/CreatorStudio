@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import SecondaryButton from '../../common/SecondaryButton.tsx';
 import { getRemoteImageLink } from '../../../utils/image.jsx'
-import { FaChevronCircleLeft } from 'react-icons/fa';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 

@@ -58,7 +58,7 @@ export default function MovieSpeechProviderSelect(props) {
     // Find matching speaker object
     const speakerData = localSpeakers.find((item) => item.speaker === speakerValue);
     if (!speakerData) {
-      console.error("No matching speaker for value:", speakerValue);
+      
       return;
     }
 

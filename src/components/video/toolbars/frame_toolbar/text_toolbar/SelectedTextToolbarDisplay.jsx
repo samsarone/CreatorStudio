@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import SecondaryButton from '../../../../common/SecondaryButton.tsx';
-import { FaPlus, FaTimes, FaEye, FaEyeSlash, FaCheck, FaPlay, FaPause, FaMagic, FaChevronCircleLeft } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaEye, FaEyeSlash, FaCheck, FaPlay, FaMagic, FaChevronCircleLeft } from 'react-icons/fa';
 import { FaRegCircleStop } from "react-icons/fa6";
 import SingleSelect from '../../../../common/SingleSelect.jsx';
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
@@ -7,12 +7,11 @@ import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { IoMdLogIn } from 'react-icons/io';
 import ToggleButton from './ToggleButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import { IoMdWallet } from 'react-icons/io';
 import Login from '../auth/Login.tsx';
 import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
-import { FaTwitter, FaStar } from 'react-icons/fa6';
+import { FaStar } from 'react-icons/fa6';
 import AuthContainer from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 
