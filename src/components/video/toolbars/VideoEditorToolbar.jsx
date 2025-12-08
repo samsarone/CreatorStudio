@@ -821,8 +821,6 @@ export default function VideoEditorToolbar(props) {
       }
     }
 
-    console.log(selectedMusicProvider.key);
-
     const body = {
       prompt: promptText,
       generationType: 'music',

@@ -3,7 +3,6 @@ import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import QRCode from 'react-qr-code';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import MusicLibraryHome from '../library/audio/MusicLibraryHome.jsx';
 import { IoMdLogIn } from 'react-icons/io';
@@ -13,7 +12,7 @@ import Login from '../auth/Login.tsx';
 import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
-import { FaTwitter, FaStar, FaArrowUpRightFromSquare } from 'react-icons/fa6';
+import { FaStar, FaArrowUpRightFromSquare } from 'react-icons/fa6';
 import AuthContainer from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
@@ -390,12 +389,12 @@ const showLicenseDialog = () => {
           window.open(data.url, "_blank", "noopener,noreferrer");
           toast.success("Redirecting to checkout…", { position: "bottom-center" });
         } else {
-          console.error("Failed to get Stripe payment URL");
+          
           toast.error("Unable to open checkout. Please try again.", { position: "bottom-center" });
         }
       })
       .catch(function (error) {
-        console.error("Error during payment process", error);
+        
         toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
       });
   }, []);
@@ -552,7 +551,6 @@ const showLicenseDialog = () => {
 
 
     axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: sessionId }, headers).then(function (response) {
-      console.log("Regenerate Subtitles Response", response);
 
 
     });

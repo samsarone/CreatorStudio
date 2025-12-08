@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { FaS, FaSpinner } from 'react-icons/fa6';
+import { FaSpinner } from 'react-icons/fa6';
 import { useNavigate } from 'react-router-dom';
 import Loader from '../common/Loader';
 import { persistAuthToken } from '../../utils/web';

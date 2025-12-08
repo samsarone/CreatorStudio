@@ -48,7 +48,7 @@ export default function AuthContainer(props) {
         window.location.href = googleAuthUrl; // Redirect to Google OAuth
       })
       .catch((error) => {
-        console.error('Error during Google login:', error);
+        
         setError('Unable to initiate Google login at this time.');
       });
     closeAlertDialog();
@@ -66,7 +66,7 @@ export default function AuthContainer(props) {
         window.location.href = googleAuthUrl; // Redirect to Google OAuth
       })
       .catch((error) => {
-        console.error('Error during Google registration:', error);
+        
         setError('Unable to initiate Google registration at this time.');
       });
     closeAlertDialog();
@@ -82,7 +82,7 @@ export default function AuthContainer(props) {
         closeAlertDialog();
       })
       .catch((error) => {
-        console.error('Error verifying user profile:', error);
+        
         setError('Unable to verify user profile.');
       });
   };
@@ -108,7 +108,7 @@ export default function AuthContainer(props) {
         }
       })
       .catch((error) => {
-        console.error('Error getting or creating user session:', error);
+        
         setError('Unable to create or get a session.');
       });
   };
@@ -129,7 +129,7 @@ export default function AuthContainer(props) {
 
       localStorage.setItem("setShowSetPaymentFlow", true);
     } catch (error) {
-      console.error('Error during user registration:', error);
+      
 
       // Attempt to bubble server error back to <Register />
       if (error.response && error.response.data && error.response.data.message) {

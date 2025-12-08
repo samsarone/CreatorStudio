@@ -36,7 +36,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
         setTotalPages(dataRes.data.totalPages);
       })
       .catch(function (error) {
-        console.error('Error fetching library data:', error);
+        
       });
   };
 

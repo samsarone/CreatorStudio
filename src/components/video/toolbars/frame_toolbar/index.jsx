@@ -24,7 +24,7 @@ import VerticalWaveform from '../../util/VerticalWaveform.jsx';
 import DualThumbSlider from '../../util/DualThumbSlider.jsx';
 import TimeRuler from '../../util/TimeRuler.jsx';
 import RangeOverlaySlider from './RangeOverlaySlider.jsx';
-import { CURRENT_TOOLBAR_VIEW, FRAME_TOOLBAR_VIEW } from '../../../../constants/Types.ts';
+import { FRAME_TOOLBAR_VIEW } from '../../../../constants/Types.ts';
 import AudioTrackSlider from '../../util/AudioTrackSlider.jsx';
 import DropdownButton from '../../util/DropdownButton.jsx';
 import { useAlertDialog } from '../../../../contexts/AlertDialogContext.jsx';
@@ -961,7 +961,7 @@ export default function FrameToolbar(props) {
       }));
       setAudioTrackListDisplay(merged);
     } else {
-      console.error("Failed to update all audio layers in one shot:", response.error);
+      
       alert("Failed to update! See console.");
     }
   };

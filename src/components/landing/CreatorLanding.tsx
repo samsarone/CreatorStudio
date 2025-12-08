@@ -18,7 +18,6 @@ export default function CreatorLanding(props) {
       navigate(`/session/${res.data._id}`, { replace: true });
       //  window.location.href = `/session/${res.data.id}`;
     }).catch((err) => {
-      console.log(err);
     });
 
   }

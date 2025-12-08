@@ -26,7 +26,7 @@ export default function RegisterPage() {
         window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
       })
       .catch((error) => {
-        console.error('Error during Google registration:', error);
+        
       });
   };
 
@@ -49,7 +49,7 @@ export default function RegisterPage() {
         }
       })
       .catch((error) => {
-        console.error('Error getting or creating user session:', error);
+        
       });
   };
 
@@ -67,7 +67,7 @@ export default function RegisterPage() {
         localStorage.setItem('setShowSetPaymentFlow', 'true');
       })
       .catch((error) => {
-        console.error('Error during user registration:', error);
+        
         // If you need to handle the error inside <Register />, 
         // you might consider setting some error state here or pass a callback.
       });

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FaPlus, FaStar } from 'react-icons/fa';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import { FaFastForward } from "react-icons/fa";
 import { MdExplore } from "react-icons/md";
 import { MdCreateNewFolder } from "react-icons/md";
 import SingleSelect from './SingleSelect.jsx';

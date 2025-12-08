@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { getHeaders, persistAuthToken } from '../../utils/web';
-import { FaSpinner } from 'react-icons/fa';
+import { getHeaders, persistAuthToken, getAuthToken } from '../../utils/web';
 import './home.css';
 import ScreenLoader from './util/ScreenLoader';
 
@@ -21,9 +20,8 @@ export default function VideoEditorLandingHome() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const userToken = localStorage.getItem('authToken');
+    const userToken = getAuthToken();
     if (!userToken || ((!user || !user._id) && !userFetching)) {
-      console.log('User not found, redirecting to login');
       setIsGuest(true);
     }
   }, [user, userFetching]);
@@ -52,8 +50,6 @@ export default function VideoEditorLandingHome() {
     axios.get(`${API_SERVER}/video_sessions/fetch_guest_session`).then((res) => {
       const sessionData = res.data;
       if (sessionData && sessionData._id) {
-        console.log("HERE");
-        
         navigate(`/video/${sessionData._id}`);
       }
     });

@@ -36,7 +36,7 @@ export default function LoginPage() {
         window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
       })
       .catch((error) => {
-        console.error('Error during Google login:', error);
+        
       });
   };
 
@@ -61,7 +61,7 @@ export default function LoginPage() {
         }
       })
       .catch((error) => {
-        console.error('Error getting or creating user session:', error);
+        
       });
   };
 

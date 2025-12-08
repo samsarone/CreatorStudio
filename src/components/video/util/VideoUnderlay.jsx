@@ -46,7 +46,7 @@ export default function VideoUnderlay(props) {
             if (playAttempt && typeof playAttempt.catch === 'function') {
               playAttempt.catch((error) => {
                 if (error?.name !== 'AbortError') {
-                  console.error('Video play error: ', error);
+                  
                 }
               });
             }
@@ -56,7 +56,7 @@ export default function VideoUnderlay(props) {
         video.addEventListener('canplaythrough', handleCanPlayThrough);
 
         video.onerror = () => {
-          console.error(`Error preloading video ${newVideoSrc}`);
+          
         };
 
         // Clean up event listener

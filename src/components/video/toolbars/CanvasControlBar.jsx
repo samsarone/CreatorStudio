@@ -5,12 +5,10 @@ import { useNavigate } from "react-router-dom";
 import { FaExpandArrowsAlt, FaDownload, FaTimes } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 import SingleSelect from "../../common/SingleSelect.jsx";
-import { TbArrowBackUp } from "react-icons/tb";
 import { IoMdGrid } from "react-icons/io";
 
 import { NavCanvasControlContext } from "../../../contexts/NavCanvasControlContext.jsx";
 import { useContext } from "react";
-import { useEffect } from "react";
 
 import {
   FaPlay, FaPause

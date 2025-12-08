@@ -4,7 +4,6 @@ import {
   saveCookieConsentStatus,
   hasAcceptedCookies,
   clearAuthCookies,
-  setAuthCookieIfConsented,
 } from '../../utils/web';
 
 export default function CookieConsentBanner() {
@@ -18,12 +17,7 @@ export default function CookieConsentBanner() {
 
   const handleChoice = (status) => {
     saveCookieConsentStatus(status);
-    if (status === 'rejected') {
-      clearAuthCookies();
-    } else if (status === 'accepted' && typeof window !== 'undefined') {
-      const token = localStorage.getItem('authToken');
-      if (token) setAuthCookieIfConsented(token);
-    }
+    if (status === 'rejected') clearAuthCookies();
     setVisible(false);
   };
 
@@ -33,10 +27,10 @@ export default function CookieConsentBanner() {
     <div className="fixed bottom-4 left-1/2 z-50 w-[95%] max-w-3xl -translate-x-1/2 rounded-2xl border border-gray-800/70 bg-gray-900/90 p-4 shadow-2xl backdrop-blur transition-all duration-300">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-5">
         <div className="flex-1 text-sm text-gray-100">
-          <div className="text-base font-semibold text-white">We use cookies</div>
+          <div className="text-base font-semibold text-white">We use limited cookies</div>
           <p className="mt-1 text-gray-200/90">
-            To keep you signed in across Samsar apps we set an essential SameSite cookie. Choose
-            Reject if you prefer not to share the login cookie.
+            We only set essential cookies for preferences. Login tokens stay in session storage and
+            are not written to browser cookies. Choose Reject to clear any legacy cookies.
           </p>
         </div>
         <div className="flex flex-row gap-2 md:flex-col">

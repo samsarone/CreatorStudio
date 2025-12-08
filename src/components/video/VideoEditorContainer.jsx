@@ -293,7 +293,7 @@ export default function VideoEditorContainer(props) {
             try {
               audio.play();
             } catch (err) {
-              console.log(err);
+              // Ignore play errors (e.g., autoplay restrictions).
             }
           }
 
@@ -658,7 +658,7 @@ export default function VideoEditorContainer(props) {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
         } catch (error) {
-          console.error('Error loading image:', error);
+          
         }
       } else if (item.type === 'text') {
         const fontSize = item.config.fontSize || 40;
@@ -776,11 +776,7 @@ export default function VideoEditorContainer(props) {
       maskImageData = await exportMaskedGroupAsBlackAndWhite();
     }
 
-    console.log(selectedEditModelValue);
-
     if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANA') {
-      console.log("NANO BANANA SELECTED");
-
       submitNanoBananaOutpaintRequest();
       return;
 
@@ -1088,7 +1084,7 @@ export default function VideoEditorContainer(props) {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
         } catch (error) {
-          console.error('Error loading image:', error);
+          
         }
       } else if (item.type === 'text') {
         const fontSize = item.config.fontSize || 40;
@@ -1131,7 +1127,7 @@ export default function VideoEditorContainer(props) {
     //     const y = canvas.height - watermarkImg.height - padding;
     //     ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
     //   } catch (error) {
-    //     console.error('Error loading watermark image:', error);
+    //     
     //   }
     // }
 
@@ -2174,7 +2170,7 @@ export default function VideoEditorContainer(props) {
         }, 1000);
       }
     } catch (error) {
-      console.error('Error in startLayeredAudioGenerationPoll:', error);
+      
       setAudioGenerationPending(false);
       toast.error(
         <div>

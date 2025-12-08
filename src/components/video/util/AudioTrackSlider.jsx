@@ -97,7 +97,7 @@ const AudioTrackSlider = (props) => {
     if (trackRef.current) {
       setSliderHeight(trackRef.current.clientHeight);
     } else {
-      console.error('trackRef.current is null');
+      
       return;
     }
     setIsDraggingRange(true);

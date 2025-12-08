@@ -1,5 +1,5 @@
-import React, { forwardRef, useRef, useEffect } from "react";
-import { Stage, Layer, Star, Text, Image, Transformer, Circle, Group } from 'react-konva';
+import React, { useRef } from "react";
+import { Image } from 'react-konva';
 import { useImage } from 'react-konva-utils';
 
 export default function SimpleImage({ image, isSelected, onSelect, onUnselect, updateToolbarButtonPosition, ...props }) {

@@ -48,7 +48,7 @@ export default function CreatePayment() {
         getUserAPI();
       })
       .catch(function (error) {
-        console.error("Error applying coupon", error);
+        
         toast.error("Failed to apply coupon", { position: "bottom-center" });
       });
   };
@@ -77,7 +77,7 @@ export default function CreatePayment() {
         }
       })
       .catch((error) => {
-        console.error("Error during payment process", error);
+        
         toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
       });
   };

@@ -45,7 +45,7 @@ export default function VideoEditorDefaultsViewer(props) {
       const parsed = JSON.parse(jsonString);
       return JSON.stringify(parsed, null, 2); 
     } catch (e) {
-      console.error('Invalid JSON:', e);
+      
       return jsonString; 
     }
   };
@@ -87,7 +87,7 @@ export default function VideoEditorDefaultsViewer(props) {
           setEditorData({});
         }
       } catch (e) {
-        console.error("Invalid JSON when switching to UI mode:", e);
+        
         alert("Unable to parse JSON for UI view. Reverting to JSON view.");
         setUiViewMode('json');
       }
@@ -175,7 +175,7 @@ export default function VideoEditorDefaultsViewer(props) {
         setUiViewMode('ui');
         localStorage.setItem('defaultUserThemeUIVideoMode', 'ui');
       } catch (e) {
-        console.error("Invalid JSON, cannot switch to UI mode:", e);
+        
         alert("JSON is invalid, please fix before switching to UI mode.");
       }
     } else {

@@ -3,8 +3,7 @@ import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 
-import { getHeaders } from '../../utils/web';
-import { FaSpinner } from 'react-icons/fa';
+import { getHeaders, getAuthToken } from '../../utils/web';
 
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -19,7 +18,7 @@ export default function QuickEditorLandingHome() {
 
 
   useEffect(() => {
-    const userToken = localStorage.getItem('authToken');
+    const userToken = getAuthToken();
     if (!userToken || ((!user || !user._id) && !userFetching)) {
 
       setIsGuest(true);
@@ -67,7 +66,7 @@ export default function QuickEditorLandingHome() {
 
 
   useEffect(() => {
-    const userToken = localStorage.getItem('authToken');
+    const userToken = getAuthToken();
     if (!userToken || ((!user || !user._id) && !userFetching)) {
       setIsGuest(true);
     }

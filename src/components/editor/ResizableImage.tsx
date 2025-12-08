@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Image, Transformer, Group, Text } from 'react-konva';
 import { useImage } from 'react-konva-utils';
-import { getScalingFactor } from '../../utils/image.jsx';
 import { getStageDimensions} from '../../constants/Image.jsx';
 
 const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
@@ -67,7 +66,7 @@ export default function ResizableImage({
         trRef.current.getLayer().batchDraw();
       }
     } catch (e) {
-      console.log(e);
+      // Ignore positioning errors so the editor can continue rendering.
     }
   }, [img, status]);
 

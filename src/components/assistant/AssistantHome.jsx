@@ -57,7 +57,7 @@ export default function AssistantHome(props) {
       // Optionally re-fetch user if you want updated context
       getUserAPI();
     } catch (error) {
-      console.error("Failed to update user’s assistant model", error);
+      
     }
   };
 
@@ -97,7 +97,7 @@ export default function AssistantHome(props) {
     navigator.clipboard.writeText(text).then(() => {
       
     }).catch(err => {
-      console.error('Failed to copy:', err);
+      
     });
   };
 

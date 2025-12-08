@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaChevronLeft, FaTimes } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
 
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;

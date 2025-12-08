@@ -1,6 +1,5 @@
 // NavCanvasControlContext.js
 import React, { createContext, useState } from 'react';
-import { useContext } from 'react';
 
 export const NavCanvasControlContext = createContext();
 
@@ -74,4 +73,3 @@ export const NavCanvasControlProvider = ({ children }) => {
     </NavCanvasControlContext.Provider>
   );
 };
-

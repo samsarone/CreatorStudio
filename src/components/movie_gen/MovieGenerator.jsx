@@ -123,11 +123,8 @@ export default function MovieGenerator() {
   // Reset form on ID change
   useEffect(() => {
     if (id) {
-    resetForm();
-    getSessionDetails(); // Fetch session details for the new ID
-    } else {
-
-      
+      resetForm();
+      getSessionDetails(); // Fetch session details for the new ID
     }
 
   }, [id]);
@@ -199,7 +196,6 @@ export default function MovieGenerator() {
       const response = await axios.post(`${API_SERVER}/moviegen/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
-      console.log(error);
       setIsGenerationPending(false);
     } finally {
       setIsSubmitting(false);
@@ -226,7 +222,7 @@ export default function MovieGenerator() {
           setErrorMessage({ error: 'Video generation failed.' });
         }
       } catch (error) {
-        console.error('Error fetching generation status:', error);
+        
         clearInterval(interval);
         setIsGenerationPending(false);
         setErrorMessage({ error: 'An unexpected error occurred while fetching status.' });

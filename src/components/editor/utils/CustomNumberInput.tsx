@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { FaMinus , FaPlus } from "react-icons/fa";
+import React from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 export default function CustomNumberInput(props) {

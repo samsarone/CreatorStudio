@@ -174,7 +174,7 @@ export default function ResetPasswordPage() {
       setResendStatus('success');
       setError(null);
     } catch (err) {
-      console.error('Error requesting new reset email:', err);
+      
       setResendStatus('error');
     }
   };

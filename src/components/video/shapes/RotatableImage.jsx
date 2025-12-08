@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 import { Image, Transformer, Group } from 'react-konva';
 import { useImage } from 'react-konva-utils';
 import { getScalingFactor } from '../../utils/image.jsx';

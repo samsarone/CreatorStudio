@@ -224,8 +224,7 @@ export function useRealtimeTranscription({
     try {
       payload = JSON.parse(rawEvent.data);
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[useRealtimeTranscription] Non-JSON Realtime payload', err);
+      // Ignore malformed realtime payloads.
       return;
     }
 

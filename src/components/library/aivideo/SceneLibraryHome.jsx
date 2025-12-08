@@ -79,7 +79,7 @@ export default function SceneLibraryHome(props) {
       setLibraryData(data);
       setTotalPages(response.data.totalPages);
     } catch (error) {
-      console.error('Error fetching video library data:', error);
+      
     }
   };
 

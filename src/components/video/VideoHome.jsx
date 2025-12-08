@@ -4,7 +4,7 @@ import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { CURRENT_EDITOR_VIEW, FRAME_TOOLBAR_VIEW } from '../../constants/Types.ts';
-import { getHeaders } from '../../utils/web.jsx';
+import { getHeaders, clearAuthData } from '../../utils/web.jsx';
 import VideoEditorContainer from './VideoEditorContainer.jsx';
 import AddAudioDialog from './util/AddAudioDialog.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
@@ -16,7 +16,6 @@ import { getImagePreloaderWorker } from './workers/imagePreloaderWorkerSingleton
 import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
-import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
@@ -501,8 +500,7 @@ export default function VideoHome(props) {
       setGenerationImages(sessionDetails.generations);
       setSessionMessages(sessionDetails.sessionMessages);
     }).catch(function (err) {
-      console.log("Error fetching session details:", err);
-      localStorage.removeItem("authToken");
+      clearAuthData();
       window.location.href = '/';
     })
   }, [id]);
@@ -533,8 +531,6 @@ export default function VideoHome(props) {
         if (nextLayerIndex < layers.length) {
           setCurrentLayer(layers[nextLayerIndex]);
           setSelectedLayerIndex(nextLayerIndex);
-        } else {
-          console.log("No more layers to switch to");
         }
       }
     } else if (currentLayerSeek < prevCurrentLayerSeek) {
@@ -544,8 +540,6 @@ export default function VideoHome(props) {
         if (prevLayerIndex >= 0) {
           setCurrentLayer(layers[prevLayerIndex]);
           setSelectedLayerIndex(prevLayerIndex);
-        } else {
-          console.log("Already at the first layer");
         }
       }
     }
@@ -578,7 +572,7 @@ export default function VideoHome(props) {
       const imagePreloaderWorker = getImagePreloaderWorker();
 
       imagePreloaderWorker.onmessage = function (e) {
-        // console.log('Images preloaded:', e.data.fetchedImages);
+        // 
       };
 
       imagePreloaderWorker.postMessage({ layers });
@@ -654,7 +648,7 @@ export default function VideoHome(props) {
       })
       .catch((error) => {
         // Handle error
-        console.error('Error updating layers order:', error);
+        
 
         setCanvasProcessLoading(false);
       });
@@ -828,7 +822,7 @@ export default function VideoHome(props) {
       // so we can clear "isDirty" states on that side:
       return { success: true, serverLayers: returnedLayers };
     } catch (error) {
-      console.error("Error updating all audio layers:", error);
+      
       return { success: false, error };
     }
   };
@@ -881,7 +875,7 @@ export default function VideoHome(props) {
           closeAlertDialog();
         })
         .catch(error => {
-          console.error('Error adding audio to project:', error);
+          
         });
     };
     reader.readAsDataURL(file);
@@ -976,7 +970,7 @@ export default function VideoHome(props) {
 
       setIsCanvasDirty(true);
     }).catch(function (err) {
-      console.error('Error updating active item list:', err);
+      
     });
 
 
@@ -1201,14 +1195,14 @@ export default function VideoHome(props) {
     const endTime = parseFloat(formData.get('endTime'));
 
     if (!combinedLayerId) {
-      console.error("No layerId found in form data.");
+      
       return;
     }
 
     // Parse combinedLayerId into layerId and itemId
     const underscoreIndex = combinedLayerId.indexOf('_');
     if (underscoreIndex === -1) {
-      console.error("Invalid layerId format. Expected 'layerId_itemId'.");
+      
       return;
     }
 
@@ -1218,7 +1212,7 @@ export default function VideoHome(props) {
     // Find the target layer
     const layerIndex = layers.findIndex((l) => l._id.toString() === layerId.toString());
     if (layerIndex === -1) {
-      console.error("Layer not found:", layerId);
+      
       return;
     }
 
@@ -1226,7 +1220,7 @@ export default function VideoHome(props) {
     const updatedLayer = { ...layers[layerIndex] };
 
     if (!updatedLayer.imageSession || !updatedLayer.imageSession.activeItemList) {
-      console.error("No active items in selected layer:", layerId);
+      
       return;
     }
 
@@ -1236,7 +1230,7 @@ export default function VideoHome(props) {
     );
 
     if (itemIndex === -1) {
-      console.error("Text item not found:", itemId);
+      
       return;
     }
 
@@ -1311,7 +1305,7 @@ export default function VideoHome(props) {
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
     }).catch(function (err) {
-      console.error('Error adding layer:', err);
+      
       setCanvasProcessLoading(false);
     });
   }
@@ -1405,7 +1399,7 @@ export default function VideoHome(props) {
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
     }).catch(function (err) {
-      console.error('Error removing layer:', err);
+      
       setCanvasProcessLoading(false);
     })
   }
@@ -1452,7 +1446,7 @@ export default function VideoHome(props) {
         });
       })
       .catch((error) => {
-        console.error('Error publishing video session:', error);
+        
       });
   }
 
@@ -1503,7 +1497,7 @@ export default function VideoHome(props) {
         });
       })
       .catch((error) => {
-        console.error('Error unpublishing video session:', error);
+        
       });
   };
 

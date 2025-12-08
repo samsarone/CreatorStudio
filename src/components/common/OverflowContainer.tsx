@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useMediaQuery } from 'react-responsive';
 import TopNav from "./TopNav.tsx";
 
 import MobileTopNav from "./MobileTopNav.tsx";
 import { AlertDialog } from "./AlertDialog.tsx";
-import { useUser } from "../../contexts/UserContext";
 
 
 import { getHeaders } from "../../utils/web.jsx";
@@ -16,7 +15,6 @@ const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function OverflowContainer(props) {
   const { children } = props;
-  const { getUserAPI } = useUser();
 
   const navigate = useNavigate();
 

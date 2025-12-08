@@ -5,7 +5,6 @@ import { useUser } from "../../contexts/UserContext.jsx";
 import axios from "axios";
 import { getHeaders } from "../../utils/web.jsx";
 import { toast } from "react-toastify";
-import { getSessionType } from '../../utils/environment.jsx';
 
 export default function SettingsPanelContent(props) {
   const { logoutUser, updateUserDetails,
@@ -69,7 +68,7 @@ export default function SettingsPanelContent(props) {
         setConfirmNewPassword("");
       })
       .catch((error) => {
-        console.error("Error updating password", error);
+        
         toast.error("Failed to update password", {
           position: "bottom-center",
         });

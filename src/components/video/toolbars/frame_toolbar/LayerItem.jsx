@@ -1,8 +1,6 @@
 // LayerItem.js
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { Draggable } from 'react-beautiful-dnd';
-import { FaTimes, FaEye } from 'react-icons/fa';
 import './toolbar.css';
 
 const LayerItem = ({

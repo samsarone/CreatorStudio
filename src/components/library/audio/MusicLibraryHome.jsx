@@ -60,7 +60,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
         setLibraryData(fetchedData);
         setTotalPages(response.data.totalPages);
       } catch (error) {
-        console.error('Error fetching library data:', error);
+        
       }
     };
 
@@ -131,7 +131,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
           setPlayingSongId(item._id);
         })
         .catch((error) => {
-          console.error('Error playing audio:', error);
+          
         });
     }
   };
@@ -156,7 +156,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
       document.body.removeChild(link);
       URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error('Error downloading the file:', error);
+      
     }
   };
 

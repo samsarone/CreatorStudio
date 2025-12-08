@@ -15,7 +15,7 @@ import VerificationHome from "../verification/VerificationHome.tsx";
 import VideoHome from "../video/VideoHome.jsx";
 import MobileVideoHome from "../mobile/MobileVideoHome.jsx";
 import AppHome from "./AppHome.tsx";
-import { getHeaders } from '../../utils/web.jsx';
+import { getHeaders, clearAuthData } from '../../utils/web.jsx';
 import { useUser } from "../../contexts/UserContext";
 import VideoEditorLandingHome from "../video/VideoEditorLandingHome.jsx";
 import ListVideoSessions from "../video/sessions/ListVideoSessions.jsx";
@@ -95,8 +95,7 @@ export default function Home() {
         navigate(appendQueryParams('/my_sessions'));
       }
     }).catch(function(err) {
-      console.log(err);
-      localStorage.removeItem("authToken");
+      clearAuthData();
       localStorage.removeItem("videoSessionId");
       navigate("/");
     });

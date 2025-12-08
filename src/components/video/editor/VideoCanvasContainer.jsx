@@ -120,10 +120,8 @@ function applyCustomAnimation(node, animation, t) {
     case 'nebula':
     case 'particle':
     case 'lens_flare':
-      console.warn(`Unsupported custom animation type: ${type}`);
       break;
     default:
-      console.warn(`Unknown custom animation type: ${type}`);
       break;
   }
 }
@@ -1063,7 +1061,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     
     const textNode = stage.findOne(`#${id}`);
     if (!textNode) {
-      console.error(`No text node found with id ${id}`);
+      
       return;
     }
   
