@@ -28,6 +28,7 @@ import { FRAME_TOOLBAR_VIEW } from '../../../../constants/Types.ts';
 import AudioTrackSlider from '../../util/AudioTrackSlider.jsx';
 import DropdownButton from '../../util/DropdownButton.jsx';
 import { useAlertDialog } from '../../../../contexts/AlertDialogContext.jsx';
+import { useUser } from '../../../../contexts/UserContext.jsx';
 import BatchPrompt from '../../util/BatchPrompt.jsx';
 import TextTrackDisplay from './text_toolbar/TextTrackDisplay.jsx';
 
@@ -63,7 +64,6 @@ export default function FrameToolbar(props) {
     removeSessionLayer,
     addLayersViaPromptList,
     defaultSceneDuration,
-    isCanvasDirty,
     updateChangesToActiveSessionLayers,
     downloadLink,
     submitRegenerateFrames,
@@ -79,6 +79,7 @@ export default function FrameToolbar(props) {
     isGuestSession,
     updateAllAudioLayersOneShot,
     isSessionPublished,
+    renderCompletedThisSession,
 
   } = props;
 
@@ -88,10 +89,9 @@ export default function FrameToolbar(props) {
 
   const totalDuration = useMemo(() => {
     if (layers && layers.length > 0) {
-
-
       return layers.reduce((acc, layer) => acc + layer.duration, 0);
     }
+    return 0;
   }, [layers]);
 
   const { colorMode } = useColorMode();
@@ -99,24 +99,24 @@ export default function FrameToolbar(props) {
   const bgColor =
     colorMode === 'light'
       ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
-      : 'bg-slate-950/85 text-slate-100 border border-white/10 backdrop-blur-sm';
+      : 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]';
   const bg2Color =
     colorMode === 'light'
       ? 'bg-slate-100 border border-slate-200'
-      : 'bg-slate-900/60 border border-white/10';
+      : 'bg-[#111a2f] border border-[#1f2a3d]';
   let bg3Color =
     colorMode === 'light'
       ? 'bg-slate-50 border border-slate-200'
-      : 'bg-slate-900/40 border border-white/10';
+      : 'bg-[#0f172a] border border-[#1f2a3d]';
   const bgSelectedColor =
     colorMode === 'light'
       ? 'bg-indigo-50 border border-indigo-200 shadow-lg'
-      : 'bg-indigo-950/50 border border-indigo-500/40 shadow-lg';
+      : 'bg-[#16213a] border border-rose-400/40 shadow-[0_0_0_1px_rgba(248,113,113,0.16)]';
   const textColor = colorMode === 'light' ? 'text-slate-800' : 'text-slate-100';
-  const borderColor = colorMode === 'light' ? 'border-slate-200' : 'border-white/10';
+  const borderColor = colorMode === 'light' ? 'border-slate-200' : 'border-[#1f2a3d]';
 
   const [highlightBoundaries, setHighlightBoundaries] = useState({ start: 0, height: 0 });
-  const totalDurationInFrames = Math.floor(totalDuration * 30); // Convert total duration to frames (30 fps)
+  const totalDurationInFrames = Math.max(0, Math.floor(totalDuration * 30)); // Convert total duration to frames (30 fps)
   const [startSelectDurationInFrames, setStartSelectDurationInFrames] = useState(0);
   const [endSelectDurationInFrames, setEndSelectDurationInFrames] = useState(0);
 
@@ -164,6 +164,7 @@ export default function FrameToolbar(props) {
 
 
   const [renderDropdownOpen, setRenderDropdownOpen] = useState(false);
+  const { user } = useUser();
 
 
 
@@ -1248,6 +1249,21 @@ export default function FrameToolbar(props) {
 
   }
 
+  const viewRangeStart = effectiveVisibleDisplaySliderRange?.[0] ?? 0;
+  const viewRangeEnd = effectiveVisibleDisplaySliderRange?.[1] ?? 0;
+  const hasValidViewRange =
+    Number.isFinite(viewRangeStart) &&
+    Number.isFinite(viewRangeEnd) &&
+    viewRangeEnd > viewRangeStart;
+  const safeViewRange = hasValidViewRange
+    ? [viewRangeStart, viewRangeEnd]
+    : [0, Math.max(totalDurationInFrames, 1)];
+  const clampedLayerSeek = Math.min(
+    Math.max(currentLayerSeek ?? safeViewRange[0], safeViewRange[0]),
+    safeViewRange[1]
+  );
+  const hasUsableFrameRange = hasValidViewRange && totalDurationInFrames > 0;
+
   let layerSelectOverlay = null;
 
   // Calculate totalVisibleDuration and totalVisibleDurationInFrames
@@ -1255,12 +1271,22 @@ export default function FrameToolbar(props) {
   const totalVisibleDurationInFrames = Math.floor(totalVisibleDuration * 30);
 
 
-  let sliderStartRange = startSelectDurationInFrames > 0 ? startSelectDurationInFrames : 0;
-  let sliderEndRange = totalVisibleDurationInFrames;
+  const sliderStartRange = Math.max(0, startSelectDurationInFrames);
+  const sliderEndRange = totalVisibleDurationInFrames;
+  const hasDurationRange = sliderEndRange > sliderStartRange;
+  const safeSliderMax = Math.max(sliderEndRange, sliderStartRange + 1);
+  const sliderValues = [
+    hasDurationRange ? startSelectDurationInFrames : sliderStartRange,
+    hasDurationRange ? endSelectDurationInFrames : safeSliderMax,
+  ];
 
-
-
-  if (!isDragging && highlightBoundaries && highlightBoundaries.height > 0) {
+  if (
+    !isDragging &&
+    highlightBoundaries &&
+    highlightBoundaries.height > 0 &&
+    hasDurationRange &&
+    hasUsableFrameRange
+  ) {
     layerSelectOverlay = (
       <div
         className='layer-select-overlay absolute w-full z-10 left-0'
@@ -1280,8 +1306,8 @@ export default function FrameToolbar(props) {
           <RangeOverlaySlider
             onChange={setSelectedLayerDurationRange}
             min={sliderStartRange}
-            max={sliderEndRange}
-            value={[startSelectDurationInFrames, endSelectDurationInFrames]}
+            max={safeSliderMax}
+            value={sliderValues}
             highlightBoundaries={highlightBoundaries}
             layerDurationUpdated={layerDurationUpdated}
             onDragAmountChange={(amount) => {
@@ -1702,11 +1728,11 @@ export default function FrameToolbar(props) {
   let mtop = 'mt-[52px]';
   const collapsedToggleSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/80 text-slate-100 border border-white/10 shadow-sm shadow-slate-950/40'
+      ? 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
   const expandedToggleSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950/90 text-slate-100 border border-white/10 shadow-sm shadow-slate-950/40'
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.4)]'
       : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
   let expandButtonLabel = (
     <div className={`relative w-full cursor-pointer pt-2 pb-1 px-3 rounded-lg transition-colors duration-150 ${collapsedToggleSurface}`}>
@@ -1820,14 +1846,21 @@ export default function FrameToolbar(props) {
 
   }
 
+  const isAnonymousGuest = !user?._id;
+  const resolvedDownloadLink = renderedVideoPath || downloadLink;
+  const hasExistingRender = Boolean(resolvedDownloadLink);
+  const shouldShowDropdown = hasExistingRender && !isAnonymousGuest;
+  const shouldDownloadOnMain = renderCompletedThisSession && hasExistingRender;
+  const dropdownMainLabel = shouldDownloadOnMain ? "Download" : "Render";
+
   let prevDownloadLink = <span />;
 
-  if (downloadLink) {
+  if (resolvedDownloadLink) {
     const dateNowStr = new Date().toISOString().replace(/:/g, '-');
     prevDownloadLink = (
       <SecondaryButton>
         <a
-          href={downloadLink}
+          href={resolvedDownloadLink}
           download={`Rendition_${dateNowStr}.mp4`}
           className='text-xs underline mt-2 mb-1 ml-2'
         >
@@ -1878,7 +1911,7 @@ export default function FrameToolbar(props) {
   };
 
   let additionalActionToolbar = <span />;
-  if (downloadLink) {
+  if (resolvedDownloadLink) {
     // additionalActionToolbar = (
     //   <div className='mt-2'>
     //     <div >
@@ -1891,25 +1924,26 @@ export default function FrameToolbar(props) {
   }
 
   const submitDownloadVideo = () => {
+    if (!resolvedDownloadLink) {
+      return;
+    }
     const a = document.createElement('a');
-    a.href = downloadLink;
+    a.href = resolvedDownloadLink;
     a.download = `Rendition_${new Date().toISOString()}.mp4`;
     a.click();
 
   }
 
   const dropdownItems = [];
-  if (downloadLink) {
+  if (shouldDownloadOnMain) {
+    dropdownItems.push({
+      label: "Render again",
+      onClick: submitRenderVideo,
+    });
+  } else if (resolvedDownloadLink) {
     dropdownItems.push({
       label: "Download",
-      onClick: () => {
-        // e.g., force a programmatic download or do nothing 
-        // Typically you'd just do an <a href> but if you want a manual approach:
-        const a = document.createElement('a');
-        a.href = downloadLink;
-        a.download = `Rendition_${new Date().toISOString()}.mp4`;
-        a.click();
-      },
+      onClick: submitDownloadVideo,
     });
   }
 
@@ -1942,7 +1976,7 @@ export default function FrameToolbar(props) {
 
   let btnLeftMargin = 'ml-2';
 
-  if (isGuestSession && downloadLink) {
+  if (isAnonymousGuest && resolvedDownloadLink) {
     submitRenderDisplay = (
       <div>
         <PublicPrimaryButton onClick={submitDownloadVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
@@ -1951,37 +1985,18 @@ export default function FrameToolbar(props) {
       </div>
     )
     btnLeftMargin = 'ml-0';
-  } else {
-    if (renderedVideoPath && !isCanvasDirty) {
-
-
-      submitRenderDisplay = (
-        <div>
-
-          <CommonDropdownButton
-            mainLabel="Download"
-            onMainClick={submitDownloadVideo}
-            isPending={isVideoGenerating}
-            dropdownItems={dropdownItems}
-            extraClasses="my-extra-class-names"
-          />
-
-        </div>
-      );
-    } else if (downloadLink) {
-      submitRenderDisplay = (
-        <div className="relative inline-block text-left">
-          <CommonDropdownButton
-            mainLabel="Render"
-            onMainClick={submitRenderVideo}
-            isPending={isVideoGenerating}
-            dropdownItems={dropdownItems}
-            extraClasses="my-extra-class-names"
-          />
-        </div>
-      );
-
-    }
+  } else if (shouldShowDropdown) {
+    submitRenderDisplay = (
+      <div className="relative inline-block text-left">
+        <CommonDropdownButton
+          mainLabel={dropdownMainLabel}
+          onMainClick={shouldDownloadOnMain ? submitDownloadVideo : submitRenderVideo}
+          isPending={isVideoGenerating}
+          dropdownItems={dropdownItems}
+          extraClasses="my-extra-class-names"
+        />
+      </div>
+    );
   }
 
 
@@ -2244,21 +2259,25 @@ export default function FrameToolbar(props) {
                 )}
 
                 <div className={`inline-flex h-full ${trackSliderML}`}>
-                  <ReactSlider
-                    key={`slider_layer_seek`}
-                    className="modern-vertical-slider-seek"
-                    thumbClassName="thumb"
-                    trackClassName="track"
-                    orientation="vertical"
-                    min={effectiveVisibleDisplaySliderRange[0]}
-                    max={effectiveVisibleDisplaySliderRange[1]}
-                    value={currentLayerSeek}
-                    onChange={(value) => {
-                      handleSeekBarChange(value);
-                    }}
-                    onBeforeChange={() => setIsLayerSeeking(true)}
-                    onAfterChange={() => setIsLayerSeeking(false)}
-                  />
+                  {hasUsableFrameRange ? (
+                    <ReactSlider
+                      key={`slider_layer_seek`}
+                      className="modern-vertical-slider-seek"
+                      thumbClassName="thumb"
+                      trackClassName="track"
+                      orientation="vertical"
+                      min={safeViewRange[0]}
+                      max={safeViewRange[1]}
+                      value={clampedLayerSeek}
+                      onChange={(value) => {
+                        handleSeekBarChange(value);
+                      }}
+                      onBeforeChange={() => setIsLayerSeeking(true)}
+                      onAfterChange={() => setIsLayerSeeking(false)}
+                    />
+                  ) : (
+                    <div className="w-[30px]" />
+                  )}
                 </div>
 
                 {audioTrackViewDisplay}
@@ -2266,13 +2285,16 @@ export default function FrameToolbar(props) {
 
 
                 <div className='inline-flex dual-thumb h-auto w-[30px] ml-1'>
-                  <DualThumbSlider
-
-                    min={0}
-                    max={totalDurationInFrames}
-                    value={effectiveVisibleDisplaySliderRange}
-                    onChange={handleViewRangeSliderChange}
-                  />
+                  {hasUsableFrameRange ? (
+                    <DualThumbSlider
+                      min={0}
+                      max={safeViewRange[1]}
+                      value={safeViewRange}
+                      onChange={handleViewRangeSliderChange}
+                    />
+                  ) : (
+                    <div className="w-[30px]" />
+                  )}
                 </div>
 
                 <div className='inline-flex h-full'>
@@ -2321,17 +2343,17 @@ export default function FrameToolbar(props) {
                   onChange={(e) =>
                     layerDurationCellUpdated(e.target.value, openPopupLayerIndex)
                   }
-                  className={`w-[120px] 
+                className={`w-[120px] 
                     inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${durationChanged ? 'highlight' : ''
                     }`}
                 />
-                <label className='inline-block text-xs text-white ml-[-30px]'>s</label>
+                <label className='inline-block text-xs text-slate-200 ml-[-30px]'>s</label>
               </div>
               {durationChanged && (
                 <div className='mt-1 mb-2'>
                   <button
                     onClick={onUpdateDuration}
-                    className={`px-4 py-2 mt-1 text-xs text-white rounded bg-gray-900 m-auto ${durationChanged ? 'highlight' : ''
+                  className={`px-4 py-2 mt-1 text-xs text-slate-100 rounded bg-[#111a2f] border border-[#1f2a3d] m-auto ${durationChanged ? 'highlight' : ''
                       }`}
                   >
                     Update

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaGoogle } from 'react-icons/fa6';
 import LoginButton from './LoginButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { SUPPORTED_LANGUAGES } from '../../constants/supportedLanguages.js';
 // styles.css import removed – Tailwind handles all styling
 
 export default function Register(props) {
@@ -25,6 +26,7 @@ export default function Register(props) {
   const [is18Checked, setIs18Checked] = useState(false);
   const [captchaQuestion, setCaptchaQuestion] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState('en');
 
   useEffect(() => {
     generateCaptcha();
@@ -65,7 +67,7 @@ export default function Register(props) {
       return;
     }
 
-    const payload = { email, password, username };
+    const payload = { email, password, username, preferredLanguage };
 
     registerUserWithEmail(payload, (serverErrorMessage) => {
       setError(serverErrorMessage);
@@ -85,7 +87,7 @@ export default function Register(props) {
 
   return (
     <div>      
-      <div className={`w-full max-w-md ${formBgColor} rounded-lg shadow-lg p-8 space-y-6`}>
+      <div className={`w-full max-w-md ${formBgColor} rounded-lg shadow-lg p-6 space-y-4`}>
         <h2 className="text-2xl font-bold text-center">Create a new Account</h2>
 
         {error && <p className="text-red-500 text-center" role="alert">{error}</p>}
@@ -109,7 +111,7 @@ export default function Register(props) {
         </div>
 
         {/* Email Registration Form */}
-        <form onSubmit={submitUserRegister} className="space-y-4">
+        <form onSubmit={submitUserRegister} className="space-y-3">
           <div>
             <label htmlFor="username" className="block mb-1 text-sm font-semibold">
               Username
@@ -138,8 +140,27 @@ export default function Register(props) {
             <input id="confirmPassword" name="confirmPassword" type="password" className={inputClasses} placeholder="••••••••" />
           </div>
 
+          <div>
+            <label htmlFor="preferredLanguage" className="block mb-1 text-sm font-semibold">
+              Preferred Language
+            </label>
+            <select
+              id="preferredLanguage"
+              name="preferredLanguage"
+              value={preferredLanguage}
+              onChange={(e) => setPreferredLanguage(e.target.value)}
+              className="w-full rounded-md px-3 py-2 border border-neutral-300 focus:outline-2 focus:outline-blue-500 text-neutral-800"
+            >
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeName}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Terms & Conditions */}
-          <div className="flex items-start gap-2 pt-2">
+          <div className="flex items-start gap-2 pt-1">
             <input
               id="terms-checkbox"
               type="checkbox"

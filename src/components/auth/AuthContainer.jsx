@@ -6,7 +6,7 @@ import axios from 'axios';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getHeaders, persistAuthToken } from '../../utils/web.jsx';
+import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../utils/web.jsx';
 import { FaTimes } from 'react-icons/fa';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -22,6 +22,13 @@ export default function AuthContainer(props) {
   const location = useLocation();
   const { closeAlertDialog } = useAlertDialog();
   const { setUser } = useUser();
+
+  const buildGoogleLoginUrl = () => {
+    const origin = window.location.origin;
+    const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
+    const params = new URLSearchParams({ origin, cookieConsent });
+    return `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
+  };
 
   useEffect(() => {
     if (initView) {
@@ -40,8 +47,7 @@ export default function AuthContainer(props) {
     }
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
 
-    const origin = window.location.origin;
-    axios.get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
+    axios.get(buildGoogleLoginUrl())
       .then((dataRes) => {
         const authPayload = dataRes.data;
         const googleAuthUrl = authPayload.loginUrl;
@@ -55,8 +61,7 @@ export default function AuthContainer(props) {
   };
 
   const registerWithGoogle = () => {
-    const origin = window.location.origin;
-    axios.get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
+    axios.get(buildGoogleLoginUrl())
       .then((dataRes) => {
         const authPayload = dataRes.data;
         const googleAuthUrl = authPayload.loginUrl;

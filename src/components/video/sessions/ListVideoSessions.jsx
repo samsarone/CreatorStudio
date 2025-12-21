@@ -39,19 +39,19 @@ export default function ListVideoSessions() {
   const { colorMode } = useColorMode();
   const containerSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100'
-      : 'bg-slate-50 text-slate-900';
+      ? 'bg-[#0b1021] text-slate-100'
+      : 'bg-[#f7f9fc] text-slate-900';
   const cardSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/70 border border-white/10 shadow-lg shadow-slate-900/40'
-      : 'bg-white border border-slate-200 shadow-md shadow-slate-200/60';
+      ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
+      : 'bg-white border border-slate-200 shadow-sm';
   const resetButtonClass =
     colorMode === 'dark'
       ? 'bg-rose-500/90 hover:bg-rose-500 text-white'
       : 'bg-rose-500 hover:bg-rose-600 text-white';
   const paginationButtonClass =
     colorMode === 'dark'
-      ? 'bg-slate-800 hover:bg-slate-700 text-white border border-white/10'
+      ? 'bg-[#111a2f] hover:bg-[#16213a] text-slate-100 border border-[#1f2a3d]'
       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm';
 
   // On mount, load defaults from localStorage if present

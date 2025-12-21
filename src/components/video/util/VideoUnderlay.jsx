@@ -153,15 +153,15 @@ export default function VideoUnderlay(props) {
           className="absolute top-0 left-0 z-10"
           style={{ pointerEvents: 'auto' }}
         >
-          <div className="bg-gray-900 border border-neutral-200 rounded-lg px-2 py-1 m-auto relative flex items-center space-x-2">
-            <span className="text-white font-semibold">Video Layer</span>
+          <div className="bg-[#0f1629] border border-[#1f2a3d] rounded-lg px-2 py-1 m-auto relative flex items-center space-x-2 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
+            <span className="text-slate-100 font-semibold">Video Layer</span>
             {/* The “Delete Layer” button (FaTimes) */}
             <FaTimes
-              className="cursor-pointer hover:text-neutral-400"
+              className="cursor-pointer hover:text-rose-300 text-slate-200"
               onClick={removeVideoLayer}
             />
             {/* New pill showing the current video type */}
-            <span className="text-sm bg-blue-600 text-white rounded-full px-2 py-1">
+            <span className="text-sm bg-[#e45a26]/20 text-orange-100 border border-[#e45a26]/30 rounded-full px-2 py-1">
               {getVideoTypeLabel(aiVideoLayerType)}
             </span>
           </div>

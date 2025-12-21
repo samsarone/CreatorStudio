@@ -43,7 +43,7 @@ import SnowMakerContainer from "../snowmaker/SnowMakerContainer.jsx";
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function Home() {
-  const { getUser, getUserAPI } = useUser();
+  const { user, getUserAPI, userFetching, userInitiated } = useUser();
   const navigate = useNavigate();
   const location = useLocation(); 
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
@@ -60,6 +60,40 @@ export default function Home() {
   useEffect(() => {
     getUserAPI();
   }, []);
+
+  const credits = Number(user?.generationCredits || 0);
+  const hasStudioAccess = Boolean(
+    user?.isPremiumUser ||
+    credits >= 100 ||
+    user?.autoRechargePaymentMethodId ||
+    user?.autoRechargeEnabled
+  );
+  const isAccessAllowedPath = (() => {
+    if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
+    const allowed = new Set([
+      '/login',
+      '/register',
+      '/forgot_password',
+      '/reset_password',
+      '/verify',
+      '/verify_email',
+      '/payment_success',
+      '/payment_cancel',
+      '/create_payment',
+    ]);
+    return allowed.has(location.pathname);
+  })();
+
+  useEffect(() => {
+    if (!userInitiated || userFetching) return;
+    if (hasStudioAccess) return;
+    if (isAccessAllowedPath) return;
+
+    const redirectTarget = user ? '/account/billing' : '/login';
+    if (location.pathname !== redirectTarget) {
+      navigate(redirectTarget, { replace: true });
+    }
+  }, [userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate]);
 
   const channel = new BroadcastChannel('oauth_channel');
   channel.onmessage = (event) => {
@@ -104,7 +138,9 @@ export default function Home() {
   let bodyBGColor = "bg-stone-100";
   
   if (colorMode === 'dark') {
-    bodyBGColor = "bg-gray-900";
+    bodyBGColor = "bg-[#0b1021] text-slate-100";
+  } else {
+    bodyBGColor = "bg-[#f7f9fc] text-slate-900";
   }
   return (
     <div className={bodyBGColor}>

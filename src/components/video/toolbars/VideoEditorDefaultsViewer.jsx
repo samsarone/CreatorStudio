@@ -97,13 +97,13 @@ export default function VideoEditorDefaultsViewer(props) {
   const bgColor =
     colorMode === 'light'
       ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
-      : 'bg-slate-950/85 text-slate-100 border border-white/10 backdrop-blur-sm';
+      : 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]';
   const buttonBgcolor =
     colorMode === 'light'
       ? 'bg-slate-100 text-slate-900 border border-slate-200 shadow-sm'
-      : 'bg-slate-900/70 text-white border border-white/10';
+      : 'bg-[#131c33] text-white border border-[#24314d]';
   const text2Color =
-    colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
+    colorMode === 'dark' ? 'text-slate-100' : 'text-neutral-900';
 
   const handleJsonThemeChange = (value) => {
     setThemeJson(value);

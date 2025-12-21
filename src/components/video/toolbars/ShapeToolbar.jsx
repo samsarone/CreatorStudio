@@ -93,12 +93,12 @@ export default function ShapeToolbar(props) {
 
   const iconColor = colorMode === 'dark' ? 'text-neutral-200' : 'text-grey-800';
 
-  const bgColor = colorMode === 'dark' ? `bg-gray-900` : `bg-neutral-300`;
-  const textColor = colorMode === 'dark' ? `text-white` : `text-black`;
+  const bgColor = colorMode === 'dark' ? `bg-[#111a2f]` : `bg-neutral-300`;
+  const textColor = colorMode === 'dark' ? `text-slate-100` : `text-black`;
 
   return (
     <div key={pos.id} style={{
-      position: 'absolute', left: pos.x, top: pos.y, background: "#030712",
+      position: 'absolute', left: pos.x, top: pos.y, background: "#0f1629",
       width: "400px", borderRadius: "5px", padding: "5px", paddingTop: "1px", paddingBottom: "1px", display: "flex", flexDirection: "column", alignItems: "center",
       zIndex: 100
     }}>

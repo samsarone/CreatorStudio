@@ -353,7 +353,7 @@ export const IMAGE_MODEL_PRICES = [
   },
 
   {
-    key: 'NANOBANANA',
+    key: 'NANOBANANAPRO',
     prices: [
       {
         aspectRatio: '1:1',
@@ -1399,5 +1399,4 @@ export const MUSIC_MODEL_PRICES = [
     ]
   },
 ]
-
 

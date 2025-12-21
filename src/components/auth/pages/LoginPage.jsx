@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { getHeaders } from '../../../utils/web.jsx';
+import { getHeaders, hasAcceptedCookies } from '../../../utils/web.jsx';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 
@@ -29,8 +29,10 @@ export default function LoginPage() {
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
 
     const origin = window.location.origin;
+    const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
+    const params = new URLSearchParams({ origin, cookieConsent });
     axios
-      .get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
+      .get(`${PROCESSOR_SERVER}/users/google_login?${params.toString()}`)
       .then((dataRes) => {
         const authPayload = dataRes.data;
         window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
@@ -101,4 +103,3 @@ export default function LoginPage() {
     </OverflowContainer>
   );
 }
-

@@ -8,7 +8,7 @@
 
   width: 20px;
 
-  background-color: #0f172a; /* Custom background color */
+  background-color: #111a2f; /* Material dark rail */
   border-radius: 10px;
   position: relative;
   overflow-y: auto;
@@ -24,7 +24,7 @@
 }
 
 .vertical-slider .track-0 {
-  background: #4a90e2;
+  background: #f87171;
   border-radius: 10px;
   height: 100%;
   width: 8px;
@@ -36,7 +36,8 @@
 .vertical-slider .thumb {
   height: 20px;
   width: 20px;
-  background-color: #1e40af;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
   border-radius: 50%;
   cursor: pointer;
   position: relative;
@@ -45,7 +46,7 @@
 
 .vertical-slider .thumb:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.5);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.35);
 }
 
 
@@ -63,7 +64,7 @@
 }
 
 .dual-thumb-slider .thumb {
-  background-color: black;
+  background-color: #0b1021;
   width: 30px; /* Adjust thumb width as needed */
   height: 12px; /* Adjust thumb height as needed */
   cursor: pointer;
@@ -137,7 +138,7 @@
 
 
 .range-overlay-slider .track-1 {
-  background-color: rgba(3, 7, 18, 0.3);
+  background-color: rgba(15, 23, 42, 0.4);
   width: 40px; /* Adjust track width as needed */
 
   position: relative;
@@ -152,13 +153,13 @@
   left: 5px;
   width: 100%;
   height: 20px;
-  background: #030712;
+  background: #10172a;
   text-align: center;
   border-radius: 5px;
 }
 
 .samsar-slider-arrow:hover {
-  background: #1c1917;
+  background: #16213a;
  
 }
 

@@ -2,7 +2,7 @@ import React from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
-import { getHeaders, persistAuthToken } from '../../../utils/web.jsx';
+import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../../utils/web.jsx';
 import Register from '../Register.tsx';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 
@@ -18,8 +18,10 @@ export default function RegisterPage() {
 
   const registerWithGoogle = () => {
     const origin = window.location.origin;
+    const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
+    const params = new URLSearchParams({ origin, cookieConsent });
     axios
-      .get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
+      .get(`${PROCESSOR_SERVER}/users/google_login?${params.toString()}`)
       .then((dataRes) => {
         const authPayload = dataRes.data;
         localStorage.setItem('setShowSetPaymentFlow', true);

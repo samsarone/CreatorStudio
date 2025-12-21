@@ -5,6 +5,7 @@ import { MdExplore } from "react-icons/md";
 import { MdCreateNewFolder } from "react-icons/md";
 import SingleSelect from './SingleSelect.jsx';
 import { aspectRatioOptions } from '../../utils/canvas.jsx';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 
 function AddSessionDropdown(props) {
@@ -33,6 +34,7 @@ function AddSessionDropdown(props) {
   }, []);
 
   const { colorMode } = useColorMode();
+  const { t } = useLocalization();
   const [isOpen, setIsOpen] = useState(false);
 
   const bgColor = colorMode === 'dark' ? 'bg-gray-900 hover:bg-gray-700' : 'bg-neutral-200 hover:bg-neutral-300';
@@ -86,7 +88,7 @@ function AddSessionDropdown(props) {
           rounded-md shadow-sm focus:outline-none ${textColor} ${bgColor}`}
       >
         <FaPlus className="mr-2" />
-        <span className="text-xs">New Project</span>
+        <span className="text-xs">{t("common.newProject")}</span>
       </button>
 
       {isOpen && (
@@ -116,7 +118,7 @@ function AddSessionDropdown(props) {
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
               role="menuitem"
             >
-              <MdCreateNewFolder className='inline-flex mb-1' /> Studio
+              <MdCreateNewFolder className='inline-flex mb-1' /> {t("common.studio")}
             </button>
 
             <button
@@ -124,7 +126,7 @@ function AddSessionDropdown(props) {
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor} hover:${text2Color}}`}
               role="menuitem"
             >
-              <FaStar className='inline-flex mb-1' /> VidGenie
+              <FaStar className='inline-flex mb-1' /> {t("common.vidgenie")}
             </button>
 
             <button
@@ -132,7 +134,7 @@ function AddSessionDropdown(props) {
               className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}}`}
               role="menuitem"
             >
-              <MdExplore className='inline-flex' /> View Projects
+              <MdExplore className='inline-flex' /> {t("common.viewProjects")}
             </button>
 
 

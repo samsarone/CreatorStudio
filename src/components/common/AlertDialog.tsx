@@ -21,7 +21,7 @@ export function AlertDialog() {
         >
           {/* Close button SVG */}
         </button>
-        <div className="mt-1 text-center">
+        <div className="mt-1 text-center max-h-[75vh] overflow-y-auto pr-1">
           {alertDialogContent}
         </div>
       </div>

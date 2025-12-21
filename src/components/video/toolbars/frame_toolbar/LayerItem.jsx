@@ -83,17 +83,17 @@ const LayerItem = ({
                     onChange={(e) =>
                       layerDurationCellUpdated(e.target.value, openPopupLayerIndex)
                     }
-                    className={`w-[120px] inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${
+                  className={`w-[120px] inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${
                       durationChanged ? 'highlight' : ''
                     }`}
                   />
-                  <label className='inline-block text-xs text-white ml-[-30px]'>s</label>
+                  <label className='inline-block text-xs text-slate-200 ml-[-30px]'>s</label>
                 </div>
                 {durationChanged && (
                   <div className='mt-1 mb-2'>
                     <button
                       onClick={onUpdateDuration}
-                      className={`px-4 py-2 text-xs text-white rounded bg-gray-900 m-auto ${
+                      className={`px-4 py-2 text-xs text-slate-100 rounded bg-[#111a2f] border border-[#1f2a3d] m-auto ${
                         durationChanged ? 'highlight' : ''
                       }`}
                     >

@@ -25,11 +25,11 @@ export default function ImageLibrary(props) {
 
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      ? 'bg-[#0b1021] text-slate-100 border border-[#1f2a3d] shadow-[0_16px_40px_rgba(0,0,0,0.45)]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
   const cardSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/60 border border-white/10'
+      ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white border border-slate-200 shadow-sm';
 
   const imagesLinks = generationImages.map((image) => {

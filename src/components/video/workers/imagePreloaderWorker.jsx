@@ -26,7 +26,7 @@ self.onmessage = async function (e) {
   self.postMessage({ fetchedImages });
 };
 
-export function getRemoteImageLink(imagePath) {  
+function getRemoteImageLink(imagePath) {  
   if (imagePath.includes('generation') || imagePath.includes('outpaint')) {
     // Remove "/generations/" from imagePath if it exists
     const cleanedImagePath = imagePath.replace('/generations/', '');

@@ -57,9 +57,9 @@ export default function EditorHome(props) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { colorMode } = useColorMode();
-  const initialBackgroundFillColor = colorMode === 'dark' ? '#030712' : '#f5f5f5';
-  const initFillColor = colorMode === 'dark' ? '#f5f5f5' : '#030712';
-  const initTextFillColor = colorMode === 'dark' ? '#000000' : '#ffffff';
+  const initialBackgroundFillColor = colorMode === 'dark' ? '#0b1226' : '#eef3fb';
+  const initFillColor = colorMode === 'dark' ? '#e9edf7' : '#0b1226';
+  const initTextFillColor = colorMode === 'dark' ? '#e9edf7' : '#0b1226';
 
   const [fillColor, setFillColor] = useState(initFillColor);
   const [strokeColor, setStrokeColor] = useState(initFillColor);
@@ -720,7 +720,7 @@ export default function EditorHome(props) {
     <CommonContainer resetSession={resetSession}>
       <div className='m-auto'>
         <div className='block'>
-          <div className='w-[5%] bg-cyber-black inline-block'>
+          <div className='w-[5%] bg-[#0f1629] inline-block'>
             <ActionToolbar
               setCurrentAction={setCurrentAction}
               setCurrentViewDisplay={setCurrentViewDisplay}
@@ -745,7 +745,7 @@ export default function EditorHome(props) {
           <div className='text-center w-[78%] inline-block h-[100vh] overflow-scroll m-auto  mb-8 '>
             {viewDisplay}
           </div>
-          <div className='w-[17%] inline-block bg-cyber-black '>
+          <div className='w-[17%] inline-block bg-[#0f1629] '>
             <EditorToolbar promptText={promptText} setPromptText={setPromptText}
               submitGenerateRequest={submitGenerateRequest}
               submitOutpaintRequest={submitOutpaintRequest}

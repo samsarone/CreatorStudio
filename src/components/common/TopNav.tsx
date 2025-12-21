@@ -17,6 +17,7 @@ import AuthContainer from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { toast } from 'react-toastify';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
@@ -27,6 +28,7 @@ import  AddLicense  from '../license/AddLicense.jsx';
 
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
+import BrandLogo from './BrandLogo.tsx';
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -35,6 +37,7 @@ export default function TopNav(props) {
   const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying } = props;
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
+  const { t } = useLocalization();
   const location = useLocation();
   const { openAlertDialog, closeAlertDialog, isAlertDialogOpen } = useAlertDialog();
 
@@ -56,14 +59,10 @@ export default function TopNav(props) {
 
   } = useContext(NavCanvasControlContext);
 
-  let bgColor = 'from-indigo-900 via-blue-950 to-blue-900 text-neutral-50';
-
-  if (colorMode === 'light') {
-    bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
-  }
-
-  const textColor =
-    colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
+  const navShell =
+    colorMode === 'dark'
+      ? 'bg-gradient-to-r from-[#080f21] via-[#0d1830] to-[#091026] text-slate-100 border-b border-[#1f2a3d] shadow-[0_16px_48px_rgba(0,0,0,0.45)]'
+      : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef] shadow-[0_10px_24px_rgba(15,23,42,0.08)]';
 
   const resetSession = () => {
     closeAlertDialog();
@@ -162,7 +161,7 @@ const showLicenseDialog = () => {
 
   const homeAlertDialogComponent = (
     <div>
-      <div>This will reset your current session. Are you sure you want to proceed?</div>
+      <div>{t("common.resetSessionConfirm")}</div>
       <div className="mt-4 mb-4 m-auto">
         <div className="inline-flex ml-2 mr-2">
           <CommonButton
@@ -170,7 +169,7 @@ const showLicenseDialog = () => {
               resetSession();
             }}
           >
-            Yes
+            {t("common.yes")}
           </CommonButton>
         </div>
         <div className="inline-flex ml-2 mr-2">
@@ -179,7 +178,7 @@ const showLicenseDialog = () => {
               closeAlertDialog();
             }}
           >
-            No
+            {t("common.no")}
           </CommonButton>
         </div>
       </div>
@@ -294,14 +293,14 @@ const showLicenseDialog = () => {
         premiumUserType = user.premiumUserType;
       }
       userTierDisplay = (
-        <div className='text-xs'>
-          <FaStar className="inline-flex text-neutral-100" /> {premiumUserType}
+        <div className='text-xs text-rose-200'>
+          <FaStar className="inline-flex text-rose-300" /> {premiumUserType}
         </div>
       );
     } else {
       userTierDisplay = (
-        <div className='text-xs'>
-          <FaStar className="inline-flex text-neutral-700" /> Upgrade
+        <div className='text-xs text-slate-400'>
+          <FaStar className="inline-flex text-slate-500" /> {t("common.upgrade")}
         </div>
       );
     }
@@ -327,7 +326,7 @@ const showLicenseDialog = () => {
             {userTierDisplay}
           </div>
         </div>
-        <FaCog className="text-lg cursor-pointer" onClick={gotoUserAccount} />
+        <FaCog className="text-lg cursor-pointer hover:text-rose-300" onClick={gotoUserAccount} />
       </div>
     );
 
@@ -336,16 +335,16 @@ const showLicenseDialog = () => {
     userProfile = (
       <button
         className={`
-          inline-flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold shadow-lg transition duration-200
+          inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold shadow-sm transition duration-200
           ${colorMode === 'dark'
-            ? 'text-neutral-100 bg-cyber-black border-gray-800 hover:bg-neutral-800 hover:text-blue-400'
-            : 'text-neutral-900 bg-blue-300 border-blue-200 hover:bg-blue-400 hover:text-white'}
+            ? 'text-slate-100 bg-[#111a2f] border-[#1f2a3d] hover:border-rose-400/40 hover:text-rose-100'
+            : 'text-slate-900 bg-white/90 border-[#d7deef] hover:border-rose-200 hover:text-rose-600 shadow-sm'}
         `}
         type="button"
         onClick={showLoginDialog}
       >
         <IoMdLogIn className="text-base" />
-        <span>Login</span>
+        <span>{t("common.login")}</span>
       </button>
     );
   }
@@ -369,7 +368,7 @@ const showLicenseDialog = () => {
     const purchaseAmountRequest = parseInt(amountToPurchase, 10);
 
     if (Number.isNaN(purchaseAmountRequest) || purchaseAmountRequest <= 0) {
-      toast.error("Select a valid amount to purchase.", { position: "bottom-center" });
+      toast.error(t("topNav.invalidPurchaseAmount"), { position: "bottom-center" });
       return;
     }
 
@@ -387,36 +386,36 @@ const showLicenseDialog = () => {
 
         if (data.url) {
           window.open(data.url, "_blank", "noopener,noreferrer");
-          toast.success("Redirecting to checkout…", { position: "bottom-center" });
+          toast.success(t("topNav.redirectingToCheckout"), { position: "bottom-center" });
         } else {
           
-          toast.error("Unable to open checkout. Please try again.", { position: "bottom-center" });
+          toast.error(t("topNav.checkoutFailed"), { position: "bottom-center" });
         }
       })
       .catch(function (error) {
         
-        toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
+        toast.error(t("topNav.paymentProcessFailed"), { position: "bottom-center" });
       });
-  }, []);
+  }, [t]);
 
   const requestApplyCreditsCoupon = useCallback((couponCode) => {
     if (!couponCode) {
-      toast.error("Please enter a coupon code", { position: "bottom-center" });
+      toast.error(t("topNav.enterCouponCode"), { position: "bottom-center" });
       return;
     }
 
     axios
       .post(`${PROCESSOR_SERVER}/users/apply_credits_coupon`, { couponCode }, getHeaders())
       .then(() => {
-        toast.success("Coupon applied!", { position: "bottom-center" });
+        toast.success(t("topNav.couponApplied"), { position: "bottom-center" });
         if (typeof getUserAPI === "function") {
           getUserAPI();
         }
       })
       .catch(() => {
-        toast.error("Failed to apply coupon", { position: "bottom-center" });
+        toast.error(t("topNav.couponApplyFailed"), { position: "bottom-center" });
       });
-  }, [getUserAPI]);
+  }, [getUserAPI, t]);
 
   const openPurchaseCreditsDialog = useCallback(() => {
 
@@ -494,36 +493,24 @@ const showLicenseDialog = () => {
   let userCreditsDisplay = <span />;
   if (user && user._id && sessionType !== 'docker') {
     if (user.isPremiumUser) {
-      daysToUpdate = <div>{nextUpdate} days until update</div>;
+      daysToUpdate = <div>{t("common.daysUntilUpdate", { count: nextUpdate })}</div>;
     } else {
-      daysToUpdate = <div>Free Tier</div>;
+      daysToUpdate = <div>{t("common.freeTier")}</div>;
     }
     userCreditsDisplay = <div>{userCredits ? userCredits.toFixed(2) : '-'} credits</div>;
   }
 
   if (user && user._id && sessionType === 'docker' && !user.isLicenseValid) {
 
-    userCreditsDisplay = <div onClick={showLicenseDialog}>Activate your License.</div>
+    userCreditsDisplay = <div onClick={showLicenseDialog}>{t("common.activateLicense")}</div>
   }
 
   let errorMessageDisplay = <span />;
-  let verificationReminderDisplay = <span />;
-
-  if (user && user._id && !user.isEmailVerified) {
-    verificationReminderDisplay = (
-      <div
-        className="text-xs font-semibold text-amber-500 dark:text-amber-300 cursor-pointer"
-        onClick={gotoUserAccount}
-      >
-        Verify email to get access to all features
-      </div>
-    );
-  }
 
   const galleryLinkClasses =
     colorMode === 'dark'
-      ? 'text-cyan-200 hover:text-white'
-      : 'text-blue-600 hover:text-blue-800';
+      ? 'text-rose-200 hover:text-white'
+      : 'text-rose-600 hover:text-rose-500';
 
 
 
@@ -535,9 +522,9 @@ const showLicenseDialog = () => {
           <FaTimes className="cursor-pointer" onClick={closeAlertDialog} />
         </div>
         <div className="text-center">
-          <div className="text-lg font-bold">Regenerate Subtitles</div>
-          <div className="text-sm">This will regenerate the subtitles for the current video</div>
-          <CommonButton onClick={requestRegenerateSubtitles}>Regenerate</CommonButton>
+          <div className="text-lg font-bold">{t("studio.actions.regenerateSubtitlesTitle")}</div>
+          <div className="text-sm">{t("studio.actions.realignLayers")}</div>
+          <CommonButton onClick={requestRegenerateSubtitles}>{t("studio.actions.regenerateSubtitle")}</CommonButton>
         </div>
       </div>
     );
@@ -587,33 +574,10 @@ const showLicenseDialog = () => {
 
 
   return (
-    <div className={`bg-gradient-to-r ${bgColor} fixed top-0 inset-x-0 h-[56px] shadow-lg z-20`}>
+    <div className={`${navShell} fixed top-0 inset-x-0 h-[56px] z-20`}>
       <div className="grid h-full w-full grid-cols-[10%_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
-        <div className="flex h-full items-center justify-center px-[2px]">
-          <button
-            onClick={gotoHome}
-            className={`group flex w-full max-w-[220px] items-center justify-center gap-0 rounded-md border border-transparent px-3 py-[8px] text-left shadow-none transition 
-              ${colorMode === 'dark'
-                ? 'bg-gradient-to-br from-white/10 via-white/6 to-white/0 hover:from-white/14 hover:via-white/9 hover:to-white/4'
-                : 'bg-gradient-to-br from-white/30 via-sky-50/20 to-blue-50/10 text-neutral-900 hover:from-white/40 hover:via-sky-50/30 hover:to-blue-50/20'}`}
-          >
-            <span
-              className={`pl-[10px] pr-[6px] text-[12px] sm:text-[14px] font-black uppercase tracking-[0.14em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-slate-100 group-hover:text-cyan-100'
-                  : 'text-white group-hover:text-slate-100'}`}
-            >
-              Samsar
-            </span>
-            <span
-              className={`pl-[6px] pr-[10px] text-[12px] sm:text-[14px] font-black uppercase tracking-[0.14em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-cyan-300 group-hover:text-white'
-                  : 'text-white/90 group-hover:text-white'}`}
-            >
-              One
-            </span>
-          </button>
+        <div className="flex h-full items-center justify-center px-2">
+          <BrandLogo onClick={gotoHome} className="w-full max-w-[220px]" />
         </div>
         <div className="flex items-center justify-center min-w-0 h-full py-[2px]">
           <div className="flex h-full w-full items-center justify-center translate-y-[4px]">
@@ -621,14 +585,13 @@ const showLicenseDialog = () => {
           </div>
         </div>
         <div className="flex items-center justify-end gap-3 flex-shrink-0 text-xs sm:text-sm">
-          {verificationReminderDisplay}
           <a
             href="https://gallery.samsar.one"
             target="_blank"
             rel="noopener noreferrer"
             className={`hidden sm:inline-flex items-center gap-1 text-xs font-semibold transition-colors ${galleryLinkClasses}`}
           >
-            Visit Gallery
+            {t("common.visitGallery")}
             <FaArrowUpRightFromSquare className="text-[10px]" />
           </a>
           {errorMessageDisplay}

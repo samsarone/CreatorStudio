@@ -14,6 +14,7 @@ import './common.css';
 import { FaStar } from 'react-icons/fa6';
 import AuthContainer from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
+import BrandLogo from './BrandLogo.tsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -23,11 +24,10 @@ export default function MobileTopNav(props) {
   const { colorMode } = useColorMode();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
-  let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
-
-  if (colorMode === 'light') {
-    bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
-  }
+  const navShell =
+    colorMode === 'dark'
+      ? 'bg-gradient-to-r from-[#080f21] via-[#0d1830] to-[#091026] text-slate-100 border-b border-[#1f2a3d] shadow-[0_14px_32px_rgba(0,0,0,0.38)]'
+      : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef] shadow-[0_8px_22px_rgba(15,23,42,0.08)]';
 
   const resetSession = () => {
     closeAlertDialog();
@@ -112,14 +112,14 @@ export default function MobileTopNav(props) {
   if (user && user._id) {
     if (user.isPremiumUser) {
       userTierDisplay = (
-        <div>
-          <FaStar className="inline-flex text-neutral-100" /> Premium
+        <div className="text-rose-200">
+          <FaStar className="inline-flex text-rose-300" /> Premium
         </div>
       );
     } else {
       userTierDisplay = (
-        <div>
-          <FaStar className="inline-flex text-neutral-700" /> Upgrade
+        <div className="text-slate-400">
+          <FaStar className="inline-flex text-slate-500" /> Upgrade
         </div>
       );
     }
@@ -158,7 +158,7 @@ export default function MobileTopNav(props) {
     userProfile = (
       <div className="mt-1 flex justify-end">
         <button
-          className="m-auto text-center min-w-16 rounded-lg shadow-lg text-neutral-100 bg-cyber-black pl-8 pr-8 pt-1 pb-2 font-bold text-lg"
+          className="m-auto text-center min-w-16 rounded-lg shadow-sm text-slate-100 bg-[#111a2f] border border-[#1f2a3d] pl-8 pr-8 pt-1 pb-2 font-bold text-lg hover:border-rose-400/40 hover:text-rose-100"
           onClick={showLoginDialog}
         >
           <IoMdLogIn className="inline-flex" /> Login
@@ -199,35 +199,12 @@ export default function MobileTopNav(props) {
 
 
   return (
-    <div className={`bg-gradient-to-r ${bgColor} h-[50px] fixed w-[100vw] shadow-lg z-10`}>
-      <div className="flex flex-basis">
-        <div className='basis-1/4'>
-          <button
-            onClick={gotoHome}
-            className={`group ml-2 mr-2 mt-1 flex items-center gap-1 rounded-md border px-2 py-[6px] text-left shadow-sm backdrop-blur transition 
-              ${colorMode === 'dark'
-                ? 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-                : 'border-white/40 bg-white/15 hover:border-white/60 hover:bg-white/25'}`}
-          >
-            <span
-              className={`text-[11px] font-black uppercase tracking-[0.22em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-slate-100 group-hover:text-cyan-100'
-                  : 'text-white group-hover:text-slate-100'}`}
-            >
-              Samsar
-            </span>
-            <span
-              className={`text-[11px] font-black uppercase tracking-[0.22em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-cyan-300 group-hover:text-white'
-                  : 'text-white/90 group-hover:text-white'}`}
-            >
-              One
-            </span>
-          </button>
+    <div className={`${navShell} h-[50px] fixed w-[100vw] z-10`}>
+      <div className="flex flex-basis items-center h-full">
+        <div className='basis-1/3 pl-2'>
+          <BrandLogo onClick={gotoHome} className="mt-1" />
         </div>
-        <div className="basis-3/4  ">
+        <div className="basis-2/3">
           <div className="text-xs inline-flex">
             <div>{addSessionButton}</div>
           </div>

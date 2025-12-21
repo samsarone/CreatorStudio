@@ -34,13 +34,13 @@ export default function ShowNewUserIntroDisplay(props) {
   const { colorMode } = useColorMode();
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100 border border-white/10'
+      ? 'bg-[#0b1021] text-slate-100 border border-[#1f2a3d]'
       : 'bg-slate-50 text-slate-900 border border-slate-200';
   const cardSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/70 border border-white/10 shadow-lg shadow-slate-900/40'
+      ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
       : 'bg-white border border-slate-200 shadow-sm';
-  const iconStyle = colorMode === 'dark' ? 'text-indigo-300' : 'text-indigo-500';
+  const iconStyle = colorMode === 'dark' ? 'text-rose-200' : 'text-indigo-500';
 
   const handleSessionClick = (index) => {
     setSelectedSessionIndex(index === selectedSessionIndex ? null : index);

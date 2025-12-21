@@ -106,9 +106,8 @@ export const CURRENT_EDITOR_VIEW = {
 }
 
 export const IMAGE_GENERAITON_MODEL_TYPES = [
-
   {
-    name: 'GPT Image 1',
+    name: 'GPT Image 1.5',
     key: 'GPTIMAGE1',
     isExpressModel: true,
   },
@@ -117,104 +116,9 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'IMAGEN4',
     isExpressModel: true,
   },
-
-
   {
     name: 'Seedream',
     key: 'SEEDREAM',
-    isExpressModel: true,
-  },
-
-  {
-    name: 'F-Lite',
-    key: 'FLITE',
-    isExpressModel: false,
-    imageStyles: FLITE_IMAGE_STYLES,
-  },
-  {
-    name: 'Google Imagen3',
-    key: 'IMAGEN3',
-    isExpressModel: false,
-  },
-  {
-    name: 'Flux-1.1 Pro',
-    key: 'FLUX1.1PRO',
-    isExpressModel: false,
-  },
-  {
-    name: 'Dall-E 3',
-    key: 'DALLE3'
-  },
-
-  {
-    name: 'Flux-1 Pro',
-    key: 'FLUX1PRO'
-  },
-  {
-    name: 'Flux 1.1 Ultra',
-    key: 'FLUX1.1ULTRA'
-  },
-
-  {
-    name: 'Flux-1 Dev',
-    key: 'FLUX1DEV'
-  },
-
-  {
-    name: 'Recraft V3',
-    key: 'RECRAFTV3',
-    imageStyles: RECRAFT_IMAGE_STYLES,
-  },
-
-  {
-    name: 'Stable Diffusion V3.5',
-    key: 'SDV3.5'
-  },
-
-  {
-    name: 'Sana 4.5B',
-    key: 'SANA4.5B',
-    isExpressModel: false,
-  },
-  {
-    name: 'Sana Sprint',
-    key: 'SANASPRINT',
-    isExpressModel: false,
-  },
-  {
-    name: 'Recraft 20B',
-    key: 'RECRAFT20B',
-    imageStyles: RECRAFT_IMAGE_STYLES,
-  },
-  {
-    name: 'Lumalabs Photon',
-    key: 'PHOTON'
-  },
-  {
-    name: 'Lumalabs Photon Flash',
-    key: 'PHOTONFLASH'
-  },
-  {
-    name: 'Lumina V2',
-    key: 'LUMINAV2',
-    isExpressModel: false,
-  },
-  {
-    name: 'Ideogram V3',
-    key: 'IDEOGRAMV3',
-    isExpressModel: false,
-    imageStyles: IDEOGRAM_IMAGE_STYLES,
-  },
-
-  {
-    name: 'HiDream I1',
-    key: 'HIDREAMI1',
-    isExpressModel: false,
-  },
-
-  {
-    name: 'Nano Banana Pro',
-    key: 'NANOBANANAPRO',
     isExpressModel: true,
   },
   {
@@ -222,13 +126,15 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     key: 'HUNYUAN',
     isExpressModel: true,
   },
-
-
+  {
+    name: 'NanoBanana Pro',
+    key: 'NANOBANANAPRO',
+    isExpressModel: true,
+  },
 ];
 
 
 export const VIDEO_GENERATION_MODEL_TYPES = [
-
   {
     name: 'Runway Gen-4',
     key: 'RUNWAYML',
@@ -239,7 +145,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9', '9:16'
     ]
   },
-
   {
     name: 'Sora 2',
     key: 'SORA2',
@@ -263,17 +168,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
-    name: 'Sora T2V',
-    key: 'SORAT2V',
-    isExpressModel: false,
-    isTransitionModel: false,
-    isImgToVidModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16', '1:1'
-    ]
-  },
-
-  {
     name: 'Kling 2.5 Img2Vid',
     key: 'KLINGIMGTOVIDTURBO',
     isExpressModel: true,
@@ -281,22 +175,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
     ]
-  },
-
-  {
-    name: 'Kling 2.5 Txt2Vid',
-    key: 'KLINGTXTTOVIDTURBO',
-    isExpressModel: false,
-    isImgToVidModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16', '1:1',
-    ]
-  },
-
-  {
-    name: 'SD Video',
-    key: 'SDVIDEO',
-    isImgToVidModel: true,
   },
   {
     name: 'Hailuo O2 Standard',
@@ -316,85 +194,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ],
     isExpressModel: true,
   },
-
-  {
-    name: 'Haiper 2.0',
-    key: 'HAIPER2.0',
-    isImgToVidModel: true,
-  },
-
-  {
-    name: 'Skyreels-i2v',
-    key: 'SKYREELSI2V',
-    isTextToVidModel: false,
-    isImgToVidModel: true,
-  },
-
-  {
-    name: 'Veo2',
-    key: 'VEO',
-    isTextToVidModel: true,
-    isImgToVidModel: false,
-
-  },
-
-
-
-
-  {
-    name: 'Veo2 Img2Vid',
-    key: 'VEOI2V',
-    isTextToVidModel: false,
-    isImgToVidModel: true,
-    isExpressModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16'
-    ]
-  },
-
-  {
-    name: 'Veo3.1',
-    key: 'VEO3.1',
-    isImgToVidModel: false,
-    isExpressModel: false,
-    isTextToVidModel: true,
-    supportedAspectRatios: [
-      '16:9', '9:16',
-    ]
-
-  },
-
-
-  {
-    name: 'Veo3.1 Fast',
-    key: 'VEO3.1FAST',
-    isImgToVidModel: false,
-    isExpressModel: false,
-    isTextToVidModel: true,
-    supportedAspectRatios: [
-      '16:9', '9:16',
-    ]
-
-  },
-
-  {
-    name: 'PixVerseV4.5',
-    key: 'PIXVERSEI2V',
-    isImgToVidModel: true,
-    isExpressModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16'
-    ]
-  },
-  {
-    name: 'PixVerseV4.5 Fast',
-    key: 'PIXVERSEI2VFAST',
-    isImgToVidModel: true,
-    supportedAspectRatios: [
-      '16:9', '9:16'
-    ]
-  },
-
   {
     name: 'Wan 2.2 I2V',
     key: 'WANI2V',
@@ -413,43 +212,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '16:9'
     ]
   },
-
-  {
-    name: 'Pika2.2 I2V',
-    key: 'PIKA2.2I2V',
-    isImgToVidModel: true,
-    isExpressModel: false,
-    isTextToVidModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16'
-    ]
-  },
-
-
-  {
-    name: 'Magi Distilled',
-    key: 'MAGIDISTILLED',
-    isImgToVidModel: true,
-    isExpressModel: false,
-    isTextToVidModel: true,
-    supportedAspectRatios: [
-      '16:9', '9:16', '1:1'
-    ]
-  },
-
-  {
-    name: 'Vidu Img2Vid',
-    key: 'VIDUI2V',
-    isImgToVidModel: true,
-    isExpressModel: false,
-    isTextToVidModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16',
-      '1:1'
-    ]
-
-  },
-
   {
     name: 'SeeDance Img2Vid',
     key: 'SEEDANCEI2V',
@@ -457,10 +219,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
     supportedAspectRatios: [
       '16:9', '9:16',
-
     ]
   },
-
   {
     name: 'VEO3.1 Img2Vid',
     key: 'VEO3.1I2V',
@@ -471,8 +231,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '9:16'
     ]
   },
-
-
   {
     name: 'VEO3.1 Fast Img2Vid',
     key: 'VEO3.1I2VFAST',
@@ -483,8 +241,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '9:16'
     ]
   },
-
-
 ];
 
 
@@ -496,7 +252,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
 export const IMAGE_EDIT_MODEL_TYPES = [
 
   {
-    name: 'Nano Banana Pro Edit',
+    name: 'NanoBanana Pro Edit',
     key: 'NANOBANANAPROEDIT',
     editType: 'prompt',
     isPromptEnabled: true
@@ -550,7 +306,7 @@ export const IMAGE_EDIT_MODEL_TYPES = [
   },
 
   {
-    name: 'GPT Image 1 Edit',
+    name: 'GPT Image 1.5 Edit',
     key: 'GPTIMAGE1EDIT',
     editType: 'inpaint',
     isPromptEnabled: true,
@@ -601,6 +357,10 @@ export const ASSISTANT_MODEL_TYPES = [
     label: 'GPT 5.1',
     value: 'GPT5.1',
   },
+  {
+    label: 'GPT 5.2',
+    value: 'GPT5.2',
+  },
 
 
 ];
@@ -623,6 +383,10 @@ export const INFERENCE_MODEL_TYPES = [
   {
     label: 'GPT 5.1',
     value: 'GPT5.1',
+  },
+  {
+    label: 'GPT 5.2',
+    value: 'GPT5.2',
   },
 
 
@@ -743,4 +507,3 @@ export const SPEECH_SELECT_TYPES = {
   SPEECH_LAYER: 'SPEECH_LAYER',
   SPEECH_PER_SCENE: 'SPEECH_PER_SCENE',
 };
-

@@ -10,17 +10,18 @@ import AddAudioDialog from './util/AddAudioDialog.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { debounce } from './util/debounce.jsx';
 import AuthContainer from '../auth/AuthContainer.jsx';
-import LoadingImage from './util/LoadingImage.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import { getImagePreloaderWorker } from './workers/imagePreloaderWorkerSingleton'; // Import the worker singleton
 import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
 
 import ScreenLoader from './util/ScreenLoader.jsx';
+import StudioSkeletonLoader from './util/StudioSkeletonLoader.jsx';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -75,10 +76,12 @@ export default function VideoHome(props) {
   const [downloadLink, setDownloadLink] = useState(null);
 
   const [preloadedLayerIds, setPreloadedLayerIds] = useState(new Set());
+  const [renderCompletedThisSession, setRenderCompletedThisSession] = useState(false);
 
   let { id } = useParams();
 
   const { user, getUserAPI } = useUser();
+  const { t } = useLocalization();
 
   const [isUpdateLayerPending, setIsUpdateLayerPending] = useState(false);
 
@@ -122,6 +125,7 @@ export default function VideoHome(props) {
     setApplyAudioDucking(true);
     setToggleUpdateCurrentLayer(false);
     setCurrentLayerToBeUpdated(-1);
+    setRenderCompletedThisSession(false);
 
     // Now, load any default values from localStorage into state
     const defaultModel = localStorage.getItem("defaultModel") || 'DALLE3';
@@ -480,9 +484,18 @@ export default function VideoHome(props) {
         startVideoRenderPoll();
       }
 
-      const downloadLink = sessionDetails.remoteURL ? `${PROCESSOR_API_URL}/${sessionDetails.videoLink}` : null;
+      const downloadLink = sessionDetails.remoteURL?.length
+        ? sessionDetails.remoteURL
+        : sessionDetails.videoLink
+          ? `${PROCESSOR_API_URL}/${sessionDetails.videoLink}`
+          : null;
 
       setDownloadLink(downloadLink);
+      if (downloadLink) {
+        setRenderedVideoPath(downloadLink);
+        setDownloadVideoDisplay(true);
+        setRenderCompletedThisSession(false);
+      }
 
       let totalDuration = 0;
       layers.forEach(layer => {
@@ -708,6 +721,7 @@ export default function VideoHome(props) {
   }
 
   const startVideoRenderPoll = () => {
+    setRenderCompletedThisSession(false);
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -735,6 +749,11 @@ export default function VideoHome(props) {
           setIsVideoGenerating(false);
           setIsCanvasDirty(false);
           setDownloadLink(videoLink);
+          setRenderCompletedThisSession(true);
+          toast.success(<div>{t("studio.notifications.renderFinished")}</div>, {
+            position: "bottom-center",
+            className: "custom-toast",
+          });
 
         }
       });
@@ -762,6 +781,7 @@ export default function VideoHome(props) {
   }, [layers, selectedLayerIndex]);
 
   const submitRenderVideo = () => {
+    setRenderCompletedThisSession(false);
 
     if (isGuestSession) {
       axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, { id: id }).then((dataRes) => {
@@ -839,7 +859,7 @@ export default function VideoHome(props) {
   }, [layers]);
 
   if (!videoSessionDetails) {
-    return <LoadingImage />;
+    return <StudioSkeletonLoader />;
   }
 
   const fps = 30;
@@ -1003,7 +1023,7 @@ export default function VideoHome(props) {
 
 
   const applySynchronizeAnimationsToBeats = () => {
-    toast.success(<div> Reapplying syncronized animation beats!</div>, {
+    toast.success(<div>{t("studio.notifications.applySyncAnimationBeats")}</div>, {
       position: "bottom-center",
       className: "custom-toast",
     });
@@ -1021,7 +1041,7 @@ export default function VideoHome(props) {
 
 
   const applySynchronizeLayersToBeats = () => {
-    toast.success(<div> Reapplying syncronized layers beats!</div>, {
+    toast.success(<div>{t("studio.notifications.applySyncLayersBeats")}</div>, {
       position: "bottom-center",
       className: "custom-toast",
     });
@@ -1036,7 +1056,7 @@ export default function VideoHome(props) {
   }
 
   const applySynchronizeLayersAndAnimationsToBeats = () => {
-    toast.success(<div>Reapplying syncronized layers and animation beats!</div>, {
+    toast.success(<div>{t("studio.notifications.applySyncLayersAndAnimations")}</div>, {
       position: "bottom-center",
       className: "custom-toast",
     });
@@ -1092,7 +1112,7 @@ export default function VideoHome(props) {
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then((response) => {
       setIsAudioLayerDirty(false);
       setIsCanvasDirty(true);
-      toast.success(<div>Audio layer updated!</div>, {
+      toast.success(<div>{t("studio.notifications.audioLayerUpdated")}</div>, {
         position: "bottom-center",
         className: "custom-toast",
       });
@@ -1136,7 +1156,7 @@ export default function VideoHome(props) {
       setAudioLayers(audioLayers);
 
 
-      toast.success(<div>Audio layer removed!</div>, {
+      toast.success(<div>{t("studio.notifications.audioLayerRemoved")}</div>, {
         position: "bottom-center",
         className: "custom-toast",
       });
@@ -1171,7 +1191,7 @@ export default function VideoHome(props) {
       const { audioLayers } = resData;
       setAudioLayers(audioLayers);
 
-      toast.success(<div>Audio layers updated!</div>, {
+      toast.success(<div>{t("studio.notifications.audioLayersUpdated")}</div>, {
         position: "bottom-center",
         className: "custom-toast",
       });
@@ -1417,12 +1437,37 @@ export default function VideoHome(props) {
         ? payload.tags.map((tag) => tag.trim()).filter(Boolean)
         : [];
 
+    const sessionLanguage =
+      typeof payload.sessionLanguage === 'string' && payload.sessionLanguage.trim().length > 0
+        ? payload.sessionLanguage.trim()
+        : typeof videoSessionDetails?.sessionLanguage === 'string' &&
+          videoSessionDetails.sessionLanguage.trim().length > 0
+          ? videoSessionDetails.sessionLanguage.trim()
+          : typeof videoSessionDetails?.language === 'string' &&
+            videoSessionDetails.language.trim().length > 0
+            ? videoSessionDetails.language.trim()
+            : null;
+
+    const languageString =
+      typeof payload.languageString === 'string' && payload.languageString.trim().length > 0
+        ? payload.languageString.trim()
+        : typeof videoSessionDetails?.languageString === 'string' &&
+          videoSessionDetails.languageString.trim().length > 0
+          ? videoSessionDetails.languageString.trim()
+          : null;
+
     const publishPayload = {
       ...payload,
       tags: normalizedTags,
       aspectRatio: aspectRatio,
       ispublishedVideo: true,
     };
+    if (sessionLanguage) {
+      publishPayload.sessionLanguage = sessionLanguage;
+    }
+    if (languageString) {
+      publishPayload.languageString = languageString;
+    }
 
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/publish_session`, publishPayload, headers)
@@ -1716,7 +1761,7 @@ export default function VideoHome(props) {
     const headers = getHeaders();
     axios.post(`${PROCESSOR_API_URL}/video_sessions/regenerate_frames`, { sessionId: id }, headers).then((response) => {
       const videoSessionData = response.data;
-      toast.success('Requested regeneration of frames.');
+      toast.success(t("studio.notifications.framesRegenerationRequested"));
       setIsCanvasDirty(true);
       setIsVideoGenerating(false);
 
@@ -1747,7 +1792,7 @@ export default function VideoHome(props) {
 
 
   const applyAudioTrackVisualizerToProject = () => {
-    toast.success(<div><FaCheck className='inline-flex mr-2' />  Requested apply audio visualizer to project!</div>, {
+    toast.success(<div><FaCheck className='inline-flex mr-2' />  {t("studio.notifications.audioVisualizerRequested")}</div>, {
       position: "bottom-center",
       className: "custom-toast",
     });
@@ -1904,6 +1949,7 @@ export default function VideoHome(props) {
           generateMeta={generateMeta}
           sessionMetadata={sessionMetadata}
           updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+          renderCompletedThisSession={renderCompletedThisSession}
         />
       </div>
     )
@@ -1917,7 +1963,7 @@ export default function VideoHome(props) {
         <div className='m-auto'>
           <div className='block'>
             {frameToolbarDisplay}
-            <div className='w-[98%] bg-cyber-black inline-block'>
+            <div className='w-[98%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
               {editorContainerDisplay}
             </div>
             <AssistantHome
@@ -1993,9 +2039,10 @@ export default function VideoHome(props) {
               sessionMetadata={sessionMetadata}
               isGuestSession={isGuestSession}
               updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+              renderCompletedThisSession={renderCompletedThisSession}
             />
           </div>
-          <div className='w-[90%] bg-cyber-black inline-block'>
+          <div className='w-[90%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
 
             {canvasProcessLoading && (
               <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">

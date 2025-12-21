@@ -5,6 +5,7 @@ import Konva from 'konva';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import {
   CURRENT_TOOLBAR_VIEW,
@@ -405,6 +406,7 @@ export default function VideoEditorContainer(props) {
   const [currentLayerHasSpeechLayer, setCurrentLayerHasSpeechLayer] = useState(false);
   const { openAlertDialog, closeAlertDialog, setIsAlertActionPending } = useAlertDialog();
   const { user, getUserAPI } = useUser();
+  const { t } = useLocalization();
 
   const [showCreateNewPromptDisplay, setShowCreateNewPromptDisplay] = useState(false);
   const showCreateNewPrompt = () => {
@@ -491,7 +493,7 @@ export default function VideoEditorContainer(props) {
       closeAlertDialog();
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Image uploaded successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.imageUploadSuccess")}
         </div>,
         {
           position: 'bottom-center',
@@ -552,7 +554,7 @@ export default function VideoEditorContainer(props) {
         startGenerationPoll();
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -565,7 +567,7 @@ export default function VideoEditorContainer(props) {
         setGenerationError(error.message);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit generation request.
+            <FaTimes /> {t("studio.notifications.generationRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -776,7 +778,7 @@ export default function VideoEditorContainer(props) {
       maskImageData = await exportMaskedGroupAsBlackAndWhite();
     }
 
-    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANA') {
+    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANAPRO') {
       submitNanoBananaOutpaintRequest();
       return;
 
@@ -817,7 +819,7 @@ export default function VideoEditorContainer(props) {
         startOutpaintPoll();
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Edit request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.editRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -829,7 +831,7 @@ export default function VideoEditorContainer(props) {
         setOutpaintError(error.message);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit edit request.
+            <FaTimes /> {t("studio.notifications.editRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -917,7 +919,7 @@ export default function VideoEditorContainer(props) {
       setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Generation completed successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationComplete")}
         </div>,
         {
           position: 'bottom-center',
@@ -934,7 +936,7 @@ export default function VideoEditorContainer(props) {
       setCanvasActionLoading(false);
       toast.error(
         <div>
-          <FaTimes /> Generation failed.
+          <FaTimes /> {t("studio.notifications.generationFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -1004,7 +1006,7 @@ export default function VideoEditorContainer(props) {
       setIsCanvasDirty(true);
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Edit completed successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.editComplete")}
         </div>,
         {
           position: 'bottom-center',
@@ -1015,10 +1017,10 @@ export default function VideoEditorContainer(props) {
       return;
     } else if (pollStatusDataResponse.status === 'FAILED') {
       setIsOutpaintPending(false);
-      setOutpaintError('Failed to generate outpaint');
+      setOutpaintError(t("studio.notifications.outpaintFailed"));
       toast.error(
         <div>
-          <FaTimes /> Outpaint failed.
+          <FaTimes /> {t("studio.notifications.outpaintFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -1200,8 +1202,7 @@ export default function VideoEditorContainer(props) {
           setCanvasActionLoading(true);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Mask generation request submitted
-              successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.maskRequestSubmitted")}
             </div>,
             {
               position: 'bottom-center',
@@ -1212,7 +1213,7 @@ export default function VideoEditorContainer(props) {
         .catch(() => {
           toast.error(
             <div>
-              <FaTimes /> Failed to submit mask generation request.
+              <FaTimes /> {t("studio.notifications.maskRequestFailed")}
             </div>,
             {
               position: 'bottom-center',
@@ -1241,7 +1242,7 @@ export default function VideoEditorContainer(props) {
           setIsCanvasDirty(true);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Mask generation completed successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.maskComplete")}
             </div>,
             {
               position: 'bottom-center',
@@ -1257,7 +1258,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to generate mask.
+            <FaTimes /> {t("studio.notifications.maskFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1286,7 +1287,7 @@ export default function VideoEditorContainer(props) {
         setTemplateOptionList(response.data);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Templates loaded successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.templatesLoaded")}
           </div>,
           {
             position: 'bottom-center',
@@ -1297,7 +1298,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to load templates.
+            <FaTimes /> {t("studio.notifications.templatesLoadFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1318,7 +1319,7 @@ export default function VideoEditorContainer(props) {
         setTemplateOptionList(response.data);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Template search completed successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.templateSearchComplete")}
           </div>,
           {
             position: 'bottom-center',
@@ -1329,7 +1330,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to search templates.
+            <FaTimes /> {t("studio.notifications.templateSearchFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1568,7 +1569,7 @@ export default function VideoEditorContainer(props) {
         startAudioGenerationPoll(response.data);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Audio generation request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -1579,7 +1580,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to submit audio generation request.
+            <FaTimes /> {t("studio.notifications.audioRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1617,7 +1618,7 @@ export default function VideoEditorContainer(props) {
       }
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Audio generation completed successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioComplete")}
         </div>,
         {
           position: 'bottom-center',
@@ -1630,7 +1631,7 @@ export default function VideoEditorContainer(props) {
       setAudioGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> Audio generation failed.
+          <FaTimes /> {t("studio.notifications.audioFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -1668,7 +1669,7 @@ export default function VideoEditorContainer(props) {
           setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Track added to project successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.trackAdded")}
             </div>,
             {
               position: 'bottom-center',
@@ -1681,7 +1682,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to add track to project.
+            <FaTimes /> {t("studio.notifications.trackAddFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1723,7 +1724,7 @@ export default function VideoEditorContainer(props) {
           setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Track added to project successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.trackAdded")}
             </div>,
             {
               position: 'bottom-center',
@@ -1736,7 +1737,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to add track to project.
+            <FaTimes /> {t("studio.notifications.trackAddFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1768,7 +1769,7 @@ export default function VideoEditorContainer(props) {
 
     toast.success(
       <div>
-        <FaCheck className='inline-flex mr-2' /> Image added from library successfully!
+        <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.imageAddedFromLibrary")}
       </div>,
       {
         position: 'bottom-center',
@@ -1839,7 +1840,7 @@ export default function VideoEditorContainer(props) {
   const requestRegenerateSubtitles = async () => {
     toast.success(
       <div>
-        <FaCheck className='inline-flex mr-2' /> Requested regenerate subtitles.
+        <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.regenerateSubtitlesRequested")}
       </div>,
       {
         position: 'bottom-center',
@@ -1869,8 +1870,7 @@ export default function VideoEditorContainer(props) {
         setIsCanvasDirty(true);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Request to realign layers to speech submitted
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.realignLayersToSpeechRequested")}
           </div>,
           {
             position: 'bottom-center',
@@ -1893,8 +1893,7 @@ export default function VideoEditorContainer(props) {
         setIsCanvasDirty(true);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Request to realign layers to AI video submitted
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.realignLayersToAiVideoRequested")}
           </div>,
           {
             position: 'bottom-center',
@@ -1913,8 +1912,7 @@ export default function VideoEditorContainer(props) {
     const payload = { sessionId: id };
     toast.success(
       <div>
-        <FaCheck className='inline-flex mr-2' /> Request to regenerate animations submitted
-        successfully!
+        <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.regenerateAnimationsRequested")}
       </div>,
       {
         position: 'bottom-center',
@@ -1959,7 +1957,7 @@ export default function VideoEditorContainer(props) {
 
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
         </div>,
         {
           position: 'bottom-center',
@@ -1987,7 +1985,7 @@ export default function VideoEditorContainer(props) {
         setVideoSessionDetails(sessionDetails);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Audio added to project successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioAddedToProject")}
           </div>,
           {
             position: 'bottom-center',
@@ -2031,7 +2029,7 @@ export default function VideoEditorContainer(props) {
         setIsSelectButtonDisabled(false);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Video added to project successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.videoAddedToProject")}
           </div>,
           {
             position: 'bottom-center',
@@ -2095,8 +2093,7 @@ export default function VideoEditorContainer(props) {
       .then(() => {
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Layered speech generation request submitted
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.layeredSpeechRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -2111,7 +2108,7 @@ export default function VideoEditorContainer(props) {
         setAudioGenerationPending(false);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit layered speech generation request.
+            <FaTimes /> {t("studio.notifications.layeredSpeechRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2141,8 +2138,7 @@ export default function VideoEditorContainer(props) {
         setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PREVIEW_SPEECH_LAYERED_DISPLAY);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Layered speech generation completed
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.layeredSpeechComplete")}
           </div>,
           {
             position: 'bottom-center',
@@ -2155,7 +2151,7 @@ export default function VideoEditorContainer(props) {
         setAudioGenerationPending(false);
         toast.error(
           <div>
-            <FaTimes /> Layered speech generation failed.
+            <FaTimes /> {t("studio.notifications.layeredSpeechFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2174,7 +2170,7 @@ export default function VideoEditorContainer(props) {
       setAudioGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> Layered speech generation failed.
+          <FaTimes /> {t("studio.notifications.layeredSpeechFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -2206,7 +2202,7 @@ export default function VideoEditorContainer(props) {
         setIsUpdateDefaultsPending(false);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Session defaults updated successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.sessionDefaultsUpdated")}
           </div>,
           {
             position: 'bottom-center',
@@ -2217,7 +2213,7 @@ export default function VideoEditorContainer(props) {
       .catch((error) => {
         toast.error(
           <div>
-            <FaTimes /> Failed to update session defaults.
+            <FaTimes /> {t("studio.notifications.sessionDefaultsFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2250,7 +2246,7 @@ export default function VideoEditorContainer(props) {
         setVideoSessionDetails(updatedSession);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Advanced theme updated successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.advancedThemeUpdated")}
           </div>,
           {
             position: 'bottom-center',
@@ -2262,7 +2258,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to update advanced theme.
+            <FaTimes /> {t("studio.notifications.advancedThemeFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2333,7 +2329,7 @@ export default function VideoEditorContainer(props) {
       setIsAIVideoGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> AI Video generation failed.
+          <FaTimes /> {t("studio.notifications.aiVideoFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -2384,7 +2380,7 @@ export default function VideoEditorContainer(props) {
         updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -2396,7 +2392,7 @@ export default function VideoEditorContainer(props) {
         setGenerationError(error.message);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit generation request.
+            <FaTimes /> {t("studio.notifications.generationRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2461,7 +2457,7 @@ export default function VideoEditorContainer(props) {
 
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> MovieGen speakers updated successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.movieGenSpeakersUpdated")}
           </div>,
           {
             position: 'bottom-center',
@@ -2475,7 +2471,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to update MovieGen speakers.
+            <FaTimes /> {t("studio.notifications.movieGenSpeakersFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2724,15 +2720,15 @@ export default function VideoEditorContainer(props) {
 
   const mainWorkspaceShell =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100'
-      : 'bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900';
+      ? 'bg-[#0b1021] text-slate-100'
+      : 'bg-gradient-to-br from-[#e9edf7] via-[#eef3fb] to-white text-slate-900';
   const toolbarShell =
     colorMode === 'dark'
-      ? 'bg-slate-950/80 border-l border-white/10'
+      ? 'bg-[#0f1629] border-l border-[#1f2a3d] shadow-[0_1px_0_rgba(255,255,255,0.04)]'
       : 'bg-white border-l border-slate-200 shadow-sm';
   const collapsedToolbarShell =
     colorMode === 'dark'
-      ? 'bg-slate-950/80 border-l border-white/10'
+      ? 'bg-[#0f1629] border-l border-[#1f2a3d]'
       : 'bg-white border-l border-slate-200 shadow-sm';
 
   if (displayZoomType === 'fill') {

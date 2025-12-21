@@ -17,6 +17,7 @@ import ToggleButton from "../common/ToggleButton.tsx";
 import SceneLibraryHome from "../library/aivideo/SceneLibraryHome.jsx";
 import OverflowContainer from "../common/OverflowContainer.tsx";
 import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
+import UsagePanelContent from "./UsagePanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
 
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
@@ -29,12 +30,12 @@ export default function UserAccount() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const textColor = colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
-  const bgColor = colorMode === "dark" ? "bg-neutral-900" : "bg-neutral-100";
-  const secondaryTextColor = colorMode === "dark" ? "text-neutral-400" : "text-neutral-500";
-  const cardBgColor = colorMode === "dark" ? "bg-neutral-800" : "bg-white";
-  const borderColor = colorMode === "dark" ? "border-neutral-800" : "border-neutral-200";
-  const mutedBg = colorMode === "dark" ? "bg-neutral-900/50" : "bg-neutral-50";
+  const textColor = colorMode === "dark" ? "text-slate-100" : "text-slate-900";
+  const bgColor = colorMode === "dark" ? "bg-[#0b1021]" : "bg-[#f7f9fc]";
+  const secondaryTextColor = colorMode === "dark" ? "text-slate-400" : "text-slate-500";
+  const cardBgColor = colorMode === "dark" ? "bg-[#0f1629] shadow-[0_16px_40px_rgba(0,0,0,0.35)]" : "bg-white shadow-sm";
+  const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
+  const mutedBg = colorMode === "dark" ? "bg-[#111a2f]" : "bg-slate-50";
 
   const validPanels = [
     "account",
@@ -43,6 +44,7 @@ export default function UserAccount() {
     "scenes",
     "videos",
     "apiKeys",
+    "usage",
     "billing",
     "settings",
   ];
@@ -64,11 +66,11 @@ export default function UserAccount() {
     if (!user) return;
 
     setInferenceModel(
-      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT4O")) ||
+      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT5.2")) ||
         INFERENCE_MODEL_TYPES[0]
     );
     setAssistantModel(
-      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT4O")) ||
+      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT5.2")) ||
         ASSISTANT_MODEL_TYPES[0]
     );
     setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
@@ -106,29 +108,36 @@ export default function UserAccount() {
     updateUserDetails({ selectedAssistantModel: newVal.value });
   };
 
-  const deleteAllGenerationsForUser = () => {
-    axios
-      .post(`${PROCESSOR_SERVER}/users/delete_generations`, {}, getHeaders())
-      .then(() => toast.success("All generations deleted!", { position: "bottom-center" }))
-      .catch(() => toast.error("Failed to delete generations", { position: "bottom-center" }));
+  const deleteAllGenerationsForUser = async () => {
+    try {
+      await axios.post(`${PROCESSOR_SERVER}/users/delete_generations`, {}, getHeaders());
+      toast.success("All generations deleted!", { position: "bottom-center" });
+    } catch (err) {
+      toast.error("Failed to delete generations", { position: "bottom-center" });
+      throw err;
+    }
   };
 
-  const deleteAllProjectsForUser = () => {
-    axios
-      .post(`${PROCESSOR_SERVER}/users/delete_projects`, {}, getHeaders())
-      .then(() => toast.success("All projects deleted!", { position: "bottom-center" }))
-      .catch(() => toast.error("Failed to delete projects", { position: "bottom-center" }));
+  const deleteAllProjectsForUser = async () => {
+    try {
+      await axios.post(`${PROCESSOR_SERVER}/users/delete_projects`, {}, getHeaders());
+      toast.success("All projects deleted!", { position: "bottom-center" });
+    } catch (err) {
+      toast.error("Failed to delete projects", { position: "bottom-center" });
+      throw err;
+    }
   };
 
-  const deleteAccountForUser = () => {
-    axios
-      .post(`${PROCESSOR_SERVER}/users/delete_user`, {}, getHeaders())
-      .then(() => {
-        toast.success("Account deleted!", { position: "bottom-center" });
-        resetUser();
-        navigate("/");
-      })
-      .catch(() => toast.error("Failed to delete account", { position: "bottom-center" }));
+  const deleteAccountForUser = async () => {
+    try {
+      await axios.post(`${PROCESSOR_SERVER}/users/delete_user`, {}, getHeaders());
+      toast.success("Account deleted!", { position: "bottom-center" });
+      resetUser();
+      navigate("/");
+    } catch (err) {
+      toast.error("Failed to delete account", { position: "bottom-center" });
+      throw err;
+    }
   };
 
   const logoutUser = () => {
@@ -146,12 +155,24 @@ export default function UserAccount() {
     }
   };
 
+  const navItemBase = "w-full text-left mb-2 px-3 py-2 rounded-lg transition-colors";
+  const navItemActive =
+    colorMode === "dark"
+      ? "bg-[#16213a] border border-rose-400/40 text-rose-200 shadow-[0_0_0_1px_rgba(248,113,113,0.16)]"
+      : "bg-white border border-rose-100 text-rose-700 shadow-sm";
+  const navItemIdle =
+    colorMode === "dark"
+      ? "border border-transparent text-slate-300 hover:bg-[#0f1629]"
+      : "border border-transparent text-slate-600 hover:bg-slate-100";
+
   const NavLink = ({ panel, label }) => (
-    <li
-      className={`mb-4 cursor-pointer ${displayPanel === panel ? "font-semibold" : ""}`}
-      onClick={() => goToPanel(panel)}
-    >
-      {label}
+    <li className="list-none">
+      <button
+        className={`${navItemBase} ${displayPanel === panel ? navItemActive : navItemIdle}`}
+        onClick={() => goToPanel(panel)}
+      >
+        {label}
+      </button>
     </li>
   );
 
@@ -162,6 +183,7 @@ export default function UserAccount() {
     scenes: "Scene Library",
     videos: "Video Library",
     apiKeys: "API Keys",
+    usage: "Usage Logs",
     billing: "Billing Information",
     settings: "Settings",
   };
@@ -205,7 +227,7 @@ export default function UserAccount() {
         {sidebarOpen && (
           <div className="fixed inset-0 z-40 flex" aria-modal="true" role="dialog">
             <div className="fixed inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-            <nav className={`relative z-50 w-64 p-6 ${bgColor} shadow-md border-r overflow-y-auto`}>
+            <nav className={`relative z-50 w-64 p-6 ${bgColor} shadow-[0_16px_40px_rgba(0,0,0,0.45)] border-r ${borderColor} overflow-y-auto`}>
               <button
                 className="absolute top-4 right-4"
                 onClick={() => setSidebarOpen(false)}
@@ -220,6 +242,7 @@ export default function UserAccount() {
                 <NavLink panel="scenes" label="Scenes" />
                 <NavLink panel="videos" label="Videos" />
                 <NavLink panel="apiKeys" label="API Keys" />
+                <NavLink panel="usage" label="Usage" />
                 <NavLink panel="billing" label="Billing" />
                 <NavLink panel="settings" label="Settings" />
               </ul>
@@ -228,7 +251,7 @@ export default function UserAccount() {
         )}
 
         <div className="flex flex-1">
-          <nav className={`hidden md:block w-40 p-4 ${bgColor} shadow-md border-r`}>
+          <nav className={`hidden md:block w-48 p-4 ${bgColor} shadow-sm border-r ${borderColor}`}>
             <ul>
               <NavLink panel="account" label="Account" />
               <NavLink panel="images" label="Images" />
@@ -236,13 +259,14 @@ export default function UserAccount() {
               <NavLink panel="scenes" label="Scenes" />
               <NavLink panel="videos" label="Videos" />
               <NavLink panel="apiKeys" label="API Keys" />
+              <NavLink panel="usage" label="Usage" />
               <NavLink panel="billing" label="Billing" />
               <NavLink panel="settings" label="Settings" />
             </ul>
           </nav>
 
           <div className={`flex-1 flex flex-col ${bgColor} ${textColor}`}>
-            <div className="flex items-center p-4 border-b">
+            <div className={`flex items-center p-4 border-b ${borderColor}`}>
               <button
                 className="md:hidden mr-4"
                 onClick={() => setSidebarOpen(true)}
@@ -395,6 +419,7 @@ export default function UserAccount() {
                 />
               )}
               {displayPanel === "apiKeys" && <APIKeysPanelContent />}
+              {displayPanel === "usage" && <UsagePanelContent />}
               {displayPanel === "scenes" && <SceneLibraryHome hideSelectButton />}
               {displayPanel === "videos" && <SceneLibraryHome hideSelectButton />}
             </div>
