@@ -22,6 +22,7 @@ import axios from 'axios';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 import AuthContainer from '../auth/AuthContainer.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
@@ -29,6 +30,7 @@ import ProgressIndicator from './ProgressIndicator.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import PrimaryPublicButton from '../common/buttons/PrimaryPublicButton.tsx';
 import PublishOptionsDialog from '../video/toolbars/frame_toolbar/PublishOptionsDialog.jsx';
+import VidgenieSkeletonLoader from './VidgenieSkeletonLoader.jsx';
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
@@ -37,6 +39,7 @@ import {
   PIXVERRSE_VIDEO_STYLES,
 } from '../../constants/Types.ts';
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
+import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
@@ -47,6 +50,8 @@ import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
+const VIDEO_API_BASE = `${API_SERVER}/v1/video`;
+const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v1/status`;
 
 // ───────────────────────────────────────────────────────────
 //  Polling constants
@@ -63,6 +68,7 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   const { user } = useUser();
   const { colorMode } = useColorMode();
+  const { t, language } = useLocalization();
   const { id } = useParams();
   const navigate = useNavigate();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
@@ -71,7 +77,8 @@ export default function OneshotEditor() {
   }, [openAlertDialog]);
 
   const activeSessionIdRef = useRef(id);
-  const currentPollSessionIdRef = useRef(null);
+  const currentPollRequestIdRef = useRef(null);
+  const activeRequestIdRef = useRef(null);
 
   const lastWakePoll = useRef(Date.now());
 
@@ -82,7 +89,7 @@ export default function OneshotEditor() {
   const voiceWordCountRef = useRef(0);
   const voiceWordLimitRef = useRef(VOICE_TRANSCRIPTION_WORD_LIMIT);
   const stopAllVoiceCaptureRef = useRef(() => {});
-  const voiceSessionTimeoutLabelRef = useRef('10 minutes');
+  const voiceSessionTimeoutLabelRef = useRef(t("vidgenie.voiceTimeoutTenMinutes"));
 
   const clearVoiceSessionTimeout = useCallback(() => {
     if (voiceSessionTimeoutRef.current) {
@@ -100,19 +107,28 @@ export default function OneshotEditor() {
   }, []);
 
   const transcriptHeaders = useMemo(() => getHeaders(), [user]);
+  const normalizeVideoUrl = (url) => {
+    if (typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+      return trimmed;
+    }
+    return `${API_SERVER}/${trimmed.replace(/^\/+/, '')}`;
+  };
 
   // ✨ UI tokens for light/dark surfaces
   const surfaceCard =
     colorMode === 'dark'
-      ? 'bg-gradient-to-br from-slate-950/80 via-slate-900/60 to-slate-950/80 text-white border border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.04)] backdrop-blur'
-      : 'bg-gradient-to-br from-white via-slate-50 to-blue-50 text-slate-900 border border-slate-200/70 shadow-lg shadow-slate-200/60';
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_16px_40px_rgba(0,0,0,0.38)]'
+      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
 
   const controlShell =
     colorMode === 'dark'
-      ? 'bg-white/5 ring-1 ring-white/10 hover:ring-white/20'
-      : 'bg-white/95 ring-1 ring-slate-200/70 hover:ring-slate-300 shadow-sm';
+      ? 'bg-[#111a2f] ring-1 ring-[#1f2a3d] hover:ring-rose-400/40'
+      : 'bg-white ring-1 ring-slate-200 hover:ring-slate-300 shadow-sm';
 
-  const mutedText = colorMode === 'dark' ? 'text-white/60' : 'text-slate-500';
+  const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
 
   useEffect(() => {
     activeSessionIdRef.current = id;
@@ -124,10 +140,16 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   const [sessionDetails, setSessionDetails] = useState(null);
   const [promptText, setPromptText] = useState('');
+  const [generationMode, setGenerationMode] = useState('T2V');
+  const [activeRequestId, setActiveRequestId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUnpublishing, setIsUnpublishing] = useState(false);
+
+  useEffect(() => {
+    activeRequestIdRef.current = activeRequestId;
+  }, [activeRequestId]);
 
   // ─────────────────────────────────────────────────────────
   //  Online / offline & polling support
@@ -155,24 +177,6 @@ export default function OneshotEditor() {
     };
   }, []);
 
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (
-        !document.hidden &&
-        Date.now() - lastWakePoll.current > 2000 &&
-        currentPollSessionIdRef.current !== id
-      ) {
-        lastWakePoll.current = Date.now();
-        pollGenerationStatus(id, true); // Restart fresh
-        startAssistantQueryPoll(true);  // Optional: restart assistant poll
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [id]);
-
-
-
   // ─────────────────────────────────────────────────────────
   //  Polling handles / refs
   // ─────────────────────────────────────────────────────────
@@ -199,14 +203,31 @@ export default function OneshotEditor() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [showResultDisplay, setShowResultDisplay] = useState(false);
 
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (
+        !document.hidden &&
+        Date.now() - lastWakePoll.current > 2000 &&
+        isGenerationPending &&
+        activeRequestIdRef.current
+      ) {
+        lastWakePoll.current = Date.now();
+        pollGenerationStatus(activeRequestIdRef.current, true); // Restart fresh
+        startAssistantQueryPoll(true);  // Optional: restart assistant poll
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [id, isGenerationPending]);
+
   // ─────────────────────────────────────────────────────────
   //  Misc state
   // ─────────────────────────────────────────────────────────
   const [latestVideos, setLatestVideos] = useState([]);
   const [error, setError] = useState('');
   const [expandedVideoId, setExpandedVideoId] = useState(null);
-  const [uploadedImageFile, setUploadedImageFile] = useState(null);
-  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState(null);
+  const [uploadedImageFiles, setUploadedImageFiles] = useState([]);
+  const [uploadedImageDataUrls, setUploadedImageDataUrls] = useState([]);
   const fileInputRef = useRef(null);
   const [voiceStatusMessage, setVoiceStatusMessage] = useState(null);
   const [voiceError, setVoiceError] = useState(null);
@@ -223,7 +244,7 @@ export default function OneshotEditor() {
 
   const handleVoiceSessionStarted = useCallback((sessionInfo) => {
     setVoiceError(null);
-    setVoiceStatusMessage('Listening…');
+    setVoiceStatusMessage(t("vidgenie.voiceListening"));
     voiceTranscriptRef.current = '';
     voiceWordCountRef.current = 0;
     const rawLimit = sessionInfo?.maxTranscriptWords;
@@ -250,37 +271,44 @@ export default function OneshotEditor() {
         );
       }
     }
-    let timeoutLabel = '10 minutes';
+    let timeoutLabel = t("vidgenie.voiceTimeoutTenMinutes");
     if (timeoutMs <= 0 || timeoutMs < 60_000) {
-      timeoutLabel = 'less than a minute';
+      timeoutLabel = t("vidgenie.voiceTimeoutLessThanMinute");
     } else {
       const timeoutMinutes = Math.ceil(timeoutMs / 60_000);
-      timeoutLabel = timeoutMinutes === 1 ? '1 minute' : `${timeoutMinutes} minutes`;
+      timeoutLabel =
+        timeoutMinutes === 1
+          ? t("vidgenie.voiceTimeoutMinute")
+          : t("vidgenie.voiceTimeoutMinutes", { count: timeoutMinutes });
     }
     voiceSessionTimeoutLabelRef.current = timeoutLabel;
     if (timeoutMs <= 0) {
       setVoiceStatusMessage(null);
-      setVoiceError(`Voice session expired after ${voiceSessionTimeoutLabelRef.current}.`);
+      setVoiceError(
+        t("vidgenie.voiceSessionExpired", { duration: voiceSessionTimeoutLabelRef.current })
+      );
       stopAllVoiceCaptureRef.current?.();
       return;
     }
     voiceSessionTimeoutRef.current = setTimeout(() => {
       setVoiceStatusMessage(null);
-      setVoiceError(`Voice session expired after ${voiceSessionTimeoutLabelRef.current}.`);
+      setVoiceError(
+        t("vidgenie.voiceSessionExpired", { duration: voiceSessionTimeoutLabelRef.current })
+      );
       stopAllVoiceCaptureRef.current?.();
     }, timeoutMs);
-  }, [clearVoiceSessionTimeout]);
+  }, [clearVoiceSessionTimeout, t]);
 
   const handleVoiceSessionEnded = useCallback(() => {
     clearVoiceSessionTimeout();
     voiceSessionStartRef.current = null;
     voiceWordCountRef.current = 0;
     voiceWordLimitRef.current = VOICE_TRANSCRIPTION_WORD_LIMIT;
-    voiceSessionTimeoutLabelRef.current = '10 minutes';
-    setVoiceStatusMessage('Recording stopped.');
+    voiceSessionTimeoutLabelRef.current = t("vidgenie.voiceTimeoutTenMinutes");
+    setVoiceStatusMessage(t("vidgenie.voiceStopped"));
     voiceBasePromptRef.current = '';
     voiceTranscriptRef.current = '';
-  }, [clearVoiceSessionTimeout]);
+  }, [clearVoiceSessionTimeout, t]);
 
   const handleVoiceTranscription = useCallback((transcript, isFinal) => {
     const base = voiceBasePromptRef.current || '';
@@ -296,7 +324,7 @@ export default function OneshotEditor() {
     if (!cleanedTranscript) {
       voiceTranscriptRef.current = '';
       if (isFinal) {
-        setVoiceStatusMessage('No speech detected.');
+        setVoiceStatusMessage(t("vidgenie.voiceNoSpeech"));
       }
       return;
     }
@@ -312,7 +340,7 @@ export default function OneshotEditor() {
       setPromptText(`${base}${limitedTranscript}`);
       voiceBasePromptRef.current = `${base}${limitedTranscript}`;
       setVoiceStatusMessage(null);
-      setVoiceError(`Transcription limit reached (${wordLimit} words per session).`);
+      setVoiceError(t("vidgenie.voiceTranscriptLimit", { count: wordLimit }));
       stopAllVoiceCaptureRef.current?.();
       return;
     }
@@ -328,8 +356,10 @@ export default function OneshotEditor() {
       voiceBasePromptRef.current = `${base}${cleanedTranscript}`;
     }
 
-    setVoiceStatusMessage(isFinal ? 'Transcript captured.' : 'Transcribing…');
-  }, [countWords]);
+    setVoiceStatusMessage(
+      isFinal ? t("vidgenie.voiceCaptured") : t("vidgenie.voiceTranscribing")
+    );
+  }, [countWords, t]);
 
   const {
     startTranscription: startVoiceTranscription,
@@ -369,8 +399,8 @@ export default function OneshotEditor() {
       recognition.onerror = (event) => {
         const message =
           event.error === 'not-allowed'
-            ? 'Microphone access denied.'
-            : 'Speech recognition encountered an error.';
+            ? t("vidgenie.voiceMicrophoneDenied")
+            : t("vidgenie.voiceRecognitionError");
         setVoiceError(message);
       };
 
@@ -397,10 +427,10 @@ export default function OneshotEditor() {
       
       browserRecognitionRef.current = null;
       setIsBrowserRecognitionActive(false);
-      setVoiceError('Unable to start browser speech recognition.');
+      setVoiceError(t("vidgenie.voiceRecognitionFailed"));
       return false;
     }
-  }, [handleVoiceSessionEnded, handleVoiceSessionStarted, handleVoiceTranscription, speechRecognitionCtor]);
+  }, [handleVoiceSessionEnded, handleVoiceSessionStarted, handleVoiceTranscription, speechRecognitionCtor, t]);
 
   const stopBrowserRecognition = useCallback(() => {
     const recognition = browserRecognitionRef.current;
@@ -427,7 +457,7 @@ export default function OneshotEditor() {
     voiceSessionStartRef.current = null;
     voiceWordCountRef.current = 0;
     voiceWordLimitRef.current = VOICE_TRANSCRIPTION_WORD_LIMIT;
-    voiceSessionTimeoutLabelRef.current = '10 minutes';
+    voiceSessionTimeoutLabelRef.current = t("vidgenie.voiceTimeoutTenMinutes");
     if (isVoiceRecording || isVoiceInitializing) {
       stopVoiceTranscription();
     }
@@ -451,6 +481,12 @@ export default function OneshotEditor() {
 
   const isVoiceBusy = isVoiceRecording || isVoiceInitializing || isBrowserRecognitionActive;
 
+  useEffect(() => {
+    if (generationMode === 'I2V' && isVoiceBusy) {
+      stopAllVoiceCapture();
+    }
+  }, [generationMode, isVoiceBusy, stopAllVoiceCapture]);
+
   const handleToggleVoiceRecording = useCallback(() => {
     if (isVoiceBusy) {
       stopAllVoiceCapture();
@@ -459,7 +495,7 @@ export default function OneshotEditor() {
 
     if (!user) {
       setVoiceStatusMessage(null);
-      setVoiceError('Please login to continue');
+      setVoiceError(t("vidgenie.voiceLoginRequired"));
       showLoginDialog();
       return;
     }
@@ -467,12 +503,12 @@ export default function OneshotEditor() {
     const isEmailVerified = user?.isEmailVerified ?? user?.emailVerified ?? false;
     if (!isEmailVerified) {
       setVoiceStatusMessage(null);
-      setVoiceError('Please verify your email to use voice transcription.');
+      setVoiceError(t("vidgenie.voiceVerifyEmail"));
       return;
     }
 
     if (!isBrowserSpeechSupported && !isVoiceSupported) {
-      setVoiceError('Voice capture is not supported in this browser.');
+      setVoiceError(t("vidgenie.voiceNotSupported"));
       return;
     }
 
@@ -484,7 +520,7 @@ export default function OneshotEditor() {
     voiceTranscriptRef.current = '';
 
     setVoiceError(null);
-    setVoiceStatusMessage('Connecting…');
+    setVoiceStatusMessage(t("vidgenie.voiceConnecting"));
 
     if (isBrowserSpeechSupported) {
       const started = startBrowserRecognition();
@@ -505,6 +541,7 @@ export default function OneshotEditor() {
     promptText,
     startBrowserRecognition,
     startVoiceTranscription,
+    t,
   ]);
 
   useEffect(() => {
@@ -546,30 +583,56 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   useEffect(() => { fetchLatestVideos(); }, []);
 
-  // ─────────────────────────────────────────────────────────
-  //  Tone select options
-  // ─────────────────────────────────────────────────────────
-  const toneOptions = [
-    { label: 'stable', value: 'grounded' },
-    { label: 'cinematic', value: 'cinematic' },
-  ];
-  const [selectedToneOption, setSelectedToneOption] = useState({
-    label: 'stable',
-    value: 'grounded',
-  });
+  const languageOptions = useMemo(() => {
+    const autoLabel = t("vidgenie.languageAuto", {}, "Auto");
+    return [
+      { label: autoLabel, value: 'auto' },
+      ...SUPPORTED_LANGUAGES.map((lang) => ({
+        label: lang.name,
+        value: lang.code,
+      })),
+    ];
+  }, [t]);
+
+  const defaultLanguageOption = useMemo(() => {
+    const match = languageOptions.find((opt) => opt.value === language);
+    return match || languageOptions[0];
+  }, [languageOptions, language]);
+
+  const [selectedLanguageOption, setSelectedLanguageOption] = useState(
+    () => defaultLanguageOption
+  );
+
+  useEffect(() => {
+    setSelectedLanguageOption((prev) => {
+      const match = languageOptions.find((opt) => opt.value === prev?.value);
+      return match || defaultLanguageOption;
+    });
+  }, [languageOptions, defaultLanguageOption]);
 
   // ─────────────────────────────────────────────────────────
   //  Aspect-ratio select
   // ─────────────────────────────────────────────────────────
-  const aspectRatioOptions = [
-    { label: '16:9 (Landscape)', value: '16:9' },
-    { label: '9:16 (Portrait)', value: '9:16' },
-  ];
+  const aspectRatioOptions = useMemo(
+    () => [
+      { label: t("vidgenie.aspectRatioLandscape"), value: '16:9' },
+      { label: t("vidgenie.aspectRatioPortrait"), value: '9:16' },
+    ],
+    [t]
+  );
   const [selectedAspectRatioOption, setSelectedAspectRatioOption] = useState(() => {
     const stored = localStorage.getItem('defaultVidGPTAspectRatio');
     const found = aspectRatioOptions.find((o) => o.value === stored);
     return found || aspectRatioOptions[0];
   });
+  useEffect(() => {
+    setSelectedAspectRatioOption((prev) => {
+      const stored = localStorage.getItem('defaultVidGPTAspectRatio');
+      const targetValue = prev?.value || stored;
+      const found = aspectRatioOptions.find((o) => o.value === targetValue);
+      return found || aspectRatioOptions[0];
+    });
+  }, [aspectRatioOptions]);
 
   // ─────────────────────────────────────────────────────────
   //  Image-model select & styles
@@ -657,18 +720,34 @@ export default function OneshotEditor() {
   }, [selectedVideoModel]);
 
   // Duration select
-  const durationOptions = [
-    { label: '30 Secs', value: 30 },
-    { label: '1 Minute', value: 60 },
-    { label: '1.5 Minutes', value: 90 },
-    { label: '2 Minutes', value: 120 },
-    { label: '3 Minutes', value: 180 },
-  ];
+  const durationOptions = useMemo(
+    () => [
+      { label: t("vidgenie.duration10"), value: 10 },
+      { label: t("vidgenie.duration30"), value: 30 },
+      { label: t("vidgenie.duration60"), value: 60 },
+      { label: t("vidgenie.duration90"), value: 90 },
+      { label: t("vidgenie.duration120"), value: 120 },
+      { label: t("vidgenie.duration180"), value: 180 },
+    ],
+    [t]
+  );
   const [selectedDurationOption, setSelectedDurationOption] = useState(() => {
     const saved = parseInt(localStorage.getItem('defaultVidGPTDuration') || '', 10);
     const found = durationOptions.find((d) => d.value === saved);
-    return found || durationOptions[0];
+    if (found) {
+      return found;
+    }
+    const defaultOption = durationOptions.find((d) => d.value === 30);
+    return defaultOption || durationOptions[0];
   });
+  useEffect(() => {
+    setSelectedDurationOption((prev) => {
+      const saved = parseInt(localStorage.getItem('defaultVidGPTDuration') || '', 10);
+      const targetValue = prev?.value || saved;
+      const found = durationOptions.find((d) => d.value === targetValue);
+      return found || durationOptions[0];
+    });
+  }, [durationOptions]);
 
   // ─────────────────────────────────────────────────────────
   //  Persist selections to localStorage
@@ -746,12 +825,12 @@ export default function OneshotEditor() {
 
     resetForm();
 
-    if (currentPollSessionIdRef.current === id) return;
+    if (currentPollRequestIdRef.current === id) return;
 
     if (id) {
       // Fetch session, and ONLY trigger polling if still pending
       getSessionDetails().then((data) => {
-        if (data?.videoGenerationPending) {
+        if (data?.videoGenerationPending && !activeRequestIdRef.current) {
           pollGenerationStatus(id);
         } else {
           // clear any existing pending polls
@@ -808,6 +887,38 @@ export default function OneshotEditor() {
         selectedAspectRatioOption?.value ||
         null;
 
+      const selectedLanguageValue =
+        typeof selectedLanguageOption === 'string'
+          ? selectedLanguageOption
+          : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
+      const fallbackLanguageCode = resolveLanguageCode(selectedLanguageValue);
+
+      const sessionLanguage =
+        typeof formPayload.sessionLanguage === 'string' && formPayload.sessionLanguage.trim().length > 0
+          ? formPayload.sessionLanguage.trim()
+          : typeof sessionDetails?.sessionLanguage === 'string' &&
+            sessionDetails.sessionLanguage.trim().length > 0
+            ? sessionDetails.sessionLanguage.trim()
+            : typeof sessionDetails?.language === 'string' &&
+              sessionDetails.language.trim().length > 0
+              ? sessionDetails.language.trim()
+              : typeof fallbackLanguageCode === 'string' && fallbackLanguageCode.trim().length > 0
+                ? fallbackLanguageCode.trim()
+                : null;
+
+      const languageString =
+        typeof formPayload.languageString === 'string' && formPayload.languageString.trim().length > 0
+          ? formPayload.languageString.trim()
+          : typeof sessionDetails?.languageString === 'string' &&
+            sessionDetails.languageString.trim().length > 0
+            ? sessionDetails.languageString.trim()
+            : selectedLanguageOption?.value &&
+              selectedLanguageOption.value !== 'auto' &&
+              typeof selectedLanguageOption?.label === 'string' &&
+              selectedLanguageOption.label.trim().length > 0
+              ? selectedLanguageOption.label.trim()
+              : null;
+
       const publishPayload = {
         ...formPayload,
         id: sessionId,
@@ -815,6 +926,12 @@ export default function OneshotEditor() {
         aspectRatio: aspectRatioForPublish,
         ispublishedVideo: true,
       };
+      if (sessionLanguage) {
+        publishPayload.sessionLanguage = sessionLanguage;
+      }
+      if (languageString) {
+        publishPayload.languageString = languageString;
+      }
 
       await axios.post(
         `${PROCESSOR_API_URL}/video_sessions/publish_session`,
@@ -881,16 +998,21 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Generation-status poller
   // ─────────────────────────────────────────────────────────
-  const pollGenerationStatus = (sessionId = id, immediate = false) => {
-    // Always update current session polling ID
-    currentPollSessionIdRef.current = sessionId;
+  const pollGenerationStatus = (requestId = activeRequestIdRef.current || id, immediate = false) => {
+    if (!requestId) return;
+
+    currentPollRequestIdRef.current = requestId;
+    if (activeRequestIdRef.current !== requestId) {
+      activeRequestIdRef.current = requestId;
+      setActiveRequestId(requestId);
+    }
 
     if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
     if (immediate) pollDelayRef.current = 0;
 
     const doPoll = async () => {
-      if (currentPollSessionIdRef.current !== sessionId) {
-        // Abort polling: session has changed
+      if (currentPollRequestIdRef.current !== requestId) {
+        // Abort polling: request has changed
         return;
       }
 
@@ -898,30 +1020,38 @@ export default function OneshotEditor() {
 
       try {
         const headers = getHeaders();
+        const query = new URLSearchParams({ request_id: requestId }).toString();
         const { data } = await axios.get(
-          `${API_SERVER}/quick_session/status?sessionId=${sessionId}`,
+          `${VIDEO_STATUS_ENDPOINT}?${query}`,
           headers
         );
 
         pollDelayRef.current = DEFAULT_POLL;
-        setExpressGenerationStatus(data.expressGenerationStatus);
+        if (data?.expressGenerationStatus) {
+          setExpressGenerationStatus(data.expressGenerationStatus);
+        }
 
         if (data.status === 'COMPLETED') {
           continuePolling = false;
           setIsGenerationPending(false);
-          const videoActualLink =
-            data.remoteURL?.length
-              ? data.remoteURL
-              : data.videoLink
-                ? `${API_SERVER}/${data.videoLink}`
-                : null;
+          const videoActualLink = normalizeVideoUrl(
+            data.result_url
+              || (Array.isArray(data.result_urls) ? data.result_urls[0] : null)
+              || data.remoteURL
+              || data.videoLink
+              || null
+          );
           setVideoLink(videoActualLink);
         }
 
-        if (data.status === 'FAILED') {
+        if (data.status === 'FAILED' || data.status === 'ERROR') {
           continuePolling = false;
           setIsGenerationPending(false);
-          setErrorMessage({ error: `Video generation failed. ${data.expressGenerationError}` });
+          const errorText = data.expressGenerationError || data.message || 'Video generation failed.';
+          const normalizedError = errorText.startsWith('Video generation failed')
+            ? errorText
+            : `Video generation failed. ${errorText}`;
+          setErrorMessage({ error: normalizedError });
         }
       } catch (err) {
         pollDelayRef.current = Math.min(
@@ -930,7 +1060,7 @@ export default function OneshotEditor() {
         );
         
       } finally {
-        if (continuePolling && currentPollSessionIdRef.current === sessionId) {
+        if (continuePolling && currentPollRequestIdRef.current === requestId) {
           const nextDelay = navigator.onLine ? pollDelayRef.current : OFFLINE_POLL;
           pollIntervalRef.current = setTimeout(doPoll, nextDelay);
         }
@@ -1024,21 +1154,18 @@ export default function OneshotEditor() {
       }
 
 
-      if (data.videoGenerationPending) {
-        setIsGenerationPending(true);
-        setShowResultDisplay(true);
-        pollGenerationStatus(id);
-      } else if (data.videoLink) {
-        const link =
-          data.remoteURL?.length
-            ? data.remoteURL
-            : data.videoLink
-              ? `${API_SERVER}/${data.videoLink}`
-              : null;
-        setVideoLink(link);
-        setIsGenerationPending(false);
-        setShowResultDisplay(true);
-        setExpressGenerationStatus(data.expressGenerationStatus);
+      if (!activeRequestIdRef.current) {
+        if (data.videoGenerationPending) {
+          setIsGenerationPending(true);
+          setShowResultDisplay(true);
+          pollGenerationStatus(id);
+        } else if (data.videoLink) {
+          const linkCandidate = data.remoteURL?.length ? data.remoteURL : data.videoLink || null;
+          setVideoLink(normalizeVideoUrl(linkCandidate));
+          setIsGenerationPending(false);
+          setShowResultDisplay(true);
+          setExpressGenerationStatus(data.expressGenerationStatus);
+        }
       }
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
@@ -1064,15 +1191,33 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Handle prompt-starter image upload
   // ─────────────────────────────────────────────────────────
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadedImageFile(file);
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setUploadedImageFiles(files);
 
-    const reader = new FileReader();
-    reader.onloadend = () => setUploadedImageDataUrl(reader.result);
-    reader.readAsDataURL(file);
+    const dataUrls = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              resolve(typeof reader.result === 'string' ? reader.result : '');
+            reader.onerror = () => resolve('');
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+    setUploadedImageDataUrls(dataUrls.filter(Boolean));
   };
+
+  const clearUploadedImage = useCallback(() => {
+    setUploadedImageFiles([]);
+    setUploadedImageDataUrls([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
 
   // ─────────────────────────────────────────────────────────
   //  Submit the text-to-video request
@@ -1084,8 +1229,18 @@ export default function OneshotEditor() {
       showLoginDialog();
       return;
     }
-    if (!promptText.trim()) {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    const isTextToVideo = generationMode === 'T2V';
+    if (isTextToVideo && !promptText.trim()) {
       setErrorMessage({ error: 'Please enter some text before submitting.' });
+      return;
+    }
+    if (!isTextToVideo && uploadedImageDataUrls.length === 0) {
+      setErrorMessage({ error: 'Please select one or more images before submitting.' });
       return;
     }
     if (!id) return;
@@ -1099,27 +1254,74 @@ export default function OneshotEditor() {
     setShowResultDisplay(true);
     setVideoLink(null);
     setExpressGenerationStatus(null);
+    setActiveRequestId(null);
+    activeRequestIdRef.current = null;
 
-    const payload = {
-      prompt: promptText,
-      sessionID: id,
-      aspectRatio: selectedAspectRatioOption.value,
-      imageModel: selectedImageModel.value,
-      imageStyle: selectedImageStyle?.value || null,
-      videoGenerationModel: selectedVideoModel.value,
-      modelSubType: selectedVideoModelSubType?.value || null,
-      duration: selectedDurationOption.value,
-      startImage: uploadedImageDataUrl || null,
-      videoTone: selectedToneOption.value,
-    };
+    const requestInput = {};
+    if (isTextToVideo) {
+      requestInput.prompt = promptText.trim();
+      requestInput.image_model = selectedImageModel.value;
+      requestInput.video_model = selectedVideoModel.value;
+      requestInput.duration = selectedDurationOption.value;
+      requestInput.tone = 'grounded';
+      requestInput.aspect_ratio = selectedAspectRatioOption.value;
+      if (selectedVideoModelSubType?.value) {
+        requestInput.video_model_sub_type = selectedVideoModelSubType.value;
+      }
+      if (selectedImageStyle?.value) {
+        requestInput.image_style = selectedImageStyle.value;
+      }
+    }
+
+    const selectedLanguageValue =
+      typeof selectedLanguageOption === 'string'
+        ? selectedLanguageOption
+        : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
+    requestInput.language = resolveLanguageCode(selectedLanguageValue);
 
     try {
-      const headers = getHeaders();
-      await axios.post(`${API_SERVER}/vidgenie/create`, payload, headers);
-      pollGenerationStatus(id);
+      if (!isTextToVideo) {
+        const uploadPayload = {
+          input: {
+            image_data: uploadedImageDataUrls.filter(Boolean),
+          },
+        };
+        const { data: uploadData } = await axios.post(
+          `${VIDEO_API_BASE}/upload_image_data`,
+          uploadPayload,
+          headers
+        );
+        const uploadedImageUrls = Array.isArray(uploadData?.image_urls)
+          ? uploadData.image_urls
+          : [];
+        const normalizedImageUrls = uploadedImageUrls
+          .map((url) => (typeof url === 'string' ? url.trim() : ''))
+          .filter(Boolean);
+        if (normalizedImageUrls.length === 0) {
+          throw new Error('Image upload did not return any URLs.');
+        }
+        requestInput.image_urls = normalizedImageUrls;
+        if (promptText.trim()) {
+          requestInput.prompt = promptText.trim();
+        }
+      }
+
+      const payload = { input: { ...requestInput, session_id: id } };
+      const endpoint = isTextToVideo
+        ? `${VIDEO_API_BASE}/text_to_video`
+        : `${VIDEO_API_BASE}/image_list_to_video`;
+      const { data } = await axios.post(endpoint, payload, headers);
+      const requestId = data?.request_id || data?.session_id || data?.sessionID;
+      if (!requestId) {
+        throw new Error('Missing request id in response.');
+      }
+      setActiveRequestId(requestId);
+      activeRequestIdRef.current = requestId;
+      pollGenerationStatus(requestId);
     } catch (err) {
       
-      setErrorMessage({ error: 'An unexpected error occurred.' });
+      const apiMessage = err?.response?.data?.message;
+      setErrorMessage({ error: apiMessage || 'An unexpected error occurred.' });
       setIsGenerationPending(false);
     } finally {
       setIsSubmitting(false);
@@ -1142,14 +1344,16 @@ export default function OneshotEditor() {
     setExpressGenerationStatus(null);
     setIsGenerationPending(false);
     setIsSubmitting(false);
+    setActiveRequestId(null);
+    activeRequestIdRef.current = null;
+    currentPollRequestIdRef.current = null;
     setSessionMessages([]);
     setIsAssistantQueryGenerating(false);   // ⬅️ NEW
     setIsPaused(false);                     // ⬅️ NEW
     setSessionDetails(null);                // ⬅️ NEW
-    setUploadedImageFile(null);
-    setUploadedImageDataUrl(null);
+    setUploadedImageFiles([]);
+    setUploadedImageDataUrls([]);
     setSelectedImageStyle(null);
-    setSelectedToneOption({ label: 'stable', value: 'grounded' });
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
     setExpandedVideoId(null);               // ⬅️ NEW
@@ -1172,36 +1376,45 @@ export default function OneshotEditor() {
   const [pricingDetailsDisplay, setPricingDetailsDisplay] = useState(false);
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
+  const IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND = 50;
+
   const creditsPerSecondVideo = useMemo(() => {
-  const key = selectedVideoModel?.value || '';
+    if (generationMode === 'I2V') {
+      return IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND;
+    }
+    const key = selectedVideoModel?.value || '';
     if (key === 'KLINGIMGTOVIDTURBO') return 15;
-  if (key === 'VEO3.1I2VFAST') return 30;
-  if (key === 'VEO3.1I2V') return 60;
-  if (key === 'SORA2') return 30;
-  if (key === 'SORA2PRO') return 70;
-  return 10; // default
-}, [selectedVideoModel]);
+    if (key === 'VEO3.1I2VFAST') return 30;
+    if (key === 'VEO3.1I2V') return 60;
+    if (key === 'SORA2') return 30;
+    if (key === 'SORA2PRO') return 70;
+    return 10; // default
+  }, [generationMode, selectedVideoModel]);
 
 
   const expectedCreditsPerSecond = useMemo(() => {
+    if (generationMode === 'I2V') {
+      return creditsPerSecondVideo;
+    }
     let base = creditsPerSecondVideo;
-    if (selectedImageModel?.value === 'HUNYUAN') {
+    const imageModelKey = selectedImageModel?.value || '';
+    if (imageModelKey === 'HUNYUAN') {
       base = base * 1.5;
     }
     return base;
-  }, [creditsPerSecondVideo, selectedImageModel]);
+  }, [creditsPerSecondVideo, generationMode, selectedImageModel]);
 
   const pricingInfoDisplay = (
     <div className="relative">
       <div
-        className={`flex justify-end items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
+        className={`flex items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
         onClick={togglePricingDetailsDisplay}
       >
         {currentEnv === 'docker' ? (
-          <div>Pricing as charged by API providers.</div>
+          <div>{t("vidgenie.pricingApiCharge")}</div>
         ) : (
           <div className="inline-flex items-center">
-{expectedCreditsPerSecond}&nbsp;Credits&nbsp;/&nbsp;second&nbsp;of&nbsp;video
+            {t("vidgenie.pricingCreditsPerSecond", { credits: expectedCreditsPerSecond })}
           </div>
         )}
         <FaChevronCircleDown
@@ -1209,16 +1422,13 @@ export default function OneshotEditor() {
         />
       </div>
       {pricingDetailsDisplay && (
-        <div className={`mt-2 text-sm text-right ${mutedText} transition-opacity duration-300`}>
+        <div className={`mt-2 text-sm text-left ${mutedText} transition-opacity duration-300`}>
           {currentEnv === 'docker' ? (
-            <div>Pricing as charged by API providers.</div>
+            <div>{t("vidgenie.pricingApiCharge")}</div>
           ) : (
             <>
-              <div>The total price will be shown at completion.</div>
-              <div>
-                For example, a 60&nbsp;s video will cost&nbsp;
-                {60 * creditsPerSecondVideo}&nbsp;credits.
-              </div>
+              <div>{t("vidgenie.pricingTotalShown")}</div>
+              <div>{t("vidgenie.pricingExample", { credits: 60 * creditsPerSecondVideo })}</div>
             </>
           )}
         </div>
@@ -1237,6 +1447,28 @@ export default function OneshotEditor() {
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
+  const toggleShell =
+    colorMode === 'dark'
+      ? 'bg-[#0b1226] ring-1 ring-white/10'
+      : 'bg-white ring-1 ring-slate-200';
+  const toggleActive =
+    colorMode === 'dark'
+      ? 'bg-indigo-500 text-white shadow'
+      : 'bg-indigo-600 text-white shadow';
+  const toggleInactive =
+    colorMode === 'dark'
+      ? 'text-slate-300 hover:text-white hover:bg-white/5'
+      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100';
+  const imagePickerShell =
+    colorMode === 'dark'
+      ? 'bg-gray-950/90 text-white ring-white/10'
+      : 'bg-white text-slate-900 ring-slate-200';
+  const headerTitle = generationMode === 'T2V'
+    ? t("vidgenie.titleTextToVideo")
+    : t("vidgenie.titleImageListToVideo");
+  if (!sessionDetails) {
+    return <VidgenieSkeletonLoader />;
+  }
 
   // ─────────────────────────────────────────────────────────
   //  JSX
@@ -1252,45 +1484,74 @@ export default function OneshotEditor() {
       >
         {/* 1️⃣ Heading */}
         <div className="flex flex-wrap items-center gap-2 text-center sm:text-left">
-          <div className="flex-1">
+          <div className="flex-1 flex flex-wrap items-center justify-center sm:justify-start gap-3">
             <div className="text-xl sm:text-2xl font-semibold tracking-tight">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400">
-                VidGenie&nbsp;Text-to-Vid&nbsp;Agent
-              </span>
+              {headerTitle}
             </div>
-            <div className={`text-xs ${mutedText} mt-1`}>
-              — Create 1-shot videos from text prompts.
+            <div className={`inline-flex items-center gap-1 rounded-full p-1 ${toggleShell}`}>
+              <button
+                type="button"
+                disabled={isFormDisabled}
+                onClick={() => setGenerationMode('T2V')}
+                aria-pressed={generationMode === 'T2V'}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'T2V' ? toggleActive : toggleInactive}`}
+              >
+                T2V
+              </button>
+              <button
+                type="button"
+                disabled={isFormDisabled}
+                onClick={() => setGenerationMode('I2V')}
+                aria-pressed={generationMode === 'I2V'}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'I2V' ? toggleActive : toggleInactive}`}
+              >
+                I2V
+              </button>
             </div>
           </div>
 
-          {renderState !== 'complete' && (
-            <button
-              type="button"
-              onClick={viewInStudio}
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-center sm:justify-end sm:ml-auto">
+            <div
               className={`
-                inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-1.5 rounded-full
-                transition-all duration-200
+                px-3 py-1.5 rounded-full text-center transition
                 ${colorMode === 'dark'
-                  ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
-                  : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
+                  ? 'bg-[#111a2f] text-slate-100 ring-1 ring-[#1f2a3d]'
+                  : 'bg-white text-slate-900 ring-1 ring-slate-200'
                 }
               `}
             >
-              View in Studio
-            </button>
-          )}
-
-          {renderState === 'pending' && (
-            <div
-              className="flex items-center gap-1 text-xs sm:text-sm ml-auto"
-              aria-live="polite"
-              role="status"
-            >
-              <FaSpinner className="animate-spin h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Rendering…</span>
-              <span className="sr-only">Video is rendering</span>
+              {pricingInfoDisplay}
             </div>
-          )}
+
+            {renderState !== 'complete' && (
+              <button
+                type="button"
+                onClick={viewInStudio}
+                className={`
+                  inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-1.5 rounded-full
+                  transition-all duration-200
+                  ${colorMode === 'dark'
+                    ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
+                    : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
+                  }
+                `}
+              >
+                {t("common.viewInStudio")}
+              </button>
+            )}
+
+            {renderState === 'pending' && (
+              <div
+                className="flex items-center gap-1 text-xs sm:text-sm"
+                aria-live="polite"
+                role="status"
+              >
+                <FaSpinner className="animate-spin h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">{t("vidgenie.renderingShort")}</span>
+                <span className="sr-only">{t("vidgenie.renderingAria")}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Mobile action buttons (complete state) */}
@@ -1316,11 +1577,11 @@ export default function OneshotEditor() {
             >
               {sessionDetails.ispublishedVideo
                 ? isUnpublishing
-                  ? 'Unpublishing…'
-                  : 'Unpublish'
+                  ? t("vidgenie.unpublishing")
+                  : t("vidgenie.unpublish")
                 : isPublishing
-                  ? 'Publishing…'
-                  : 'Publish'}
+                  ? t("vidgenie.publishing")
+                  : t("vidgenie.publish")}
             </PrimaryPublicButton>
             <PrimaryPublicButton className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
               <a
@@ -1328,7 +1589,7 @@ export default function OneshotEditor() {
                 download={`Rendition_${dateNowStr}.mp4`}
                 className="underline"
               >
-                Download
+                {t("common.download")}
               </a>
             </PrimaryPublicButton>
           </div>
@@ -1347,112 +1608,118 @@ export default function OneshotEditor() {
                   className="w-full"
                 />
               </div>
-              <p className={`text-[11px] mt-1 ${mutedText}`}>Aspect Ratio</p>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.aspectRatio")}</p>
             </div>
 
-            {/* Image Model */}
-            <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                <SingleSelect
-                  value={selectedImageModel}
-                  onChange={setSelectedImageModel}
-                  options={expressImageModels}
-                  className="w-full"
-                />
-              </div>
-              <p className={`text-[11px] mt-1 ${mutedText}`}>Image Model</p>
-            </div>
+            {generationMode === 'T2V' && (
+              <>
+                {/* Image Model */}
+                <div className="group w-full">
+                  <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                    <SingleSelect
+                      value={selectedImageModel}
+                      onChange={setSelectedImageModel}
+                      options={expressImageModels}
+                      className="w-full"
+                    />
+                  </div>
+                  <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.imageModel")}</p>
+                </div>
 
-            {/* Image Style (conditional) */}
-            {(() => {
-              const modelCfg = IMAGE_GENERAITON_MODEL_TYPES.find(
-                (m) => m.key === selectedImageModel?.value
-              );
-              if (modelCfg?.imageStyles) {
-                return (
+                {/* Image Style (conditional) */}
+                {(() => {
+                  const modelCfg = IMAGE_GENERAITON_MODEL_TYPES.find(
+                    (m) => m.key === selectedImageModel?.value
+                  );
+                  if (modelCfg?.imageStyles) {
+                    return (
+                      <div className="group w-full">
+                        <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                          <SingleSelect
+                            value={selectedImageStyle}
+                            onChange={setSelectedImageStyle}
+                            options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
+                            className="w-full"
+                          />
+                        </div>
+                        <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.imageStyle")}</p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Video Model */}
+                <div className="group w-full">
+                  <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                    <SingleSelect
+                      value={selectedVideoModel}
+                      onChange={setSelectedVideoModel}
+                      options={expressVideoModels}
+                      className="w-full"
+                    />
+                  </div>
+                  <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.videoModel")}</p>
+                </div>
+
+                {/* Pixverse Style */}
+                {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
                   <div className="group w-full">
                     <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                       <SingleSelect
-                        value={selectedImageStyle}
-                        onChange={setSelectedImageStyle}
-                        options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
-                        className="w-full"
-                      />
-                    </div>
-                    <p className={`text-[11px] mt-1 ${mutedText}`}>Image Style</p>
+                        value={selectedVideoModelSubType}
+                        onChange={setSelectedVideoModelSubType}
+                      options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
+                      className="w-full"
+                    />
                   </div>
-                );
-              }
-              return null;
-            })()}
+                    <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.pixverseStyle")}</p>
+                  </div>
+                )}
 
-            {/* Video Model */}
-            <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                <SingleSelect
-                  value={selectedVideoModel}
-                  onChange={setSelectedVideoModel}
-                  options={expressVideoModels}
-                  className="w-full"
-                />
-              </div>
-              <p className={`text-[11px] mt-1 ${mutedText}`}>Video Model</p>
-            </div>
-
-            {/* Pixverse Style */}
-            {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
-              <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                  <SingleSelect
-                    value={selectedVideoModelSubType}
-                    onChange={setSelectedVideoModelSubType}
-                    options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
-                    className="w-full"
-                  />
-                </div>
-                <p className={`text-[11px] mt-1 ${mutedText}`}>Pixverse Style</p>
-              </div>
-            )}
-
-            {/* Generic Sub-type */}
-            {selectedVideoModel?.modelSubTypes?.length && selectedVideoModelSubType && (
-              <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                  <SingleSelect
-                    value={selectedVideoModelSubType}
-                    onChange={setSelectedVideoModelSubType}
-                    options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
-                    className="w-full"
-                  />
-                </div>
-                <p className={`text-[11px] mt-1 ${mutedText}`}>Video Sub-Type</p>
-              </div>
+                {/* Generic Sub-type */}
+                {selectedVideoModel?.modelSubTypes?.length && selectedVideoModelSubType && (
+                  <div className="group w-full">
+                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                      <SingleSelect
+                        value={selectedVideoModelSubType}
+                        onChange={setSelectedVideoModelSubType}
+                      options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
+                      className="w-full"
+                    />
+                  </div>
+                    <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.videoSubType")}</p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Duration */}
-            <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                <SingleSelect
-                  value={selectedDurationOption}
-                  onChange={setSelectedDurationOption}
-                  options={durationOptions}
-                  className="w-full"
-                />
+            {generationMode === 'T2V' && (
+              <div className="group w-full">
+                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                  <SingleSelect
+                    value={selectedDurationOption}
+                    onChange={setSelectedDurationOption}
+                    options={durationOptions}
+                    className="w-full"
+                  />
+                </div>
+                <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.maxDuration")}</p>
               </div>
-              <p className={`text-[11px] mt-1 ${mutedText}`}>Max Duration</p>
-            </div>
+            )}
 
-            {/* Tone */}
+            {/* Language */}
             <div className="group w-full">
               <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
-                  value={selectedToneOption}
-                  onChange={setSelectedToneOption}
-                  options={toneOptions}
+                  value={selectedLanguageOption}
+                  onChange={setSelectedLanguageOption}
+                  options={languageOptions}
                   className="w-full"
                 />
               </div>
-              <p className={`text-[11px] mt-1 ${mutedText}`}>Video Tone</p>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.languageLabel", {}, "Language")}</p>
             </div>
           </div>
         </div>
@@ -1480,87 +1747,166 @@ export default function OneshotEditor() {
         </div>
       )}
 
-      {/* Prompt-starter preview */}
-      {uploadedImageDataUrl && (
-        <img
-          src={uploadedImageDataUrl}
-          alt="Prompt starter"
-          className="mt-4 max-h-40 rounded-xl shadow-md ring-1 ring-black/5 hover:shadow-lg transition"
-        />
-      )}
-
       {/* ───────── Submission form ───────── */}
       <form onSubmit={handleSubmit}>
-        <div className="relative mt-4">
-          <TextareaAutosize
-            minRows={8}
-            maxRows={20}
-            disabled={isFormDisabled}
-            readOnly={isVoiceBusy}
-            className={`
-              w-full pl-4 pt-4 pr-16 p-2 rounded-2xl resize-none placeholder:opacity-60
-              focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
-              ${colorMode === 'dark'
-                ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
-                : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
-              }
-              ${isVoiceBusy ? 'opacity-95' : ''}
-            `}
-            placeholder="Enter a succinct prompt for your rendition…"
-            name="promptText"
-            value={promptText}
-            onChange={(e) => setPromptText(e.target.value)}
-          />
-          <button
-            type="button"
-            onClick={handleToggleVoiceRecording}
-            disabled={!isVoiceSupported && !isBrowserSpeechSupported}
-            aria-pressed={isVoiceBusy}
-            className={`
-              absolute bottom-3 right-3 h-11 w-11 rounded-full flex items-center justify-center
-              transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
-              ${colorMode === 'dark'
-                ? 'bg-indigo-500/80 hover:bg-indigo-500 text-white focus:ring-indigo-400/70 focus:ring-offset-slate-900'
-                : 'bg-indigo-500 hover:bg-indigo-600 text-white focus:ring-indigo-500/40 focus:ring-offset-white'}
-              ${isVoiceBusy ? 'animate-pulse scale-105' : ''}
-              ${isVoiceInitializing && !isBrowserRecognitionActive ? 'opacity-70 cursor-wait' : 'cursor-pointer'}
-              ${(!isVoiceSupported && !isBrowserSpeechSupported) ? 'opacity-40 cursor-not-allowed hover:bg-indigo-500' : ''}
-            `}
-            title={
-              (!isVoiceSupported && !isBrowserSpeechSupported)
-                ? 'Voice capture not supported in this browser'
-                : isVoiceBusy
-                  ? 'Tap to stop recording'
-                  : 'Tap to start voice dictation'
-            }
-          >
-            {isVoiceInitializing && !isBrowserRecognitionActive ? (
-              <FaSpinner className="animate-spin text-lg" />
-            ) : isVoiceBusy ? (
-              <FaStopCircle className="text-lg" />
-            ) : (
-              <FaMicrophone className="text-lg" />
-            )}
-            <span className="sr-only">
-              {isVoiceBusy ? 'Stop voice recording' : 'Start voice recording'}
-            </span>
-          </button>
-        </div>
-        <div className="mt-2 text-xs">
-          {voiceError ? (
-            <span className="text-red-500">{voiceError}</span>
-          ) : voiceStatusMessage ? (
-            <span className={colorMode === 'dark' ? 'text-white/70' : 'text-slate-600'}>
-              {voiceStatusMessage}
-            </span>
-          ) : (
-            <span className={colorMode === 'dark' ? 'text-white/50' : 'text-slate-400'}>
-              {isBrowserSpeechSupported || isVoiceSupported
-                ? 'Use the microphone button to dictate your prompt in real time.'
-                : 'Voice dictation is unavailable in this browser.'}
-            </span>
-          )}
-        </div>
+        {generationMode === 'T2V' ? (
+          <>
+            <div className="relative mt-4">
+              <TextareaAutosize
+                minRows={8}
+                maxRows={20}
+                disabled={isFormDisabled}
+                readOnly={isVoiceBusy}
+                className={`
+                  w-full pl-4 pt-4 pr-16 p-2 rounded-2xl resize-none placeholder:opacity-60
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+                  ${colorMode === 'dark'
+                    ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                    : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
+                  }
+                  ${isVoiceBusy ? 'opacity-95' : ''}
+                `}
+                placeholder={t("vidgenie.promptPlaceholder")}
+                name="promptText"
+                value={promptText}
+                onChange={(e) => setPromptText(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={handleToggleVoiceRecording}
+                disabled={!isVoiceSupported && !isBrowserSpeechSupported}
+                aria-pressed={isVoiceBusy}
+                className={`
+                  absolute bottom-3 right-3 h-11 w-11 rounded-full flex items-center justify-center
+                  transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
+                  ${colorMode === 'dark'
+                    ? 'bg-indigo-500/80 hover:bg-indigo-500 text-white focus:ring-indigo-400/70 focus:ring-offset-slate-900'
+                    : 'bg-indigo-500 hover:bg-indigo-600 text-white focus:ring-indigo-500/40 focus:ring-offset-white'}
+                  ${isVoiceBusy ? 'animate-pulse scale-105' : ''}
+                  ${isVoiceInitializing && !isBrowserRecognitionActive ? 'opacity-70 cursor-wait' : 'cursor-pointer'}
+                  ${(!isVoiceSupported && !isBrowserSpeechSupported) ? 'opacity-40 cursor-not-allowed hover:bg-indigo-500' : ''}
+                `}
+                title={
+                  (!isVoiceSupported && !isBrowserSpeechSupported)
+                    ? t("vidgenie.voiceNotSupported")
+                    : isVoiceBusy
+                      ? t("vidgenie.voiceStop")
+                      : t("vidgenie.voiceStart")
+                }
+              >
+                {isVoiceInitializing && !isBrowserRecognitionActive ? (
+                  <FaSpinner className="animate-spin text-lg" />
+                ) : isVoiceBusy ? (
+                  <FaStopCircle className="text-lg" />
+                ) : (
+                  <FaMicrophone className="text-lg" />
+                )}
+                <span className="sr-only">
+                  {isVoiceBusy ? t("vidgenie.voiceButtonSrStop") : t("vidgenie.voiceButtonSrStart")}
+                </span>
+              </button>
+            </div>
+            <div className="mt-2 text-xs">
+              {voiceError ? (
+                <span className="text-red-500">{voiceError}</span>
+              ) : voiceStatusMessage ? (
+                <span className={colorMode === 'dark' ? 'text-white/70' : 'text-slate-600'}>
+                  {voiceStatusMessage}
+                </span>
+              ) : (
+                <span className={colorMode === 'dark' ? 'text-white/50' : 'text-slate-400'}>
+                  {isBrowserSpeechSupported || isVoiceSupported
+                    ? t("vidgenie.voiceUseMic")
+                    : t("vidgenie.voiceUnavailable")}
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 space-y-4">
+            <TextareaAutosize
+              minRows={4}
+              maxRows={12}
+              disabled={isFormDisabled}
+              className={`
+                w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
+                focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+                ${colorMode === 'dark'
+                  ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                  : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
+                }
+              `}
+              placeholder={t("vidgenie.promptPlaceholder")}
+              name="promptText"
+              value={promptText}
+              onChange={(e) => setPromptText(e.target.value)}
+            />
+            <div className="relative">
+              <div className={`relative rounded-2xl ring-1 transition ${imagePickerShell}`}>
+                <label
+                  className={`flex min-h-[220px] w-full flex-col items-center justify-center gap-3 px-4 py-6 text-center ${
+                    isFormDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    disabled={isFormDisabled}
+                    className="sr-only"
+                  />
+                  {uploadedImageDataUrls.length ? (
+                    <>
+                      <div className="grid w-full grid-cols-2 sm:grid-cols-3 gap-3">
+                        {uploadedImageDataUrls.map((imageUrl, index) => (
+                          <div key={`image-${index}`} className="flex flex-col items-center gap-1">
+                            <img
+                              src={imageUrl}
+                              alt={`Selected prompt ${index + 1}`}
+                              className="h-20 w-20 rounded-lg object-cover shadow-sm ring-1 ring-black/5"
+                            />
+                            <div className={`text-[11px] ${mutedText} max-w-[96px] truncate`}>
+                              {uploadedImageFiles[index]?.name || `Image ${index + 1}`}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className={`mt-3 text-[11px] ${mutedText}`}>Click to replace images</div>
+                    </>
+                  ) : (
+                    <>
+                      <div
+                        className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                          colorMode === 'dark' ? 'bg-white/10' : 'bg-slate-100'
+                        }`}
+                      >
+                        <FaImage className="text-lg" />
+                      </div>
+                      <div className="text-sm font-medium">Choose images</div>
+                      <div className={`text-[11px] ${mutedText}`}>PNG or JPG</div>
+                    </>
+                  )}
+                </label>
+                {uploadedImageDataUrls.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearUploadedImage}
+                    className={`absolute top-3 right-3 h-8 w-8 rounded-full flex items-center justify-center transition ${
+                      colorMode === 'dark'
+                        ? 'bg-white/10 text-white hover:bg-white/20'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                    aria-label="Remove selected images"
+                  >
+                    <FaTimes className="text-sm" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mt-4 relative">
           <div className="flex justify-center">
             <PrimaryPublicButton
@@ -1568,27 +1914,19 @@ export default function OneshotEditor() {
               isDisabled={isFormDisabled || isSubmitting}
               className="px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
             >
-              {isSubmitting ? 'Submitting…' : 'Submit'}
+              {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
             </PrimaryPublicButton>
           </div>
 
-          {/* Pricing */}
-          <div
-            className={`
-              md:absolute md:right-0 top-0 p-3 rounded-xl text-center mt-4 md:mt-0 w-full md:w-auto transition
-              ${colorMode === 'dark'
-                ? 'bg-gray-900/70 text-white ring-1 ring-white/10'
-                : 'bg-white text-slate-900 ring-1 ring-slate-200'
-              }
-            `}
-          >
-            {pricingInfoDisplay}
-          </div>
         </div>
       </form>
 
       {/* ───────── Assistant Chat ───────── */}
-      <div className={`mt-6 ${colorMode === 'dark' ? 'bg-white/5' : 'bg-white'} rounded-2xl p-3 sm:p-4 ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'} transition-shadow hover:shadow-sm`}>
+      <div className={`mt-6 rounded-2xl p-3 sm:p-4 ring-1 transition-shadow hover:shadow-sm ${
+        colorMode === 'dark'
+          ? 'bg-[#0f1629] text-slate-100 ring-[#1f2a3d]'
+          : 'bg-white text-slate-900 ring-slate-200'
+      }`}>
         <AssistantHome
           submitAssistantQuery={submitAssistantQuery}
           sessionMessages={sessionMessages}

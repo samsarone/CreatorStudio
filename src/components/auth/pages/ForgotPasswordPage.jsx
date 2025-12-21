@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
+import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../../constants/supportedLanguages.js';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
@@ -39,16 +40,11 @@ const translations = {
   },
 };
 
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-];
-
 const getInitialLanguage = () => {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('preferredLanguage') : null;
   const browser = typeof navigator !== 'undefined' && navigator.language ? navigator.language.split('-')[0] : null;
-  return (saved || browser || 'en').toLowerCase();
+  const resolved = resolveLanguageCode(saved || browser || 'en', 'en');
+  return resolved === 'auto' ? 'en' : resolved;
 };
 
 export default function ForgotPassword(props) {
@@ -98,9 +94,9 @@ export default function ForgotPassword(props) {
           onChange={(e) => setLanguage(e.target.value)}
           className="w-full rounded-lg p-2 bg-neutral-800 text-white"
         >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.nativeName || lang.name}
             </option>
           ))}
         </select>

@@ -37,12 +37,12 @@ export default function OneshotEditorContainer() {
 
   const outerShell =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100'
-      : 'bg-gradient-to-br from-white via-slate-50 to-sky-50 text-slate-900';
+      ? 'bg-[#0b1021] text-slate-100'
+      : 'bg-gradient-to-br from-[#e9edf7] via-[#eef3fb] to-white text-slate-900';
   const subtleGradient =
     colorMode === 'dark'
-      ? 'bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950'
-      : 'bg-gradient-to-b from-white via-sky-50 to-slate-100';
+      ? 'bg-gradient-to-b from-[#080f21] via-[#0d1830] to-[#0b1226]'
+      : 'bg-gradient-to-b from-[#eef3fb] via-[#e4ebf8] to-[#f7fbff]';
   return (
     <div className={`${outerShell} ${subtleGradient} min-h-screen`}>
       <OverflowContainer>

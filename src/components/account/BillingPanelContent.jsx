@@ -39,11 +39,11 @@ export default function BillingPanelContent() {
   const { user, getUserAPI } = useUser();
   const location = useLocation();
 
-  const textColor = colorMode === "dark" ? "text-neutral-100" : "text-neutral-900";
-  const cardBgColor = colorMode === "dark" ? "bg-neutral-800" : "bg-white";
-  const borderColor = colorMode === "dark" ? "border-neutral-700" : "border-neutral-200";
-  const subtleText = colorMode === "dark" ? "text-neutral-400" : "text-neutral-500";
-  const mutedBg = colorMode === "dark" ? "bg-neutral-900/60" : "bg-neutral-50";
+  const textColor = colorMode === "dark" ? "text-slate-100" : "text-slate-900";
+  const cardBgColor = colorMode === "dark" ? "bg-[#0f1629]" : "bg-white";
+  const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
+  const subtleText = colorMode === "dark" ? "text-slate-400" : "text-slate-600";
+  const mutedBg = colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50";
 
   const [threshold, setThreshold] = useState(1000);
   const [amountUsd, setAmountUsd] = useState(50);
@@ -296,7 +296,7 @@ export default function BillingPanelContent() {
           <div
             key={payment.id || payment.stripeInvoiceId}
             className={`flex items-center justify-between rounded-lg border ${borderColor} px-4 py-3 ${
-              colorMode === "dark" ? "bg-neutral-800/70" : "bg-neutral-50"
+              colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50"
             }`}
           >
             <div>
@@ -440,7 +440,7 @@ export default function BillingPanelContent() {
               value={threshold}
               onChange={(e) => setThreshold(e.target.value)}
               className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
-                colorMode === "dark" ? "bg-neutral-900 text-neutral-100" : "bg-white text-neutral-900"
+                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
               }`}
             />
             <span className={`text-xs ${subtleText}`}>Auto-recharge kicks in below this balance.</span>
@@ -455,7 +455,7 @@ export default function BillingPanelContent() {
               value={amountUsd}
               onChange={(e) => setAmountUsd(e.target.value)}
               className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
-                colorMode === "dark" ? "bg-neutral-900 text-neutral-100" : "bg-white text-neutral-900"
+                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
               }`}
             />
             <span className={`text-xs ${subtleText}`}>
@@ -484,7 +484,7 @@ export default function BillingPanelContent() {
             onClick={handleTriggerNow}
             disabled={isTriggering}
             className={`flex items-center gap-2 rounded-lg border ${borderColor} px-4 py-2 text-sm font-semibold ${
-              colorMode === "dark" ? "hover:bg-neutral-700" : "hover:bg-neutral-100"
+              colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-white hover:bg-slate-100"
             } disabled:cursor-not-allowed disabled:opacity-60`}
           >
             <FaSync /> {isTriggering ? "Running…" : "Run auto-recharge now"}
@@ -494,7 +494,7 @@ export default function BillingPanelContent() {
               onClick={handleCancelAutoRecharge}
               disabled={isCancelingAuto}
               className={`flex items-center gap-2 rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-500 ${
-                colorMode === "dark" ? "hover:bg-neutral-800" : "hover:bg-red-50"
+                colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-red-50 hover:bg-red-100"
               } disabled:cursor-not-allowed disabled:opacity-60`}
             >
               <FaTimes /> {isCancelingAuto ? "Canceling…" : "Cancel auto-recharge"}
@@ -586,8 +586,8 @@ export default function BillingPanelContent() {
                 onChange={(e) => setCouponCode(e.target.value)}
                 className={`w-full rounded-lg border px-3 py-2 text-sm ${
                   colorMode === "dark"
-                    ? "border-neutral-700 bg-neutral-900 text-neutral-100 placeholder:text-neutral-500"
-                    : "border-neutral-300 bg-white text-neutral-900 placeholder:text-neutral-400"
+                    ? "border-[#1f2a3d] bg-[#0b1224] text-slate-100 placeholder:text-slate-500"
+                    : "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
                 }`}
               />
               <SecondaryButton

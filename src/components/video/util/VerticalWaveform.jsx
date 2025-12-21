@@ -82,7 +82,11 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
   return (
     <div
       ref={parentRef}
-      className={`h-[82vh] w-full relative ${colorMode === 'dark' ? 'bg-slate-950/80' : 'bg-slate-50'} rounded-xl border ${colorMode === 'dark' ? 'border-white/10' : 'border-slate-200'} overflow-hidden`}
+      className={`h-[82vh] w-full relative rounded-xl overflow-hidden shadow-sm ${
+        colorMode === 'dark'
+          ? 'bg-[#0f1629] border border-[#1f2a3d]'
+          : 'bg-slate-50 border border-slate-200'
+      }`}
     >
       <canvas ref={canvasRef} width="120" />
     </div>

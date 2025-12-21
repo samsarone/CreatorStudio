@@ -37,8 +37,8 @@ export default function AssistantHome(props) {
   // On component mount or whenever `user` changes, synchronize the local assistantModel
   useEffect(() => {
     if (user) {
-      // If user.selectedAssistantModel not set, default to "GPT4O"
-      const userAssistantModel = user.selectedAssistantModel || "GPT4O";
+      // If user.selectedAssistantModel not set, default to "GPT5.2"
+      const userAssistantModel = user.selectedAssistantModel || "GPT5.2";
       const userAssistantModelOption = ASSISTANT_MODEL_TYPES.find(
         (model) => model.value === userAssistantModel
       );

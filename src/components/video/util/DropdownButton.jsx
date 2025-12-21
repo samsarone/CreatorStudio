@@ -18,11 +18,11 @@ function DropdownButton(props) {
   // Container & hover colors separated
   const containerBg =
     colorMode === 'dark'
-      ? 'bg-slate-950/85 text-slate-100 border border-white/10 shadow-lg shadow-slate-900/40'
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-800 border border-slate-200 shadow-sm';
   const itemHoverBg =
     colorMode === 'dark'
-      ? 'hover:bg-slate-900/60'
+      ? 'hover:bg-[#111a2f]'
       : 'hover:bg-slate-100';
 
   useEffect(() => {

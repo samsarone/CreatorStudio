@@ -19,47 +19,17 @@ export default function SceneLibraryHome(props) {
   const { colorMode } = useColorMode();
   const itemsPerPage = 12; // Adjust as needed
 
-  // --- Define color-based Tailwind classes ---
-  // Container (parent) background & text
-  const containerBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
-  const containerText = colorMode === 'dark' ? 'text-white' : 'text-black';
-
-  // Border color (top toolbar)
-  const borderColor = colorMode === 'dark' ? 'border-gray-700' : 'border-gray-300';
-
-  // Pagination button backgrounds
-  const paginationButtonBg = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
-  // Pagination span background
-  const paginationSpanBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-100';
-
-  // Search input background/border
-  const searchInputBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-100';
-  const searchInputBorder = colorMode === 'dark' ? 'border-gray-600' : 'border-gray-400';
-
-  // Grid item card background
-  const itemBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-100';
-
-  // Play/Pause button background
-  const playPauseButtonBg = colorMode === 'dark'
-    ? 'bg-neutral-800 hover:bg-neutral-900'
-    : 'bg-neutral-200 hover:bg-neutral-300';
-
-  // Icon color
-  const iconColor = colorMode === 'dark' ? 'text-white' : 'text-black';
-
-  // Subtext color (for model/prompt)
-  const subTextColor = colorMode === 'dark' ? 'text-gray-400' : 'text-gray-600';
-
-  // Download button background
-  const downloadButtonBg = colorMode === 'dark'
-    ? 'bg-neutral-800 hover:bg-neutral-700'
-    : 'bg-neutral-200 hover:bg-neutral-100';
-
-  // Select button gradient (adjust as needed)
-  const selectButtonGradient = colorMode === 'dark'
-    ? 'bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900 hover:bg-purple-700'
-    : 'bg-gradient-to-r from-blue-300 via-blue-200 to-blue-300 hover:bg-purple-300';
-  // -------------------------------------------
+  // Palette aligned with account page styling
+  const textColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
+  const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
+  const cardBg = colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white';
+  const headerBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-50';
+  const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-600';
+  const surfaceButton = colorMode === 'dark'
+    ? 'bg-[#0b1224] hover:bg-[#0f1629]'
+    : 'bg-white hover:bg-slate-100';
+  const iconColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-800';
+  const selectButtonGradient = 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:opacity-90';
 
   useEffect(() => {
     fetchLibraryData();
@@ -145,44 +115,44 @@ export default function SceneLibraryHome(props) {
   };
 
   return (
-    <div className={`${containerBg} ${containerText} relative library-home-container mb-4 pb-4`}>
+    <div className={`space-y-4 ${textColor}`}>
       {/* Top Toolbar */}
-      <div className={`flex items-center justify-between p-4 border-b ${borderColor}`}>
-        <div className="flex items-center">
-          {/* Pagination Controls */}
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage === 1}
-            className={`px-3 py-1 ${paginationButtonBg} rounded-l disabled:opacity-50`}
-          >
-            Prev
-          </button>
-          <span className={`px-4 py-1 ${paginationSpanBg}`}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-            className={`px-3 py-1 ${paginationButtonBg} rounded-r disabled:opacity-50`}
-          >
-            Next
-          </button>
+      <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className={`flex items-center rounded-lg border overflow-hidden ${borderColor}`}>
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+              className={`px-3 py-2 text-sm font-semibold border-r ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              Prev
+            </button>
+            <span className={`px-4 py-2 text-sm ${headerBg}`}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-2 text-sm font-semibold border-l ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              Next
+            </button>
+          </div>
 
-          {/* Search Bar */}
           <input
             type="text"
             placeholder="Search"
             value={searchTerm}
             onChange={handleSearchChange}
-            className={`ml-4 px-3 py-1 ${searchInputBg} border ${searchInputBorder} rounded focus:outline-none`}
+            className={`ml-2 px-3 py-2 text-sm rounded-lg border ${borderColor} ${surfaceButton} focus:outline-none`}
           />
         </div>
       </div>
 
       {/* Grid Display */}
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 h-auto overflow-auto">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {libraryData.map((item) => (
-          <div key={item._id} className={`${itemBg} p-4 rounded`}>
+          <div key={item._id} className={`rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
             {/* Video Thumbnail + Play/Pause Button */}
             <div className="relative">
               <video
@@ -190,13 +160,13 @@ export default function SceneLibraryHome(props) {
                   videoRefs.current[item._id] = el;
                 }}
                 src={`${API_SERVER}/${item.url}`}
-                className="w-full h-48 object-cover rounded cursor-pointer"
+                className="w-full h-48 object-cover rounded-lg cursor-pointer"
                 controls={false}
                 preload="metadata"
                 onClick={() => handlePlayPause(item._id)}
               />
               <button
-                className={`absolute bottom-2 right-2 ${playPauseButtonBg} p-2 rounded-full`}
+                className={`absolute bottom-2 right-2 px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
                 onClick={() => handlePlayPause(item._id)}
               >
                 {playingVideoId === item._id ? (
@@ -207,39 +177,39 @@ export default function SceneLibraryHome(props) {
               </button>
             </div>
             {/* Description */}
-            <h2 className="mt-2 text-lg font-semibold">
+            <h2 className="mt-3 text-lg font-semibold">
               {item.description || 'No Description'}
             </h2>
             {/* Model and Prompt */}
-            <p className={`text-sm ${subTextColor}`}>
+            <p className={`text-sm ${mutedText}`}>
               Model: {item.model || 'Unknown'}
             </p>
-            <p className={`text-sm ${subTextColor}`}>
+            <p className={`text-sm ${mutedText}`}>
               Prompt: {item.prompt || 'No Prompt'}
             </p>
 
             {/* Download and Select Buttons */}
-            <div className="mt-2 flex justify-between items-center">
+            <div className="mt-3 flex justify-between items-center">
               <button
-                className={`${downloadButtonBg} px-3 py-2 rounded`}
+                className={`px-3 py-2 rounded-lg border ${borderColor} ${surfaceButton}`}
                 onClick={() => handleDownload(item)}
               >
                 <FaDownload className={iconColor} />
               </button>
 
               {!hideSelectButton && (
-                <div className="flex items-center">
-                  <label className="text-xs mr-2 flex items-center">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs flex items-center gap-1">
                     <input
                       type="checkbox"
                       checked={trimScenes[item._id] || false}
                       onChange={() => handleTrimChange(item._id)}
-                      className="mr-1"
+                      className="h-4 w-4 accent-blue-500"
                     />
                     Trim
                   </label>
                   <button
-                    className={`${selectButtonGradient} px-3 py-2 rounded`}
+                    className={`${selectButtonGradient} px-4 py-2 rounded-lg font-semibold shadow`}
                     onClick={() => handleSelect(item)}
                     disabled={isSelectButtonDisabled}
                   >

@@ -1,10 +1,11 @@
 import logo from './logo.svg';
 import './App.css';
 import { UserProvider } from './contexts/UserContext';
+import { LocalizationProvider } from './contexts/LocalizationContext.jsx';
 import { AlertDialogProvider } from './contexts/AlertDialogContext';
-import Home from './components/landing/Home.tsx'
+import Home from './components/landing/Home.tsx';
 import { NavCanvasControlProvider } from './contexts/NavCanvasControlContext.jsx';
-import { ColorModeProvider  } from './contexts/ColorMode.jsx';
+import { ColorModeProvider } from './contexts/ColorMode.jsx';
 import { BrowserRouter } from 'react-router-dom';
 import CookieConsentBanner from './components/common/CookieConsentBanner';
 
@@ -13,15 +14,17 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
-          <UserProvider>
+        <UserProvider>
+          <LocalizationProvider>
             <AlertDialogProvider>
               <ColorModeProvider>
-              <NavCanvasControlProvider>
+                <NavCanvasControlProvider>
                   <Home />
-                 </NavCanvasControlProvider> 
+                </NavCanvasControlProvider>
               </ColorModeProvider>
             </AlertDialogProvider>
-          </UserProvider>
+          </LocalizationProvider>
+        </UserProvider>
       </BrowserRouter>
       <CookieConsentBanner />
     </div>

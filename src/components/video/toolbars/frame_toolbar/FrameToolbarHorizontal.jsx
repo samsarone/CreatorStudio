@@ -217,7 +217,7 @@ export default function FrameToolbarHorizontal({
         onClick={onDownload}
         className={`px-3 py-2 rounded-lg text-xs inline-flex items-center gap-2 transition-colors duration-150 ${
           colorMode === "dark"
-            ? "bg-slate-900/80 text-slate-100 border border-white/10 hover:bg-slate-900"
+            ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
             : "bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-100"
         }`}
       >
@@ -231,7 +231,7 @@ export default function FrameToolbarHorizontal({
     <div
       className={`${
         colorMode === "dark"
-          ? "bg-slate-950/85 text-slate-100 border-t border-white/5 backdrop-blur-sm"
+          ? "bg-[#0f1629] text-slate-100 border-t border-[#1f2a3d] shadow-[0_-6px_30px_rgba(0,0,0,0.4)]"
           : "bg-white/90 text-slate-800 border-t border-slate-200 shadow-[0_-6px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm"
       } w-full overflow-hidden`}
     >
@@ -253,10 +253,10 @@ export default function FrameToolbarHorizontal({
                 className={`h-[4px] rounded-full ${
                   state.index === 0
                     ? colorMode === "dark"
-                      ? "bg-indigo-400/70"
-                      : "bg-indigo-500/70"
+                      ? "bg-rose-400/70"
+                      : "bg-amber-400/70"
                     : colorMode === "dark"
-                      ? "bg-slate-800/70"
+                      ? "bg-[#16213a]"
                       : "bg-slate-200"
                 } ${className ?? ""}`}
                 style={style}
@@ -268,7 +268,7 @@ export default function FrameToolbarHorizontal({
             const baseClass =
               colorMode === "dark"
                 ? "bg-white border border-white/40 shadow-[0_4px_14px_rgba(148,163,184,0.35)]"
-                : "bg-indigo-500 border border-indigo-200 shadow-[0_4px_16px_rgba(99,102,241,0.25)]";
+                : "bg-amber-400 border border-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.25)]";
             return (
               <div
                 key={key}
@@ -289,7 +289,7 @@ export default function FrameToolbarHorizontal({
         <button
           className={`p-2.5 rounded-full transition-colors duration-150 ${
             colorMode === "dark"
-              ? "bg-slate-900/80 text-slate-100 border border-white/10 hover:bg-slate-900"
+              ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
               : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
           } ${canScrollLeft ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
           onClick={() => canScrollLeft && scrollByAmount(-1)}
@@ -301,12 +301,12 @@ export default function FrameToolbarHorizontal({
         <div className="relative flex-1 min-w-0">
           <div
             className={`pointer-events-none absolute inset-y-1 left-0 w-10 bg-gradient-to-r ${
-              colorMode === "dark" ? "from-slate-950/80" : "from-white"
+              colorMode === "dark" ? "from-[#0f1629]" : "from-white"
             } to-transparent`}
           />
           <div
             className={`pointer-events-none absolute inset-y-1 right-0 w-10 bg-gradient-to-l ${
-              colorMode === "dark" ? "from-slate-950/80" : "from-white"
+              colorMode === "dark" ? "from-[#0f1629]" : "from-white"
             } to-transparent`}
           />
           {/* IMPORTANT: Make the Droppable be the scroll container so RBD can auto-scroll it */}
@@ -342,10 +342,10 @@ export default function FrameToolbarHorizontal({
                                 className={`rounded-lg border transition-colors duration-150 ${
                                   isSelected
                                     ? colorMode === "dark"
-                                      ? "border-indigo-400/70 bg-indigo-500/25 shadow-[0_8px_20px_rgba(79,70,229,0.25)]"
-                                      : "border-indigo-300 bg-indigo-100 shadow-[0_8px_24px_rgba(99,102,241,0.18)]"
+                                      ? "border-rose-400/60 bg-rose-500/20 shadow-[0_8px_20px_rgba(248,113,113,0.2)]"
+                                      : "border-amber-300 bg-amber-50 shadow-[0_8px_24px_rgba(251,191,36,0.2)]"
                                     : colorMode === "dark"
-                                      ? "border-white/5 bg-slate-900/70 hover:border-white/10"
+                                      ? "border-[#1f2a3d] bg-[#111a2f] hover:border-rose-400/30"
                                       : "border-slate-200 bg-slate-100 hover:border-slate-300"
                                 } cursor-pointer flex items-center justify-center select-none`}
                                 style={{
@@ -391,7 +391,7 @@ export default function FrameToolbarHorizontal({
         <button
           className={`p-2.5 rounded-full transition-colors duration-150 ${
             colorMode === "dark"
-              ? "bg-slate-900/80 text-slate-100 border border-white/10 hover:bg-slate-900"
+              ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
               : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
           } ${canScrollRight ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
           onClick={() => canScrollRight && scrollByAmount(1)}

@@ -37,11 +37,11 @@ export default function SpeechSelectToolbar(props) {
 
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
   const inputSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/60 text-slate-100 border border-white/10'
+      ? 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
   const textEmphasis = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
 

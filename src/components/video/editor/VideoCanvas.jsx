@@ -253,8 +253,8 @@ const VideoCanvas = forwardRef((props, ref) => {
   }, [currentCanvasAction]);
 
   const { colorMode } = useColorMode();
-  const bgColor = colorMode === 'dark' ? `bg-gray-900` : `bg-neutral-300`;
-  const textColor = colorMode === 'dark' ? `text-white` : `text-black`;
+  const bgColor = colorMode === 'dark' ? `bg-[#0f1629]` : `bg-neutral-300`;
+  const textColor = colorMode === 'dark' ? `text-slate-100` : `text-black`;
 
   const selectLayer = (item) => {
 
@@ -860,7 +860,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
       />
       {showAddRemoveMaskedItemButton && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white p-2 rounded-lg shadow-lg z-50">
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] p-2 rounded-lg shadow-[0_10px_28px_rgba(0,0,0,0.35)] z-50">
           <button className="mr-4" onClick={handleAddButtonClick}>Add</button>
           <button onClick={handleRemoveButtonClick}>Remove</button>
         </div>

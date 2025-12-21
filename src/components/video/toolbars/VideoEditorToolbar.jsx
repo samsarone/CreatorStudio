@@ -681,28 +681,28 @@ export default function VideoEditorToolbar(props) {
 
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950/85 border border-white/10 text-slate-100 backdrop-blur-sm'
-      : 'bg-white border border-slate-200 text-slate-900 shadow-xl shadow-slate-200/50';
+      ? 'bg-[#0f1629] border border-[#1f2a3d] text-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)]'
+      : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
   const inputSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/60 border border-white/10'
+      ? 'bg-[#111a2f] border border-[#1f2a3d]'
       : 'bg-white border border-slate-200 shadow-sm';
   const interactiveTile =
     colorMode === 'dark'
-      ? 'bg-indigo-500/20 border border-indigo-400/30'
-      : 'bg-indigo-50 border border-indigo-200';
+      ? 'bg-rose-500/10 border border-rose-400/30 text-rose-100'
+      : 'bg-rose-50 border border-rose-200 text-rose-700';
   const buttonBgcolor =
     colorMode === 'dark'
-      ? 'bg-slate-900/70 border border-white/10 text-white'
+      ? 'bg-[#131c33] border border-[#24314d] text-white'
       : 'bg-slate-100 border border-slate-200 text-slate-900 shadow-sm';
-  const textInnerColor = colorMode === 'dark' ? 'text-neutral-900' : 'text-white';
-  const text2Color = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
-  const formSelectBgColor = colorMode === 'dark' ? '#030712' : '#f8fafc';
-  const formSelectTextColor = colorMode === 'dark' ? '#f3f4f6' : '#0f172a';
+  const textInnerColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
+  const text2Color = colorMode === 'dark' ? 'text-slate-100' : 'text-neutral-900';
+  const formSelectBgColor = colorMode === 'dark' ? '#0f1629' : '#f8fafc';
+  const formSelectTextColor = colorMode === 'dark' ? '#e2e8f0' : '#0f172a';
   const formSelectSelectedTextColor = formSelectTextColor;
-  const formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
-  const sliderAccent = colorMode === 'dark' ? '#6366f1' : '#2563eb';
-  const sliderTrack = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
+  const formSelectHoverColor = colorMode === 'dark' ? '#1b2438' : '#2563EB';
+  const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
+  const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
 
   const getSliderStyle = (value, min, max) => {
     const numValue = Number(value);
@@ -1347,10 +1347,10 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  const bgPillSelected = colorMode === 'dark' ? 'bg-blue-950' : 'bg-blue-200';
-  const bgPillUnselected = colorMode === 'dark' ? 'bg-gray-900' : 'bg-gray-200';
-  const textPillSelected = colorMode === 'dark' ? 'text-white' : 'text-gray-900';
-  const textPillUnselected = colorMode === 'dark' ? 'text-gray-100' : 'text-gray-600';
+  const bgPillSelected = colorMode === 'dark' ? 'bg-rose-500/25 border border-rose-400/30' : 'bg-rose-100 border border-rose-200';
+  const bgPillUnselected = colorMode === 'dark' ? 'bg-[#111a2f] border border-[#1f2a3d]' : 'bg-gray-200 border border-transparent';
+  const textPillSelected = colorMode === 'dark' ? 'text-rose-100' : 'text-rose-700';
+  const textPillUnselected = colorMode === 'dark' ? 'text-slate-200' : 'text-gray-600';
 
   const isItemSelected = (view) => currentViewDisplay === view;
   const getMarginTop = (view) => (isItemSelected(view) ? 'mt-0' : 'mt-4');
@@ -1501,7 +1501,7 @@ export default function VideoEditorToolbar(props) {
       <div>
         <div
           className={`sticky top-[50px] z-10 p-3 rounded-xl transition-colors duration-200 ${colorMode === 'dark'
-            ? 'bg-slate-950/90 border border-white/10 backdrop-blur'
+            ? 'bg-[#111a2f] border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.35)]'
             : 'bg-white/95 border border-slate-200 shadow-sm'}`}
         >
           {collapseButton}

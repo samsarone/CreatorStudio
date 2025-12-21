@@ -17,8 +17,8 @@ const LayersDisplay = (props) => {
 
   const { colorMode } = useColorMode();
 
-  const bgColorDragging = colorMode === 'dark' ? '#1f2937' : '#fafafa';
-  const bgColorDraggingOver = colorMode === 'dark' ? '#030712' : '#f5f5f5';
+  const bgColorDragging = colorMode === 'dark' ? '#0f1629' : '#fafafa';
+  const bgColorDraggingOver = colorMode === 'dark' ? '#111a2f' : '#f5f5f5';
   
   const getListStyle = (isDraggingOver) => ({
     background: isDraggingOver ? bgColorDraggingOver : bgColorDragging,
@@ -58,9 +58,9 @@ const LayersDisplay = (props) => {
     updateSessionLayerActiveItemList(reorderedItems);
   };
 
-  const isDraggingBGColor = colorMode === 'dark' ? '#263B4A' : '#a8a29e';
-  const isStableBGColor = colorMode === 'dark' ? '#171717' : '#d6d3d1';
-  const textColor = colorMode === 'dark' ? 'white' : '#171717';
+  const isDraggingBGColor = colorMode === 'dark' ? '#16213a' : '#a8a29e';
+  const isStableBGColor = colorMode === 'dark' ? '#0b1021' : '#d6d3d1';
+  const textColor = colorMode === 'dark' ? '#e5e7eb' : '#171717';
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -83,7 +83,7 @@ const LayersDisplay = (props) => {
                       ...provided.draggableProps.style,
                       margin: '8px',
                       backgroundColor: snapshot.isDragging ? isDraggingBGColor : isStableBGColor,
-                      border: '1px solid #64748b',
+                      border: colorMode === 'dark' ? '1px solid #1f2a3d' : '1px solid #64748b',
                       color: textColor,
                       padding: '8px',
                       borderRadius: '5px',

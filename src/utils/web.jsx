@@ -1,7 +1,35 @@
 const AUTH_COOKIE_NAME = 'authToken';
 const AUTH_TOKEN_KEY = 'authToken';
 const COOKIE_CONSENT_KEY = 'samsar_cookie_consent';
+const AUTH_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 let inMemoryAuthToken = null;
+
+const getAuthCookie = () => {
+  if (typeof document === 'undefined') return null;
+  const cookies = document.cookie ? document.cookie.split(';') : [];
+  const prefix = `${AUTH_COOKIE_NAME}=`;
+
+  for (const cookie of cookies) {
+    const trimmed = cookie.trim();
+    if (trimmed.startsWith(prefix)) {
+      const value = trimmed.slice(prefix.length);
+      return value ? decodeURIComponent(value) : null;
+    }
+  }
+
+  return null;
+};
+
+const setAuthCookie = (token) => {
+  if (!token || typeof document === 'undefined') return;
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const domainAttr = hostname.endsWith('samsar.one') ? ' domain=.samsar.one;' : '';
+  const secureAttr =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' ? ' Secure;' : '';
+  const encodedToken = encodeURIComponent(token);
+
+  document.cookie = `${AUTH_COOKIE_NAME}=${encodedToken}; Path=/; Max-Age=${AUTH_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax;${secureAttr}${domainAttr}`;
+};
 
 const expireAuthCookie = (domain) => {
   if (typeof document === 'undefined') return;
@@ -51,6 +79,9 @@ export function saveCookieConsentStatus(status) {
 
   if (status === 'rejected') {
     clearAuthCookies();
+  } else if (status === 'accepted') {
+    const token = getAuthToken();
+    if (token) setAuthCookie(token);
   }
 }
 
@@ -61,22 +92,41 @@ export function getAuthToken() {
   if (typeof window === 'undefined') return null;
 
   try {
-    const sessionToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
-    if (sessionToken) {
-      inMemoryAuthToken = sessionToken;
-      return sessionToken;
-    }
-
-    // Migrate any legacy localStorage token into sessionStorage, then remove it.
     const legacyToken = localStorage.getItem(AUTH_TOKEN_KEY);
     if (legacyToken) {
       inMemoryAuthToken = legacyToken;
-      sessionStorage.setItem(AUTH_TOKEN_KEY, legacyToken);
-      localStorage.removeItem(AUTH_TOKEN_KEY);
       return legacyToken;
     }
   } catch (err) {
     // Ignore storage read errors to avoid breaking auth flow.
+  }
+
+  try {
+    const sessionToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+    if (sessionToken) {
+      inMemoryAuthToken = sessionToken;
+      try {
+        localStorage.setItem(AUTH_TOKEN_KEY, sessionToken);
+      } catch (err) {
+        // Ignore storage write errors.
+      }
+      return sessionToken;
+    }
+  } catch (err) {
+    // Ignore storage read errors to avoid breaking auth flow.
+  }
+
+  if (hasAcceptedCookies()) {
+    const cookieToken = getAuthCookie();
+    if (cookieToken) {
+      inMemoryAuthToken = cookieToken;
+      try {
+        localStorage.setItem(AUTH_TOKEN_KEY, cookieToken);
+      } catch (err) {
+        // Ignore storage write errors.
+      }
+      return cookieToken;
+    }
   }
 
   return null;
@@ -98,12 +148,19 @@ export function persistAuthToken(token) {
   if (!token || typeof window === 'undefined') return;
 
   try {
-    sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
   } catch (err) {
-    // Ignore storage write errors; token will only live in memory.
+    try {
+      sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    } catch (storageErr) {
+      // Ignore storage write errors; token will only live in memory.
+    }
   }
 
   inMemoryAuthToken = token;
+  if (hasAcceptedCookies()) {
+    setAuthCookie(token);
+  }
 }
 
 export function clearAuthData() {
@@ -114,7 +171,7 @@ export function clearAuthData() {
       // Ignore storage clear errors.
     }
 
-    // Clear any legacy storage locations that may still hold the token.
+    // Clear any stored auth tokens.
     try {
       localStorage.removeItem(AUTH_TOKEN_KEY);
     } catch (err) {

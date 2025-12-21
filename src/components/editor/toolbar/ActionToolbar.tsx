@@ -27,21 +27,21 @@ export default function ActionToolbar(props) {
 
   const baseShell =
     colorMode === 'dark'
-      ? 'bg-cyber-black border-blue-900 text-white'
-      : 'bg-white text-slate-800 border border-slate-200 shadow-sm';
+      ? 'bg-[#0f1629] border-[#1f2a3d] text-slate-100 shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
+      : 'bg-white text-slate-900 border border-[#d7deef] shadow-sm';
 
   const optionShell =
     colorMode === 'dark'
-      ? 'bg-gray-900/70 border border-white/10'
-      : 'bg-white border border-slate-100 shadow-sm';
+      ? 'bg-[#111a2f] border border-[#1f2a3d]'
+      : 'bg-white border border-[#d7deef] shadow-sm';
 
   const optionSelected =
     colorMode === 'dark'
-      ? 'bg-slate-800 text-white'
-      : 'bg-indigo-50 text-indigo-600 border border-indigo-200';
+      ? 'bg-[#16213a] text-rose-100 border border-rose-400/30'
+      : 'bg-rose-50 text-rose-700 border border-rose-200';
 
-  const accentColor = colorMode === 'dark' ? '#6366f1' : '#2563eb';
-  const trackColor = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
+  const accentColor = colorMode === 'dark' ? '#ff5f8a' : '#f97316';
+  const trackColor = colorMode === 'dark' ? '#1f2a3d' : '#d7deef';
 
   const getSliderStyle = (value: number, min: number, max: number) => {
     const safeValue = Number.isFinite(value) ? Math.min(Math.max(value, min), max) : min;

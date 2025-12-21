@@ -111,7 +111,7 @@ export default function VideoAiVideoOptionsViewer(props) {
         {showSoundEffectPrompt && (
           <div className="flex flex-col items-center mt-2 w-full">
             <textarea
-              className="w-48 text-sm p-1 bg-gray-800 border border-gray-300 rounded"
+              className="w-48 text-sm p-1 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] rounded"
               placeholder="Enter prompt for effect"
               value={soundEffectPrompt}
               onChange={(e) => setSoundEffectPrompt(e.target.value)}

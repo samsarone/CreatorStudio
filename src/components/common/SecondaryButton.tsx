@@ -4,14 +4,14 @@ import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode";
 
 export default function SecondaryButton(props) {
-  const { children, onClick, isPending, extraClasses } = props;
+  const { children, onClick, isPending, extraClasses, disabled, className } = props;
   const { user } = useUser();
   const { colorMode } = useColorMode();
 
 
   let isBtnDisabled = false;
 
-  if (!user || !user._id || isPending) {
+  if (!user || !user._id || isPending || disabled) {
     isBtnDisabled = true;
   }
 
@@ -23,6 +23,7 @@ export default function SecondaryButton(props) {
   const bgColor = colorMode === 'dark' ? `text-neutral-100  border border-neutral-600 from-neutral-900 to-gray-800
    text-neutral-200 hover:to-gray-800 hover:text-neutral-100` :
     `text-neutral-100  from-blue-500 to-blue-600  hover:bg-blue-60 hover:text-neutral-300`;
+  const additionalClasses = [extraClasses, className].filter(Boolean).join(" ");
   return (
     <button onClick={onClick} className={`m-auto text-center min-w-8
     rounded-lg shadow-sm 
@@ -32,7 +33,7 @@ export default function SecondaryButton(props) {
     pl-2 pr-2 pt-1 pb-1 text-bold
     shadow-lg 
     cursor:pointer text-sm
-    disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-neutral-100 ${extraClasses}`}
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-neutral-100 ${additionalClasses}`}
       disabled={isBtnDisabled}>
       {children}
       {pendingSpinner}

@@ -18,31 +18,20 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
   const audioRef = useRef(new Audio());
   const { colorMode } = useColorMode();
 
-  // --- Color-mode based Tailwind classes ---
-  const containerBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
-  const containerText = colorMode === 'dark' ? 'text-white' : 'text-black';
-  const toolbarBorder = colorMode === 'dark' ? 'border-gray-700' : 'border-gray-300';
-  const paginationButtonBg = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
-  const paginationSpanBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-100';
-  const searchInputBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-100';
-  const searchInputBorder = colorMode === 'dark' ? 'border-gray-600' : 'border-gray-400';
-
-  const cardBg = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-100';
-  const neutralButtonBg = colorMode === 'dark'
-    ? 'bg-neutral-800 hover:bg-neutral-900'
-    : 'bg-neutral-200 hover:bg-neutral-300';
-  const neutralButtonBg2 = colorMode === 'dark'
-    ? 'bg-neutral-800 hover:bg-neutral-700'
-    : 'bg-neutral-200 hover:bg-neutral-100';
-  const selectButtonBg = colorMode === 'dark'
-    ? 'bg-blue-600 hover:bg-blue-700'
-    : 'bg-blue-400 hover:bg-blue-500';
-
-  const tagBg = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
-  const iconColor = colorMode === 'dark' ? 'text-white' : 'text-black';
+  // Palette aligned with account styling
+  const textColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
+  const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
+  const cardBg = colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white';
+  const headerBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-50';
+  const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-600';
+  const surfaceButton = colorMode === 'dark'
+    ? 'bg-[#0b1224] hover:bg-[#0f1629]'
+    : 'bg-white hover:bg-slate-100';
+  const selectButtonBg = 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:opacity-90';
+  const tagBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-100';
+  const iconColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-800';
   const sliderAccent = colorMode === 'dark' ? '#6366f1' : '#2563eb';
-  const sliderTrack = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
-  // -----------------------------------------
+  const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
 
   const itemsPerPage = 50;
 
@@ -182,48 +171,48 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
   };
 
   return (
-    <div className={`${containerBg} min-h-screen h-auto ${containerText}`}>
+    <div className={`space-y-4 ${textColor}`}>
       {/* Top Toolbar */}
-      <div className={`flex items-center justify-between p-4 border-b ${toolbarBorder}`}>
+      <div className={`rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm flex flex-wrap items-center justify-between gap-3`}>
         <h1 className="text-2xl font-bold">Music Library</h1>
-        <div className="flex items-center">
-          {/* Pagination Controls */}
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage === 1}
-            className={`px-3 py-1 ${paginationButtonBg} rounded-l disabled:opacity-50`}
-          >
-            Prev
-          </button>
-          <span className={`px-4 py-1 ${paginationSpanBg}`}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages}
-            className={`px-3 py-1 ${paginationButtonBg} rounded-r disabled:opacity-50`}
-          >
-            Next
-          </button>
-          {/* Search Bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className={`flex items-center rounded-lg border overflow-hidden ${borderColor}`}>
+            <button
+              onClick={handlePrevPage}
+              disabled={currentPage === 1}
+              className={`px-3 py-2 text-sm font-semibold border-r ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              Prev
+            </button>
+            <span className={`px-4 py-2 text-sm ${headerBg}`}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={handleNextPage}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-2 text-sm font-semibold border-l ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              Next
+            </button>
+          </div>
           <input
             type="text"
             placeholder="Search"
             value={searchTerm}
             onChange={handleSearchChange}
-            className={`ml-4 px-3 py-1 ${searchInputBg} border ${searchInputBorder} rounded focus:outline-none`}
+            className={`px-3 py-2 text-sm rounded-lg border ${borderColor} ${surfaceButton} focus:outline-none`}
           />
         </div>
       </div>
 
       {/* Grid Display */}
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-3 gap-4">
         {libraryData.map((item, idx) => (
-          <div key={item._id} className={`${cardBg} p-4 rounded`}>
+          <div key={item._id} className={`rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
             {/* Play/Pause and Download Buttons */}
-            <div className="mb-2 flex items-center">
+            <div className="mb-3 flex items-center gap-2">
               <button
-                className={`${neutralButtonBg} px-3 py-2 rounded-full`}
+                className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
                 onClick={() => handlePlayPause(item)}
               >
                 {playingSongId === item._id ? (
@@ -235,7 +224,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
 
               {/* Seek Bar and Time Display (only if this song is playing) */}
               {playingSongId === item._id && (
-                <div className="flex-1 mx-3 flex items-center">
+                <div className="flex-1 mx-2 flex items-center gap-2">
                   <span className="text-sm">{formatTime(currentTime)}</span>
                   <input
                     type="range"
@@ -243,7 +232,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
                     max={duration}
                     value={currentTime}
                     onChange={handleSeekChange}
-                    className="mx-2 flex-1 appearance-none h-2 rounded-full"
+                    className="flex-1 appearance-none h-2 rounded-full"
                     style={{
                       accentColor: sliderAccent,
                       background: `linear-gradient(to right, ${sliderAccent} 0%, ${sliderAccent} ${(duration ? (currentTime / duration) : 0) * 100}%, ${sliderTrack} ${(duration ? (currentTime / duration) : 0) * 100}%, ${sliderTrack} 100%)`,
@@ -254,7 +243,7 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
               )}
 
               <button
-                className={`${neutralButtonBg2} px-3 py-2 rounded-full`}
+                className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
                 onClick={() => handleDownload(item)}
               >
                 <FaDownload className={iconColor} />
@@ -281,11 +270,14 @@ export default function MusicLibraryHome({ onSelectMusic, hideSelectButton }) {
             {/* Select Button */}
             {!hideSelectButton && (
               <button
-                className={`mt-4 w-full ${selectButtonBg} px-3 py-2 rounded`}
+                className={`mt-4 w-full ${selectButtonBg} px-3 py-2 rounded-lg font-semibold shadow`}
                 onClick={() => handleSelect(item)}
               >
                 Select
               </button>
+            )}
+            {hideSelectButton && (
+              <p className={`mt-3 text-xs ${mutedText}`}>Click play to preview and download.</p>
             )}
           </div>
         ))}

@@ -95,7 +95,7 @@ const AudioEffectsToolbar = ({ selectedAudioTrack, onSaveAudioEffects }) => {
   };
 
   return (
-    <div className='p-4 bg-gray-800 text-white'>
+    <div className='p-4 bg-[#0f1629] text-slate-100 border border-[#1f2a3d] rounded-lg shadow-[0_10px_28px_rgba(0,0,0,0.35)]'>
       <div className='flex items-center mb-4'>
         <FaMusic className='mr-2' />
         <h3 className='text-lg font-bold'>Audio Effects</h3>

@@ -19,11 +19,11 @@ export default function SoundSelectToolbar(props) {
 
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
   const inputSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/60 border border-white/10 text-slate-100'
+      ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100'
       : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
 
   // Construct the full audio URL

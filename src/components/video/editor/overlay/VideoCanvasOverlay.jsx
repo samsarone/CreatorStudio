@@ -63,19 +63,19 @@ export default function VideoCanvasOverlay(props) {
 
     const overlaySurface =
       colorMode === "dark"
-        ? "bg-slate-950/85 text-slate-100 border border-white/10 shadow-[0_20px_60px_rgba(8,15,40,0.65)]"
+        ? "bg-[#0f1629]/95 text-slate-100 border border-[#1f2a3d] shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
         : "bg-white/90 text-slate-900 border border-slate-200 shadow-xl shadow-slate-200/60";
     const tabBase =
       colorMode === "dark"
-        ? "bg-slate-900/60 text-slate-300 border border-white/10 hover:text-white"
+        ? "bg-[#111a2f] text-slate-300 border border-[#1f2a3d] hover:text-white"
         : "bg-slate-100 text-slate-600 border border-slate-200 hover:text-slate-900";
     const tabActive =
       colorMode === "dark"
-        ? "bg-indigo-500/25 text-white border border-indigo-400/40 shadow-sm"
+        ? "bg-rose-500/20 text-rose-100 border border-rose-400/30 shadow-sm"
         : "bg-indigo-500/10 text-indigo-600 border border-indigo-200 shadow-sm";
     const closeButtonColor =
       colorMode === "dark"
-        ? "text-slate-300 hover:text-white"
+        ? "text-slate-300 hover:text-rose-200"
         : "text-slate-500 hover:text-slate-800";
 
     return (

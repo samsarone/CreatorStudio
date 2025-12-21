@@ -58,13 +58,15 @@ export default function AddText(props) {
   const [colorPickerType, setColorPickerType] = useState(null);
 
   const formElementBG =
-    colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800";
+    colorMode === "dark"
+      ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d]"
+      : "bg-gray-100 text-neutral-800";
   const textElementBG =
     colorMode === "dark"
-      ? "bg-gray-800 text-neutral-50"
+      ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d]"
       : "bg-gray-100 text-neutral-800 border-gray-600 border-2";
 
-  const buttonClasses = (active) => (active ? 'bg-blue-500 text-white' : formElementBG);
+  const buttonClasses = (active) => (active ? 'bg-rose-500 text-white' : formElementBG);
 
   const handleFontSizeChange = (e) => {
     let val = parseInt(e.target.value, 10);

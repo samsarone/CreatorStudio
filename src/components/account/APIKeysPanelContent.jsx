@@ -16,10 +16,10 @@ export default function APIKeysPanelContent() {
   const { user } = useUser();
 
   const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-800';
-  const bgColor = colorMode === 'dark' ? 'bg-neutral-900' : 'bg-neutral-100';
   const secondaryTextColor = colorMode === 'dark' ? 'text-neutral-400' : 'text-neutral-500';
-  const cardBgColor = colorMode === 'dark' ? 'bg-neutral-800' : 'bg-white';
-  const borderColor = colorMode === 'dark' ? 'border-neutral-700' : 'border-neutral-300';
+  const cardBgColor = colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white';
+  const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
+  const headerBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-50';
 
   const [apiKeys, setApiKeys] = useState([]);
   const [showKey, setShowKey] = useState({});
@@ -103,70 +103,81 @@ export default function APIKeysPanelContent() {
   };
 
   return (
-    <div className={`flex flex-col flex-grow ${bgColor} ${textColor}`}>
+    <div className={`flex flex-col flex-grow gap-4 ${textColor}`}>
       <ToastContainer />
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-2xl font-bold">API Keys</h2>
         <SecondaryButton onClick={handleCreateKey}>Create Key</SecondaryButton>
       </div>
       {loading ? (
-        <p>Loading...</p>
+        <p className={secondaryTextColor}>Loading...</p>
       ) : apiKeys.length === 0 ? (
         <p className={`text-lg ${secondaryTextColor}`}>No API keys found.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className={`min-w-full border ${borderColor}`}>
-            <thead>
-              <tr className={`${cardBgColor}`}>
-                <th className="px-4 py-2 border-b text-left">Index</th>
-                <th className="px-4 py-2 border-b text-left">Key</th>
-                <th className="px-4 py-2 border-b text-left">Created At</th>
-                <th className="px-4 py-2 border-b text-left">Expires At</th>
-                <th className="px-4 py-2 border-b text-left">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {apiKeys.map((keyItem, index) => (
-                <tr
-                  key={keyItem._id}
-                  className={`${index % 2 === 0 ? 'bg-neutral-800' : ''}`}
-                >
-                  <td className="px-4 py-2 border-b">{index + 1}</td>
-                  <td className="px-4 py-2 border-b">
-                    <div className="flex items-center">
-                      <span className="mr-2">
-                        {showKey[keyItem._id]
-                          ? keyItem.apiKey
-                          : maskedKey(keyItem.apiKey)}
-                      </span>
-                      <button
-                        onClick={() => toggleShowKey(keyItem._id)}
-                        className="focus:outline-none"
-                      >
-                        {showKey[keyItem._id] ? <FaEyeSlash /> : <FaEye />}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 border-b">
-                    {new Date(keyItem.createdAt).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-2 border-b">
-                    {keyItem.expiresAt
-                      ? new Date(keyItem.expiresAt).toLocaleString()
-                      : 'Never'}
-                  </td>
-                  <td className="px-4 py-2 border-b">
-                    <button
-                      onClick={() => handleDeleteKey(keyItem._id)}
-                      className="text-red-500 hover:text-red-700 focus:outline-none"
-                    >
-                      <FaTrash />
-                    </button>
-                  </td>
+        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} overflow-hidden shadow-sm`}>
+          <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor} ${headerBg}`}>
+            <p className="text-lg font-semibold">Manage your API keys</p>
+            <p className={`text-sm ${secondaryTextColor}`}>Store and rotate keys securely.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className={headerBg}>
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Index</th>
+                  <th className="px-4 py-3 text-left font-semibold">Key</th>
+                  <th className="px-4 py-3 text-left font-semibold">Created At</th>
+                  <th className="px-4 py-3 text-left font-semibold">Expires At</th>
+                  <th className="px-4 py-3 text-left font-semibold">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {apiKeys.map((keyItem, index) => {
+                  const rowBg =
+                    index % 2 === 0
+                      ? colorMode === 'dark'
+                        ? 'bg-[#0b1224]'
+                        : 'bg-slate-50'
+                      : '';
+                  return (
+                    <tr key={keyItem._id} className={`border-t ${borderColor} ${rowBg}`}>
+                      <td className="px-4 py-3">{index + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span>
+                            {showKey[keyItem._id]
+                              ? keyItem.apiKey
+                              : maskedKey(keyItem.apiKey)}
+                          </span>
+                          <button
+                            onClick={() => toggleShowKey(keyItem._id)}
+                            className={`rounded-md px-2 py-1 text-xs font-semibold border ${borderColor} ${colorMode === 'dark' ? 'hover:bg-[#0f1629]' : 'hover:bg-slate-100'}`}
+                          >
+                            {showKey[keyItem._id] ? 'Hide' : 'Show'}
+                          </button>
+                        </div>
+                      </td>
+                      <td className={`px-4 py-3 ${secondaryTextColor}`}>
+                        {new Date(keyItem.createdAt).toLocaleString()}
+                      </td>
+                      <td className={`px-4 py-3 ${secondaryTextColor}`}>
+                        {keyItem.expiresAt
+                          ? new Date(keyItem.expiresAt).toLocaleString()
+                          : 'Never'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => handleDeleteKey(keyItem._id)}
+                          className="text-red-500 hover:text-red-600 focus:outline-none"
+                        >
+                          <FaTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

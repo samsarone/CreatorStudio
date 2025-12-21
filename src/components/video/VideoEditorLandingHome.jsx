@@ -4,9 +4,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getHeaders, persistAuthToken, getAuthToken } from '../../utils/web';
 import './home.css';
-import ScreenLoader from './util/ScreenLoader';
-
-import LoadingImage from './util/LoadingImage.jsx';
+import StudioSkeletonLoader from './util/StudioSkeletonLoader.jsx';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -28,7 +26,7 @@ export default function VideoEditorLandingHome() {
 
   if (!userInitiated) {
     return (
-      <LoadingImage />
+      <StudioSkeletonLoader />
     );
   }
 

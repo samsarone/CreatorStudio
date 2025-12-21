@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../../constants/supportedLanguages.js';
 import OverflowContainer from '../../common/OverflowContainer.tsx'; // keep as‑is if TSX
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -81,16 +82,11 @@ const translations = {
   },
 };
 
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-];
-
 const getInitialLanguage = (urlLang) => {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('preferredLanguage') : null;
   const browser = typeof navigator !== 'undefined' && navigator.language ? navigator.language.split('-')[0] : null;
-  return (urlLang || saved || browser || 'en').toLowerCase();
+  const resolved = resolveLanguageCode(urlLang || saved || browser || 'en', 'en');
+  return resolved === 'auto' ? 'en' : resolved;
 };
 
 export default function ResetPasswordPage() {
@@ -201,9 +197,9 @@ export default function ResetPasswordPage() {
               onChange={(e) => setLanguage(e.target.value)}
               className="w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500"
             >
-              {languageOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeName || lang.name}
                 </option>
               ))}
             </select>

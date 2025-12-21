@@ -6,6 +6,7 @@ import { FaExpandArrowsAlt, FaDownload, FaTimes } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 import SingleSelect from "../../common/SingleSelect.jsx";
 import { IoMdGrid } from "react-icons/io";
+import { useLocalization } from "../../../contexts/LocalizationContext.jsx";
 
 import { NavCanvasControlContext } from "../../../contexts/NavCanvasControlContext.jsx";
 import { useContext } from "react";
@@ -39,6 +40,7 @@ export default function CanvasControlBar(props) {
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
+  const { t } = useLocalization();
   let expressGenerationLink = null;
 
 
@@ -54,6 +56,7 @@ export default function CanvasControlBar(props) {
           requestRegenerateAnimations={requestRegenerateAnimations}
           requestRealignLayers={requestRealignLayers}
           requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
+          t={t}
         />
       </div>
     );
@@ -65,13 +68,13 @@ export default function CanvasControlBar(props) {
 
   let expandButtonText = (
     <div className="flex">
-      <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> Expand
+      <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> {t("common.expand")}
     </div>
   );
   if (displayZoomType === "fill") {
     expandButtonText = (
       <div className="flex">
-        <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> Collapse
+        <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> {t("common.collapse")}
       </div>
     );
   }
@@ -102,7 +105,7 @@ export default function CanvasControlBar(props) {
                 {canvasActualDimensions.width} x {canvasActualDimensions.height}
               </div>
               <div className="">
-                Dimensions
+                {t("common.dimensions")}
               </div>
             </div>
           </div>
@@ -112,7 +115,7 @@ export default function CanvasControlBar(props) {
                 {totalEffectiveDuration ? totalEffectiveDuration.toFixed(2) : '-'}
               </div>
               <div className="">
-                Duration
+                {t("common.duration")}
               </div>
             </div>
           </div>
@@ -139,13 +142,13 @@ export default function CanvasControlBar(props) {
         </div>
         <div>
           <SecondaryButton onClick={downloadCurrentFrame}>
-            <FaDownload className="text-xs inline-flex mr-1" /> Frame
+            <FaDownload className="text-xs inline-flex mr-1" /> {t("common.frame")}
           </SecondaryButton>
         </div>
 
         <div>
           <SecondaryButton onClick={showGridView}>
-            <IoMdGrid className="text-xs inline-flex mr-1" /> Grid
+            <IoMdGrid className="text-xs inline-flex mr-1" /> {t("common.grid")}
           </SecondaryButton>
         </div>
 
@@ -155,7 +158,7 @@ export default function CanvasControlBar(props) {
 
         <div>
           <SecondaryPublicButton onClick={showPlayPause}>
-            {isVideoPreviewPlaying ? <><FaPause className="text-xs inline-flex mr-1" /> Pause</> : <><FaPlay className="text-xs inline-flex mr-1" /> Play</>}
+            {isVideoPreviewPlaying ? <><FaPause className="text-xs inline-flex mr-1" /> {t("common.pause")}</> : <><FaPlay className="text-xs inline-flex mr-1" /> {t("common.play")}</>}
           </SecondaryPublicButton>
         </div>
 
@@ -172,7 +175,7 @@ export default function CanvasControlBar(props) {
 
 const AddSubtitlesDialog = (props) => {
   const { requestRegenerateSubtitles, requestRegenerateAnimations, closeAlertDialog, requestRealignLayers,
-    requestRealignToAiVideoAndLayers
+    requestRealignToAiVideoAndLayers, t
   } = props;
   const requestRegenerateAndClose = () => {
     requestRegenerateSubtitles();
@@ -199,27 +202,27 @@ const AddSubtitlesDialog = (props) => {
   return (
     <div>
       <div>
-        <h1>Regenerate Subtitles</h1>
+        <h1>{t("studio.actions.regenerateSubtitlesTitle")}</h1>
       </div>
       <div className="mt-4 mb-2">
         <SecondaryButton onClick={requestRegenerateAndClose} >
-          Regenerate Subtitle
+          {t("studio.actions.regenerateSubtitle")}
         </SecondaryButton>
       </div>
       <div className="mt-4 mb-2">
         <SecondaryButton onClick={requestRegenerateAnimationsAndClose} >
-          Regenerate Animations
+          {t("studio.actions.regenerateAnimations")}
         </SecondaryButton>
       </div>
       <div className="mt-4 mb-2">
         <SecondaryButton onClick={requestRealignLayersAndClose} >
-          Realign layers & subtitles to audio.
+          {t("studio.actions.realignLayers")}
         </SecondaryButton>
       </div>
 
       <div className="mt-4 mb-2">
         <SecondaryButton onClick={requestRealignToAiVideoAndLayersAndClose} >
-          Realign layers to AI Video layers
+          {t("studio.actions.realignLayersToAiVideo")}
         </SecondaryButton>
       </div>
 

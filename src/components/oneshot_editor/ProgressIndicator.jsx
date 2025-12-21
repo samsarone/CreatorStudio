@@ -5,6 +5,7 @@ import './mobileStyles.css';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
@@ -18,18 +19,18 @@ const getProgressPercentage = (status) => {
 };
 
 // Return the first step that is *not* completed (i.e., the "current" step)
-const getCurrentStep = (status) => {
+const getCurrentStep = (status, t) => {
   if (!status) return null;
 
   const stepsOrder = [
-    { key: 'prompt_generation', label: 'Generating Prompt' },
-    { key: 'image_generation', label: 'Generating Image' },
-    { key: 'audio_generation', label: 'Generating Audio' },
-    { key: 'ai_video_generation', label: 'Generating AI Video' },
-    { key: 'lip_sync_generation', label: 'Generating Lip Sync' },
-    { key: 'sound_effect_generation', label: 'Generating Sound Effects' },
-    { key: 'frame_generation', label: 'Generating Frames' },
-    { key: 'video_generation', label: 'Final Video Generation' },
+    { key: 'prompt_generation', label: t('progress.generatingPrompt') },
+    { key: 'image_generation', label: t('progress.generatingImage') },
+    { key: 'audio_generation', label: t('progress.generatingAudio') },
+    { key: 'ai_video_generation', label: t('progress.generatingAiVideo') },
+    { key: 'lip_sync_generation', label: t('progress.generatingLipSync') },
+    { key: 'sound_effect_generation', label: t('progress.generatingSoundEffects') },
+    { key: 'frame_generation', label: t('progress.generatingFrames') },
+    { key: 'video_generation', label: t('progress.finalVideoGeneration') },
   ];
 
   for (const step of stepsOrder) {
@@ -38,7 +39,7 @@ const getCurrentStep = (status) => {
     }
   }
 
-  return 'All steps completed';
+  return t('progress.allStepsCompleted');
 };
 
 export default function ProgressIndicator(props) {
@@ -56,6 +57,7 @@ export default function ProgressIndicator(props) {
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
 
   const { colorMode } = useColorMode();
+  const { t } = useLocalization();
 
 
   const progressPercentage = useMemo(
@@ -64,8 +66,8 @@ export default function ProgressIndicator(props) {
   );
 
   const currentStep = useMemo(
-    () => getCurrentStep(expressGenerationStatus),
-    [expressGenerationStatus]
+    () => getCurrentStep(expressGenerationStatus, t),
+    [expressGenerationStatus, t]
   );
 
   useEffect(() => {
@@ -104,12 +106,12 @@ export default function ProgressIndicator(props) {
 
   const panelShell =
     colorMode === 'dark'
-      ? 'bg-slate-950/80 text-slate-100 border border-white/10 shadow-[0_6px_24px_rgba(15,23,42,0.4)]'
-      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
-  const progressTrack = colorMode === 'dark' ? 'bg-white/10' : 'bg-slate-200';
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
+      : 'bg-white/95 text-slate-900 border border-[#d7deef] shadow-sm';
+  const progressTrack = colorMode === 'dark' ? 'bg-[#1f2a3d]' : 'bg-slate-200';
   const errorPanel =
     colorMode === 'dark'
-      ? 'bg-red-900/70 text-red-200 border border-red-800/70'
+      ? 'bg-rose-900/50 text-rose-100 border border-rose-700/60'
       : 'bg-red-50 text-red-700 border border-red-200';
 
   return (
@@ -125,7 +127,7 @@ export default function ProgressIndicator(props) {
               className="mt-1 inline-flex items-center gap-1 text-xs font-medium underline-offset-2 hover:underline"
               onClick={viewInStudio}
             >
-              View in Studio
+              {t("common.viewInStudio")}
             </button>
           </div>
         </div>
@@ -160,7 +162,7 @@ export default function ProgressIndicator(props) {
 
           <video controls className="md:w-[512px] w-full mx-auto max-h-[300px]">
             <source src={`${videoActualLink}`} type="video/mp4" />
-            Your browser does not support the video tag.
+            {t("progress.videoUnsupported")}
           </video>
 
         </div>

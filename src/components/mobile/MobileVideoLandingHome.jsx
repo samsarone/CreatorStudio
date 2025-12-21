@@ -3,7 +3,7 @@ import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getHeaders, getAuthToken } from '../../utils/web';
-import { FaSpinner } from 'react-icons/fa';
+import StudioSkeletonLoader from '../video/util/StudioSkeletonLoader.jsx';
 
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -23,9 +23,7 @@ export default function MobileVideoLandingHome() {
 
   if (!userInitiated) {
     return (
-      <div className="spinner-container">
-        <FaSpinner className="spinner" />
-      </div>
+      <StudioSkeletonLoader />
     );
   }
 
