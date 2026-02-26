@@ -34,6 +34,11 @@ const formatDateString = (value) => {
   return parsed.isValid() ? parsed.format("MMM D, YYYY") : value;
 };
 
+const formatPaymentTypeLabel = (value) => {
+  if (!value || value === "invoice") return "receipt";
+  return value;
+};
+
 export default function BillingPanelContent() {
   const { colorMode } = useColorMode();
   const { user, getUserAPI } = useUser();
@@ -44,10 +49,15 @@ export default function BillingPanelContent() {
   const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
   const subtleText = colorMode === "dark" ? "text-slate-400" : "text-slate-600";
   const mutedBg = colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50";
+  const headerBg = colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50";
+  const sectionCard = `rounded-2xl border ${borderColor} ${cardBgColor}`;
+  const summaryCard = `rounded-xl border ${borderColor} ${mutedBg} p-4`;
 
   const [threshold, setThreshold] = useState(1000);
   const [amountUsd, setAmountUsd] = useState(50);
+  const [maxMonthlyUsd, setMaxMonthlyUsd] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingThreshold, setIsSavingThreshold] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
   const [isStartingSetup, setIsStartingSetup] = useState(false);
   const [billingHistory, setBillingHistory] = useState([]);
@@ -68,13 +78,16 @@ export default function BillingPanelContent() {
     if (!user) return;
     const userThreshold = Number(user.autoRechargeThreshold);
     const userAmount = Number(user.autoRechargeAmountUsd);
+    const userMaxMonthly = Number(user.autoRechargeMaxMonthlyUsd);
 
     const nextThreshold =
       Number.isFinite(userThreshold) && userThreshold > 0 ? userThreshold : 1000;
     const nextAmount = Number.isFinite(userAmount) && userAmount > 0 ? userAmount : 50;
+    const nextMaxMonthly = Number.isFinite(userMaxMonthly) && userMaxMonthly > 0 ? userMaxMonthly : 0;
 
     setThreshold(nextThreshold);
     setAmountUsd(nextAmount);
+    setMaxMonthlyUsd(nextMaxMonthly);
   }, [user]);
 
   useEffect(() => {
@@ -86,12 +99,22 @@ export default function BillingPanelContent() {
     if (params.get("setup") === "success") {
       getUserAPI();
     }
+    const couponFromQuery = params.get("couponCode");
+    if (couponFromQuery) {
+      setCouponCode(couponFromQuery.trim());
+      setIsCouponOpen(true);
+    }
   }, [location.search, getUserAPI]);
 
   const creditsPerCharge = useMemo(
     () => Math.max(0, Math.round(Number(amountUsd || 0) * 100)),
     [amountUsd]
   );
+  const maxMonthlyCredits = useMemo(
+    () => Math.max(0, Math.round(Number(maxMonthlyUsd || 0) * 100)),
+    [maxMonthlyUsd]
+  );
+  const hasMonthlyCap = Number(maxMonthlyUsd || 0) > 0;
 
   const isAutoEnabled = !!user?.autoRechargeEnabled;
   const hasPaymentMethod = !!user?.autoRechargePaymentMethodId;
@@ -102,25 +125,64 @@ export default function BillingPanelContent() {
       : "Not configured";
 
   const statusBadge = isAutoEnabled
-    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-    : "bg-amber-100 text-amber-800 border-amber-200";
+    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+    : colorMode === "dark"
+      ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+      : "bg-amber-100 text-amber-700 border-amber-200";
 
   const lastRunLabel = user?.autoRechargeLastRunAt
     ? dayjs(user.autoRechargeLastRunAt).format("MMM D, YYYY h:mm A")
     : "No auto-recharge yet";
 
   const planBadge = user?.isPremiumUser
-    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-    : "bg-indigo-100 text-indigo-700 border-indigo-200";
+    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+    : colorMode === "dark"
+      ? "bg-slate-800 text-slate-300 border-slate-600/50"
+      : "bg-slate-100 text-slate-600 border-slate-200";
 
   const autoRechargeRef = useRef(null);
+  const allowPopupNavigation = useMemo(() => {
+    if (typeof navigator === "undefined") return true;
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    const isMobileUA = /Android|iPhone|iPad|iPod|Mobi/i.test(ua);
+    const isIPadOS = platform === "MacIntel" && navigator.maxTouchPoints > 1;
+    return !(isMobileUA || isIPadOS);
+  }, []);
+
+  const openNavigationTarget = (targetWindow, url) => {
+    if (targetWindow && !targetWindow.closed) {
+      targetWindow.location.href = url;
+      targetWindow.focus?.();
+      return true;
+    }
+
+    window.location.assign(url);
+    return false;
+  };
 
   const handleSaveSettings = async () => {
     setIsSaving(true);
+    const normalizedThreshold = Math.max(0, Number(threshold) || 0);
+    const normalizedAmount = Math.max(0, Number(amountUsd) || 0);
+    const normalizedMaxMonthly = Math.max(0, Number(maxMonthlyUsd) || 0);
+
+    if (normalizedMaxMonthly > 0 && normalizedAmount > normalizedMaxMonthly) {
+      toast.error("Max monthly top-up must be greater than or equal to the recharge amount.");
+      setIsSaving(false);
+      return;
+    }
+
+    const shouldOpenSetupWindow = !hasPaymentMethod;
+    const setupWindow =
+      shouldOpenSetupWindow && allowPopupNavigation ? window.open("", "_blank") : null;
+    let navigationHandled = false;
+
     try {
       const payload = {
-        thresholdCredits: Math.max(0, Number(threshold) || 0),
-        amountUsd: Math.max(0, Number(amountUsd) || 0),
+        thresholdCredits: normalizedThreshold,
+        amountUsd: normalizedAmount,
+        maxMonthlyUsd: normalizedMaxMonthly,
         requestSetupSession: !hasPaymentMethod,
       };
 
@@ -132,15 +194,43 @@ export default function BillingPanelContent() {
 
       toast.success("Auto-recharge settings saved");
       if (res.data?.setupSessionUrl) {
-        toast.info("Open the payment method setup link to finish enabling auto-recharge.");
-        window.open(res.data.setupSessionUrl, "_blank");
+        toast.info("Redirecting to Stripe to finish enabling auto-recharge.");
+        navigationHandled = openNavigationTarget(setupWindow, res.data.setupSessionUrl);
       }
       await getUserAPI();
     } catch (err) {
-      const message = err.response?.data?.error || "Unable to save auto-recharge settings";
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Unable to save auto-recharge settings";
       toast.error(message);
     } finally {
+      if (setupWindow && !navigationHandled && !setupWindow.closed) {
+        setupWindow.close();
+      }
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveThreshold = async () => {
+    const normalizedThreshold = Math.max(0, Number(threshold) || 0);
+    setIsSavingThreshold(true);
+    try {
+      await axios.post(
+        `${PROCESSOR_SERVER}/users/auto_recharge/threshold`,
+        { thresholdCredits: normalizedThreshold },
+        getHeaders() || {}
+      );
+      toast.success("Auto-recharge threshold updated");
+      await getUserAPI();
+    } catch (err) {
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Unable to update auto-recharge threshold";
+      toast.error(message);
+    } finally {
+      setIsSavingThreshold(false);
     }
   };
 
@@ -157,7 +247,10 @@ export default function BillingPanelContent() {
       await getUserAPI();
       fetchBillingHistory();
     } catch (err) {
-      const message = err.response?.data?.error || "Auto-recharge failed";
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Auto-recharge failed";
       toast.error(message);
     } finally {
       setIsTriggering(false);
@@ -181,24 +274,44 @@ export default function BillingPanelContent() {
 
   const purchaseCreditsForUser = async (amountToPurchase) => {
     setIsPurchasing(true);
+    let purchaseWindow;
+    let navigationHandled = false;
     try {
+      purchaseWindow = allowPopupNavigation ? window.open("", "_blank") : null;
       const purchaseAmountRequest = parseInt(amountToPurchase, 10);
+      const trimmedCouponCode = couponCode.trim();
+      const purchasePayload = {
+        amount: purchaseAmountRequest,
+      };
+      if (trimmedCouponCode.length > 0) {
+        purchasePayload.couponCode = trimmedCouponCode;
+      }
       const res = await axios.post(
         `${PROCESSOR_SERVER}/users/purchase_credits`,
-        { amount: purchaseAmountRequest },
+        purchasePayload,
         getHeaders()
       );
-      const { url } = res.data || {};
+      const { url, couponApplied, discountPercent } = res.data || {};
       if (url) {
-        window.open(url, "_blank");
-        toast.success("Payment URL generated!", { position: "bottom-center" });
+        navigationHandled = openNavigationTarget(purchaseWindow, url);
+        if (couponApplied && discountPercent) {
+          toast.success(`Coupon applied (${discountPercent}% off). Redirecting to Stripe checkout...`, { position: "bottom-center" });
+        } else {
+          toast.success("Redirecting to Stripe checkout...", { position: "bottom-center" });
+        }
       } else {
         toast.error("Failed to generate payment URL", { position: "bottom-center" });
       }
     } catch (err) {
-      
-      toast.error("Payment process failed", { position: "bottom-center" });
+      const errorMessage =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Payment process failed";
+      toast.error(errorMessage, { position: "bottom-center" });
     } finally {
+      if (purchaseWindow && !navigationHandled && !purchaseWindow.closed) {
+        purchaseWindow.close();
+      }
       setIsPurchasing(false);
     }
   };
@@ -231,14 +344,19 @@ export default function BillingPanelContent() {
       toast.success("Auto-recharge disabled.");
       await getUserAPI();
     } catch (err) {
-      toast.error("Unable to cancel auto-recharge.");
+      const message =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Unable to cancel auto-recharge.";
+      toast.error(message);
     } finally {
       setIsCancelingAuto(false);
     }
   };
 
   const handleUpgradePlan = async () => {
-    const upgradeWindow = window.open("", "_blank");
+    const upgradeWindow = allowPopupNavigation ? window.open("", "_blank") : null;
+    let navigationHandled = false;
     try {
       if (!user || !user._id) {
         toast.error("User not found");
@@ -258,8 +376,8 @@ export default function BillingPanelContent() {
         headers
       );
 
-      if (upgradeWindow && !upgradeWindow.closed) {
-        upgradeWindow.location.href = data.url;
+      if (data?.url) {
+        navigationHandled = openNavigationTarget(upgradeWindow, data.url);
       }
     } catch (error) {
       
@@ -269,6 +387,9 @@ export default function BillingPanelContent() {
         upgradeWindow.close();
       }
     } finally {
+      if (upgradeWindow && !navigationHandled && !upgradeWindow.closed) {
+        upgradeWindow.close();
+      }
       setIsUpgrading(false);
     }
   };
@@ -304,7 +425,7 @@ export default function BillingPanelContent() {
                 const paymentDate = payment.paymentDate || payment.createdAt || new Date();
                 return (
                   <p className={`text-xs ${subtleText}`}>
-                    {dayjs(paymentDate).format("MMM D, YYYY")} • {payment.paymentType || "invoice"}
+                    {dayjs(paymentDate).format("MMM D, YYYY")} • {formatPaymentTypeLabel(payment.paymentType)}
                   </p>
                 );
               })()}
@@ -314,6 +435,20 @@ export default function BillingPanelContent() {
             <div className="text-right">
               <p className="text-sm font-semibold">{payment.creditsApplied || 0} credits</p>
               <p className={`text-xs ${subtleText}`}>{payment.paymentStatus || ""}</p>
+              {payment.receiptAvailable && payment.receiptUrl ? (
+                <a
+                  href={payment.receiptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-2 inline-flex items-center justify-center rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                    colorMode === "dark"
+                      ? "border-indigo-400/50 text-indigo-200 hover:border-indigo-300"
+                      : "border-indigo-200 text-indigo-600 hover:border-indigo-300"
+                  }`}
+                >
+                  Download receipt
+                </a>
+              ) : null}
             </div>
           </div>
         ))}
@@ -322,214 +457,60 @@ export default function BillingPanelContent() {
   };
 
   const planName = user?.isPremiumUser ? "Premium" : "Basic";
-  const nextChargeLabel = user?.isPremiumUser ? formatDateString(user?.nextCreditRefill) : "No upcoming charge";
+  const planStatusLabel = user?.isPremiumUser ? "Active" : "Starter";
+  const planDescription = user?.isPremiumUser
+    ? "Creators plan with monthly credits."
+    : "Pay-as-you-go credits for occasional use.";
+  const nextChargeLabel = user?.isPremiumUser
+    ? formatDateString(user?.nextCreditRefill)
+    : "No upcoming charge";
 
   return (
-    <div className={`space-y-6 ${textColor}`}>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-sm`}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Current plan</p>
-              <h3 className="text-xl font-semibold">{planName}</h3>
-              <p className={`text-sm ${subtleText}`}>
-                {user?.isPremiumUser
-                  ? "Creators Plan with monthly credits."
-                  : "Basic access with pay-as-you-go credits."}
-              </p>
-            </div>
-            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${planBadge}`}>
-              {user?.isPremiumUser ? "Active" : "Starter"}
-            </span>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className={`rounded-xl border ${borderColor} p-3 ${mutedBg}`}>
-              <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Credits remaining</p>
-              <p className="text-lg font-semibold">{user?.generationCredits || 0}</p>
-            </div>
-            <div className={`rounded-xl border ${borderColor} p-3 ${mutedBg}`}>
-              <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Next charge</p>
-              <p className="text-sm font-semibold">{nextChargeLabel}</p>
-            </div>
-            <div className={`rounded-xl border ${borderColor} p-3 ${mutedBg}`}>
-              <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Auto-recharge</p>
-              <p className="text-sm font-semibold">{autoStatusLabel}</p>
-            </div>
-          </div>
-
-          {user?.isPremiumUser ? (
-            <div className="mt-4">
-              <SecondaryButton onClick={handleCancelMembership} disabled={isCancelling}>
-                {isCancelling ? "Cancelling..." : "Cancel membership"}
-              </SecondaryButton>
-            </div>
-          ) : (
-            <p className={`text-xs ${subtleText} mt-4`}>
-              Upgrade to unlock monthly credits and premium features.
-            </p>
-          )}
+    <div className={`flex flex-col gap-6 ${textColor}`}>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold">Billing</h2>
+          <p className={`text-sm ${subtleText}`}>Manage credits, auto-recharge, and receipts.</p>
         </div>
-
-        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-sm`}>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-500">
-              <FaCrown />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold">Upgrade plan</h3>
-              <p className={`text-sm ${subtleText}`}>Creators Plan • $49.99/month</p>
-            </div>
+        <div className={`flex items-center gap-4 rounded-xl border ${borderColor} ${mutedBg} px-4 py-3`}>
+          <div>
+            <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Plan</p>
+            <p className="text-lg font-semibold">{planName}</p>
+            <p className={`text-xs ${subtleText}`}>{planDescription}</p>
           </div>
-
-          <ul className="mt-4 space-y-2 text-sm">
-            {[
-              "5,000 credits per month",
-              "Access to all models",
-              "Full generative workflow suite",
-              "50GB render storage",
-              "Commercial usage rights",
-            ].map((feature) => (
-              <li key={feature} className="flex items-start gap-2">
-                <FaCheck className="mt-1 text-emerald-500" />
-                <span>{feature}</span>
-              </li>
-            ))}
-          </ul>
-
-          {upgradeError && <p className="text-sm text-red-500 mt-3">{upgradeError}</p>}
-
-          <button
-            onClick={handleUpgradePlan}
-            disabled={user?.isPremiumUser || isUpgrading}
-            className={`mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            <FaArrowRight />
-            {user?.isPremiumUser ? "You're on Premium" : isUpgrading ? "Redirecting..." : "Upgrade now"}
-          </button>
-        </div>
-      </div>
-
-      <div
-        ref={autoRechargeRef}
-        className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-md`}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-              <FaBolt />
-            </div>
-            <div>
-              <h3 className="text-xl font-semibold">Auto-recharge</h3>
-              <p className={`text-sm ${subtleText}`}>
-                Automatically top up credits when your balance runs low.
-              </p>
-            </div>
-          </div>
-          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadge}`}>
-            {autoStatusLabel}
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${planBadge}`}>
+            {planStatusLabel}
           </span>
         </div>
+      </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-semibold">Threshold (credits)</span>
-            <input
-              type="number"
-              min="0"
-              value={threshold}
-              onChange={(e) => setThreshold(e.target.value)}
-              className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
-                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
-              }`}
-            />
-            <span className={`text-xs ${subtleText}`}>Auto-recharge kicks in below this balance.</span>
-          </label>
-
-          <label className="flex flex-col gap-2">
-            <span className="text-sm font-semibold">Recharge amount (USD)</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={amountUsd}
-              onChange={(e) => setAmountUsd(e.target.value)}
-              className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
-                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
-              }`}
-            />
-            <span className={`text-xs ${subtleText}`}>
-              {`Adds ${numberFormatter.format(creditsPerCharge)} credits (1 USD = 100 credits).`}
-            </span>
-          </label>
-
-          <div className="flex flex-col gap-1 rounded-lg border px-3 py-3">
-            <span className="text-sm font-semibold">Status</span>
-            <span className="text-sm font-semibold">{autoStatusLabel}</span>
-            <span className={`text-xs ${subtleText}`}>
-              Status is based on your saved Stripe payment method and webhook confirmation.
-            </span>
-          </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className={summaryCard}>
+          <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Credits remaining</p>
+          <p className="text-lg font-semibold">{user?.generationCredits || 0}</p>
         </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            onClick={handleSaveSettings}
-            disabled={isSaving}
-            className="flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <FaBolt /> {isSaving ? "Saving..." : "Save settings"}
-          </button>
-          <button
-            onClick={handleTriggerNow}
-            disabled={isTriggering}
-            className={`flex items-center gap-2 rounded-lg border ${borderColor} px-4 py-2 text-sm font-semibold ${
-              colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-white hover:bg-slate-100"
-            } disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            <FaSync /> {isTriggering ? "Running…" : "Run auto-recharge now"}
-          </button>
-          {(isAutoEnabled || hasPaymentMethod) && (
-            <button
-              onClick={handleCancelAutoRecharge}
-              disabled={isCancelingAuto}
-              className={`flex items-center gap-2 rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-500 ${
-                colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-red-50 hover:bg-red-100"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-            >
-              <FaTimes /> {isCancelingAuto ? "Canceling…" : "Cancel auto-recharge"}
-            </button>
-          )}
+        <div className={summaryCard}>
+          <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Next charge</p>
+          <p className="text-sm font-semibold">{nextChargeLabel}</p>
         </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
-            <p className="text-xs uppercase tracking-wide text-emerald-500">Credits per recharge</p>
-            <p className="text-lg font-semibold">{numberFormatter.format(creditsPerCharge)}</p>
-          </div>
-          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
-            <p className="text-xs uppercase tracking-wide text-emerald-500">Payment method</p>
-            <p className="text-sm">{user?.autoRechargePaymentMethodId ? "Saved on Stripe" : "Not added"}</p>
-          </div>
-          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
-            <p className="text-xs uppercase tracking-wide text-emerald-500">Last auto-recharge</p>
-            <p className="text-sm">{lastRunLabel}</p>
-          </div>
+        <div className={summaryCard}>
+          <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Auto-recharge</p>
+          <p className="text-sm font-semibold">{autoStatusLabel}</p>
         </div>
       </div>
 
-      <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-sm`}>
+      <div className={`${sectionCard} p-6`}>
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
               <FaCreditCard />
             </div>
             <div>
-              <h3 className="text-xl font-semibold">Purchase credits</h3>
+              <h3 className="text-lg font-semibold">Purchase credits</h3>
               <p className={`text-sm ${subtleText}`}>Top up instantly and keep creating without limits.</p>
             </div>
           </div>
-          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${borderColor}`}>
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${borderColor} ${mutedBg}`}>
             1 USD = 100 credits
           </span>
         </div>
@@ -544,11 +525,11 @@ export default function BillingPanelContent() {
                 onClick={() => setSelectedCreditPack(option)}
                 className={`relative flex flex-col items-start rounded-xl border px-4 py-4 text-left transition-all duration-150 ${
                   isSelected
-                    ? "border-indigo-500 bg-indigo-500/10 shadow-[0_18px_40px_-20px_rgba(79,70,229,0.65)]"
+                    ? "border-indigo-500 bg-indigo-500/5 ring-1 ring-indigo-500/30"
                     : `${borderColor} ${
                         colorMode === "dark"
-                          ? "hover:border-indigo-400/70 hover:bg-indigo-500/5"
-                          : "hover:border-indigo-400 hover:bg-indigo-50"
+                          ? "hover:border-indigo-400/70 hover:bg-[#0b1224]"
+                          : "hover:border-indigo-400 hover:bg-slate-50"
                       }`
                 }`}
               >
@@ -571,7 +552,9 @@ export default function BillingPanelContent() {
           <button
             type="button"
             onClick={() => setIsCouponOpen((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-lg border px-4 py-2 text-sm font-semibold hover:border-indigo-400"
+            className={`flex w-full items-center justify-between rounded-lg border ${borderColor} px-4 py-2 text-sm font-semibold ${
+              colorMode === "dark" ? "bg-[#0b1224] hover:border-indigo-400/70" : "bg-white hover:border-indigo-400"
+            }`}
           >
             <span>Have a credits coupon?</span>
             <span>{isCouponOpen ? "Hide" : "Add"}</span>
@@ -610,15 +593,154 @@ export default function BillingPanelContent() {
         </button>
       </div>
 
-      <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-md`}>
+      <div ref={autoRechargeRef} className={`${sectionCard} p-6`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-500">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
+              <FaBolt />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Auto-recharge</h3>
+              <p className={`text-sm ${subtleText}`}>
+                Automatically top up credits when your balance runs low.
+              </p>
+            </div>
+          </div>
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadge}`}>
+            {autoStatusLabel}
+          </span>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-4">
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-semibold">Threshold (credits)</span>
+            <input
+              type="number"
+              min="0"
+              value={threshold}
+              onChange={(e) => setThreshold(e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
+                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
+              }`}
+            />
+            <span className={`text-xs ${subtleText}`}>Auto-recharge kicks in below this balance.</span>
+          </label>
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-semibold">Recharge amount (USD)</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value={amountUsd}
+              onChange={(e) => setAmountUsd(e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
+                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
+              }`}
+            />
+            <span className={`text-xs ${subtleText}`}>
+              {`Adds ${numberFormatter.format(creditsPerCharge)} credits (1 USD = 100 credits).`}
+            </span>
+          </label>
+
+          <label className="flex flex-col gap-2">
+            <span className="text-sm font-semibold">Max monthly top-up (USD)</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={maxMonthlyUsd}
+              onChange={(e) => setMaxMonthlyUsd(e.target.value)}
+              className={`w-full rounded-lg border px-3 py-2 ${borderColor} ${
+                colorMode === "dark" ? "bg-[#0b1224] text-slate-100" : "bg-white text-slate-900"
+              }`}
+            />
+            <span className={`text-xs ${subtleText}`}>
+              {hasMonthlyCap
+                ? `Caps auto-recharge at ${numberFormatter.format(maxMonthlyCredits)} credits per month.`
+                : "Optional. Set 0 for no monthly cap."}
+            </span>
+          </label>
+
+          <div className={`flex flex-col gap-1 rounded-lg border ${borderColor} px-3 py-3 ${mutedBg}`}>
+            <span className="text-sm font-semibold">Status</span>
+            <span className="text-sm font-semibold">{autoStatusLabel}</span>
+            <span className={`text-xs ${subtleText}`}>
+              Status is based on your saved Stripe payment method and webhook confirmation.
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={handleSaveSettings}
+            disabled={isSaving}
+            className="flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <FaBolt /> {isSaving ? "Saving..." : "Save settings"}
+          </button>
+          <button
+            onClick={handleSaveThreshold}
+            disabled={isSavingThreshold || !isAutoEnabled}
+            className={`flex items-center gap-2 rounded-lg border ${borderColor} px-4 py-2 text-sm font-semibold ${
+              colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-white hover:bg-slate-50"
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            <FaCheck /> {isSavingThreshold ? "Saving threshold..." : "Save threshold"}
+          </button>
+          <button
+            onClick={handleTriggerNow}
+            disabled={isTriggering}
+            className={`flex items-center gap-2 rounded-lg border ${borderColor} px-4 py-2 text-sm font-semibold ${
+              colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-white hover:bg-slate-50"
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            <FaSync /> {isTriggering ? "Running…" : "Run auto-recharge now"}
+          </button>
+          {(isAutoEnabled || hasPaymentMethod) && (
+            <button
+              onClick={handleCancelAutoRecharge}
+              disabled={isCancelingAuto}
+              className={`flex items-center gap-2 rounded-lg border border-red-400 px-4 py-2 text-sm font-semibold text-red-500 ${
+                colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#0f1629]" : "bg-red-50 hover:bg-red-100"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <FaTimes /> {isCancelingAuto ? "Canceling…" : "Cancel auto-recharge"}
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
+            <p className="text-xs uppercase tracking-wide text-emerald-500">Credits per recharge</p>
+            <p className="text-lg font-semibold">{numberFormatter.format(creditsPerCharge)}</p>
+          </div>
+          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
+            <p className="text-xs uppercase tracking-wide text-emerald-500">Monthly cap</p>
+            <p className="text-lg font-semibold">
+              {hasMonthlyCap ? formatAmount(Number(maxMonthlyUsd || 0) * 100, "USD") : "No cap"}
+            </p>
+          </div>
+          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
+            <p className="text-xs uppercase tracking-wide text-emerald-500">Payment method</p>
+            <p className="text-sm">{user?.autoRechargePaymentMethodId ? "Saved on Stripe" : "Not added"}</p>
+          </div>
+          <div className={`rounded-lg border ${borderColor} px-3 py-2 ${mutedBg}`}>
+            <p className="text-xs uppercase tracking-wide text-emerald-500">Last auto-recharge</p>
+            <p className="text-sm">{lastRunLabel}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${sectionCard} overflow-hidden`}>
+        <div className={`flex items-center justify-between px-6 py-4 border-b ${borderColor} ${headerBg}`}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
               <FaCreditCard />
             </div>
             <div>
-              <h3 className="text-xl font-semibold">Billing history</h3>
-              <p className={`text-sm ${subtleText}`}>Recent invoices and credit top-ups.</p>
+              <h3 className="text-lg font-semibold">Billing history</h3>
+              <p className={`text-sm ${subtleText}`}>Recent receipts and credit top-ups.</p>
             </div>
           </div>
           <button
@@ -630,7 +752,58 @@ export default function BillingPanelContent() {
             Refresh
           </button>
         </div>
-        {renderHistory()}
+        <div className="p-6">{renderHistory()}</div>
+      </div>
+
+      <div className={`${sectionCard} p-6`}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
+            <FaCrown />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold">Premium plan</h3>
+            <p className={`text-sm ${subtleText}`}>5,000 credits per month • Enhanced support</p>
+          </div>
+        </div>
+
+        <ul className="mt-4 space-y-2 text-sm">
+          {[
+            "5,000 credits per month",
+            "Access to all models",
+            "Full generative workflow suite",
+            "50GB render storage",
+            "Commercial usage rights",
+            "Enhanced support",
+          ].map((feature) => (
+            <li key={feature} className="flex items-start gap-2">
+              <FaCheck className="mt-1 text-emerald-500" />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+
+        {upgradeError && <p className="text-sm text-red-500 mt-3">{upgradeError}</p>}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleUpgradePlan}
+            disabled={user?.isPremiumUser || isUpgrading}
+            className={`flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            <FaArrowRight />
+            {user?.isPremiumUser ? "You're on Premium" : isUpgrading ? "Redirecting..." : "Get Premium"}
+          </button>
+          {user?.isPremiumUser && (
+            <SecondaryButton onClick={handleCancelMembership} disabled={isCancelling}>
+              {isCancelling ? "Cancelling..." : "Cancel membership"}
+            </SecondaryButton>
+          )}
+        </div>
+        {!user?.isPremiumUser && (
+          <p className={`text-xs ${subtleText} mt-3`}>
+            Upgrade to unlock monthly credits and premium features.
+          </p>
+        )}
       </div>
     </div>
   );

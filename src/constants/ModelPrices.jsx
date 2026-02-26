@@ -2,1246 +2,232 @@
 
 export const IMAGE_MODEL_PRICES = [
   {
-    key: 'DALLE3',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-  {
-    key: 'DALLE3HD',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 15
-      },
-      {
-        aspectRatio: '16:9',
-        price: 18
-      },
-      {
-        aspectRatio: '9:16',
-        price: 18
-      },
-    ]
-  },
-  {
-    key: 'FLUX1PRO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-  {
-    key: 'FLUX1.1PRO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-  {
-    key: 'FLUX1DEV',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
-    ]
-  },
-  {
-    key: 'FLUX1.1ULTRA',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 12
-      },
-      {
-        aspectRatio: '16:9',
-        price: 16
-      },
-      {
-        aspectRatio: '9:16',
-        price: 16
-      },
-    ]
-  },
-  {
-    key: 'RECRAFTV3',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-  {
-    key: 'SDV3.5',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-  {
-    key: 'SANA',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
-
-
-  {
-    key: 'SANA4.5B',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 8
-      },
-      {
-        aspectRatio: '16:9',
-        price: 8
-      },
-      {
-        aspectRatio: '9:16',
-        price: 8
-      },
-    ]
-  },
-
-
-  {
-    key: 'SANASPRINT',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 2
-      },
-      {
-        aspectRatio: '16:9',
-        price: 2
-      },
-      {
-        aspectRatio: '9:16',
-        price: 2
-      },
-    ]
-  },
-
-
-  {
-    key: 'PHOTON',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-  {
-    key: 'PHOTONFLASH',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
-  {
-    key: 'RECRAFT20B',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
-
-
-  {
-    key: 'IMAGEN3',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
-
-
-  {
-    key: 'IMAGEN4',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 5
-      },
-      {
-        aspectRatio: '16:9',
-        price: 5
-      },
-      {
-        aspectRatio: '9:16',
-        price: 5
-      },
-    ]
-  },
-
-  {
-    key: 'LUMINAV2',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-    ]
-
-  },
-
-  {
-    key: 'IDEOGRAMV3',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '1:1',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-
-  {
-    key: 'HIDREAMI1',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '1:1',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-  {
     key: 'GPTIMAGE1',
+    isExpressModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 15
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-  {
-    key: 'NANOBANANAPRO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 15
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-
-  {
-
-    key: 'SEEDREAM',
-
-
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-
-  {
-    key: 'FLITE',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-  {
-    key: 'HUNYUAN',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 40
-      },
-      {
-        aspectRatio: '16:9',
-        price: 40
-      },
-      {
-        aspectRatio: '9:16',
-        price: 40
-      },
-    ]
-  },
-
-
-
-]
-
-export const IMAGE_EDIT_MODEL_PRICES = [
-
-    {
-    key: 'NANOBANANAPROEDIT',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 30,
-      },
-      {
-        aspectRatio: '16:9',
-        price: 30,
-      },
-      {
-        aspectRatio: '9:16',
-        price: 30,
-      },
+      { aspectRatio: '1:1', price: 23 },
+      { aspectRatio: '16:9', price: 23 },
+      { aspectRatio: '9:16', price: 23 },
     ],
   },
-  
   {
-    key: 'FLUX1PROFILL',
+    key: 'IMAGEN4',
+    isExpressModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-  {
-    key: 'FLUX1.1PROULTRAREDUX',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 12
-      },
-      {
-        aspectRatio: '16:9',
-        price: 16
-      },
-      {
-        aspectRatio: '9:16',
-        price: 16
-      },
-    ]
+      { aspectRatio: '1:1', price: 8 },
+      { aspectRatio: '16:9', price: 8 },
+      { aspectRatio: '9:16', price: 8 },
+    ],
   },
   {
-    key: 'FLUX1.1PROREDUX',
+    key: 'SEEDREAM',
+    isExpressModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 23 },
+      { aspectRatio: '9:16', price: 23 },
+    ],
   },
   {
-    key: 'BRIA_ERASER',
+    key: 'HUNYUAN',
+    isExpressModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
+      { aspectRatio: '1:1', price: 60 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
+    ],
   },
   {
-    key: 'BRIA_GENFILL',
+    key: 'NANOBANANAPRO',
+    isExpressModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
+      { aspectRatio: '1:1', price: 23 },
+      { aspectRatio: '16:9', price: 23 },
+      { aspectRatio: '9:16', price: 23 },
+    ],
   },
-
-  {
-    key: 'BRIA_BACKGROUNDREMOVE',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-
-  {
-    key: 'NANOBANANAEDIT',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 15
-      },
-      {
-        aspectRatio: '9:16',
-        price: 15
-      },
-    ]
-  },
-
-
-
-
-
 ]
 
+
+export const IMAGE_EDIT_MODEL_PRICES = [
+  {
+    key: 'NANOBANANAPROEDIT',
+    prices: [
+      { aspectRatio: '1:1', price: 45 },
+      { aspectRatio: '16:9', price: 45 },
+      { aspectRatio: '9:16', price: 45 },
+    ],
+  },
+  {
+    key: 'GPTIMAGE1EDIT',
+    prices: [
+      { aspectRatio: '1:1', price: 45 },
+      { aspectRatio: '16:9', price: 45 },
+      { aspectRatio: '9:16', price: 45 },
+    ],
+  },
+]
 
 
 export const VIDEO_MODEL_PRICES = [
-
-
   {
-    key: 'KLINGTXTTOVIDSTANDARD',
+    key: 'RUNWAYML',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ]
-  },
-
-  {
-    key: 'KLINGTXTTOVIDTURBO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
+      { aspectRatio: '16:9', price: 90 },
+      { aspectRatio: '9:16', price: 90 },
     ],
     units: [5, 10],
   },
-
-  {
-    key: 'KLINGIMGTOVIDTURBO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ],
-    units: [5, 10],
-
-  },
-
-  {
-    key: 'KLINGIMGTOVIDSTANDARD',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ]
-  },
-  {
-    key: 'KLINGTXTTOVIDPRO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ]
-  },
-  {
-    key: 'KLINGIMGTOVIDPRO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ],
-    units: [5, 10],
-  },
-  {
-    key: 'KLINGIMGTOVIDPROMASTER',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 150
-      },
-      {
-        aspectRatio: '16:9',
-        price: 150
-      },
-      {
-        aspectRatio: '9:16',
-        price: 150
-      },
-    ],
-    units: [5, 10],
-  },
-
-
-
-
-
-  {
-    key: 'KLINGIMGTOVID2.1MASTER',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 150
-      },
-      {
-        aspectRatio: '16:9',
-        price: 150
-      },
-      {
-        aspectRatio: '9:16',
-        price: 150
-      },
-    ],
-    units: [5, 10],
-  },
-  {
-    key: 'KLINGIMGTOVID2.1PRO',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 50
-      },
-      {
-        aspectRatio: '16:9',
-        price: 50
-      },
-      {
-        aspectRatio: '9:16',
-        price: 50
-      },
-    ],
-    units: [5, 10],
-  },
-  {
-    key: 'KLINGIMGTOVID2.1STANDARD',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 30
-      },
-      {
-        aspectRatio: '16:9',
-        price: 30
-      },
-      {
-        aspectRatio: '9:16',
-        price: 30
-      },
-    ],
-    units: [5, 10],
-  },
-
-
   {
     key: 'SORA2',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 100
-      },
-      {
-        aspectRatio: '9:16',
-        price: 100
-      },
+      { aspectRatio: '16:9', price: 150 },
+      { aspectRatio: '9:16', price: 150 },
     ],
     units: [8],
   },
-
   {
     key: 'SORA2PRO',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 300
-      },
-      {
-        aspectRatio: '9:16',
-        price: 300
-      },
+      { aspectRatio: '16:9', price: 450 },
+      { aspectRatio: '9:16', price: 450 },
     ],
     units: [8],
   },
-
-
-
-
-
   {
-    "key": "RUNWAYML",
-    "prices": [
-
-      {
-        "aspectRatio": "16:9",
-        "price": 60
-      },
-      {
-        "aspectRatio": "9:16",
-        "price": 60
-      }
-    ],
-    "units": [5, 10]
-  },
-
-  {
-    name: 'SeeDance Img2Vid',
-    key: 'SEEDANCEI2V',
-    isImgToVidModel: true,
+    key: 'KLINGIMGTOVID3PRO',
     isExpressModel: true,
-
-    "prices": [
-
-      {
-        "aspectRatio": "16:9",
-        "price": 60
-      },
-      {
-        "aspectRatio": "9:16",
-        "price": 60
-      }
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    prices: [
+      { aspectRatio: '1:1', price: 90 },
+      { aspectRatio: '16:9', price: 90 },
+      { aspectRatio: '9:16', price: 90 },
     ],
-    units: [5, 10]
+    units: [5, 10],
   },
-
-
-
   {
     key: 'HAILUO',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
+      { aspectRatio: '16:9', price: 90 },
     ],
-    units: [6, 10]
+    units: [6, 10],
   },
-
   {
     key: 'HAILUOPRO',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 100
-      },
+      { aspectRatio: '16:9', price: 150 },
     ],
-    units: [6]
-  },
-
-
-
-  {
-    key: 'VEO',
-    prices: [
-      {
-        aspectRatio: '16:9',
-        price: 250
-      },
-      {
-        aspectRatio: '9:16',
-        price: 250
-      },
-    ],
-    units: [5, 8]
+    units: [6],
   },
   {
-    key: 'VEOI2V',
+    key: 'SEEDANCEI2V',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
     prices: [
-      {
-        aspectRatio: '16:9',
-        price: 300
-      },
-      {
-        aspectRatio: '9:16',
-        price: 300
-      },
+      { aspectRatio: '16:9', price: 90 },
+      { aspectRatio: '9:16', price: 90 },
     ],
-    units: [5, 8]
+    units: [5, 10],
   },
-  {
-    key: 'VEO3.1',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 700
-      },
-      {
-        aspectRatio: '16:9',
-        price: 700
-      },
-      {
-        aspectRatio: '9:16',
-        price: 700
-      },
-    ],
-    units: [8]
-  },
-
-  {
-    key: 'VEO3.1FAST',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 300
-      },
-      {
-        aspectRatio: '16:9',
-        price: 300
-      },
-      {
-        aspectRatio: '9:16',
-        price: 300
-      },
-    ],
-    units: [8]
-  },
-
   {
     key: 'VEO3.1I2V',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 700
-      },
-      {
-        aspectRatio: '16:9',
-        price: 700
-      },
-      {
-        aspectRatio: '9:16',
-        price: 700
-      },
+      { aspectRatio: '16:9', price: 1050 },
+      { aspectRatio: '9:16', price: 1050 },
     ],
-    units: [8]
+    units: [8],
   },
   {
     key: 'VEO3.1I2VFAST',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 300
-      },
-      {
-        aspectRatio: '16:9',
-        price: 300
-      },
-      {
-        aspectRatio: '9:16',
-        price: 300
-      },
-    ],
-    units: [8]
-  },
-
-
-
-
-
-
-  {
-    key: 'PIXVERSEI2VFAST',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 120
-      },
-      {
-        aspectRatio: '16:9',
-        price: 120
-      },
-      {
-        aspectRatio: '9:16',
-        price: 120
-      },
-    ],
-    units: [5, 8],
     isExpressModel: true,
-  },
-
-
-
-  {
-    key: 'PIKA2.2I2V',
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 40
-      },
-      {
-        aspectRatio: '9:16',
-        price: 40
-      },
+      { aspectRatio: '16:9', price: 450 },
+      { aspectRatio: '9:16', price: 450 },
     ],
-
+    units: [8],
   },
 
-  {
-    key: 'VIDUI2V',
-    prices: [
-      {
-        aspectRatio: '1:1',
-        price: 60
-      },
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-      {
-        aspectRatio: '9:16',
-        price: 60
-      },
-    ]
-  },
-
-
+  // AI post-processing models still used in studio workflows
   {
     key: 'SYNCLIPSYNC',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
   },
   {
     key: 'LATENTSYNC',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
   },
   {
     key: 'KLINGLIPSYNC',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
   },
-
   {
     key: 'HUMMINGBIRDLIPSYNC',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
   },
-
   {
     key: 'CREATIFYLIPSYNC',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
   },
-
-
   {
     key: 'MMAUDIOV2',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
-    units: [5, 10]
+    units: [5, 10],
   },
   {
     key: 'MIRELOAI',
     prices: [
-      {
-        aspectRatio: '1:1',
-        price: 10
-      },
-      {
-        aspectRatio: '16:9',
-        price: 10
-      },
-      {
-        aspectRatio: '9:16',
-        price: 10
-      },
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
-    units: [5, 10]
+    units: [5, 10],
   },
-
-  {
-    key: 'WANI2V',
-    prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 60
-      },
-    ],
-    units: [5, 7],
-    isImgToVidModel: true,
-    isExpressModel: true,
-  },
-
-
-  {
-    key: 'WANI2V5B',
-    prices: [
-
-      {
-        aspectRatio: '16:9',
-        price: 100
-      },
-    ],
-    units: [5],
-    isImgToVidModel: true,
-    isExpressModel: true,
-  },
-
-
-  {
-    name: 'Magi Distilled',
-    key: 'MAGIDISTILLED',
-    isImgToVidModel: true,
-    isExpressModel: true,
-
-    "prices": [
-
-      {
-        "aspectRatio": "16:9",
-        "price": 60
-      },
-      {
-        "aspectRatio": "9:16",
-        "price": 60
-      }
-    ],
-  },
-
-  {
-    name: 'Sora T2V',
-    key: 'SORAT2V',
-    isImgToVidModel: false,
-    isExpressModel: false,
-
-    "prices": [
-      {
-        "aspectRatio": "16:9",
-        "price": 60
-      },
-      {
-        "aspectRatio": "9:16",
-        "price": 60
-      }
-    ],
-    units: [5, 10]
-  },
-
-
-
-
-
-
-
 ]
 
 
@@ -1260,7 +246,7 @@ export const ASSISTANT_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 1000,
-        price: 1
+        price: 2
       },
     ]
   },
@@ -1270,7 +256,7 @@ export const ASSISTANT_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 1000,
-        price: 1
+        price: 2
       },
     ]
   },
@@ -1280,7 +266,7 @@ export const ASSISTANT_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 1000,
-        price: 6
+        price: 9
       },
     ]
   },
@@ -1290,7 +276,7 @@ export const ASSISTANT_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 1000,
-        price: 6
+        price: 9
       },
     ]
   },
@@ -1300,7 +286,7 @@ export const ASSISTANT_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 1000,
-        price: 6
+        price: 9
       },
     ]
   },
@@ -1312,7 +298,7 @@ export const THEME_MODEL_PRICES = [
       {
         operationType: "query",
         tokens: 1,
-        price: 1
+        price: 2
       }
     ]
   }
@@ -1324,7 +310,7 @@ export const TRANSLATION_MODEL_PRICES = [
       {
         operationType: "line",
         tokens: 1,
-        price: 1
+        price: 2
       }
     ]
   }
@@ -1337,7 +323,7 @@ export const PROMPT_GENERATION_MODEL_PRICES = [
       {
         operationType: "line",
         tokens: 1,
-        price: 1
+        price: 2
       }
     ]
   }
@@ -1353,7 +339,7 @@ export const SPEECH_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 1000,
-        price: 1
+        price: 2
       },
     ]
   },
@@ -1363,7 +349,7 @@ export const SPEECH_MODEL_PRICES = [
       {
         operationType: "words",
         tokens: 400,
-        price: 1
+        price: 2
       },
     ]
   },
@@ -1376,7 +362,7 @@ export const MUSIC_MODEL_PRICES = [
     prices: [
       {
         operationType: "generate_song",
-        price: 2,
+        price: 3,
       }
     ]
   },
@@ -1385,7 +371,7 @@ export const MUSIC_MODEL_PRICES = [
     prices: [
       {
         operationType: "generate_song",
-        price: 5,
+        price: 8,
       }
     ]
   },
@@ -1394,9 +380,8 @@ export const MUSIC_MODEL_PRICES = [
     prices: [
       {
         operationType: "generate_song",
-        price: 2,
+        price: 3,
       }
     ]
   },
 ]
-

@@ -3,13 +3,15 @@ import CommonButton from "../../common/CommonButton.tsx";
 import { IMAGE_EDIT_MODEL_TYPES } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import RangeSlider from '../../editor/utils/RangeSlider.jsx';
+import AutoExpandableTextarea from "../../common/AutoExpandableTextarea.jsx";
 
 export default function ImageEditGenerator(props) {
   const { promptText, setPromptText, submitOutpaintRequest,
     selectedEditModel, setSelectedEditModel,
     selectedEditModelValue,
     isOutpaintPending, outpaintError,
-    editBrushWidth, setEditBrushWidth
+    editBrushWidth, setEditBrushWidth,
+    showModelSelector = true
   } = props;
   const { colorMode } = useColorMode();
 
@@ -82,10 +84,12 @@ export default function ImageEditGenerator(props) {
 
   if (selectedEditModelValue.isPromptEnabled) {
     promptTextArea = (
-      <textarea
+      <AutoExpandableTextarea
         name="promptText"
         onChange={(evt) => setPromptText((evt.target.value))}
         className={`${inputShell} w-full m-auto px-3 py-3 rounded-xl bg-transparent`}
+        minRows={3}
+        maxRows={10}
       />
     )
   }
@@ -94,14 +98,16 @@ export default function ImageEditGenerator(props) {
     <div>
       <form onSubmit={submitOutpaintRequest}>
         <div className=" w-full mt-2 mb-2">
-          <div className="block">
-            <div className="text-xs font-bold">
-              Model
+          {showModelSelector && (
+            <div className="block">
+              <div className="text-xs font-bold">
+                Model
+              </div>
+              <select onChange={setSelectedModelDisplay} className={`${inputShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}>
+                {modelOptionMap}
+              </select>
             </div>
-            <select onChange={setSelectedModelDisplay} className={`${inputShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}>
-              {modelOptionMap}
-            </select>
-          </div>
+          )}
           <div>
 
           </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -11,55 +11,58 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 export default function QuickEditorLandingHome() {
 
   const { user, userFetching, userInitiated } = useUser();
-  const [isGuest, setIsGuest] = useState(false);
   const navigate = useNavigate();
+  const redirectStartedRef = useRef(false);
 
   useEffect(() => {
-    const userToken = getAuthToken();
-    if (!userToken || ((!user || !user._id) && !userFetching)) {
-      setIsGuest(true);
+    if (!userInitiated || userFetching || redirectStartedRef.current) {
+      return;
     }
-  }, [user, userFetching]);
 
-  if (!userInitiated) {
-    return (
-      <StudioSkeletonLoader />
-    );
-  }
+    redirectStartedRef.current = true;
 
-  if (isGuest) {
-    axios.get(`${API_SERVER}/video_sessions/fetch_guest_session`).then((res) => {
-      const sessionData = res.data;
-      if (sessionData) {
-        navigate(`/quick_video/${sessionData._id}`);
+    const run = async () => {
+      const userToken = getAuthToken();
+      const isGuest = !userToken || !user || !user._id;
+
+      if (isGuest) {
+        try {
+          const res = await axios.get(`${API_SERVER}/video_sessions/fetch_guest_session`);
+          const sessionData = res.data;
+          if (sessionData) {
+            navigate(`/quick_video/${sessionData._id}`, { replace: true });
+          }
+        } catch (err) {
+          
+        }
+        return;
       }
-    });
-  } else {
 
+      const videoSessionId = localStorage.getItem('videoSessionId');
+      if (videoSessionId) {
+        navigate(`/quick_video/${videoSessionId}`, { replace: true });
+        return;
+      }
 
-
-    const videoSessionId = localStorage.getItem('videoSessionId');
-    if (videoSessionId) {
-      navigate(`/quick_video/${videoSessionId}`);
-    } else {
       const headers = getHeaders();
-
-      axios.get(`${API_SERVER}/video_sessions/get_session`, headers).then((res) => {
+      try {
+        const res = await axios.get(`${API_SERVER}/video_sessions/get_session`, headers);
         const sessionData = res.data;
         if (sessionData) {
           localStorage.setItem('videoSessionId', sessionData._id);
-          navigate(`/quick_video/${sessionData._id}`);
+          navigate(`/quick_video/${sessionData._id}`, { replace: true });
         } else {
-          navigate('/my_sessions');
+          navigate('/my_sessions', { replace: true });
         }
-      });
-    }
-    
-  }
+      } catch (err) {
+        
+      }
+    };
+
+    run();
+  }, [userInitiated, userFetching, user, navigate]);
 
   return (
-    <div>
-
-    </div>
+    <StudioSkeletonLoader />
   );
 }

@@ -9,7 +9,7 @@ import VideoEditorContainer from './VideoEditorContainer.jsx';
 import AddAudioDialog from './util/AddAudioDialog.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { debounce } from './util/debounce.jsx';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import { getImagePreloaderWorker } from './workers/imagePreloaderWorkerSingleton'; // Import the worker singleton
 import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.jsx';
@@ -77,6 +77,7 @@ export default function VideoHome(props) {
 
   const [preloadedLayerIds, setPreloadedLayerIds] = useState(new Set());
   const [renderCompletedThisSession, setRenderCompletedThisSession] = useState(false);
+  const renderPollTimerRef = useRef(null);
 
   let { id } = useParams();
 
@@ -355,7 +356,7 @@ export default function VideoHome(props) {
 
       <AuthContainer />
     );
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   useEffect(() => {
@@ -728,12 +729,18 @@ export default function VideoHome(props) {
       return;
     }
 
+    if (renderPollTimerRef.current) {
+      clearInterval(renderPollTimerRef.current);
+      renderPollTimerRef.current = null;
+    }
+
     const timer = setInterval(() => {
       axios.post(`${PROCESSOR_API_URL}/video_sessions/get_render_video_status`, { id: id }, headers).then((dataRes) => {
         const renderData = dataRes.data;
         const renderStatus = renderData.status;
         if (renderStatus === 'COMPLETED') {
           clearInterval(timer);
+          renderPollTimerRef.current = null;
           const sessionData = renderData.session;
 
           let videoLink;
@@ -758,7 +765,16 @@ export default function VideoHome(props) {
         }
       });
     }, 3000);
+
+    renderPollTimerRef.current = timer;
   }
+
+  const stopVideoRenderPoll = () => {
+    if (renderPollTimerRef.current) {
+      clearInterval(renderPollTimerRef.current);
+      renderPollTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     if (videoSessionDetails && videoSessionDetails.audioLayers) {
@@ -803,6 +819,39 @@ export default function VideoHome(props) {
       });
     }
   }
+
+  const cancelPendingRender = () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    axios
+      .post(`${PROCESSOR_API_URL}/video_sessions/cancel_pending_render`, { id }, headers)
+      .then((response) => {
+        stopVideoRenderPoll();
+        setIsVideoGenerating(false);
+        if (response?.data?.session) {
+          setVideoSessionDetails(response.data.session);
+        } else {
+          setVideoSessionDetails((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              videoGenerationPending: false,
+              expressGenerationPending: false,
+            };
+          });
+        }
+        toast.success("Render cancelled", {
+          position: "bottom-center",
+          className: "custom-toast",
+        });
+      })
+      .catch(() => {
+      });
+  };
 
   const setLayerDuration = (value, index) => {
     const newLayers = layers;
@@ -857,6 +906,12 @@ export default function VideoHome(props) {
     });
     setTotalDuration(totalDuration);
   }, [layers]);
+
+  useEffect(() => {
+    return () => {
+      stopVideoRenderPoll();
+    };
+  }, []);
 
   if (!videoSessionDetails) {
     return <StudioSkeletonLoader />;
@@ -1819,6 +1874,41 @@ export default function VideoHome(props) {
     });
   }
 
+  const requestRealignLayers = () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    setCanvasProcessLoading(true);
+    axios
+      .post(`${PROCESSOR_API_URL}/video_sessions/request_realign_layers`, { sessionId: id }, headers)
+      .then((response) => {
+        if (response?.data?.session) {
+          setVideoSessionDetails(response.data.session);
+        }
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.realignLayersToAiVideoRequested")}
+          </div>,
+          {
+            position: "bottom-center",
+            className: "custom-toast",
+          }
+        );
+        setIsCanvasDirty(true);
+      })
+      .catch(() => {
+      })
+      .finally(() => {
+        setCanvasProcessLoading(false);
+      });
+  }
+
+  const isVideoRenderPending = Boolean(isVideoGenerating);
+  const renderPendingClass = isVideoRenderPending ? 'pointer-events-none opacity-50' : '';
+
 
   const editorContainerDisplay = (
     <div className=''>
@@ -1950,6 +2040,9 @@ export default function VideoHome(props) {
           sessionMetadata={sessionMetadata}
           updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
           renderCompletedThisSession={renderCompletedThisSession}
+          isRenderPending={isVideoRenderPending}
+          requestRealignLayers={requestRealignLayers}
+          cancelPendingRender={cancelPendingRender}
         />
       </div>
     )
@@ -1959,11 +2052,12 @@ export default function VideoHome(props) {
       <CommonContainer
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        isRenderPending={isVideoRenderPending}
       >
         <div className='m-auto'>
           <div className='block'>
             {frameToolbarDisplay}
-            <div className='w-[98%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
+            <div className={`w-[98%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)] ${renderPendingClass}`}>
               {editorContainerDisplay}
             </div>
             <AssistantHome
@@ -1981,6 +2075,7 @@ export default function VideoHome(props) {
     <CommonContainer
       isVideoPreviewPlaying={isVideoPreviewPlaying}
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+      isRenderPending={isVideoRenderPending}
     >
       <div className='m-auto'>
         <div className='block'>
@@ -2040,9 +2135,12 @@ export default function VideoHome(props) {
               isGuestSession={isGuestSession}
               updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
               renderCompletedThisSession={renderCompletedThisSession}
+              isRenderPending={isVideoRenderPending}
+              requestRealignLayers={requestRealignLayers}
+              cancelPendingRender={cancelPendingRender}
             />
           </div>
-          <div className='w-[90%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
+          <div className={`w-[90%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)] ${renderPendingClass}`}>
 
             {canvasProcessLoading && (
               <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">

@@ -15,7 +15,7 @@ import VerificationHome from "../verification/VerificationHome.tsx";
 import VideoHome from "../video/VideoHome.jsx";
 import MobileVideoHome from "../mobile/MobileVideoHome.jsx";
 import AppHome from "./AppHome.tsx";
-import { getHeaders, clearAuthData } from '../../utils/web.jsx';
+import { getHeaders, clearAuthData, consumePostAuthRedirect, persistAuthToken } from '../../utils/web.jsx';
 import { useUser } from "../../contexts/UserContext";
 import VideoEditorLandingHome from "../video/VideoEditorLandingHome.jsx";
 import ListVideoSessions from "../video/sessions/ListVideoSessions.jsx";
@@ -39,6 +39,9 @@ import CreatePayment from "../payments/CreatePayment.jsx";
 import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.jsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 import SnowMakerContainer from "../snowmaker/SnowMakerContainer.jsx";
+import ImageStudioHome from "../image/ImageStudioHome.jsx";
+import ListImageSessions from "../image/sessions/ListImageSessions.jsx";
+import ImageStudioLandingHome from "../image/ImageStudioLandingHome.jsx";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -53,13 +56,19 @@ export default function Home() {
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
+    queryParams.delete('loginToken');
+    queryParams.delete('authToken');
     setExtraProps(queryParams);
-
-  }, [location.search]); 
+  }, [location.search]);
 
   useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const loginToken = queryParams.get('loginToken');
+    if (loginToken && location.pathname !== '/verify') {
+      return;
+    }
     getUserAPI();
-  }, []);
+  }, [getUserAPI, location.pathname, location.search]);
 
   const credits = Number(user?.generationCredits || 0);
   const hasStudioAccess = Boolean(
@@ -70,6 +79,7 @@ export default function Home() {
   );
   const isAccessAllowedPath = (() => {
     if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
+    if (location.pathname === '/image_sessions' && user) return true;
     const allowed = new Set([
       '/login',
       '/register',
@@ -80,6 +90,8 @@ export default function Home() {
       '/payment_success',
       '/payment_cancel',
       '/create_payment',
+      '/image/studio',
+      '/iamge/studio',
     ]);
     return allowed.has(location.pathname);
   })();
@@ -100,9 +112,49 @@ export default function Home() {
     if (event.data === 'oauth_complete') {
 
       getUserAPI();
+      const redirectTarget = consumePostAuthRedirect();
+      if (redirectTarget) {
+        navigate(redirectTarget, { replace: true });
+        return;
+      }
       getOrCreateUserSession();
     }
   };
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const loginToken = queryParams.get('loginToken');
+
+    if (!loginToken || location.pathname === '/verify') {
+      return;
+    }
+
+    const exchangeLoginToken = async () => {
+      try {
+        const response = await axios.get(`${PROCESSOR_SERVER}/users/verify_token`, {
+          params: { loginToken },
+        });
+        const resolvedAuthToken = response?.data?.authToken;
+        if (resolvedAuthToken) {
+          persistAuthToken(resolvedAuthToken);
+          await getUserAPI();
+
+          const redirectTarget = consumePostAuthRedirect();
+          if (redirectTarget) {
+            navigate(redirectTarget, { replace: true });
+            return;
+          }
+
+          getOrCreateUserSession();
+          return;
+        }
+      } catch (error) {
+        
+      }
+    };
+
+    void exchangeLoginToken();
+  }, [location.pathname, location.search, getUserAPI, navigate]);
 
   const appendQueryParams = (url) => {
 
@@ -149,6 +201,10 @@ export default function Home() {
         <Route path="/session/:id" element={<EditorHome />} />
         <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
         <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />
+        <Route path="/image/studio" element={<ImageStudioLandingHome />} />
+        <Route path="/image/studio/:id" element={<ImageStudioHome />} />
+        <Route path="/iamge/studio" element={<ImageStudioLandingHome />} />
+        <Route path="/iamge/studio/:id" element={<ImageStudioHome />} />
         <Route path="/quick_video/:id" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorContainer />} />
         <Route path="/quick_video" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorLandingHome />} />
         <Route path="/vidgpt" element={<OneshotEditorContainer />} />
@@ -179,6 +235,7 @@ export default function Home() {
         <Route path="/movie_maker/:id" element={<MovieGeneratorContainer />} />
 
         <Route path="/my_sessions" element={<ListVideoSessions />} />
+        <Route path="/image_sessions" element={<ListImageSessions />} />
         <Route path="/create_payment" element={<CreatePayment />} />
         <Route path="/account/*" element={<UserAccount />} />
         <Route path="/publication/:id" element={<PublicationHome />} />

@@ -67,19 +67,18 @@ export default function FrameToolbar(props) {
     updateChangesToActiveSessionLayers,
     downloadLink,
     submitRegenerateFrames,
-    applySynchronizeAnimationsToBeats,
-    applySynchronizeLayersToBeats,
-    applySynchronizeLayersAndAnimationsToBeats,
-    applyAudioTrackVisualizerToProject,
     selectedLayerIndex,
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
+    requestRealignLayers,
+    cancelPendingRender,
     publishVideoSession,
     unpublishVideoSession,
     isGuestSession,
     updateAllAudioLayersOneShot,
     isSessionPublished,
     renderCompletedThisSession,
+    isRenderPending,
 
   } = props;
 
@@ -125,8 +124,6 @@ export default function FrameToolbar(props) {
   const [visibleStartTime, setVisibleStartTime] = useState(0);
   const [visibleEndTime, setVisibleEndTime] = useState(totalDuration);
 
-  const [isAudioDuckingEnabled, setIsAudioDuckingEnabled] = useState(false);
-
   const [dragAmount, setDragAmount] = useState(0);
 
   const [clipStart, setClipStart] = useState(false);
@@ -140,6 +137,13 @@ export default function FrameToolbar(props) {
   const [showTextTrackAnimations, setShowTextTrackAnimations] = useState(false);
 
   const [selectedAudioTrackDisplay, setSelectedAudioTrackDisplay] = useState(null);
+  const [isPromptDropdownOpen, setIsPromptDropdownOpen] = useState(false);
+  const [promptDropdownPosition, setPromptDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 420,
+  });
+  const [promptCopyState, setPromptCopyState] = useState('idle');
 
   const [effectiveVisibleDisplaySliderRange, setEffectiveVisibleDisplaySliderRange] = useState([
     0,
@@ -241,6 +245,9 @@ export default function FrameToolbar(props) {
 
   const parentRef = useRef(null);
   const portalNodeRef = useRef(null);
+  const promptDropdownRef = useRef(null);
+  const promptDropdownButtonRef = useRef(null);
+  const copyPromptTimeoutRef = useRef(null);
 
 
 
@@ -307,6 +314,166 @@ export default function FrameToolbar(props) {
     () => audioTrackListDisplay.filter((track) => track.isDirty).length,
     [audioTrackListDisplay]
   );
+  const selectedAudioTrack = useMemo(
+    () =>
+      audioTrackListDisplay.find(
+        (audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected
+      ),
+    [audioTrackListDisplay]
+  );
+
+  const resetPromptCopyState = () => {
+    if (copyPromptTimeoutRef.current) {
+      clearTimeout(copyPromptTimeoutRef.current);
+      copyPromptTimeoutRef.current = null;
+    }
+    setPromptCopyState('idle');
+  };
+
+  const closePromptDropdown = () => {
+    setIsPromptDropdownOpen(false);
+    resetPromptCopyState();
+  };
+
+  const togglePromptDropdown = (event) => {
+    event.stopPropagation();
+
+    if (isPromptDropdownOpen) {
+      closePromptDropdown();
+      return;
+    }
+
+    const buttonRect = event.currentTarget.getBoundingClientRect();
+    const viewportPadding = 12;
+    const dropdownWidth = Math.max(
+      280,
+      Math.min(520, window.innerWidth - viewportPadding * 2)
+    );
+    const estimatedDropdownHeight = 280;
+    const shouldOpenAbove =
+      buttonRect.bottom + estimatedDropdownHeight > window.innerHeight - viewportPadding;
+    const topPosition = shouldOpenAbove
+      ? Math.max(viewportPadding, buttonRect.top - estimatedDropdownHeight - 8)
+      : Math.min(
+        window.innerHeight - estimatedDropdownHeight - viewportPadding,
+        buttonRect.bottom + 8
+      );
+    const leftPosition = Math.min(
+      Math.max(viewportPadding, buttonRect.left),
+      Math.max(viewportPadding, window.innerWidth - dropdownWidth - viewportPadding)
+    );
+
+    setPromptDropdownPosition({
+      top: topPosition,
+      left: leftPosition,
+      width: dropdownWidth,
+    });
+    setIsPromptDropdownOpen(true);
+    resetPromptCopyState();
+  };
+
+  const copyPromptToClipboard = async () => {
+    if (!selectedAudioTrack?.prompt) {
+      return;
+    }
+
+    let copied = false;
+
+    try {
+      if (window.isSecureContext && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(selectedAudioTrack.prompt);
+        copied = true;
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = selectedAudioTrack.prompt;
+        textArea.style.position = 'fixed';
+        textArea.style.top = '-9999px';
+        textArea.style.left = '-9999px';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+          copied = document.execCommand('copy');
+        } catch (error) {
+          copied = false;
+        }
+
+        document.body.removeChild(textArea);
+      }
+    } catch (error) {
+      copied = false;
+    }
+
+    resetPromptCopyState();
+    setPromptCopyState(copied ? 'copied' : 'failed');
+    copyPromptTimeoutRef.current = setTimeout(() => {
+      setPromptCopyState('idle');
+    }, 1600);
+  };
+
+  useEffect(() => {
+    if (!isPromptDropdownOpen) {
+      return undefined;
+    }
+
+    const closeOnOutsideClick = (event) => {
+      if (promptDropdownRef.current?.contains(event.target)) {
+        return;
+      }
+      if (promptDropdownButtonRef.current?.contains(event.target)) {
+        return;
+      }
+      closePromptDropdown();
+    };
+
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        closePromptDropdown();
+      }
+    };
+
+    const closeOnViewportChange = () => closePromptDropdown();
+
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    window.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', closeOnViewportChange);
+    window.addEventListener('scroll', closeOnViewportChange, true);
+
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      window.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', closeOnViewportChange);
+      window.removeEventListener('scroll', closeOnViewportChange, true);
+    };
+  }, [isPromptDropdownOpen]);
+
+  useEffect(() => {
+    if ((!selectedAudioTrack || !selectedAudioTrack.prompt) && isPromptDropdownOpen) {
+      closePromptDropdown();
+    }
+  }, [selectedAudioTrack, isPromptDropdownOpen]);
+
+  useEffect(() => {
+    if (frameToolbarView !== FRAME_TOOLBAR_VIEW.EXPANDED) {
+      closePromptDropdown();
+    }
+  }, [frameToolbarView]);
+
+  useEffect(() => {
+    if (currentLayerActionSuperView !== 'AUDIO' && isPromptDropdownOpen) {
+      closePromptDropdown();
+    }
+  }, [currentLayerActionSuperView, isPromptDropdownOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (copyPromptTimeoutRef.current) {
+        clearTimeout(copyPromptTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // State to manage visible layers
   const [visibleLayersStartIndex, setVisibleLayersStartIndex] = useState(0);
@@ -970,94 +1137,155 @@ export default function FrameToolbar(props) {
 
 
   const showSelectedAudioTrack = () => {
-    const selectedAudioTrack = audioTrackListDisplay.find(
-      (audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected
-    );
     if (!selectedAudioTrack) {
       return <span />;
     }
-    // Only first 4 words of the prompt
-    const shortPrompt = selectedAudioTrack.prompt
-      ? selectedAudioTrack.prompt.split(' ').slice(0, 4).join(' ') + '...'
+    const fullPrompt = selectedAudioTrack.prompt ? selectedAudioTrack.prompt.trim() : '';
+    const promptWords = fullPrompt.length > 0 ? fullPrompt.split(/\s+/) : [];
+    const shortPrompt = promptWords.length > 0
+      ? `${promptWords.slice(0, 4).join(' ')}${promptWords.length > 4 ? '...' : ''}`
       : '';
+    const showPromptDropdown = isPromptDropdownOpen && fullPrompt.length > 0;
+    const promptDropdownSurface =
+      colorMode === 'light'
+        ? 'bg-white text-slate-900 border border-slate-300'
+        : 'bg-[#0b1225] text-slate-100 border border-[#2a3a5c]';
+    let copyButtonLabel = 'Copy prompt';
+    if (promptCopyState === 'copied') {
+      copyButtonLabel = 'Copied';
+    }
+    if (promptCopyState === 'failed') {
+      copyButtonLabel = 'Copy failed';
+    }
 
     return (
-      <div className="flex flex-nowrap flex-row items-center w-full gap-4 text-xs">
-        {/* Left column: Audio type, speaker, short prompt */}
-        <div className="flex flex-col justify-center">
-          <span className="uppercase font-bold text-blue-300 text-xs">
-            {selectedAudioTrack.generationType}
-          </span>
-          {selectedAudioTrack.speakerCharacterName && (
-            <span className="italic text-neutral-400">
-              {selectedAudioTrack.speakerCharacterName}
+      <>
+        <div className="flex flex-nowrap flex-row items-center w-full gap-4 text-xs">
+          {/* Left column: Audio type, speaker, short prompt */}
+          <div className="flex flex-col justify-center">
+            <span className="uppercase font-bold text-blue-300 text-xs">
+              {selectedAudioTrack.generationType}
             </span>
-          )}
-          {shortPrompt && (
-            <span className="text-neutral-200 text-xs">
-              "{shortPrompt}"
-            </span>
-          )}
-        </div>
+            {selectedAudioTrack.speakerCharacterName && (
+              <span className="italic text-neutral-400">
+                {selectedAudioTrack.speakerCharacterName}
+              </span>
+            )}
+            {shortPrompt && (
+              <div className="inline-flex items-center gap-2">
+                <span className="text-neutral-200 text-xs">
+                  "{shortPrompt}"
+                </span>
+                <button
+                  ref={promptDropdownButtonRef}
+                  type="button"
+                  className={`text-[11px] underline decoration-dotted underline-offset-2 ${colorMode === 'light' ? 'text-blue-700' : 'text-blue-300'}`}
+                  onClick={togglePromptDropdown}
+                >
+                  View more
+                </button>
+              </div>
+            )}
+          </div>
 
-        {/* Middle column: Start/End/Volume inputs in a single row */}
-        <div className="flex flex-row items-center gap-2">
-          {/* Start Time */}
-          <label className="font-semibold">S:</label>
-          <input
-            type="number"
-            value={selectedAudioTrack.startTime}
-            className={`${bgColor} rounded-sm p-1 w-[50px]`}
-            onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
-          />
-          {/* End Time */}
-          <label className="font-semibold">E:</label>
-          <input
-            type="number"
-            value={selectedAudioTrack.endTime}
-            className={`${bgColor} rounded-sm p-1 w-[50px]`}
-            onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
-          />
-          {/* Volume */}
-          <label className="font-semibold">V:</label>
-          <input
-            type="number"
-            value={selectedAudioTrack.volume}
-            className={`${bgColor} rounded-sm p-1 w-[50px]`}
-            onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
-          />
-        </div>
+          {/* Middle column: Start/End/Volume inputs in a single row */}
+          <div className="flex flex-row items-center gap-2">
+            {/* Start Time */}
+            <label className="font-semibold">S:</label>
+            <input
+              type="number"
+              value={selectedAudioTrack.startTime}
+              className={`${bgColor} rounded-sm p-1 w-[50px]`}
+              onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
+            />
+            {/* End Time */}
+            <label className="font-semibold">E:</label>
+            <input
+              type="number"
+              value={selectedAudioTrack.endTime}
+              className={`${bgColor} rounded-sm p-1 w-[50px]`}
+              onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
+            />
+            {/* Volume */}
+            <label className="font-semibold">V:</label>
+            <input
+              type="number"
+              value={selectedAudioTrack.volume}
+              className={`${bgColor} rounded-sm p-1 w-[50px]`}
+              onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
+            />
+          </div>
 
-        {/* Next column: Update button + updated/not-updated message below */}
-        <div className="flex flex-col items-center">
-          <button
-            onClick={onUpdateAllAudioLayers}
-            disabled={dirtyCount === 0}
-            className="bg-blue-700 text-white px-2 py-1 rounded-sm disabled:opacity-60 cursor-pointer" 
+          {/* Next column: Update button + updated/not-updated message below */}
+          <div className="flex flex-col items-center">
+            <button
+              onClick={onUpdateAllAudioLayers}
+              disabled={dirtyCount === 0}
+              className="bg-blue-700 text-white px-2 py-1 rounded-sm disabled:opacity-60 cursor-pointer"
+            >
+              Update All
+            </button>
+            {dirtyCount > 0 ? (
+              <div className="text-yellow-300 font-bold mt-1 text-center m-auto">
+                {dirtyCount} update pending,
+              </div>
+            ) : (
+              <div className="text-neutral-400 mt-1">No pending changes</div>
+            )}
+          </div>
+
+          {/* Rightmost column: Remove button (far right) */}
+          <div className="ml-auto">
+            <button
+              type="button"
+              className="bg-red-800 text-white px-2 py-1 rounded-sm inline-flex items-center gap-1"
+              onClick={() => removeAudioLayer(selectedAudioTrack)}
+            >
+              <FaTimes />
+              Remove
+            </button>
+          </div>
+        </div>
+        {showPromptDropdown && createPortal(
+          <div
+            ref={promptDropdownRef}
+            className={`fixed z-[260] rounded-md shadow-2xl ${promptDropdownSurface}`}
+            style={{
+              top: promptDropdownPosition.top,
+              left: promptDropdownPosition.left,
+              width: `${promptDropdownPosition.width}px`,
+              maxHeight: '280px',
+            }}
+            onClick={(event) => event.stopPropagation()}
           >
-            Update All
-          </button>
-          {dirtyCount > 0 ? (
-            <div className="text-yellow-300 font-bold mt-1 text-center m-auto">
-              {dirtyCount} update pending,
+            <div className="flex items-center justify-between px-3 py-2 border-b border-inherit">
+              <span className="text-xs font-semibold uppercase tracking-wide">
+                Full Prompt
+              </span>
+              <div className="inline-flex items-center gap-2">
+                <button
+                  type="button"
+                  className="text-[11px] px-2 py-1 rounded-sm border border-current/30 hover:opacity-90"
+                  onClick={copyPromptToClipboard}
+                >
+                  {copyButtonLabel}
+                </button>
+                <button
+                  type="button"
+                  className="text-[11px] px-2 py-1 rounded-sm border border-current/30 hover:opacity-90"
+                  onClick={closePromptDropdown}
+                >
+                  Close
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="text-neutral-400 mt-1">No pending changes</div>
-          )}
-        </div>
-
-        {/* Rightmost column: Remove button (far right) */}
-        <div className="ml-auto">
-          <button
-            type="button"
-            className="bg-red-800 text-white px-2 py-1 rounded-sm inline-flex items-center gap-1"
-            onClick={() => removeAudioLayer(selectedAudioTrack)}
-          >
-            <FaTimes />
-            Remove
-          </button>
-        </div>
-      </div>
+            <div className="px-3 py-2 max-h-[220px] overflow-y-auto text-xs leading-5 whitespace-pre-wrap break-words">
+              {fullPrompt}
+            </div>
+          </div>,
+          document.body
+        )}
+      </>
     );
   };
 
@@ -1849,8 +2077,9 @@ export default function FrameToolbar(props) {
   const isAnonymousGuest = !user?._id;
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
   const hasExistingRender = Boolean(resolvedDownloadLink);
-  const shouldShowDropdown = hasExistingRender && !isAnonymousGuest;
-  const shouldDownloadOnMain = renderCompletedThisSession && hasExistingRender;
+  const canCancelPendingRender = Boolean(isRenderPending && typeof cancelPendingRender === 'function');
+  const shouldShowDropdown = !isAnonymousGuest && (hasExistingRender || canCancelPendingRender);
+  const shouldDownloadOnMain = !canCancelPendingRender && renderCompletedThisSession && hasExistingRender;
   const dropdownMainLabel = shouldDownloadOnMain ? "Download" : "Render";
 
   let prevDownloadLink = <span />;
@@ -1874,6 +2103,7 @@ export default function FrameToolbar(props) {
   if (isVideoGenerating) {
     renderButtonExtraClasss = '!pl-4 !pr-4';
   }
+  const isRenderActionDisabled = Boolean(isRenderPending);
 
 
 
@@ -1935,40 +2165,52 @@ export default function FrameToolbar(props) {
   }
 
   const dropdownItems = [];
-  if (shouldDownloadOnMain) {
+  if (canCancelPendingRender) {
     dropdownItems.push({
-      label: "Render again",
-      onClick: submitRenderVideo,
-    });
-  } else if (resolvedDownloadLink) {
-    dropdownItems.push({
-      label: "Download",
-      onClick: submitDownloadVideo,
-    });
-  }
-
-  if (isSessionPublished) {
-    dropdownItems.push({
-      label: "Unpublish",
-      onClick: () => {
-        if (typeof unpublishVideoSession === 'function') {
-          unpublishVideoSession();
-        }
-      },
+      label: "Cancel pending render",
+      onClick: cancelPendingRender,
     });
   } else {
-    dropdownItems.push({
-      label: "Publish",
-      onClick: () => {
-        // open your Publish dialog
-        showPublishOptionsDialog();
-      },
-    });
+    if (shouldDownloadOnMain) {
+      dropdownItems.push({
+        label: "Render again",
+        onClick: submitRenderVideo,
+      });
+    } else if (resolvedDownloadLink) {
+      dropdownItems.push({
+        label: "Download",
+        onClick: submitDownloadVideo,
+      });
+    }
+
+    if (isSessionPublished) {
+      dropdownItems.push({
+        label: "Unpublish",
+        onClick: () => {
+          if (typeof unpublishVideoSession === 'function') {
+            unpublishVideoSession();
+          }
+        },
+      });
+    } else {
+      dropdownItems.push({
+        label: "Publish",
+        onClick: () => {
+          // open your Publish dialog
+          showPublishOptionsDialog();
+        },
+      });
+    }
   }
 
   let submitRenderDisplay = (
     <div>
-      <CommonButton onClick={submitRenderVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
+      <CommonButton
+        onClick={submitRenderVideo}
+        isPending={isVideoGenerating}
+        isDisabled={isRenderActionDisabled}
+        extraClasses={renderButtonExtraClasss}
+      >
         Render
       </CommonButton>
     </div>
@@ -1976,10 +2218,15 @@ export default function FrameToolbar(props) {
 
   let btnLeftMargin = 'ml-2';
 
-  if (isAnonymousGuest && resolvedDownloadLink) {
+  if (isAnonymousGuest && resolvedDownloadLink && !canCancelPendingRender) {
     submitRenderDisplay = (
       <div>
-        <PublicPrimaryButton onClick={submitDownloadVideo} isPending={isVideoGenerating} extraClasses={renderButtonExtraClasss}>
+        <PublicPrimaryButton
+          onClick={submitDownloadVideo}
+          isPending={isVideoGenerating}
+          isDisabled={isRenderActionDisabled}
+          extraClasses={renderButtonExtraClasss}
+        >
           Download
         </PublicPrimaryButton>
       </div>
@@ -1990,8 +2237,9 @@ export default function FrameToolbar(props) {
       <div className="relative inline-block text-left">
         <CommonDropdownButton
           mainLabel={dropdownMainLabel}
-          onMainClick={shouldDownloadOnMain ? submitDownloadVideo : submitRenderVideo}
+          onMainClick={canCancelPendingRender ? (() => { }) : (shouldDownloadOnMain ? submitDownloadVideo : submitRenderVideo)}
           isPending={isVideoGenerating}
+          isDisabled={isRenderActionDisabled}
           dropdownItems={dropdownItems}
           extraClasses="my-extra-class-names"
         />
@@ -2001,21 +2249,6 @@ export default function FrameToolbar(props) {
 
 
   let submitRenderFullActionDisplay = submitRenderDisplay;
-
-  const handleAudioOptionsSubmit = ({ isAudioDucking, syncAnimations, syncLayers, applyAudioVisualizer }) => {
-    setIsAudioDuckingEnabled(isAudioDucking);
-
-    if (syncAnimations && syncLayers) {
-      applySynchronizeLayersAndAnimationsToBeats();
-    } else if (syncAnimations) {
-      applySynchronizeAnimationsToBeats();
-    } else if (syncLayers) {
-      applySynchronizeLayersToBeats();
-    } else if (applyAudioVisualizer) {
-      applyAudioTrackVisualizerToProject();
-    }
-    closeAlertDialog();
-  };
 
   const showAdditionOptionsDialog = () => {
     openAlertDialog(
@@ -2027,16 +2260,15 @@ export default function FrameToolbar(props) {
           />
         </div>
         <AudioOptionsDialog
-          onSubmit={handleAudioOptionsSubmit}
-          initialDucking={isAudioDuckingEnabled}
-          closeDialog={closeAlertDialog}
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+          requestRealignLayers={requestRealignLayers}
+          closeDialog={closeAlertDialog}
         />
       </div>
     );
   };
 
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED && !isRenderPending) {
     submitRenderFullActionDisplay = (
       <div className='flex'>
         <div className='inline-flex'>{submitRenderDisplay}</div>
@@ -2197,13 +2429,16 @@ export default function FrameToolbar(props) {
   return (
     <div
       className={` shadow-lg m-auto fixed top-0 ${containerWdidth} ${textColor}
-       text-left left-0 toolbar-container `}
+       text-left left-0 toolbar-container`}
+      aria-disabled={isRenderPending}
     >
       <div className={`${mtContainer}`}>
         <div className={`w-full pb-1 border-r-2 ${bgColor} border-stone-600`}>
       <div>
-        <div className=' m-auto text-center'>
-          {layerActionCurrentView}
+        <div className='m-auto text-center'>
+          <div className={isRenderPending ? 'pointer-events-none opacity-50' : ''}>
+            {layerActionCurrentView}
+          </div>
           <div onClick={toggleShowExpandedTrackView} className='m-auto mt-1'>
             {expandButtonLabel}
           </div>
@@ -2216,7 +2451,7 @@ export default function FrameToolbar(props) {
             </div>
 
             <div>
-              <div className={`flex w-full ${bg2Color} p-1`}>
+              <div className={`flex w-full ${bg2Color} p-1 ${isRenderPending ? 'pointer-events-none opacity-50' : ''}`}>
                 <div className='inline-flex w-full'>
                   {topSubToolbar}
                 </div>
@@ -2224,7 +2459,7 @@ export default function FrameToolbar(props) {
             </div>
           </div>
 
-          <div className={`${sliderContainerHeight} w-full flex flex-row pl-1`}>
+          <div className={`${sliderContainerHeight} w-full flex flex-row pl-1 ${isRenderPending ? 'pointer-events-none opacity-50' : ''}`}>
             <div className='text-xs font-bold basis-1/4'>
               <div className='relative h-full'>
                 {/* Previous and Next buttons */}
@@ -2310,7 +2545,7 @@ export default function FrameToolbar(props) {
         </div>
       </div>
 
-      {openPopupLayerIndex !== null && showUpdateLayerPortal &&
+      {openPopupLayerIndex !== null && showUpdateLayerPortal && !isRenderPending &&
         createPortal(
           <div
             className={`fixed z-[200] p-1 rounded-lg ${bg3Color} shadow-lg border border-neutral-500`}

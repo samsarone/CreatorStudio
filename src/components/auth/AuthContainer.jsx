@@ -6,13 +6,27 @@ import axios from 'axios';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../utils/web.jsx';
+import {
+  getHeaders,
+  persistAuthToken,
+  hasAcceptedCookies,
+  consumePostAuthRedirect,
+  setPostAuthRedirect,
+} from '../../utils/web.jsx';
 import { FaTimes } from 'react-icons/fa';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
+export const AUTH_DIALOG_OPTIONS = {
+  surface: 'auth',
+  fullBleed: true,
+  centerContent: true,
+  hideBorder: true,
+  hideCloseButton: true,
+};
+
 export default function AuthContainer(props) {
-  const { initView } = props;
+  const { initView, redirectTo } = props;
 
   const [error, setError] = useState('');
   const [currentLoginView, setCurrentLoginView] = useState('login');
@@ -27,8 +41,14 @@ export default function AuthContainer(props) {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
     const params = new URLSearchParams({ origin, cookieConsent });
+    if (normalizedRedirect) {
+      params.set('redirect', normalizedRedirect);
+    }
     return `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
   };
+
+  const normalizedRedirect =
+    typeof redirectTo === 'string' && redirectTo.startsWith('/') ? redirectTo : null;
 
   useEffect(() => {
     if (initView) {
@@ -46,6 +66,9 @@ export default function AuthContainer(props) {
       currentMediaFlowPath = 'quick_video';
     }
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
+    if (normalizedRedirect) {
+      setPostAuthRedirect(normalizedRedirect);
+    }
 
     axios.get(buildGoogleLoginUrl())
       .then((dataRes) => {
@@ -61,6 +84,9 @@ export default function AuthContainer(props) {
   };
 
   const registerWithGoogle = () => {
+    if (normalizedRedirect) {
+      setPostAuthRedirect(normalizedRedirect);
+    }
     axios.get(buildGoogleLoginUrl())
       .then((dataRes) => {
         const authPayload = dataRes.data;
@@ -75,6 +101,22 @@ export default function AuthContainer(props) {
         setError('Unable to initiate Google registration at this time.');
       });
     closeAlertDialog();
+  };
+
+  const navigateAfterAuth = () => {
+    if (normalizedRedirect) {
+      consumePostAuthRedirect();
+      navigate(normalizedRedirect, { replace: true });
+      return;
+    }
+
+    const storedRedirect = consumePostAuthRedirect();
+    if (storedRedirect) {
+      navigate(storedRedirect, { replace: true });
+      return;
+    }
+
+    getOrCreateUserSession();
   };
 
   const verifyAndSetUserProfile = (profile) => {
@@ -130,7 +172,7 @@ export default function AuthContainer(props) {
       persistAuthToken(authToken);
       setUser(userData);
       closeAlertDialog();
-      getOrCreateUserSession();
+      navigateAfterAuth();
 
       localStorage.setItem("setShowSetPaymentFlow", true);
     } catch (error) {
@@ -157,7 +199,7 @@ export default function AuthContainer(props) {
         verifyAndSetUserProfile={verifyAndSetUserProfile}
         setUser={setUser}
         closeAlertDialog={closeAlertDialog}
-        getOrCreateUserSession={getOrCreateUserSession}
+        getOrCreateUserSession={navigateAfterAuth}
         showSignupButton={true}
       />
     );
@@ -175,7 +217,7 @@ export default function AuthContainer(props) {
         registerWithGoogle={registerWithGoogle}
         verifyAndSetUserProfile={verifyAndSetUserProfile}
         setUser={setUser}
-        getOrCreateUserSession={getOrCreateUserSession}
+        getOrCreateUserSession={navigateAfterAuth}
         closeAlertDialog={closeAlertDialog}
         registerUserWithEmail={registerUserWithEmail}
         showLoginButton={true}
@@ -184,16 +226,18 @@ export default function AuthContainer(props) {
   }
 
   return (
-    <div>
-      {/* If you'd like to display container-level errors */}
-      {error && (
-        <div className="text-center text-red-500">
-          {error}
-        </div>
-      )}
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="relative w-full max-w-md">
+        {/* If you'd like to display container-level errors */}
+        {error && (
+          <div className="mb-3 text-center text-red-500">
+            {error}
+          </div>
+        )}
 
-      <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
-      {authoComponent}
+        <FaTimes className="absolute top-3 right-3 cursor-pointer" onClick={closeAlertDialog} />
+        {authoComponent}
+      </div>
     </div>
   );
 }

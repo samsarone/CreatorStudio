@@ -13,6 +13,7 @@ import MusicPanelContent from "./MusicPanelContent.jsx";
 import ImagePanelContent from "./ImagePanelContent.jsx";
 import SettingsPanelContent from "./SettingsPanelContent.jsx";
 import BillingPanelContent from "./BillingPanelContent.jsx";
+import BillingAccessGate from "./BillingAccessGate.jsx";
 import ToggleButton from "../common/ToggleButton.tsx";
 import SceneLibraryHome from "../library/aivideo/SceneLibraryHome.jsx";
 import OverflowContainer from "../common/OverflowContainer.tsx";
@@ -26,7 +27,7 @@ const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function UserAccount() {
   const { colorMode } = useColorMode();
-  const { user, resetUser, getUserAPI } = useUser();
+  const { user, resetUser, getUserAPI, userFetching, userInitiated } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -80,7 +81,23 @@ export default function UserAccount() {
     setDisplayPanel(resolvePanelFromPath());
   }, [location.pathname]);
 
-  if (!user) return <span />;
+  if (!user) {
+    if (displayPanel === "billing") {
+      if (!userInitiated || userFetching) {
+        return (
+          <OverflowContainer>
+            <div className="pt-[50px] min-h-screen" />
+          </OverflowContainer>
+        );
+      }
+      return (
+        <OverflowContainer>
+          <BillingAccessGate />
+        </OverflowContainer>
+      );
+    }
+    return <span />;
+  }
 
   const updateUserDetails = (payload) => {
     axios

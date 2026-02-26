@@ -15,6 +15,7 @@ import VideoUnderlay from '../util/VideoUnderlay.jsx';
 import CanvasToolbar from "./CanvasToolbar.jsx";
 import { ActiveRenderItem } from './CanvasUtils.jsx';
 import VideoCanvasOverlay from './overlay/VideoCanvasOverlay.jsx';
+import ImageUploadOverlay from './overlay/ImageUploadOverlay.jsx';
 import CanvasLoaderTransparent from '../util/loader/CanvasLoaderTransparent.jsx';
 
 import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.jsx';
@@ -63,6 +64,8 @@ const VideoCanvas = forwardRef((props, ref) => {
     selectedVideoGenerationModel, setSelectedVideoGenerationModel,
     videoPromptText, setVideoPromptText, promptTextVideo, setPromptTextVideo,
     updateTargetShapeActiveLayerConfigNoScale,
+    openUploadDialog,
+    rightPanelView,
   
 
   } = props;
@@ -125,23 +128,7 @@ const VideoCanvas = forwardRef((props, ref) => {
 
   useEffect(() => {
     if (aspectRatio) {
-      let canvasDimensions;
-      if (aspectRatio === '1:1') {
-        canvasDimensions = {
-          width: 1024,
-          height: 1024
-        }
-      } else if (aspectRatio === '16:9') {
-        canvasDimensions = {
-          width: 1792,
-          height: 1024
-        }
-      } else if (aspectRatio === '9:16') {
-        canvasDimensions = {
-          width: 1024,
-          height: 1792
-        }
-      }
+      const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
       setCanvasActualDimensions(canvasDimensions);
     }
 
@@ -190,13 +177,11 @@ const VideoCanvas = forwardRef((props, ref) => {
 
 
   useEffect(() => {
-    if (aspectRatio === '16:9') {
-      setCanvasDimensions({ width: 1792 * stageZoomScale, height: 1024 * stageZoomScale });
-    } else if (aspectRatio === '9:16') {
-      setCanvasDimensions({ width: 1024 * stageZoomScale, height: 1792 * stageZoomScale });
-    } else {
-      setCanvasDimensions({ width: 1024, height: 1024 });
-    }
+    const baseDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+    setCanvasDimensions({
+      width: baseDimensions.width * stageZoomScale,
+      height: baseDimensions.height * stageZoomScale,
+    });
   }, [aspectRatio, displayZoomType, stageZoomScale]);
   useEffect(() => {
     if (currentCanvasAction === 'SHOW_SMART_SELECT_DISPLAY' && enableSegmentationMask && selectedBbox) {
@@ -687,10 +672,51 @@ const VideoCanvas = forwardRef((props, ref) => {
   )
 
 
+  const overlayView = rightPanelView || currentView;
+  const overlayGenerateTab =
+    overlayView === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY
+      ? "video"
+      : overlayView === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY
+      ? "image"
+      : "image";
+  const isEditImageView = [
+    CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY,
+    CURRENT_TOOLBAR_VIEW.SHOW_EDIT_MASK_DISPLAY,
+  ].includes(overlayView);
+
+  useEffect(() => {
+    if (
+      overlayView === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY ||
+      overlayView === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY
+    ) {
+      setShowOverlayPromptGenerator(true);
+    }
+  }, [overlayView]);
+  const hasActiveImageInFrame = (() => {
+    if (!activeItemList || activeItemList.length === 0) {
+      return false;
+    }
+    return activeItemList.some((item) => {
+      if (!item || item.isHidden || item.type !== 'image') {
+        return false;
+      }
+      const frameDuration = item?.config?.frameDuration;
+      if (!frameDuration) {
+        return true;
+      }
+      const frameOffset = item?.config?.frameOffset;
+      if (!Number.isFinite(frameOffset)) {
+        return true;
+      }
+      return currentRelativeFrame >= frameOffset && currentRelativeFrame <= frameOffset + frameDuration;
+    });
+  })();
+
   let canvasActionOverlay = <span />;
-  if (activeItemList.length === 0 && !aiVideoLayer && showOverlayPromptGenerator) {
+  if (!isEditImageView && activeItemList.length === 0 && !aiVideoLayer && showOverlayPromptGenerator) {
 
     canvasActionOverlay = <VideoCanvasOverlay activeItemList={activeItemList}
+      activeTab={overlayGenerateTab}
       promptText={promptText}
       setPromptText={setPromptText}
 
@@ -719,6 +745,18 @@ const VideoCanvas = forwardRef((props, ref) => {
 
     />;
 
+  }
+
+  let canvasEditUploadOverlay = <span />;
+  if (isEditImageView && !hasActiveImageInFrame) {
+    canvasEditUploadOverlay = (
+      <ImageUploadOverlay
+        aspectRatio={aspectRatio}
+        onUpload={openUploadDialog}
+        onOpenLibrary={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_LIBRARY_DISPLAY)}
+        activeTab="upload"
+      />
+    );
   }
 
     let canvasInternalLoading = <span />;
@@ -870,6 +908,7 @@ const VideoCanvas = forwardRef((props, ref) => {
           <div className="spinner"></div>
         </div>
       )}
+      {canvasEditUploadOverlay}
       {canvasActionOverlay}
 
     </div>

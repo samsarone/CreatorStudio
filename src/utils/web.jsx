@@ -2,6 +2,7 @@ const AUTH_COOKIE_NAME = 'authToken';
 const AUTH_TOKEN_KEY = 'authToken';
 const COOKIE_CONSENT_KEY = 'samsar_cookie_consent';
 const AUTH_COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const POST_AUTH_REDIRECT_KEY = 'postAuthRedirect';
 let inMemoryAuthToken = null;
 
 const getAuthCookie = () => {
@@ -78,6 +79,15 @@ export function saveCookieConsentStatus(status) {
   }
 
   if (status === 'rejected') {
+    const cookieToken = getAuthCookie();
+    if (cookieToken) {
+      try {
+        localStorage.setItem(AUTH_TOKEN_KEY, cookieToken);
+      } catch (err) {
+        // Ignore storage write errors.
+      }
+      inMemoryAuthToken = cookieToken;
+    }
     clearAuthCookies();
   } else if (status === 'accepted') {
     const token = getAuthToken();
@@ -181,6 +191,29 @@ export function clearAuthData() {
 
   inMemoryAuthToken = null;
   clearAuthCookies();
+}
+
+export function setPostAuthRedirect(path) {
+  if (typeof window === 'undefined') return;
+  if (!path || typeof path !== 'string') return;
+  try {
+    sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, path);
+  } catch (err) {
+    // Ignore storage errors to avoid blocking auth flow.
+  }
+}
+
+export function consumePostAuthRedirect() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const target = sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
+    if (target) {
+      sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    }
+    return target || null;
+  } catch (err) {
+    return null;
+  }
 }
 
 export const cleanJsonTheme = (payload) => {

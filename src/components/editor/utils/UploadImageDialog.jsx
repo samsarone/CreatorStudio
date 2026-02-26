@@ -31,7 +31,14 @@ export default function UploadImageDialog({ setUploadURL, aspectRatio }) {
 
   // Handle file processing
   const processFile = (file) => {
-    if (!file.type.startsWith('image/')) {
+    if (!file) {
+      setUploadStatus('Please upload an image file.');
+      return;
+    }
+    const fileName = file.name ? file.name.toLowerCase() : '';
+    const isHeicFile = fileName.endsWith('.heic') || fileName.endsWith('.heif');
+    const isImageFile = Boolean(file.type && file.type.startsWith('image/')) || isHeicFile;
+    if (!isImageFile) {
       setUploadStatus('Please upload an image file.');
       return;
     }
@@ -91,7 +98,11 @@ export default function UploadImageDialog({ setUploadURL, aspectRatio }) {
       className="upload-container relative h-[512px]"
       style={{ border: '1px solid black', padding: '20px', textAlign: 'center' }}
     >
-      <input type="file" accept="image/*" onChange={handleFileChange} />
+      <input
+        type="file"
+        accept="image/*,image/heic,image/heif,.heic,.heif"
+        onChange={handleFileChange}
+      />
       {uploadStatus && <p>{uploadStatus}</p>}
       {image && (
         <div className='m-auto text-center'>

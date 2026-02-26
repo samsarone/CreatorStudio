@@ -13,7 +13,7 @@ import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
 import { FaStar, FaArrowUpRightFromSquare } from 'react-icons/fa6';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { toast } from 'react-toastify';
@@ -29,12 +29,14 @@ import  AddLicense  from '../license/AddLicense.jsx';
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
 import BrandLogo from './BrandLogo.tsx';
+import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
+import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function TopNav(props) {
-  const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying } = props;
+  const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying, isRenderPending } = props;
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
@@ -42,6 +44,12 @@ export default function TopNav(props) {
   const { openAlertDialog, closeAlertDialog, isAlertDialogOpen } = useAlertDialog();
 
   const sessionType = getSessionType();
+
+  const isImageEditor =
+    location.pathname.includes('/image/') ||
+    location.pathname.includes('/iamge/') ||
+    location.pathname.includes('/image_sessions');
+  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/') || location.pathname.includes('/infovidcreator/');
 
   const {
     downloadCurrentFrame,
@@ -61,11 +69,15 @@ export default function TopNav(props) {
 
   const navShell =
     colorMode === 'dark'
-      ? 'bg-gradient-to-r from-[#080f21] via-[#0d1830] to-[#091026] text-slate-100 border-b border-[#1f2a3d] shadow-[0_16px_48px_rgba(0,0,0,0.45)]'
+      ? 'bg-gradient-to-r from-[#071223] via-[#0d1d35] to-[#0a1b2d] text-slate-100 border-b border-[#2a4e70] shadow-[0_16px_48px_rgba(0,0,0,0.45)]'
       : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef] shadow-[0_10px_24px_rgba(15,23,42,0.08)]';
 
   const resetSession = () => {
     closeAlertDialog();
+    if (isImageEditor) {
+      createNewImageSession();
+      return;
+    }
     createNewSession();
   };
 
@@ -202,12 +214,7 @@ const showLicenseDialog = () => {
 
   const showRegisterDialog = () => {
     const registerComponent = <AuthContainer initView="register" />;
-    openAlertDialog(
-      <div>
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        {registerComponent}
-      </div>
-    );
+    openAlertDialog(registerComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   }
 
   const upgradeToPremiumTier = () => {
@@ -231,8 +238,91 @@ const showLicenseDialog = () => {
     });
   };
 
+  const createNewImageSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          canvasDimensions?: { width?: number; height?: number };
+          addBackgroundLayer?: boolean;
+          backgroundLayerColor?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || '1:1';
+    const fallbackCanvasDimensions = getCanvasDimensionsForAspectRatio(selectedAspectRatio);
+    const rawWidth = Number(normalizedSessionConfig.canvasDimensions?.width);
+    const rawHeight = Number(normalizedSessionConfig.canvasDimensions?.height);
+    const canvasDimensions = {
+      width: Number.isFinite(rawWidth) && rawWidth > 0 ? Math.round(rawWidth) : fallbackCanvasDimensions.width,
+      height: Number.isFinite(rawHeight) && rawHeight > 0 ? Math.round(rawHeight) : fallbackCanvasDimensions.height,
+    };
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const shouldAddBackgroundLayer = Boolean(normalizedSessionConfig.addBackgroundLayer);
+    const backgroundLayerColor =
+      typeof normalizedSessionConfig.backgroundLayerColor === 'string'
+        ? normalizedSessionConfig.backgroundLayerColor
+        : '#ffffff';
+
+    const headers = getHeaders();
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      canvasDimensions: { width: number; height: number };
+      sessionName?: string;
+      addBackgroundLayer?: boolean;
+      backgroundLayerColor?: string;
+    } = {
+      prompts: [],
+      aspectRatio: selectedAspectRatio,
+      canvasDimensions,
+    };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (shouldAddBackgroundLayer) {
+      payload.addBackgroundLayer = true;
+      payload.backgroundLayerColor = backgroundLayerColor;
+    }
+    axios.post(`${PROCESSOR_SERVER}/image_sessions/create_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('imageSessionId', sessionId);
+      navigate(`/image/studio/${session._id}`);
+    });
+  };
+
   const gotoViewSessionsPage = () => {
+    if (isImageEditor) {
+      navigate('/image_sessions');
+      return;
+    }
     navigate('/my_sessions');
+  };
+
+  const openImageEditor = () => {
+    const storedSessionId = localStorage.getItem('imageSessionId');
+    if (storedSessionId) {
+      navigate(`/image/studio/${storedSessionId}`);
+      return;
+    }
+    const defaultAspectRatio = localStorage.getItem('defaultImageAspectRatio') || '1:1';
+    createNewImageSession(defaultAspectRatio);
+  };
+
+  const openVideoEditor = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/video/${storedSessionId}`);
+      return;
+    }
+    const defaultAspectRatio = localStorage.getItem('defaultAspectRatio') || '1:1';
+    createNewSession(defaultAspectRatio);
   };
 
 
@@ -293,8 +383,8 @@ const showLicenseDialog = () => {
         premiumUserType = user.premiumUserType;
       }
       userTierDisplay = (
-        <div className='text-xs text-rose-200'>
-          <FaStar className="inline-flex text-rose-300" /> {premiumUserType}
+        <div className='text-xs text-[#d7ffeb]'>
+          <FaStar className="inline-flex text-[#39d881]" /> {premiumUserType}
         </div>
       );
     } else {
@@ -326,7 +416,7 @@ const showLicenseDialog = () => {
             {userTierDisplay}
           </div>
         </div>
-        <FaCog className="text-lg cursor-pointer hover:text-rose-300" onClick={gotoUserAccount} />
+        <FaCog className="text-lg cursor-pointer hover:text-[#89dcff]" onClick={gotoUserAccount} />
       </div>
     );
 
@@ -335,10 +425,10 @@ const showLicenseDialog = () => {
     userProfile = (
       <button
         className={`
-          inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold shadow-sm transition duration-200
+          inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0
           ${colorMode === 'dark'
-            ? 'text-slate-100 bg-[#111a2f] border-[#1f2a3d] hover:border-rose-400/40 hover:text-rose-100'
-            : 'text-slate-900 bg-white/90 border-[#d7deef] hover:border-rose-200 hover:text-rose-600 shadow-sm'}
+            ? 'text-slate-100 bg-[#111a2f] hover:bg-[#162744] hover:text-[#d7ffeb] shadow-[0_8px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_24px_rgba(70,191,255,0.2)]'
+            : 'text-slate-900 bg-white/90 hover:bg-white hover:text-slate-900 shadow-[0_8px_16px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_22px_rgba(15,23,42,0.14)]'}
         `}
         type="button"
         onClick={showLoginDialog}
@@ -476,7 +566,7 @@ const showLicenseDialog = () => {
     addSessionButton = (
       <div className="inline-flex items-center">
         <AddSessionDropdown
-          createNewSession={createNewSession}
+          createNewSession={isImageEditor ? createNewImageSession : createNewSession}
           gotoViewSessionsPage={gotoViewSessionsPage}
           addNewExpressSession={addNewExpressSession}
           addNewVidGPTSession={addNewVidGPTSession}
@@ -484,6 +574,12 @@ const showLicenseDialog = () => {
           betaOptionVisible={betaOptionVisible}
           showAddNewAdVideoSession={showAddNewAdVideoSession}
           addNewSnowMakerSession={addNewSnowMakerSession}
+          aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
+          aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
+          useImageProjectModal={isImageEditor}
+          switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
+          onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+          showVideoOptions={!isImageEditor}
         />
       </div>
     );
@@ -509,7 +605,7 @@ const showLicenseDialog = () => {
 
   const galleryLinkClasses =
     colorMode === 'dark'
-      ? 'text-rose-200 hover:text-white'
+      ? 'text-[#bce8ff] hover:text-[#e7f8ff]'
       : 'text-rose-600 hover:text-rose-500';
 
 
@@ -565,6 +661,7 @@ const showLicenseDialog = () => {
         regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        isRenderPending={isRenderPending}
       />
     );
   } else if (location.pathname.includes('/vidgenie/')) {
@@ -575,9 +672,9 @@ const showLicenseDialog = () => {
 
   return (
     <div className={`${navShell} fixed top-0 inset-x-0 h-[56px] z-20`}>
-      <div className="grid h-full w-full grid-cols-[10%_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
+      <div className="grid h-full w-full grid-cols-[minmax(160px,14%)_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
         <div className="flex h-full items-center justify-center px-2">
-          <BrandLogo onClick={gotoHome} className="w-full max-w-[220px]" />
+          <BrandLogo onClick={gotoHome} className="w-full max-w-[260px] px-4" />
         </div>
         <div className="flex items-center justify-center min-w-0 h-full py-[2px]">
           <div className="flex h-full w-full items-center justify-center translate-y-[4px]">

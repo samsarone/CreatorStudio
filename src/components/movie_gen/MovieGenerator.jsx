@@ -372,8 +372,8 @@ export default function MovieGenerator() {
   if (pricingDetailsDisplay) {
     pricingDetailsMessage = (
       <div className='block mt-1'>
-        <div>The price is calculated as 100 credits per 10 seconds of video.</div>
-        <div>For example, a 1 minute video will consume 600 credits.</div>
+        <div>The price is calculated as 150 credits per 10 seconds of video.</div>
+        <div>For example, a 1 minute video will consume 900 credits.</div>
         {premiumUsersOnlyMessage}
       </div>
     )

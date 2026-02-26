@@ -151,7 +151,7 @@ export default function OverlayPromptGenerator(props) {
   return (
     <div>
       {/* ───────────────────────── Model + Style row ───────────────────────── */}
-      <div className="flex w-full mt-2 mb-4 justify-center items-center space-x-4">
+      <div className="flex w-full mt-1 mb-2 justify-center items-center space-x-3">
         {/* Model Selection */}
         <div className="flex items-center space-x-2">
           <div className="text-md font-bold flex items-center">
@@ -166,7 +166,7 @@ export default function OverlayPromptGenerator(props) {
           </div>
           <select
             onChange={setSelectedModelDisplay}
-            className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
+            className={`${selectShell} rounded-md px-2.5 py-1.5 bg-transparent`}
             value={selectedGenerationModel}
           >
             {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -189,7 +189,7 @@ export default function OverlayPromptGenerator(props) {
                 <select
                   onChange={handleImageStyleChange}
                   value={selectedImageStyle || ""}
-                  className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
+                  className={`${selectShell} rounded-md px-2.5 py-1.5 bg-transparent`}
                 >
                   {modelDef.imageStyles.map((style) => (
                     <option key={style} value={style}>
@@ -205,7 +205,7 @@ export default function OverlayPromptGenerator(props) {
       </div>
 
       {/* ───────────────────────── Checkboxes (Retry/Speaker) ───────────────────────── */}
-      <div className={`flex flex-wrap items-center gap-4 px-1 ${checkboxText}`}>
+      <div className={`flex flex-wrap items-center gap-3 px-1 ${checkboxText}`}>
         {/* Retry on fail */}
         <label className="flex items-center text-xs font-semibold">
           <input
@@ -251,13 +251,13 @@ export default function OverlayPromptGenerator(props) {
       <TextareaAutosize
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Describe your prompt to generate an image"
-        className={`${textareaShell} w-full m-auto px-3 py-3 rounded-xl mt-3 bg-transparent`}
-        minRows={3}
+        className={`${textareaShell} w-full m-auto px-2.5 py-2 rounded-lg mt-2 bg-transparent`}
+        minRows={2}
         value={promptText}
       />
 
       {/* ───────────────────────── Submit Button ───────────────────────── */}
-      <div className="text-center mt-2">
+      <div className="text-center mt-1.5">
         <CommonButton onClick={handleSubmit} isPending={isGenerationPending}>
           Submit
         </CommonButton>

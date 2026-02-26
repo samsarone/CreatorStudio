@@ -17,7 +17,7 @@ import {
 
 
 import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
-import UploadImageDialog from '../editor/utils/UploadImageDialog.jsx';
+import ImageUploadDialog from '../image/ImageUploadDialog.jsx';
 import VideoCanvasContainer from './editor/VideoCanvasContainer.jsx';
 import VideoEditorToolbar from './toolbars/VideoEditorToolbar.jsx'
 import LoadingImage from './util/LoadingImage.jsx';
@@ -27,7 +27,7 @@ import LoadingImageBase from './util/LoadingImageBase.jsx';
 import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
 
 import LibraryHome from '../library/LibraryHome.jsx';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import VideoEditorToolbarMinimal from './toolbars/VideoEditorToolbarMinimal.jsx';
 import { ToastContainer, toast } from 'react-toastify';
 
@@ -117,7 +117,7 @@ export default function VideoEditorContainer(props) {
 
   const showLoginDialog = () => {
     const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   const generationPollIntervalRef = useRef(null);
@@ -163,7 +163,12 @@ export default function VideoEditorContainer(props) {
       return;
     }
 
-    if (currentLayer.hasLipSyncVideoLayer && currentLayer.lipSyncVideoLayer) {
+    const hasLipSyncVideo = Boolean(
+      (currentLayer.hasLipSyncVideoLayer || currentLayer.layerAiVideoType === 'lip_sync') &&
+      currentLayer.lipSyncVideoLayer
+    );
+
+    if (hasLipSyncVideo) {
       setAiVideoLayer(getLipSyncVideoLink());
       setAiVideoLayerType('lip_sync');
     } else if (currentLayer.hasSoundEffectVideoLayer && currentLayer.soundEffectVideoLayer) {
@@ -369,6 +374,7 @@ export default function VideoEditorContainer(props) {
   const [editBrushWidth, setEditBrushWidth] = useState(25);
   const [editMasklines, setEditMaskLines] = useState([]);
   const [currentView, setCurrentView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+  const [rightPanelView, setRightPanelView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
   const [currentCanvasAction, setCurrentCanvasAction] = useState(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
 
   const [selectedGenerationModel, setSelectedGenerationModel] = useState(() => {
@@ -416,6 +422,10 @@ export default function VideoEditorContainer(props) {
   const setCurrentViewDisplay = (view) => {
     setCurrentView(view);
   };
+
+  useEffect(() => {
+    setRightPanelView(currentView);
+  }, [currentView]);
 
 
 
@@ -477,17 +487,31 @@ export default function VideoEditorContainer(props) {
   const setUploadURL = useCallback(
     (data) => {
       if (!data) return;
-      const newItemId = `item_${activeItemList.length}`;
-      const newItem = {
-        src: data.url,
-        id: newItemId,
-        type: 'image',
-        x: data.x,
-        y: data.y,
-        width: data.width,
-        height: data.height,
-      };
-      const newItemList = [...activeItemList, newItem];
+      const uploads = Array.isArray(data) ? data : [data];
+      if (!uploads.length) return;
+
+      const newItemList = [...activeItemList];
+      let nextIndex = newItemList.length;
+      uploads.forEach((entry) => {
+        if (!entry?.url) return;
+        const newItemId = `item_${nextIndex}`;
+        nextIndex += 1;
+        newItemList.push({
+          src: entry.url,
+          id: newItemId,
+          type: 'image',
+          x: entry.x,
+          y: entry.y,
+          width: entry.width,
+          height: entry.height,
+          source: 'upload',
+        });
+      });
+
+      if (newItemList.length === activeItemList.length) {
+        return;
+      }
+
       setActiveItemList(newItemList);
       updateSessionLayerActiveItemList(newItemList);
       closeAlertDialog();
@@ -502,6 +526,28 @@ export default function VideoEditorContainer(props) {
       );
     },
     [activeItemList]
+  );
+
+  const openUploadDialog = useCallback(
+    (options = {}) => {
+      const { closeView = false } = options;
+      if (closeView) {
+        setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+      }
+      openAlertDialog(
+        <div>
+          <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
+          <ImageUploadDialog
+            setUploadURL={setUploadURL}
+            aspectRatio={aspectRatio}
+          />
+        </div>,
+        undefined,
+        false,
+        { hideBorder: true }
+      );
+    },
+    [aspectRatio, closeAlertDialog, openAlertDialog, setCurrentView, setUploadURL]
   );
 
   useEffect(() => {
@@ -2046,7 +2092,12 @@ export default function VideoEditorContainer(props) {
         updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
 
         // Decide which link to set
-        if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
+        const hasLipSyncVideo = Boolean(
+          (layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync') &&
+          layer.lipSyncVideoLayer
+        );
+
+        if (hasLipSyncVideo) {
           setAiVideoLayerType('lip_sync');
           setAiVideoLayer(layer.lipSyncRemoteLink
             ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
@@ -2591,6 +2642,8 @@ export default function VideoEditorContainer(props) {
               videoPromptText={videoPromptText}
               setVideoPromptText={setVideoPromptText}
 
+              openUploadDialog={openUploadDialog}
+              rightPanelView={rightPanelView}
               downloadCurrentFrame={downloadCurrentFrame}
             />
 
@@ -2622,6 +2675,7 @@ export default function VideoEditorContainer(props) {
       setEditBrushWidth={setEditBrushWidth}
       setCurrentViewDisplay={setCurrentViewDisplay}
       currentViewDisplay={currentView}
+      onToolbarViewChange={setRightPanelView}
       textConfig={textConfig}
       setTextConfig={setTextConfig}
       activeItemList={activeItemList}
@@ -2649,18 +2703,7 @@ export default function VideoEditorContainer(props) {
       showMoveAction={() => { }}
       showResizeAction={() => { }}
       showSaveAction={() => { }}
-      showUploadAction={() => {
-        setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-        openAlertDialog(
-          <div>
-            <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
-            <UploadImageDialog
-              setUploadURL={setUploadURL}
-              aspectRatio={aspectRatio}
-            />
-          </div>
-        );
-      }}
+      showUploadAction={() => openUploadDialog({ closeView: true })}
       pencilWidth={pencilWidth}
       setPencilWidth={setPencilWidth}
       pencilColor={pencilColor}

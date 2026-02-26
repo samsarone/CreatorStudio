@@ -140,7 +140,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'RUNWAYML',
     isExpressModel: true,
     isTransitionModel: false,
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
@@ -150,8 +151,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'SORA2',
     isExpressModel: true,
     isTransitionModel: false,
-    isImgToVidModel: true,
-    isTextToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
@@ -161,17 +162,18 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'SORA2PRO',
     isExpressModel: true,
     isTransitionModel: false,
-    isImgToVidModel: true,
-    isTextToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
     ]
   },
   {
-    name: 'Kling 2.5 Img2Vid',
-    key: 'KLINGIMGTOVIDTURBO',
+    name: 'Kling 3 Pro Img2Vid',
+    key: 'KLINGIMGTOVID3PRO',
     isExpressModel: true,
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
     supportedAspectRatios: [
       '16:9', '9:16', '1:1',
     ]
@@ -179,7 +181,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Hailuo O2 Standard',
     key: 'HAILUO',
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9'
     ],
@@ -188,34 +191,18 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Hailuo O2 Pro',
     key: 'HAILUOPRO',
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9'
     ],
     isExpressModel: true,
   },
   {
-    name: 'Wan 2.2 I2V',
-    key: 'WANI2V',
-    isImgToVidModel: true,
-    isExpressModel: true,
-    supportedAspectRatios: [
-      '16:9'
-    ]
-  },
-  {
-    name: 'Wan 2.2 5B I2V',
-    key: 'WANI2V5B',
-    isImgToVidModel: true,
-    isExpressModel: true,
-    supportedAspectRatios: [
-      '16:9'
-    ]
-  },
-  {
     name: 'SeeDance Img2Vid',
     key: 'SEEDANCEI2V',
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
     isExpressModel: true,
     supportedAspectRatios: [
       '16:9', '9:16',
@@ -224,8 +211,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'VEO3.1 Img2Vid',
     key: 'VEO3.1I2V',
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
     isExpressModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9',
       '9:16'
@@ -234,8 +222,9 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'VEO3.1 Fast Img2Vid',
     key: 'VEO3.1I2VFAST',
-    isImgToVidModel: true,
+    isImageToVideoModel: true,
     isExpressModel: true,
+    isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9',
       '9:16'
@@ -250,7 +239,6 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
 
 
 export const IMAGE_EDIT_MODEL_TYPES = [
-
   {
     name: 'NanoBanana Pro Edit',
     key: 'NANOBANANAPROEDIT',
@@ -258,74 +246,14 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     isPromptEnabled: true
   },
   {
-    name: 'Bria Eraser',
-    key: 'BRIA_ERASER',
-    editType: 'inpaint',
-    isPromptEnabled: false
-  },
-  {
-    name: 'Bria GenFill',
-    key: 'BRIA_GENFILL',
-    editType: 'inpaint',
-    isPromptEnabled: true
-
-  },
-
-  {
-    name: 'Bria BackgroundRemove',
-    key: 'BRIA_BACKGROUNDREMOVE',
-
-    isPromptEnabled: false
-
-  },
-
-
-
-
-  {
-    name: 'Flux-1 Pro Fill',
-    key: 'FLUX1PROFILL',
-    editType: 'inpaint',
-    isPromptEnabled: true
-  },
-
-
-  {
-    name: 'Flux-1.1 Pro Ultra Redux',
-    key: 'FLUX1.1PROULTRAREDUX',
-    editType: 'prompt',
-    isPromptEnabled: true
-  },
-
-
-  {
-    name: 'Flux-1.1 Pro Redux',
-    key: 'FLUX1.1PROREDUX',
-    editType: 'prompt',
-    isPromptEnabled: true
-  },
-
-  {
     name: 'GPT Image 1.5 Edit',
     key: 'GPTIMAGE1EDIT',
     editType: 'inpaint',
     isPromptEnabled: true,
   },
 
-
-
 ]
 
-
-
-
-// export const ASSISTANT_MODEL_TYPES = [
-//   'GPT4.5O',
-//   'GPT4.1',
-//   'GPTO3',
-//   'GPTO3MINI',
-//   'GROK3'
-// ];
 
 
 export const ASSISTANT_MODEL_TYPES = [

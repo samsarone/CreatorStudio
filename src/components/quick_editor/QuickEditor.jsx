@@ -29,7 +29,7 @@ import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { franc } from 'franc';
 import AudioSelect from '../common/AudioSelect.jsx';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { INFINITE_ZOOM_ANIMATION_OPTIONS } from '../../utils/animation.jsx';
 import './editor.css';
 import {
@@ -385,11 +385,29 @@ export default function QuickEditor() {
 
   // Filter the available VIDEO_GENERATION_MODEL_TYPES based on the current videoType
   const videoGenerationModelOptions = useMemo(() => {
+    const expressPriority = {
+      'VEO3.1I2V': 0,
+      'VEO3.1I2VFAST': 1,
+    };
+    const sortByExpressPriority = (models = []) =>
+      [...models].sort((a, b) => {
+        const aPriority = Object.prototype.hasOwnProperty.call(expressPriority, a?.key)
+          ? expressPriority[a.key]
+          : Number.MAX_SAFE_INTEGER;
+        const bPriority = Object.prototype.hasOwnProperty.call(expressPriority, b?.key)
+          ? expressPriority[b.key]
+          : Number.MAX_SAFE_INTEGER;
+        if (aPriority !== bPriority) return aPriority - bPriority;
+        return 0;
+      });
+
     if (videoType.value === 'Infinitezoom') {
       return VIDEO_GENERATION_MODEL_TYPES.filter((m) => m.isTransitionModel);
     } else {
       // Default to Slideshow => show isExpressModel
-      return VIDEO_GENERATION_MODEL_TYPES.filter((m) => m.isExpressModel);
+      return sortByExpressPriority(
+        VIDEO_GENERATION_MODEL_TYPES.filter((m) => m.isExpressModel)
+      );
     }
   }, [videoType]);
 
@@ -885,7 +903,7 @@ export default function QuickEditor() {
 
   const showLoginDialog = () => {
     const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   // Credits logic placeholders
@@ -918,7 +936,7 @@ export default function QuickEditor() {
     const imagePriceObj = imageModelPricing
       ? imageModelPricing.prices.find((price) => price.aspectRatio === aspectRatioValue)
       : null;
-    const imageCreditCostPerImage = imagePriceObj ? imagePriceObj.price : 5;
+    const imageCreditCostPerImage = imagePriceObj ? imagePriceObj.price : 8;
     const totalImageCredits = numImages * imageCreditCostPerImage;
     credits += totalImageCredits;
 
@@ -932,7 +950,7 @@ export default function QuickEditor() {
         ? speechModelPricing.prices.find((price) => price.operationType === 'words')
         : null;
       const tokensPerUnit = speechPriceObj ? speechPriceObj.tokens : 1000;
-      const speechPricePerUnit = speechPriceObj ? speechPriceObj.price : 1;
+      const speechPricePerUnit = speechPriceObj ? speechPriceObj.price : 2;
       const speechUnits = Math.ceil(wordsCount / tokensPerUnit);
       speechCredits = speechUnits * speechPricePerUnit;
       credits += speechCredits;
@@ -947,7 +965,7 @@ export default function QuickEditor() {
       const translationPriceObj = translationModelPricing
         ? translationModelPricing.prices.find((price) => price.operationType === 'line')
         : null;
-      const translationPricePerLine = translationPriceObj ? translationPriceObj.price : 1;
+      const translationPricePerLine = translationPriceObj ? translationPriceObj.price : 2;
       translationCredits = numImages * translationPricePerLine;
       credits += translationCredits;
     }
@@ -960,7 +978,7 @@ export default function QuickEditor() {
       const musicPriceObj = musicModelPricing
         ? musicModelPricing.prices.find((price) => price.operationType === 'generate_song')
         : null;
-      musicCredits = musicPriceObj ? musicPriceObj.price : 2;
+      musicCredits = musicPriceObj ? musicPriceObj.price : 3;
       credits += musicCredits;
     }
 
@@ -973,7 +991,7 @@ export default function QuickEditor() {
       const videoPriceObj = videoModelPricing
         ? videoModelPricing.prices.find((price) => price.aspectRatio === aspectRatioValue)
         : null;
-      const videoPricePerUnit = videoPriceObj ? videoPriceObj.price : 60;
+      const videoPricePerUnit = videoPriceObj ? videoPriceObj.price : 90;
 
       videoCredits = 0;
       lineItems.forEach((line) => {
@@ -988,9 +1006,9 @@ export default function QuickEditor() {
     }
 
     // Prompt Enhancement credits
-    let promptEnhancementPricePerUnit = 1;
+    let promptEnhancementPricePerUnit = 2;
     if (selectedInferenceModel === 'GPTO1') {
-      promptEnhancementPricePerUnit = 6;
+      promptEnhancementPricePerUnit = 9;
     }
     let totalPromptEnhancementCredits = 0;
     lineItems.forEach((line) => {
@@ -1003,9 +1021,9 @@ export default function QuickEditor() {
     });
 
     // Theming credits
-    let themePricePerUnit = 1;
+    let themePricePerUnit = 2;
     if (selectedInferenceModel === 'GPTO1') {
-      themePricePerUnit = 6;
+      themePricePerUnit = 9;
     }
     let totalThemeCredits = 0;
     lineItems.forEach((line) => {

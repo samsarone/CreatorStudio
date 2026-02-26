@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 
 import { useColorMode } from "../../../../contexts/ColorMode";
@@ -9,6 +9,7 @@ export default function VideoCanvasOverlay(props) {
   const {
     activeItemList,
     onCloseOverlay,
+    activeTab,
     // Existing image-generation props
     promptText,
     setPromptText,
@@ -34,25 +35,29 @@ export default function VideoCanvasOverlay(props) {
   const { colorMode } = useColorMode();
 
   // Tab for toggling between "Generate Image" vs "Generate Video"
-  const [selectedTab, setSelectedTab] = useState("image"); // default is "image"
+  const [selectedTab, setSelectedTab] = useState(activeTab || "image"); // default is "image"
 
-  let overlayVidPrompt = <span />;
-  if (aspectRatio !== '1:1') {
-    overlayVidPrompt = (
-      <OverlayPromptGenerateVideo
-        videoPromptText={videoPromptText}
-        setVideoPromptText={setVideoPromptText}
-        aiVideoGenerationPending={aiVideoGenerationPending}
-        selectedVideoGenerationModel={selectedVideoGenerationModel}
-        setSelectedVideoGenerationModel={setSelectedVideoGenerationModel}
-        generationError={generationError}
-        currentDefaultPrompt={currentDefaultPrompt}
-        submitGenerateNewVideoRequest={submitGenerateNewVideoRequest}
-        aspectRatio={aspectRatio}
-        onCloseOverlay={onCloseOverlay}
-      />
-    )
-  }
+  useEffect(() => {
+    if (activeTab) {
+      setSelectedTab(activeTab);
+    }
+  }, [activeTab]);
+
+  const overlayVidPrompt = (
+    <OverlayPromptGenerateVideo
+      videoPromptText={videoPromptText}
+      setVideoPromptText={setVideoPromptText}
+      aiVideoGenerationPending={aiVideoGenerationPending}
+      selectedVideoGenerationModel={selectedVideoGenerationModel}
+      setSelectedVideoGenerationModel={setSelectedVideoGenerationModel}
+      generationError={generationError}
+      currentDefaultPrompt={currentDefaultPrompt}
+      submitGenerateNewVideoRequest={submitGenerateNewVideoRequest}
+      aspectRatio={aspectRatio}
+      onCloseOverlay={onCloseOverlay}
+      activeItemList={activeItemList}
+    />
+  );
 
   // If the activeItemList is empty, show our tabbed prompt overlay
   if (!activeItemList || activeItemList.length === 0) {
@@ -85,29 +90,30 @@ export default function VideoCanvasOverlay(props) {
           z-10
           ${overlaySurface} backdrop-blur
           flex flex-col items-center
-          px-4 py-2
-          rounded-2xl
-          min-w-[512px]
+          px-2 py-1.5
+          rounded-lg
+          w-[88vw] max-w-[420px]
+          opacity-50 hover:opacity-80 focus-within:opacity-100 transition-opacity duration-150
         `}
       >
         {/* Close Button */}
         <button
           onClick={onCloseOverlay}
-          className={`absolute top-4 right-4 transition-colors duration-150 ${closeButtonColor}`}
+          className={`absolute top-3 right-3 transition-colors duration-150 ${closeButtonColor}`}
         >
-          <FaTimes size={18} />
+          <FaTimes size={16} />
         </button>
 
         {/* Tab Buttons */}
-        <div className="flex space-x-3 mb-2">
+        <div className="flex space-x-2 mb-1.5">
           <button
-            className={`px-4 py-1.5 rounded-full transition-colors duration-150 ${selectedTab === "image" ? tabActive : tabBase}`}
+            className={`px-3 py-1 text-sm rounded-full transition-colors duration-150 ${selectedTab === "image" ? tabActive : tabBase}`}
             onClick={() => setSelectedTab("image")}
           >
             Generate Image
           </button>
           <button
-            className={`px-4 py-1.5 rounded-full transition-colors duration-150 ${selectedTab === "video" ? tabActive : tabBase}`}
+            className={`px-3 py-1 text-sm rounded-full transition-colors duration-150 ${selectedTab === "video" ? tabActive : tabBase}`}
             onClick={() => setSelectedTab("video")}
           >
             Generate Video

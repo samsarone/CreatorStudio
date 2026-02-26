@@ -39,8 +39,12 @@ export default function CommonDropdownButton({
   // Replicate the gradient styles from CommonButton
   const gradientBg =
     colorMode === "dark"
-      ? "text-neutral-100 border-2 border-neutral-500 from-gray-950 to-gray-800 hover:from-gray-800 hover:text-neutral-100"
+      ? "text-[#041420] from-[#46bfff] to-[#39d881] hover:from-[#60cbff] hover:to-[#55e8a2]"
       : "text-neutral-100 from-blue-500 to-blue-600 hover:text-neutral-300";
+  const interactionClasses =
+    colorMode === "dark"
+      ? "transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_12px_24px_rgba(70,191,255,0.22)] active:translate-y-0"
+      : "transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_18px_rgba(15,23,42,0.14)] active:translate-y-0";
 
   return (
     <Menu as="div" className="relative inline-block text-left">
@@ -58,6 +62,7 @@ export default function CommonDropdownButton({
             disabled:opacity-50 disabled:cursor-not-allowed
             disabled:bg-gray-800 disabled:text-neutral-100
             ${gradientBg}
+            ${interactionClasses}
             ${extraClasses}
           `}
         >
@@ -77,6 +82,7 @@ export default function CommonDropdownButton({
             disabled:opacity-50 disabled:cursor-not-allowed
             disabled:bg-gray-800 disabled:text-neutral-100
             ${gradientBg}
+            ${interactionClasses}
           `}
         >
           ▼
@@ -96,8 +102,8 @@ export default function CommonDropdownButton({
         <Menu.Items
           className={`
             origin-top-right absolute right-0 mt-2
-            w-36 bg-neutral-900 border border-gray-600
-            rounded shadow-lg z-50
+            w-36 rounded bg-neutral-900/95 ring-1 ring-white/10
+            shadow-[0_16px_30px_rgba(0,0,0,0.42)] z-50
           `}
         >
           {dropdownItems.map((item, idx) => (
