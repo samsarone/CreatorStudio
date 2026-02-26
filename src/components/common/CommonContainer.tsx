@@ -5,7 +5,7 @@ import { useColorMode } from "../../contexts/ColorMode.jsx";
 
 
 export default function CommonContainer(props) {
-  const { children, isVideoPreviewPlaying, setIsVideoPreviewPlaying, downloadCurrentFrame, resetSession } = props;
+  const { children, isVideoPreviewPlaying, setIsVideoPreviewPlaying, downloadCurrentFrame, resetSession, isRenderPending } = props;
   const { colorMode } = useColorMode();
 
   const resetCurrentSession = () => {
@@ -27,6 +27,7 @@ export default function CommonContainer(props) {
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         downloadCurrentFrame={downloadCurrentFrame}
+        isRenderPending={isRenderPending}
 
       />
       <div>

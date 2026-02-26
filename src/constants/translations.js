@@ -3,6 +3,9 @@ export const translations = {
   en: {
     common: {
       login: "Login",
+      auth: {
+        ageConfirmation: "I am 18 years or older",
+      },
       yes: "Yes",
       no: "No",
       newProject: "New Project",
@@ -201,6 +204,9 @@ export const translations = {
   es: {
     common: {
       login: "Iniciar sesión",
+      auth: {
+        ageConfirmation: "Tengo 18 años o más",
+      },
       yes: "Sí",
       no: "No",
       newProject: "Nuevo proyecto",
@@ -399,6 +405,9 @@ export const translations = {
   fr: {
     common: {
       login: "Connexion",
+      auth: {
+        ageConfirmation: "J'ai 18 ans ou plus",
+      },
       yes: "Oui",
       no: "Non",
       newProject: "Nouveau projet",
@@ -597,6 +606,9 @@ export const translations = {
   ja: {
     common: {
       login: "ログイン",
+      auth: {
+        ageConfirmation: "私は18歳以上です",
+      },
       yes: "はい",
       no: "いいえ",
       newProject: "新規プロジェクト",
@@ -795,6 +807,9 @@ export const translations = {
   th: {
     common: {
       login: "เข้าสู่ระบบ",
+      auth: {
+        ageConfirmation: "ฉันมีอายุ 18 ปีขึ้นไป",
+      },
       yes: "ใช่",
       no: "ไม่",
       newProject: "โปรเจกต์ใหม่",
@@ -993,6 +1008,9 @@ export const translations = {
   zh: {
     common: {
       login: "登录",
+      auth: {
+        ageConfirmation: "我已年满18岁",
+      },
       yes: "是",
       no: "否",
       newProject: "新建项目",

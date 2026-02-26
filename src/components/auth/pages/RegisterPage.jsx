@@ -16,6 +16,13 @@ export default function RegisterPage() {
   // No-op if you don't need a dialog close
   const closeAlertDialog = () => { };
 
+  const handleViewChange = (view) => {
+    const targetPath = view === 'register' ? '/register' : '/login';
+    if (location.pathname !== targetPath) {
+      navigate({ pathname: targetPath, search: location.search });
+    }
+  };
+
   const registerWithGoogle = () => {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
@@ -80,15 +87,15 @@ export default function RegisterPage() {
 
 
       <div className="w-full flex flex-col items-center justify-center pt-20">
-        <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
+        <div className="rounded-lg p-6 max-w-md w-full">
           <Register
             registerWithGoogle={registerWithGoogle}
             registerUserWithEmail={registerUserWithEmail}
             setUser={setUser}
             getOrCreateUserSession={getOrCreateUserSession}
             closeAlertDialog={closeAlertDialog}
+            setCurrentLoginView={handleViewChange}
             showLoginButton={false}
-          // setCurrentLoginView not needed anymore
           />
 
           <div className="text-center mt-4">

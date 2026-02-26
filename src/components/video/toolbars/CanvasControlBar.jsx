@@ -34,6 +34,7 @@ export default function CanvasControlBar(props) {
     regenerateVideoSessionSubtitles,
     setIsVideoPreviewPlaying,
     isVideoPreviewPlaying,
+    isRenderPending,
   } = props;
 
   const {  toggleShowGridOverlay, toggleIsVideoPreviewPlaying } = useContext(NavCanvasControlContext);
@@ -128,8 +129,14 @@ export default function CanvasControlBar(props) {
   }
 
 
+  const disabledClassName = isRenderPending ? "pointer-events-none opacity-50" : "";
+
   return (
-    <div className="h-[25px] md:mt-[-10px] md:mb-[10px] relative flex justify-center" style={{ zIndex: 5 }}>
+    <div
+      className={`h-[25px] md:mt-[-10px] md:mb-[10px] relative flex justify-center ${disabledClassName}`}
+      style={{ zIndex: 5 }}
+      aria-disabled={isRenderPending}
+    >
 
       <div className="flex flex-row gap-4">
 

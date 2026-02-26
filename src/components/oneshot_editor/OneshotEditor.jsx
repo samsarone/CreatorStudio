@@ -24,7 +24,7 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
 import ProgressIndicator from './ProgressIndicator.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
@@ -34,12 +34,12 @@ import VidgenieSkeletonLoader from './VidgenieSkeletonLoader.jsx';
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
-  VIDEO_GENERATION_MODEL_TYPES,
   IDEOGRAM_IMAGE_STYLES,
   PIXVERRSE_VIDEO_STYLES,
 } from '../../constants/Types.ts';
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
+import { getVideoGenerationModelDropdownData } from '../video/util/videoGenerationModelOptions.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
@@ -73,7 +73,7 @@ export default function OneshotEditor() {
   const navigate = useNavigate();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const showLoginDialog = useCallback(() => {
-    openAlertDialog(<AuthContainer />);
+    openAlertDialog(<AuthContainer />, undefined, false, AUTH_DIALOG_OPTIONS);
   }, [openAlertDialog]);
 
   const activeSessionIdRef = useRef(id);
@@ -686,7 +686,9 @@ export default function OneshotEditor() {
   //  Video-model select
   // ─────────────────────────────────────────────────────────
   const expressVideoModels = useMemo(() => {
-    return VIDEO_GENERATION_MODEL_TYPES
+    const { availableModels } = getVideoGenerationModelDropdownData({ mode: 'text' });
+
+    return availableModels
       .filter(
         (m) =>
           m.isExpressModel &&
@@ -700,6 +702,21 @@ export default function OneshotEditor() {
     const found = expressVideoModels.find((m) => m.value === saved);
     return found || expressVideoModels[0];
   });
+
+  useEffect(() => {
+    if (!expressVideoModels.length) return;
+
+    setSelectedVideoModel((prev) => {
+      if (prev?.value) {
+        const existing = expressVideoModels.find((m) => m.value === prev.value);
+        if (existing) return existing;
+      }
+
+      const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
+      const found = expressVideoModels.find((m) => m.value === saved);
+      return found || expressVideoModels[0];
+    });
+  }, [expressVideoModels]);
 
   // Video-model subtype (Pixverse or otherwise)
   const [selectedVideoModelSubType, setSelectedVideoModelSubType] = useState(null);
@@ -1243,6 +1260,10 @@ export default function OneshotEditor() {
       setErrorMessage({ error: 'Please select one or more images before submitting.' });
       return;
     }
+    if (isTextToVideo && !selectedVideoModel?.value) {
+      setErrorMessage({ error: 'Please select a video model before submitting.' });
+      return;
+    }
     if (!id) return;
     if (isVoiceBusy) {
       stopAllVoiceCapture();
@@ -1376,19 +1397,19 @@ export default function OneshotEditor() {
   const [pricingDetailsDisplay, setPricingDetailsDisplay] = useState(false);
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
-  const IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND = 50;
+  const IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND = 75;
 
   const creditsPerSecondVideo = useMemo(() => {
     if (generationMode === 'I2V') {
       return IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND;
     }
     const key = selectedVideoModel?.value || '';
-    if (key === 'KLINGIMGTOVIDTURBO') return 15;
-    if (key === 'VEO3.1I2VFAST') return 30;
-    if (key === 'VEO3.1I2V') return 60;
-    if (key === 'SORA2') return 30;
-    if (key === 'SORA2PRO') return 70;
-    return 10; // default
+    if (key === 'KLINGIMGTOVID3PRO' || key === 'KLINGIMGTOVIDTURBO') return 23;
+    if (key === 'VEO3.1I2VFAST') return 45;
+    if (key === 'VEO3.1I2V') return 90;
+    if (key === 'SORA2') return 45;
+    if (key === 'SORA2PRO') return 105;
+    return 15; // default
   }, [generationMode, selectedVideoModel]);
 
 
@@ -1851,7 +1872,7 @@ export default function OneshotEditor() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*,image/heic,image/heif,.heic,.heif"
                     multiple
                     onChange={handleFileChange}
                     disabled={isFormDisabled}
@@ -1885,7 +1906,7 @@ export default function OneshotEditor() {
                         <FaImage className="text-lg" />
                       </div>
                       <div className="text-sm font-medium">Choose images</div>
-                      <div className={`text-[11px] ${mutedText}`}>PNG or JPG</div>
+                      <div className={`text-[11px] ${mutedText}`}>PNG, JPG, or HEIC</div>
                     </>
                   )}
                 </label>

@@ -7,10 +7,10 @@ import {
 } from "../../../constants/Types.ts";
 import { IMAGE_MODEL_PRICES } from "../../../constants/ModelPrices.jsx";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
-import TextareaAutosize from "react-textarea-autosize";
 import { FaQuestionCircle } from "react-icons/fa";
 import "react-tooltip/dist/react-tooltip.css";
 import { Tooltip } from "react-tooltip";
+import AutoExpandableTextarea from "../../common/AutoExpandableTextarea.jsx";
 
 export default function PromptGenerator(props) {
   const {
@@ -22,6 +22,7 @@ export default function PromptGenerator(props) {
     setSelectedGenerationModel,
     generationError,
     aspectRatio,
+    showModelSelector = true,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -138,61 +139,64 @@ export default function PromptGenerator(props) {
   return (
     <div>
       {/* ------------------ Model Selection ------------------ */}
-      <div className="flex w-full mt-2 mb-2">
-        <div className="inline-flex w-[25%] items-center">
-          <div className="text-xs font-bold flex items-center">
-            Model
-            <a
-              data-tooltip-id="modelCostTooltip"
-              data-tooltip-content={`Currently selected model cost: ${modelPrice} credits`}
-            >
-              <FaQuestionCircle className="ml-1 mr-1" />
-            </a>
-            {/* Tooltip for cost */}
-            <Tooltip id="modelCostTooltip" place="right" effect="solid" />
+      {showModelSelector && (
+        <div className="flex w-full mt-2 mb-2">
+          <div className="inline-flex w-[25%] items-center">
+            <div className="text-xs font-bold flex items-center">
+              Model
+              <a
+                data-tooltip-id="modelCostTooltip"
+                data-tooltip-content={`Currently selected model cost: ${modelPrice} credits`}
+              >
+                <FaQuestionCircle className="ml-1 mr-1" />
+              </a>
+              {/* Tooltip for cost */}
+              <Tooltip id="modelCostTooltip" place="right" effect="solid" />
+            </div>
           </div>
+          <select
+            onChange={handleModelChange}
+            className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
+            value={selectedGenerationModel}
+          >
+            {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
+              <option key={model.key} value={model.key}>
+                {model.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          onChange={handleModelChange}
-          className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
-          value={selectedGenerationModel}
-        >
-          {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
-            <option key={model.key} value={model.key}>
-              {model.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      )}
 
       {/* ------------------ Image Style Dropdown ------------------ */}
-      {(() => {
-        // Check if currently selected model has imageStyles
-        const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
-          (m) => m.key === selectedGenerationModel
-        );
-        if (modelDef?.imageStyles?.length) {
-          return (
-            <div className="flex w-full mt-2 mb-2">
-              <div className="inline-flex w-[25%]">
-                <div className="text-xs font-bold">Image Style</div>
-              </div>
-              <select
-                onChange={handleImageStyleChange}
-                value={selectedImageStyle || ""}
-                className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
-              >
-                {modelDef.imageStyles.map((style) => (
-                  <option key={style} value={style}>
-                    {style}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {showModelSelector &&
+        (() => {
+          // Check if currently selected model has imageStyles
+          const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
+            (m) => m.key === selectedGenerationModel
           );
-        }
-        return null;
-      })()}
+          if (modelDef?.imageStyles?.length) {
+            return (
+              <div className="flex w-full mt-2 mb-2">
+                <div className="inline-flex w-[25%]">
+                  <div className="text-xs font-bold">Image Style</div>
+                </div>
+                <select
+                  onChange={handleImageStyleChange}
+                  value={selectedImageStyle || ""}
+                  className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
+                >
+                  {modelDef.imageStyles.map((style) => (
+                    <option key={style} value={style}>
+                      {style}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
       {/* ------------------ Retry on Failure & Character Image ------------------ */}
       <div className="w-full mb-2">
@@ -242,11 +246,12 @@ export default function PromptGenerator(props) {
       </div>
 
       {/* ------------------ Prompt Textarea ------------------ */}
-      <TextareaAutosize
+      <AutoExpandableTextarea
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Add prompt text here"
         className={`${textareaShell} w-full m-auto rounded-xl px-3 py-3 bg-transparent`}
         minRows={4}
+        maxRows={10}
         value={promptText}
       />
 

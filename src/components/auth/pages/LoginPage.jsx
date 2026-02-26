@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import axios from 'axios';
 import { useUser } from '../../../contexts/UserContext.jsx';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getHeaders, hasAcceptedCookies } from '../../../utils/web.jsx';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
 import OverflowContainer from '../../common/OverflowContainer.tsx';
@@ -13,11 +13,16 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-    const [currentLoginView, setCurrentLoginView] = useState('login');
-
   // In a page (vs. a modal), we can define a no-op or minimal function:
   const closeAlertDialog = () => {
     // No-op in a full page context
+  };
+
+  const handleViewChange = (view) => {
+    const targetPath = view === 'register' ? '/register' : '/login';
+    if (location.pathname !== targetPath) {
+      navigate({ pathname: targetPath, search: location.search });
+    }
   };
 
   // signInWithGoogle logic copied from your AuthContainer
@@ -71,9 +76,9 @@ export default function LoginPage() {
     <OverflowContainer>
 
 
-    <div className="w-full flex flex-col items-center justify-center pt-20">
+      <div className="w-full flex flex-col items-center justify-center pt-20">
       {/* You can style the container as you prefer */}
-      <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
+      <div className="rounded-lg p-6 max-w-md w-full">
         {/* Reuse your existing <Login> component. 
             Pass in only the props it needs. */}
         <Login
@@ -82,22 +87,8 @@ export default function LoginPage() {
           closeAlertDialog={closeAlertDialog}
           getOrCreateUserSession={getOrCreateUserSession}
           showSignupButton={false}
-          setCurrentLoginView={setCurrentLoginView} // This prop is optional, but if you want to keep it for consistency
-          // setCurrentLoginView is no longer needed, we do not toggle views
+          setCurrentLoginView={handleViewChange}
         />
-        
-        {/* If you want to transform 
-            “Don’t have an account? -> Sign up” 
-            so it navigates to /register, you can remove or override in the <Login> component 
-            OR just display a link below: */}
-        <div className="text-center mt-4">
-          <p>
-            Don’t have an account?{' '}
-            <Link to="/register" className="underline">
-              Sign up
-            </Link>
-          </p>
-        </div>
       </div>
     </div>
     </OverflowContainer>

@@ -8,6 +8,10 @@ import { getHeaders } from "../../utils/web.jsx";
 import { toast } from "react-toastify";
 import { SUPPORTED_LANGUAGES } from "../../constants/supportedLanguages.js";
 import { useAlertDialog } from "../../contexts/AlertDialogContext.jsx";
+import {
+  getFontOptionsForLanguage,
+  mergeFontPreferencesWithDefaults,
+} from "../../constants/fontPreferences.js";
 
 export default function SettingsPanelContent(props) {
   const { logoutUser, updateUserDetails,
@@ -24,6 +28,9 @@ export default function SettingsPanelContent(props) {
 
   const [username, setUsername] = useState(user.username || "");
   const [preferredLanguage, setPreferredLanguage] = useState(user.preferredLanguage || "en");
+  const [fontPreferences, setFontPreferences] = useState(() =>
+    mergeFontPreferencesWithDefaults(user?.fontPreferences)
+  );
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -35,8 +42,9 @@ export default function SettingsPanelContent(props) {
       if (user.preferredLanguage) {
         setPreferredLanguage(user.preferredLanguage);
       }
+      setFontPreferences(mergeFontPreferencesWithDefaults(user.fontPreferences));
     }
-  }, []);
+  }, [user]);
   // Update Username Handler
   const handleUpdateUserDetails = (evt) => {
     evt.preventDefault(); // Prevent form default submission
@@ -49,6 +57,25 @@ export default function SettingsPanelContent(props) {
 
 
     updateUserDetails(updatedDetails);
+  };
+
+  const handleFontPreferenceChange = (languageCode, key, value) => {
+    setFontPreferences((prev) => {
+      const current = prev && typeof prev === "object" ? prev : {};
+      const currentPrefs = current[languageCode] || {};
+      return {
+        ...current,
+        [languageCode]: {
+          ...currentPrefs,
+          [key]: value,
+        },
+      };
+    });
+  };
+
+  const handleUpdateFontPreferences = (evt) => {
+    evt.preventDefault();
+    updateUserDetails({ fontPreferences });
   };
 
   // Update Password Handler
@@ -171,6 +198,79 @@ export default function SettingsPanelContent(props) {
             >
               {t("account.updateButton")}
             </SecondaryButton>
+          </div>
+        </div>
+      </form>
+
+      <form onSubmit={handleUpdateFontPreferences}>
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Express Generation Fonts</h3>
+          <p className={`text-sm ${secondaryTextColor}`}>
+            Set the default subtitle and narrator fonts for each language.
+          </p>
+          <div className="space-y-3">
+            {SUPPORTED_LANGUAGES.map((language) => {
+              const fontOptions = getFontOptionsForLanguage(language.code);
+              const preferences = fontPreferences?.[language.code] || {};
+              return (
+                <div
+                  key={language.code}
+                  className={`grid grid-cols-1 md:grid-cols-3 gap-4 rounded-xl border ${borderColor} p-4`}
+                >
+                  <div>
+                    <div className="text-sm font-semibold">{language.nativeName}</div>
+                    <div className={`text-xs ${secondaryTextColor}`}>{language.name}</div>
+                  </div>
+                  <div>
+                    <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                      Subtitle font
+                    </label>
+                    <select
+                      value={preferences.expressGenerationTextFont || fontOptions[0]}
+                      onChange={(e) =>
+                        handleFontPreferenceChange(
+                          language.code,
+                          "expressGenerationTextFont",
+                          e.target.value
+                        )
+                      }
+                      className={formInputClasses}
+                    >
+                      {fontOptions.map((font) => (
+                        <option key={font} value={font}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                      Narrator font
+                    </label>
+                    <select
+                      value={preferences.expressGenerationSpeakerFont || fontOptions[0]}
+                      onChange={(e) =>
+                        handleFontPreferenceChange(
+                          language.code,
+                          "expressGenerationSpeakerFont",
+                          e.target.value
+                        )
+                      }
+                      className={formInputClasses}
+                    >
+                      {fontOptions.map((font) => (
+                        <option key={font} value={font}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="block">
+            <SecondaryButton type="submit">Save Font Preferences</SecondaryButton>
           </div>
         </div>
       </form>

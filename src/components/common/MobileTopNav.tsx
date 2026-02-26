@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { IoMdLogIn } from 'react-icons/io';
 import ToggleButton from './ToggleButton.tsx';
@@ -12,9 +12,11 @@ import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
 import { FaStar } from 'react-icons/fa6';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import BrandLogo from './BrandLogo.tsx';
+import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
+import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -23,14 +25,25 @@ export default function MobileTopNav(props) {
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
+  const location = useLocation();
+
+  const isImageEditor =
+    location.pathname.includes('/image/') ||
+    location.pathname.includes('/iamge/') ||
+    location.pathname.includes('/image_sessions');
+  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/') || location.pathname.includes('/infovidcreator/');
 
   const navShell =
     colorMode === 'dark'
-      ? 'bg-gradient-to-r from-[#080f21] via-[#0d1830] to-[#091026] text-slate-100 border-b border-[#1f2a3d] shadow-[0_14px_32px_rgba(0,0,0,0.38)]'
+      ? 'bg-gradient-to-r from-[#071223] via-[#0d1d35] to-[#0a1b2d] text-slate-100 border-b border-[#2a4e70] shadow-[0_14px_32px_rgba(0,0,0,0.38)]'
       : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef] shadow-[0_8px_22px_rgba(15,23,42,0.08)]';
 
   const resetSession = () => {
     closeAlertDialog();
+    if (isImageEditor) {
+      createNewImageSession();
+      return;
+    }
     createNewSession();
   };
 
@@ -73,7 +86,7 @@ export default function MobileTopNav(props) {
 
   const showLoginDialog = () => {
     const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   const upgradeToPremiumTier = () => {
@@ -94,8 +107,89 @@ export default function MobileTopNav(props) {
     });
   };
 
+  const createNewImageSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          canvasDimensions?: { width?: number; height?: number };
+          addBackgroundLayer?: boolean;
+          backgroundLayerColor?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || localStorage.getItem('defaultImageAspectRatio') || '1:1';
+    const fallbackCanvasDimensions = getCanvasDimensionsForAspectRatio(selectedAspectRatio);
+    const rawWidth = Number(normalizedSessionConfig.canvasDimensions?.width);
+    const rawHeight = Number(normalizedSessionConfig.canvasDimensions?.height);
+    const canvasDimensions = {
+      width: Number.isFinite(rawWidth) && rawWidth > 0 ? Math.round(rawWidth) : fallbackCanvasDimensions.width,
+      height: Number.isFinite(rawHeight) && rawHeight > 0 ? Math.round(rawHeight) : fallbackCanvasDimensions.height,
+    };
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const shouldAddBackgroundLayer = Boolean(normalizedSessionConfig.addBackgroundLayer);
+    const backgroundLayerColor =
+      typeof normalizedSessionConfig.backgroundLayerColor === 'string'
+        ? normalizedSessionConfig.backgroundLayerColor
+        : '#ffffff';
+
+    const headers = getHeaders();
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      canvasDimensions: { width: number; height: number };
+      sessionName?: string;
+      addBackgroundLayer?: boolean;
+      backgroundLayerColor?: string;
+    } = {
+      prompts: [],
+      aspectRatio: selectedAspectRatio,
+      canvasDimensions,
+    };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (shouldAddBackgroundLayer) {
+      payload.addBackgroundLayer = true;
+      payload.backgroundLayerColor = backgroundLayerColor;
+    }
+    axios.post(`${PROCESSOR_SERVER}/image_sessions/create_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('imageSessionId', sessionId);
+      navigate(`/image/studio/${session._id}`);
+    });
+  };
+
   const gotoViewSessionsPage = () => {
+    if (isImageEditor) {
+      navigate('/image_sessions');
+      return;
+    }
     navigate('/my_sessions');
+  };
+
+  const openImageEditor = () => {
+    const storedSessionId = localStorage.getItem('imageSessionId');
+    if (storedSessionId) {
+      navigate(`/image/studio/${storedSessionId}`);
+      return;
+    }
+    createNewImageSession();
+  };
+
+  const openVideoEditor = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/video/${storedSessionId}`);
+      return;
+    }
+    createNewSession();
   };
 
   const createNewSessionDialog = () => {
@@ -112,8 +206,8 @@ export default function MobileTopNav(props) {
   if (user && user._id) {
     if (user.isPremiumUser) {
       userTierDisplay = (
-        <div className="text-rose-200">
-          <FaStar className="inline-flex text-rose-300" /> Premium
+        <div className="text-[#d7ffeb]">
+          <FaStar className="inline-flex text-[#39d881]" /> Premium
         </div>
       );
     } else {
@@ -158,7 +252,7 @@ export default function MobileTopNav(props) {
     userProfile = (
       <div className="mt-1 flex justify-end">
         <button
-          className="m-auto text-center min-w-16 rounded-lg shadow-sm text-slate-100 bg-[#111a2f] border border-[#1f2a3d] pl-8 pr-8 pt-1 pb-2 font-bold text-lg hover:border-rose-400/40 hover:text-rose-100"
+          className="m-auto text-center min-w-16 rounded-lg text-slate-100 bg-[#111a2f] pl-8 pr-8 pt-1 pb-2 font-bold text-lg shadow-[0_8px_20px_rgba(0,0,0,0.3)] transition-all duration-200 ease-out hover:-translate-y-[1px] hover:bg-[#162744] hover:text-[#d7ffeb] hover:shadow-[0_12px_24px_rgba(70,191,255,0.2)] active:translate-y-0"
           onClick={showLoginDialog}
         >
           <IoMdLogIn className="inline-flex" /> Login
@@ -177,8 +271,16 @@ export default function MobileTopNav(props) {
     addSessionButton = (
 
       <div className="">
-        <AddSessionDropdown createNewSession={createNewSessionDialog} gotoViewSessionsPage={gotoViewSessionsPage} 
-        addNewVidGPTSession={addNewVidGPTSession} 
+        <AddSessionDropdown
+          createNewSession={isImageEditor ? createNewImageSession : createNewSessionDialog}
+          gotoViewSessionsPage={gotoViewSessionsPage}
+          addNewVidGPTSession={addNewVidGPTSession}
+          aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
+          aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
+          useImageProjectModal={isImageEditor}
+          switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
+          onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+          showVideoOptions={!isImageEditor}
         />
       </div>
 

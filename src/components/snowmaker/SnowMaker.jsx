@@ -7,7 +7,7 @@ import { useUser } from '../../contexts/UserContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import axios from 'axios';
 import { getHeaders } from '../../utils/web.jsx';
 
@@ -290,7 +290,7 @@ export default function SnowMaker() {
   // -------------------------------------
   const showLoginDialog = () => {
     const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   async function handleDownloadVideo() {
@@ -541,7 +541,7 @@ export default function SnowMaker() {
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
-  let creditsPerSecondVideo = 10;
+  let creditsPerSecondVideo = 15;
   // Example: you can conditionally change this based on model
   // if (selectedVideoModel.value === 'VEOI2V') {...}
 
@@ -590,7 +590,7 @@ export default function SnowMaker() {
 
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,image/heic,image/heif,.heic,.heif"
             multiple
             ref={fileInputRef}
             onChange={handleFileChange}

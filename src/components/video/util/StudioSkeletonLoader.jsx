@@ -36,19 +36,16 @@ export default function StudioSkeletonLoader() {
           </div>
         </div>
 
-        <div className="grid grid-cols-12 gap-4">
-          <div className={`${surface} col-span-12 lg:col-span-3 rounded-2xl p-4 space-y-3`}>
-            <div className={`${textMuted} text-xs uppercase tracking-wide`}>Layers</div>
-            {[...Array(6)].map((_, idx) => (
-              <div
-                key={`layer-${idx}`}
-                className={`${mutedSurface} h-12 rounded-xl border border-white/5`}
-              />
+        <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr_auto] gap-4 items-start">
+          <div className={`${surface} hidden lg:flex flex-col items-center gap-3 rounded-2xl px-2 py-4 w-12 shrink-0`}>
+            <div className={`${subtleSurface} h-9 w-9 rounded-xl`} />
+            {[...Array(5)].map((_, idx) => (
+              <div key={`nav-${idx}`} className={`${mutedSurface} h-8 w-8 rounded-lg`} />
             ))}
-            <div className={`${mutedSurface} h-10 rounded-xl`} />
+            <div className={`${mutedSurface} h-9 w-9 rounded-full`} />
           </div>
 
-          <div className="col-span-12 lg:col-span-9 space-y-4">
+          <div className="space-y-4">
             <div className={`${surface} rounded-2xl p-4 space-y-4`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className={`${mutedSurface} h-10 w-40 rounded-full`} />
@@ -59,26 +56,22 @@ export default function StudioSkeletonLoader() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 xl:grid-cols-[3fr_1.3fr] gap-4">
-                <div className={`${mutedSurface} rounded-xl relative overflow-hidden`}>
-                  <div className="absolute inset-4 border-2 border-dashed border-white/10 rounded-2xl" />
-                  <div className="absolute top-4 left-4 h-8 w-24 rounded-full bg-white/10" />
-                  <div className="absolute bottom-4 left-4 h-3 w-48 rounded-full bg-white/10" />
-                  <div className="absolute bottom-4 right-4 flex gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-white/10" />
-                    <div className="h-8 w-16 rounded-full bg-white/10" />
-                  </div>
-                  <div className="aspect-video" />
+              <div className={`${mutedSurface} rounded-xl relative overflow-hidden`}>
+                <div className="absolute inset-4 border-2 border-dashed border-white/10 rounded-2xl" />
+                <div className="absolute top-4 left-4 h-8 w-24 rounded-full bg-white/10" />
+                <div className="absolute bottom-4 left-4 h-3 w-48 rounded-full bg-white/10" />
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-white/10" />
+                  <div className="h-8 w-16 rounded-full bg-white/10" />
                 </div>
+                <div className="aspect-video" />
+              </div>
 
-                <div className="space-y-3">
-                  {[...Array(5)].map((_, idx) => (
-                    <div
-                      key={`control-${idx}`}
-                      className={`${mutedSurface} h-10 rounded-xl border border-white/5`}
-                    />
-                  ))}
-                  <div className={`${mutedSurface} h-16 rounded-xl`} />
+              <div className="flex items-center justify-between gap-3">
+                <div className={`${mutedSurface} h-4 w-32 rounded-full`} />
+                <div className="flex items-center gap-2">
+                  <div className={`${mutedSurface} h-8 w-8 rounded-full`} />
+                  <div className={`${mutedSurface} h-8 w-20 rounded-full`} />
                 </div>
               </div>
             </div>
@@ -96,6 +89,14 @@ export default function StudioSkeletonLoader() {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className={`${surface} hidden lg:flex flex-col items-center gap-3 rounded-2xl px-2 py-4 w-12 shrink-0`}>
+            <div className={`${mutedSurface} h-9 w-9 rounded-lg`} />
+            {[...Array(4)].map((_, idx) => (
+              <div key={`tool-${idx}`} className={`${mutedSurface} h-8 w-8 rounded-lg`} />
+            ))}
+            <div className={`${mutedSurface} h-9 w-9 rounded-full`} />
           </div>
         </div>
 

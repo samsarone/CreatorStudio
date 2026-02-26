@@ -63,6 +63,7 @@ export default function VideoEditorToolbar(props) {
     setEditBrushWidth,
     setCurrentViewDisplay,
     currentViewDisplay,
+    onToolbarViewChange,
     textConfig,
     setTextConfig,
     activeItemList,
@@ -603,10 +604,13 @@ export default function VideoEditorToolbar(props) {
 
   const toggleCurrentViewDisplay = (view) => {
     setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
-    if (view === currentViewDisplay) {
-      setCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-    } else {
-      setCurrentViewDisplay(view);
+    const nextView =
+      view === currentViewDisplay
+        ? CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY
+        : view;
+    setCurrentViewDisplay(nextView);
+    if (onToolbarViewChange) {
+      onToolbarViewChange(nextView);
     }
   };
 

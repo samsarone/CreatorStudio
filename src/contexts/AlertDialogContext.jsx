@@ -30,14 +30,13 @@ export const AlertDialogProvider = ({ children }) => {
 
   const [useXL, setUseXL] = useState(false);
 
-  const openAlertDialog = (content, onsubmit, useXLValue = false, ...rest
-  ) => {
+  const openAlertDialog = (content, onsubmit, useXLValue = false, options = {}) => {
 
     setDialogContent(content);
     setAlertDialogSubmit(onsubmit);
     setUseXL(useXLValue);
     setIsAlertDialogOpen(true);
-    setDialogOptions({ ...rest });
+    setDialogOptions(options || {});
   };
 
   const closeAlertDialog = () => {

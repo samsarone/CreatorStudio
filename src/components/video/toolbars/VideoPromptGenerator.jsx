@@ -6,7 +6,11 @@ import {
 } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import TextareaAutosize from "react-textarea-autosize";
-import { VIDEO_MODEL_PRICES } from "../../../constants/ModelPrices.jsx";
+import {
+  getModelPriceForAspect,
+  getVideoGenerationModelDropdownData,
+  getVideoGenerationModelMeta,
+} from "../util/videoGenerationModelOptions.js";
 
 export default function VideoPromptGenerator(props) {
   const {
@@ -34,39 +38,33 @@ export default function VideoPromptGenerator(props) {
       ? "bg-slate-900/60 text-slate-100 border border-white/10"
       : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
-  // Build <option> list by checking if the model has a price for the selected aspect ratio
-  const modelOptionMap = VIDEO_GENERATION_MODEL_TYPES
-    .map((model) => {
-      const pricing = VIDEO_MODEL_PRICES.find((p) => p.key === model.key);
-      // If no pricing entry or no match for this aspect ratio, skip
-      if (!pricing) return null;
-      const hasAspectRatio = pricing.prices.some(
-        (priceObj) => priceObj.aspectRatio === aspectRatio
-      );
-      if (!hasAspectRatio) return null;
+  const {
+    hasImageItem,
+    availableModels,
+    availableModelKeys,
+    availableModelKeysSignature,
+  } = getVideoGenerationModelDropdownData({
+    activeItemList,
+  });
 
-      return (
-        <option key={model.key} value={model.key}>
-          {model.name}
-        </option>
-      );
-    })
-    .filter(Boolean);
+  const modelOptionMap = availableModels.map((model) => (
+    <option key={model.key} value={model.key}>
+      {model.name}
+    </option>
+  ));
 
-  // Identify the selected model definition
-  const selectedModelDef = VIDEO_GENERATION_MODEL_TYPES.find(
-    (m) => m.key === selectedVideoGenerationModel
-  );
-  const isImgToVidModel = selectedModelDef?.isImgToVidModel || false;
-  const isTextToVidModel = selectedModelDef?.isTextToVidModel || false;
+  const hasAvailableModels = availableModelKeys.length > 0;
 
-  const hasImageItem =
-    Array.isArray(activeItemList) &&
-    activeItemList.some((it) => it?.type === "image");
+  const {
+    modelDef: selectedModelDef,
+    pricing: selectedModelPricing,
+    supportsImageToVideo: isImageToVideoModel,
+    supportsTextToVideo: isTextToVideoModel,
+  } = getVideoGenerationModelMeta(selectedVideoGenerationModel);
 
   const requiresImageButNone =
-    isImgToVidModel && !isTextToVidModel && !hasImageItem;
-  const useImgToVidSettings = isImgToVidModel && hasImageItem;
+    isImageToVideoModel && !isTextToVideoModel && !hasImageItem;
+  const useImgToVidSettings = isImageToVideoModel && hasImageItem;
 
 
 
@@ -106,37 +104,29 @@ export default function VideoPromptGenerator(props) {
   //  useEffect for initial values
   // ------------------
   useEffect(() => {
-    // Set the default model from localStorage or first available model
-    const defaultModel =
-      localStorage.getItem("defaultVideoModel") ||
-      (modelOptionMap.length > 0 ? modelOptionMap[0].props.value : "");
-    setSelectedVideoGenerationModel(defaultModel);
+    if (availableModelKeys.length === 0) return;
 
-    if (defaultModel === "HAILUO" || defaultModel === "HAIPER2.0") {
-      const storedOptimizePrompt = localStorage.getItem("defaultOptimizePrompt");
-      setOptimizePrompt(storedOptimizePrompt === "true");
-    } else {
-      setOptimizePrompt(false);
+    const storedModel = localStorage.getItem("defaultVideoModel");
+    const fallbackModel =
+      storedModel && availableModelKeys.includes(storedModel)
+        ? storedModel
+        : availableModelKeys[0];
+
+    if (
+      selectedVideoGenerationModel &&
+      availableModelKeys.includes(selectedVideoGenerationModel)
+    ) {
+      return;
     }
 
-    const modelPricing = VIDEO_MODEL_PRICES.find(
-      (model) => model.key === defaultModel
-    );
-    if (modelPricing && modelPricing.units && modelPricing.units.length > 0) {
-      // Set selectedDuration from localStorage or default to the first
-      const storedDuration = localStorage.getItem("defaultDurationFor" + defaultModel);
-      if (
-        storedDuration &&
-        modelPricing.units.includes(parseInt(storedDuration))
-      ) {
-        setSelectedDuration(parseInt(storedDuration));
-      } else {
-        setSelectedDuration(modelPricing.units[0]);
-      }
-    } else {
-      setSelectedDuration(null);
+    if (fallbackModel && fallbackModel !== selectedVideoGenerationModel) {
+      setSelectedVideoGenerationModel(fallbackModel);
     }
-  }, [modelOptionMap, setSelectedVideoGenerationModel]);
+  }, [
+    availableModelKeysSignature,
+    selectedVideoGenerationModel,
+    setSelectedVideoGenerationModel,
+  ]);
 
   // ------------------
   //  Whenever `selectedVideoGenerationModel` changes
@@ -159,20 +149,21 @@ export default function VideoPromptGenerator(props) {
     }
 
     // Reset or set the duration (based on local storage or first unit) for the newly selected model
-    const modelPricing = VIDEO_MODEL_PRICES.find(
-      (model) => model.key === selectedVideoGenerationModel
-    );
-    if (modelPricing && modelPricing.units && modelPricing.units.length > 0) {
+    if (
+      selectedModelPricing &&
+      selectedModelPricing.units &&
+      selectedModelPricing.units.length > 0
+    ) {
       const storedDuration = localStorage.getItem(
         "defaultDurationFor" + selectedVideoGenerationModel
       );
       if (
         storedDuration &&
-        modelPricing.units.includes(parseInt(storedDuration))
+        selectedModelPricing.units.includes(parseInt(storedDuration))
       ) {
         setSelectedDuration(parseInt(storedDuration));
       } else {
-        setSelectedDuration(modelPricing.units[0]);
+        setSelectedDuration(selectedModelPricing.units[0]);
       }
     } else {
       setSelectedDuration(null);
@@ -219,7 +210,7 @@ export default function VideoPromptGenerator(props) {
     } else {
       setSelectedModelSubType("");
     }
-  }, [selectedVideoGenerationModel]);
+  }, [selectedVideoGenerationModel, selectedModelPricing]);
 
   // ------------------
   //  Handlers
@@ -273,6 +264,7 @@ export default function VideoPromptGenerator(props) {
   };
 
   const handleSubmit = () => {
+    if (!hasAvailableModels) return;
     if (requiresImageButNone) return;
     // Validate prompt text
     if (!videoPromptText || videoPromptText.trim().length === 0) {
@@ -321,13 +313,8 @@ export default function VideoPromptGenerator(props) {
   // ------------------
   //  Pricing
   // ------------------
-  const modelPricing = VIDEO_MODEL_PRICES.find(
-    (model) => model.key === selectedVideoGenerationModel
-  );
-  // Find price for the currently selected aspect ratio
-  const priceObj = modelPricing
-    ? modelPricing.prices.find((price) => price.aspectRatio === aspectRatio)
-    : null;
+  const modelPricing = selectedModelPricing;
+  const priceObj = getModelPriceForAspect(modelPricing, aspectRatio);
   let modelPrice = priceObj ? priceObj.price : 0;
 
   // Adjust price based on selected duration
@@ -393,6 +380,7 @@ export default function VideoPromptGenerator(props) {
             onChange={setSelectedModelDisplay}
             className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
             value={selectedVideoGenerationModel}
+            disabled={!hasAvailableModels}
           >
             {modelOptionMap}
           </select>
@@ -480,7 +468,7 @@ export default function VideoPromptGenerator(props) {
         <CommonButton
           onClick={handleSubmit}
           isPending={aiVideoGenerationPending}
-          isDisabled={requiresImageButNone}
+          isDisabled={requiresImageButNone || !hasAvailableModels}
         >
           Submit
         </CommonButton>

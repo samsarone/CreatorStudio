@@ -177,7 +177,6 @@ Edit in **Studio** for post-processing or to add/remove scenes.
 | SYNCLIPSYNC             | 10      | 10      | 10      | -         |
 | LATENTSYNC              | 10      | 10      | 10      | -         |
 | MMAUDIOV2               | 10      | 10      | 10      | 5, 10     |
-| WANI2V                  | -       | 60      | -       | -         |
 | PIKA2.2I2V              | -       | 40      | 40      | -         |
 
 ### Assistant Model Prices
@@ -211,4 +210,3 @@ Edit in **Studio** for post-processing or to add/remove scenes.
 - **Follow on [X](https://x.com/samsar_one) or [Threads](https://www.threads.net/@samsar_one_videos)**
 
 **Contributions and pull requests are welcome!**
-
