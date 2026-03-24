@@ -920,7 +920,7 @@ export default function QuickEditor() {
   const calculateCredits = () => {
     let credits = 0;
 
-    const selectedInferenceModel = user ? user.selectedInferenceModel : 'GPT5.2';
+    const selectedInferenceModel = user ? user.selectedInferenceModel : 'GPT5.4';
     const lineItems = promptList.split('\n').map((prompt) => prompt.trim()).filter(Boolean);
     const numImages = lineItems.length; // Scenes = # lines
 

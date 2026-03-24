@@ -11,6 +11,8 @@ import { FaQuestionCircle } from "react-icons/fa";
 import "react-tooltip/dist/react-tooltip.css";
 import { Tooltip } from "react-tooltip";
 import AutoExpandableTextarea from "../../common/AutoExpandableTextarea.jsx";
+import ImagePayloadAspectRatioSelector from "../../image/ImagePayloadAspectRatioSelector.jsx";
+import { imageAspectRatioOptions } from "../../../constants/ImageAspectRatios.js";
 
 export default function PromptGenerator(props) {
   const {
@@ -22,6 +24,8 @@ export default function PromptGenerator(props) {
     setSelectedGenerationModel,
     generationError,
     aspectRatio,
+    setAspectRatio,
+    canvasDimensions,
     showModelSelector = true,
   } = props;
 
@@ -119,6 +123,7 @@ export default function PromptGenerator(props) {
       model: selectedGenerationModel,
       retryOnFailure,
       isCharacterImage,
+      aspectRatio,
     };
     // If the selected model has an imageStyles array, include imageStyle
     const modelDefinition = IMAGE_GENERAITON_MODEL_TYPES.find(
@@ -199,6 +204,16 @@ export default function PromptGenerator(props) {
         })()}
 
       {/* ------------------ Retry on Failure & Character Image ------------------ */}
+      <div className="mb-3">
+        <ImagePayloadAspectRatioSelector
+          label="Generation ratio"
+          value={aspectRatio}
+          onChange={setAspectRatio}
+          options={imageAspectRatioOptions}
+          canvasDimensions={canvasDimensions}
+        />
+      </div>
+
       <div className="w-full mb-2">
         <div className="text-xs font-semibold flex items-center space-x-4">
           <label className="flex items-center">

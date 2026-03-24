@@ -119,6 +119,7 @@ export default function VideoEditorToolbar(props) {
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
+    isRenderPending,
   } = props;
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
@@ -178,6 +179,7 @@ export default function VideoEditorToolbar(props) {
   }, [speakerType]);
 
   const { colorMode } = useColorMode();
+  const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
 
   const handleMusicProviderChange = (selectedOption) => {
     const selectedProvider = MUSIC_PROVIDERS.find(provider => provider.key === selectedOption.value);
@@ -555,6 +557,10 @@ export default function VideoEditorToolbar(props) {
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY) {
     if (currentLayer.hasLipSyncVideoLayer) {
       generateVideoDisplay = <VideoLipSyncOptionsViewer {...props} />;
+    } else if (currentLayer.userVideoGenerationPending) {
+      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
+    } else if (currentLayer.hasUserVideoLayer && currentLayer.userVideoGenerationStatus === "COMPLETED") {
+      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
     } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoGenerationStatus === "COMPLETED") {
       generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
     } else {
@@ -1500,7 +1506,8 @@ export default function VideoEditorToolbar(props) {
 
   return (
     <div
-      className={`${panelSurface} h-full m-auto fixed top-0 overflow-y-auto pl-3 pr-3 ${containerWidth} right-0 toolbar-container`}
+      className={`${panelSurface} h-full m-auto fixed top-0 overflow-y-auto pl-3 pr-3 ${containerWidth} right-0 toolbar-container ${disabledShellClass}`}
+      aria-disabled={isRenderPending}
     >
       <div>
         <div

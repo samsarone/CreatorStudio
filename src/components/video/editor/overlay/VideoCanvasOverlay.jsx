@@ -21,6 +21,8 @@ export default function VideoCanvasOverlay(props) {
     currentDefaultPrompt,
     submitGenerateNewRequest,
     aspectRatio,
+    setAspectRatio,
+    canvasDimensions,
 
     // New video-generation props
     videoPromptText,
@@ -62,7 +64,7 @@ export default function VideoCanvasOverlay(props) {
   // If the activeItemList is empty, show our tabbed prompt overlay
   if (!activeItemList || activeItemList.length === 0) {
     let topH = "top-[40vh]";
-    if (aspectRatio === "9:16") {
+    if ((canvasDimensions?.height || 0) > (canvasDimensions?.width || 0) || aspectRatio === "9:16") {
       topH = "top-[60vh]";
     }
 
@@ -134,6 +136,8 @@ export default function VideoCanvasOverlay(props) {
             currentDefaultPrompt={currentDefaultPrompt}
             submitGenerateNewRequest={submitGenerateNewRequest}
             aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
+            canvasDimensions={canvasDimensions}
           />
         ) : (
           <div>

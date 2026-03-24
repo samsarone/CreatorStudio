@@ -11,6 +11,27 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useUser } from '../../contexts/UserContext.jsx';
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
+const API_KEY_EXPIRY_OPTIONS = [
+  { label: '7 days', value: '7' },
+  { label: '90 days', value: '90' },
+  { label: '365 days', value: '365' },
+  { label: 'Never', value: 'never' },
+];
+
+const getExpiryDateFromSelection = (selection) => {
+  if (selection === 'never') {
+    return null;
+  }
+
+  const days = Number.parseInt(selection, 10);
+  if (!Number.isFinite(days) || days <= 0) {
+    return null;
+  }
+
+  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  return expiresAt.toISOString();
+};
+
 export default function APIKeysPanelContent() {
   const { colorMode } = useColorMode();
   const { user } = useUser();
@@ -24,6 +45,7 @@ export default function APIKeysPanelContent() {
   const [apiKeys, setApiKeys] = useState([]);
   const [showKey, setShowKey] = useState({});
   const [loading, setLoading] = useState(false);
+  const [selectedExpiry, setSelectedExpiry] = useState('never');
 
   useEffect(() => {
     if (user) {
@@ -54,7 +76,9 @@ export default function APIKeysPanelContent() {
   const handleCreateKey = async () => {
     try {
       const headers = getHeaders();
-      const response = await axios.post(`${PROCESSOR_SERVER}/users/api_keys`, {}, headers);
+      const expiresAt = getExpiryDateFromSelection(selectedExpiry);
+      const payload = expiresAt ? { expiresAt } : {};
+      const response = await axios.post(`${PROCESSOR_SERVER}/users/api_keys`, payload, headers);
       const newKey = response.data.apiKey;
       setApiKeys((prevKeys) => [...prevKeys, newKey]);
       toast.success('API key created successfully!', {
@@ -107,7 +131,26 @@ export default function APIKeysPanelContent() {
       <ToastContainer />
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-2xl font-bold">API Keys</h2>
-        <SecondaryButton onClick={handleCreateKey}>Create Key</SecondaryButton>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label htmlFor="api-key-expiry" className={`text-sm ${secondaryTextColor}`}>
+              Expiry
+            </label>
+            <select
+              id="api-key-expiry"
+              value={selectedExpiry}
+              onChange={(e) => setSelectedExpiry(e.target.value)}
+              className={`border ${borderColor} rounded px-3 py-2 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+            >
+              {API_KEY_EXPIRY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <SecondaryButton onClick={handleCreateKey}>Create Key</SecondaryButton>
+        </div>
       </div>
       {loading ? (
         <p className={secondaryTextColor}>Loading...</p>

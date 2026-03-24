@@ -165,6 +165,14 @@ export default function VideoHome(props) {
           video.style.display = 'none'; // Hide the video
 
           hiddenContainer.appendChild(video);
+        } else if (layer && layer.userVideoLayer) {
+          const videoSrc = `${PROCESSOR_API_URL}${layer.userVideoLayer}`;
+          const video = document.createElement('video');
+          video.src = videoSrc;
+          video.preload = 'none';
+          video.style.display = 'none';
+
+          hiddenContainer.appendChild(video);
         }
       });
 
@@ -260,6 +268,13 @@ export default function VideoHome(props) {
       const videoURL = layer.soundEffectRemoteLink
         ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
         : `${PROCESSOR_API_URL}/${layer.soundEffectVideoLayer}`;
+      preloadVideo(videoURL, hiddenContainer);
+    }
+
+    if (layer.hasUserVideoLayer && layer.userVideoLayer) {
+      const videoURL = layer.userVideoRemoteLink
+        ? `${STATIC_CDN_URL}/${layer.userVideoRemoteLink}`
+        : `${PROCESSOR_API_URL}${layer.userVideoLayer}`;
       preloadVideo(videoURL, hiddenContainer);
     }
   }
@@ -1433,15 +1448,24 @@ export default function VideoHome(props) {
 
     axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layer`, reqPayload, headers).then((response) => {
       const resData = response.data;
-      const { session, layer } = resData;
+      const { session, layer, audioLayers: updatedAudioLayers } = resData;
 
 
       const layers = session.layers;
+      const authoritativeAudioLayers = (updatedAudioLayers || session.audioLayers || [])
+        .filter((audioLayer) => audioLayer && audioLayer.isEnabled)
+        .map((audioLayer) => ({
+          isSelected: false,
+          isDirty: false,
+          ...audioLayer,
+        }));
 
       const newLayerIndex = layers.findIndex(l => l._id.toString() === layer._id.toString());
 
 
 
+      setVideoSessionDetails(session);
+      setAudioLayers(authoritativeAudioLayers);
       updateCurrentLayerAndLayerList(layers, newLayerIndex);
 
       setIsUpdateLayerPending(false);
@@ -1907,7 +1931,6 @@ export default function VideoHome(props) {
   }
 
   const isVideoRenderPending = Boolean(isVideoGenerating);
-  const renderPendingClass = isVideoRenderPending ? 'pointer-events-none opacity-50' : '';
 
 
   const editorContainerDisplay = (
@@ -1954,6 +1977,7 @@ export default function VideoHome(props) {
         audioLayers={audioLayers}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         setAudioLayers={setAudioLayers}
+        isRenderPending={isVideoRenderPending}
 
         setIsLayerSeeking={setIsLayerSeeking}
 
@@ -2043,6 +2067,7 @@ export default function VideoHome(props) {
           isRenderPending={isVideoRenderPending}
           requestRealignLayers={requestRealignLayers}
           cancelPendingRender={cancelPendingRender}
+          framesPerSecond={videoSessionDetails?.framesPerSecond || 24}
         />
       </div>
     )
@@ -2057,7 +2082,7 @@ export default function VideoHome(props) {
         <div className='m-auto'>
           <div className='block'>
             {frameToolbarDisplay}
-            <div className={`w-[98%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)] ${renderPendingClass}`}>
+            <div className='w-[98%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
               {editorContainerDisplay}
             </div>
             <AssistantHome
@@ -2138,9 +2163,10 @@ export default function VideoHome(props) {
               isRenderPending={isVideoRenderPending}
               requestRealignLayers={requestRealignLayers}
               cancelPendingRender={cancelPendingRender}
+              framesPerSecond={videoSessionDetails?.framesPerSecond || 24}
             />
           </div>
-          <div className={`w-[90%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)] ${renderPendingClass}`}>
+          <div className='w-[90%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
 
             {canvasProcessLoading && (
               <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">
@@ -2165,6 +2191,7 @@ export default function VideoHome(props) {
                 downloadLink={downloadLink}
                 isGuestSession={isGuestSession}
                 setIsLayerSeeking={setIsLayerSeeking}
+                isRenderPending={isVideoRenderPending}
               />
             </div>
           </div>

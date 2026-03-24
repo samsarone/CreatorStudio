@@ -109,37 +109,50 @@
 
 
 .range-overlay-slider {
-  width: 40px;
+  width: 44px;
 
   display: flex;
   justify-content: center;
 }
 
 .range-overlay-slider .thumb {
-  background-color: #404040;
-  width: 40px; /* Adjust thumb width as needed */
-  height: 6px; /* Adjust thumb height as needed */
-  box-shadow: 0 0 0 2px rgba(10, 10, 10, 0.8);
+  background: linear-gradient(90deg, #38bdf8 0%, #6366f1 100%);
+  width: 44px;
+  height: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    0 0 0 2px rgba(15, 23, 42, 0.92),
+    0 0 18px rgba(56, 189, 248, 0.28);
   display: block;
-  
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 999px;
   position: relative;
   pointer-events: all !important;
+}
+
+.range-overlay-slider .thumb-0::after,
+.range-overlay-slider .thumb-1::after {
+  content: '';
+  position: absolute;
+  inset: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 
 .range-overlay-slider .track {
   background-color: transparent;
-  width: 40px; /* Adjust track width as needed */
+  width: 24px;
 
   position: relative;
 }
 
 
 .range-overlay-slider .track-1 {
-  background-color: rgba(15, 23, 42, 0.4);
-  width: 40px; /* Adjust track width as needed */
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.14) 0%, rgba(99, 102, 241, 0.24) 100%);
+  width: 24px;
+  border-left: 1px solid rgba(56, 189, 248, 0.35);
+  border-right: 1px solid rgba(99, 102, 241, 0.35);
 
   position: relative;
 }

@@ -4,7 +4,7 @@ import { TbLibraryPhoto } from "react-icons/tb";
 import { useColorMode } from "../../../../contexts/ColorMode";
 
 export default function ImageUploadOverlay(props) {
-  const { aspectRatio, onUpload, onOpenLibrary, activeTab } = props;
+  const { aspectRatio, canvasDimensions, onUpload, onOpenLibrary, activeTab } = props;
   const { colorMode } = useColorMode();
 
   const [selectedTab, setSelectedTab] = useState(activeTab || "upload");
@@ -16,7 +16,7 @@ export default function ImageUploadOverlay(props) {
   }, [activeTab]);
 
   let topH = "top-[40vh]";
-  if (aspectRatio === "9:16") {
+  if ((canvasDimensions?.height || 0) > (canvasDimensions?.width || 0) || aspectRatio === "9:16") {
     topH = "top-[60vh]";
   }
 

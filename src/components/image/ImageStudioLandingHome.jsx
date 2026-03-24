@@ -7,7 +7,6 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import { CURRENT_TOOLBAR_VIEW, IMAGE_EDIT_MODEL_TYPES } from '../../constants/Types.ts';
-import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 
 import CommonContainer from '../common/CommonContainer.tsx';
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
@@ -15,8 +14,8 @@ import ImageEditorToolbar from './ImageEditorToolbar.jsx';
 
 const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
 
-const DEFAULT_GENERATION_MODEL = 'NANOBANANAPRO';
-const DEFAULT_EDIT_MODEL = 'NANOBANANAPROEDIT';
+const DEFAULT_GENERATION_MODEL = 'NANOBANANA2';
+const DEFAULT_EDIT_MODEL = 'NANOBANANA2EDIT';
 
 const getAspectRatioValue = (ratio) => {
   if (!ratio) return '1 / 1';
@@ -110,11 +109,6 @@ export default function ImageStudioLandingHome() {
     redirectToLastSession();
   }, [userInitiated, userFetching, user, navigate]);
 
-  const handleAspectRatioChange = (nextRatio) => {
-    setAspectRatio(nextRatio);
-    localStorage.setItem('defaultImageAspectRatio', nextRatio);
-  };
-
   const aspectRatioStyle = useMemo(() => getAspectRatioValue(aspectRatio), [aspectRatio]);
 
   const mainWorkspaceShell =
@@ -195,8 +189,7 @@ export default function ImageStudioLandingHome() {
               showUploadAction={() => {}}
               onShowLibrary={() => {}}
               aspectRatio={aspectRatio}
-              aspectRatioOptions={imageAspectRatioOptions}
-              onAspectRatioChange={handleAspectRatioChange}
+              onEditProject={() => {}}
               onDownloadSimple={() => {}}
               onDownloadAdvanced={() => {}}
             />

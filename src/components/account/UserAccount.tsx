@@ -60,18 +60,22 @@ export default function UserAccount() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
-  const [inferenceModel, setInferenceModel] = useState(INFERENCE_MODEL_TYPES[0]);
-  const [assistantModel, setAssistantModel] = useState(ASSISTANT_MODEL_TYPES[0]);
+  const [inferenceModel, setInferenceModel] = useState(
+    INFERENCE_MODEL_TYPES.find((m) => m.value === "GPT5.4") || INFERENCE_MODEL_TYPES[0]
+  );
+  const [assistantModel, setAssistantModel] = useState(
+    ASSISTANT_MODEL_TYPES.find((m) => m.value === "GPT5.4") || ASSISTANT_MODEL_TYPES[0]
+  );
 
   useEffect(() => {
     if (!user) return;
 
     setInferenceModel(
-      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT5.2")) ||
+      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT5.4")) ||
         INFERENCE_MODEL_TYPES[0]
     );
     setAssistantModel(
-      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT5.2")) ||
+      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT5.4")) ||
         ASSISTANT_MODEL_TYPES[0]
     );
     setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);

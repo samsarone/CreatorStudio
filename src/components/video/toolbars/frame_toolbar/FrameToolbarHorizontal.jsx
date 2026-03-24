@@ -19,6 +19,7 @@ export default function FrameToolbarHorizontal({
   setCurrentLayerSeek,
   onLayersOrderChange,
   downloadLink,
+  isRenderPending,
 }) {
   const fps = 30;
   const totalFrames = Math.max(1, Math.floor(totalDuration * fps));
@@ -147,6 +148,7 @@ export default function FrameToolbarHorizontal({
 
   // --- dnd --------------------------------------------------------
   const onDragEnd = (result) => {
+    if (isRenderPending) return;
     if (!result.destination) return;
     const sourceIndex = result.source.index;
     const destIndex = result.destination.index;
@@ -234,171 +236,179 @@ export default function FrameToolbarHorizontal({
           ? "bg-[#0f1629] text-slate-100 border-t border-[#1f2a3d] shadow-[0_-6px_30px_rgba(0,0,0,0.4)]"
           : "bg-white/90 text-slate-800 border-t border-slate-200 shadow-[0_-6px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm"
       } w-full overflow-hidden`}
+      aria-disabled={isRenderPending}
     >
-      {/* Seek */}
-      <div className="px-4 pt-3 pb-2 space-y-2">
-        <ReactSlider
-          key="horizontal-seek-slider"
-          className="modern-horizontal-slider w-full h-7 flex items-center"
-          min={0}
-          max={totalFrames}
-          value={currentLayerSeek}
-          onChange={handleSeek}
-          renderTrack={(props, state) => {
-            const { key, className, style, ...trackProps } = props;
-            return (
-              <div
-                key={key}
-                {...trackProps}
-                className={`h-[4px] rounded-full ${
-                  state.index === 0
-                    ? colorMode === "dark"
-                      ? "bg-rose-400/70"
-                      : "bg-amber-400/70"
-                    : colorMode === "dark"
-                      ? "bg-[#16213a]"
-                      : "bg-slate-200"
-                } ${className ?? ""}`}
-                style={style}
-              />
-            );
-          }}
-          renderThumb={(props) => {
-            const { key, className, style, ...thumbProps } = props;
-            const baseClass =
-              colorMode === "dark"
-                ? "bg-white border border-white/40 shadow-[0_4px_14px_rgba(148,163,184,0.35)]"
-                : "bg-amber-400 border border-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.25)]";
-            return (
-              <div
-                key={key}
-                {...thumbProps}
-                className={`${className ?? ""} h-4 w-4 rounded-full ${baseClass}`}
-                style={style}
-              />
-            );
-          }}
-        />
-        <div className={`text-[11px] font-medium ${colorMode === "dark" ? "text-slate-400" : "text-slate-500"}`}>
-          {(currentLayerSeek / fps).toFixed(2)}s / {totalDuration.toFixed(2)}s
-        </div>
-      </div>
-
-      {/* Scroll controls */}
-      <div className="px-4 pb-3 flex items-center gap-3 min-w-0">
-        <button
-          className={`p-2.5 rounded-full transition-colors duration-150 ${
-            colorMode === "dark"
-              ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-              : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
-          } ${canScrollLeft ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
-          onClick={() => canScrollLeft && scrollByAmount(-1)}
-          aria-label="Scroll left"
-        >
-          <FaChevronLeft />
-        </button>
-
-        <div className="relative flex-1 min-w-0">
-          <div
-            className={`pointer-events-none absolute inset-y-1 left-0 w-10 bg-gradient-to-r ${
-              colorMode === "dark" ? "from-[#0f1629]" : "from-white"
-            } to-transparent`}
-          />
-          <div
-            className={`pointer-events-none absolute inset-y-1 right-0 w-10 bg-gradient-to-l ${
-              colorMode === "dark" ? "from-[#0f1629]" : "from-white"
-            } to-transparent`}
-          />
-          {/* IMPORTANT: Make the Droppable be the scroll container so RBD can auto-scroll it */}
-          <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
-            <Droppable droppableId="rail" direction="horizontal">
-              {(provided) => (
+      <div>
+        {/* Seek */}
+        <div className="px-4 pt-3 pb-2 space-y-2">
+          <ReactSlider
+            key="horizontal-seek-slider"
+            className="modern-horizontal-slider w-full h-7 flex items-center"
+            min={0}
+            max={totalFrames}
+            value={currentLayerSeek}
+            onChange={handleSeek}
+            renderTrack={(props, state) => {
+              const { key, className, style, ...trackProps } = props;
+              return (
                 <div
-                  className="flex-1 overflow-x-auto no-scrollbar min-w-0"
-                  ref={(node) => {
-                    // attach both droppable ref and our local railRef
-                    provided.innerRef(node);
-                    railRef.current = node;
-                  }}
-                  {...provided.droppableProps}
-                >
-                  {/* the wide track inside the scroll container */}
-                  <div className="relative h-10" style={{ width: trackWidth }}>
-                    <div className="absolute inset-0 flex items-stretch gap-2">
-                      {layers.map((layer, i) => {
-                        const widthPx = tileWidths[i] ?? MIN_TILE_WIDTH;
-                        const isSelected = i === selectedLayerIndex;
-                        return (
-                          <Draggable draggableId={layer._id.toString()} index={i} key={layer._id}>
-                            {(drag) => (
-                              <div
-                                ref={(el) => {
-                                  // IMPORTANT: set both the draggable ref and our own ref for visibility checks
-                                  drag.innerRef(el);
-                                  layerRefs.current[layer._id] = el; // NEW
-                                }}
-                                {...drag.draggableProps}
-                                {...drag.dragHandleProps}
-                                className={`rounded-lg border transition-colors duration-150 ${
-                                  isSelected
-                                    ? colorMode === "dark"
-                                      ? "border-rose-400/60 bg-rose-500/20 shadow-[0_8px_20px_rgba(248,113,113,0.2)]"
-                                      : "border-amber-300 bg-amber-50 shadow-[0_8px_24px_rgba(251,191,36,0.2)]"
-                                    : colorMode === "dark"
-                                      ? "border-[#1f2a3d] bg-[#111a2f] hover:border-rose-400/30"
-                                      : "border-slate-200 bg-slate-100 hover:border-slate-300"
-                                } cursor-pointer flex items-center justify-center select-none`}
-                                style={{
-                                  width: widthPx,
-                                  // RBD requires applying its style for animations / transforms
-                                  ...drag.draggableProps.style,
-                                }}
-                                onClick={() => {
-                                  setSelectedLayerIndex(i);
-                                  setSelectedLayer(layer);
-                                  ensureLayerIndexVisible(i); // NEW: clicking also ensures visibility
-                                }}
-                                data-layer-id={layer._id} // helpful for debugging
-                              >
-                                <div className="text-[11px] leading-tight text-center px-2">
-                                  <div className="font-semibold">{i + 1}</div>
-                                  <div className={colorMode === "dark" ? "text-slate-200/90" : "text-slate-600"}>
-                                    {layer.duration?.toFixed(1)}s
+                  key={key}
+                  {...trackProps}
+                  className={`h-[4px] rounded-full ${
+                    state.index === 0
+                      ? colorMode === "dark"
+                        ? "bg-rose-400/70"
+                        : "bg-amber-400/70"
+                      : colorMode === "dark"
+                        ? "bg-[#16213a]"
+                        : "bg-slate-200"
+                  } ${className ?? ""}`}
+                  style={style}
+                />
+              );
+            }}
+            renderThumb={(props) => {
+              const { key, className, style, ...thumbProps } = props;
+              const baseClass =
+                colorMode === "dark"
+                  ? "bg-white border border-white/40 shadow-[0_4px_14px_rgba(148,163,184,0.35)]"
+                  : "bg-amber-400 border border-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.25)]";
+              return (
+                <div
+                  key={key}
+                  {...thumbProps}
+                  className={`${className ?? ""} h-4 w-4 rounded-full ${baseClass}`}
+                  style={style}
+                />
+              );
+            }}
+          />
+          <div className={`text-[11px] font-medium ${colorMode === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+            {(currentLayerSeek / fps).toFixed(2)}s / {totalDuration.toFixed(2)}s
+          </div>
+        </div>
+
+        {/* Scroll controls */}
+        <div className="px-4 pb-3 flex items-center gap-3 min-w-0">
+          <button
+            className={`p-2.5 rounded-full transition-colors duration-150 ${
+              colorMode === "dark"
+                ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
+                : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
+            } ${canScrollLeft ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
+            onClick={() => canScrollLeft && scrollByAmount(-1)}
+            aria-label="Scroll left"
+          >
+            <FaChevronLeft />
+          </button>
+
+          <div className="relative flex-1 min-w-0">
+            <div
+              className={`pointer-events-none absolute inset-y-1 left-0 w-10 bg-gradient-to-r ${
+                colorMode === "dark" ? "from-[#0f1629]" : "from-white"
+              } to-transparent`}
+            />
+            <div
+              className={`pointer-events-none absolute inset-y-1 right-0 w-10 bg-gradient-to-l ${
+                colorMode === "dark" ? "from-[#0f1629]" : "from-white"
+              } to-transparent`}
+            />
+            {/* IMPORTANT: Make the Droppable be the scroll container so RBD can auto-scroll it */}
+            <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
+              <Droppable droppableId="rail" direction="horizontal">
+                {(provided) => (
+                  <div
+                    className="flex-1 overflow-x-auto no-scrollbar min-w-0"
+                    ref={(node) => {
+                      // attach both droppable ref and our local railRef
+                      provided.innerRef(node);
+                      railRef.current = node;
+                    }}
+                    {...provided.droppableProps}
+                  >
+                    {/* the wide track inside the scroll container */}
+                    <div className="relative h-10" style={{ width: trackWidth }}>
+                      <div className="absolute inset-0 flex items-stretch gap-2">
+                        {layers.map((layer, i) => {
+                          const widthPx = tileWidths[i] ?? MIN_TILE_WIDTH;
+                          const isSelected = i === selectedLayerIndex;
+                          return (
+                            <Draggable
+                              draggableId={layer._id.toString()}
+                              index={i}
+                              key={layer._id}
+                              isDragDisabled={isRenderPending}
+                            >
+                              {(drag) => (
+                                <div
+                                  ref={(el) => {
+                                    // IMPORTANT: set both the draggable ref and our own ref for visibility checks
+                                    drag.innerRef(el);
+                                    layerRefs.current[layer._id] = el; // NEW
+                                  }}
+                                  {...drag.draggableProps}
+                                  {...drag.dragHandleProps}
+                                  className={`rounded-lg border transition-colors duration-150 ${
+                                    isSelected
+                                      ? colorMode === "dark"
+                                        ? "border-rose-400/60 bg-rose-500/20 shadow-[0_8px_20px_rgba(248,113,113,0.2)]"
+                                        : "border-amber-300 bg-amber-50 shadow-[0_8px_24px_rgba(251,191,36,0.2)]"
+                                      : colorMode === "dark"
+                                        ? "border-[#1f2a3d] bg-[#111a2f] hover:border-rose-400/30"
+                                        : "border-slate-200 bg-slate-100 hover:border-slate-300"
+                                  } cursor-pointer flex items-center justify-center select-none`}
+                                  style={{
+                                    width: widthPx,
+                                    // RBD requires applying its style for animations / transforms
+                                    ...drag.draggableProps.style,
+                                  }}
+                                  onClick={() => {
+                                    setSelectedLayerIndex(i);
+                                    setSelectedLayer(layer);
+                                    ensureLayerIndexVisible(i); // NEW: clicking also ensures visibility
+                                  }}
+                                  data-layer-id={layer._id} // helpful for debugging
+                                >
+                                  <div className="text-[11px] leading-tight text-center px-2">
+                                    <div className="font-semibold">{i + 1}</div>
+                                    <div className={colorMode === "dark" ? "text-slate-200/90" : "text-slate-600"}>
+                                      {layer.duration?.toFixed(1)}s
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
-                          </Draggable>
-                        );
-                      })}
-                      {provided.placeholder}
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+
+                      <Playhead
+                        fps={fps}
+                        currentFrame={currentLayerSeek}
+                        layers={layers}
+                        tileWidths={tileWidths}
+                        gap={TILE_GAP}
+                      />
                     </div>
-
-                    <Playhead
-                      fps={fps}
-                      currentFrame={currentLayerSeek}
-                      layers={layers}
-                      tileWidths={tileWidths}
-                      gap={TILE_GAP}
-                    />
                   </div>
-                </div>
-              )}
-            </Droppable>
-          </DragDropContext>
-        </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </div>
 
-        <button
-          className={`p-2.5 rounded-full transition-colors duration-150 ${
-            colorMode === "dark"
-              ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-              : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
-          } ${canScrollRight ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
-          onClick={() => canScrollRight && scrollByAmount(1)}
-          aria-label="Scroll right"
-        >
-          <FaChevronRight />
-        </button>
+          <button
+            className={`p-2.5 rounded-full transition-colors duration-150 ${
+              colorMode === "dark"
+                ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
+                : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
+            } ${canScrollRight ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
+            onClick={() => canScrollRight && scrollByAmount(1)}
+            aria-label="Scroll right"
+          >
+            <FaChevronRight />
+          </button>
+        </div>
       </div>
     </div>
   );

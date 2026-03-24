@@ -5,10 +5,45 @@ import { MdExplore, MdCreateNewFolder } from 'react-icons/md';
 import SingleSelect from './SingleSelect.jsx';
 import {
   aspectRatioOptions as defaultAspectRatioOptions,
+  findClosestAspectRatioOption,
   getCanvasDimensionsForAspectRatio,
+  getSimplifiedAspectRatioLabel,
+  MAX_CANVAS_DIMENSION,
+  MIN_CANVAS_DIMENSION,
 } from '../../utils/canvas.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
+const CUSTOM_CANVAS_OPTION_VALUE = '__custom_canvas__';
+const FRIENDLY_PROJECT_PREFIXES = [
+  'Sunlit',
+  'Velvet',
+  'Golden',
+  'Bright',
+  'Mellow',
+  'Lucky',
+  'Clever',
+  'Curious',
+  'Lively',
+  'Calm',
+];
+const FRIENDLY_PROJECT_SUFFIXES = [
+  'Canvas',
+  'Studio',
+  'Sketch',
+  'Scene',
+  'Draft',
+  'Board',
+  'Frame',
+  'Moment',
+  'Spark',
+  'Vista',
+];
+
+const getRandomFriendlyProjectName = () => {
+  const prefix = FRIENDLY_PROJECT_PREFIXES[Math.floor(Math.random() * FRIENDLY_PROJECT_PREFIXES.length)];
+  const suffix = FRIENDLY_PROJECT_SUFFIXES[Math.floor(Math.random() * FRIENDLY_PROJECT_SUFFIXES.length)];
+  return `${prefix} ${suffix}`;
+};
 
 function AddSessionDropdown(props) {
   const {
@@ -52,6 +87,9 @@ function AddSessionDropdown(props) {
   const [sessionName, setSessionName] = useState('');
   const [addBackgroundLayer, setAddBackgroundLayer] = useState(false);
   const [backgroundLayerColor, setBackgroundLayerColor] = useState('#ffffff');
+  const [projectCanvasOption, setProjectCanvasOption] = useState(aspectRatioOptions[0] || { value: '1:1', label: '1:1' });
+  const [customCanvasWidth, setCustomCanvasWidth] = useState('');
+  const [customCanvasHeight, setCustomCanvasHeight] = useState('');
 
   const bgColor = colorMode === 'dark' ? 'bg-[#15263f] hover:bg-[#1b3254]' : 'bg-neutral-200 hover:bg-neutral-300';
   const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-700';
@@ -93,15 +131,108 @@ function AddSessionDropdown(props) {
       || null
   ), [aspectRatioOptionsWithResolution, selectedAspectRatio]);
 
+  const projectCanvasOptions = useMemo(
+    () => [
+      ...aspectRatioOptionsWithResolution,
+      { value: CUSTOM_CANVAS_OPTION_VALUE, label: 'Custom' },
+    ],
+    [aspectRatioOptionsWithResolution]
+  );
+
+  const isCustomCanvasSelected = projectCanvasOption?.value === CUSTOM_CANVAS_OPTION_VALUE;
+
+  const projectCanvasDimensions = useMemo(() => {
+    if (!isCustomCanvasSelected) {
+      return getCanvasDimensionsForAspectRatio(projectCanvasOption?.value || selectedAspectRatio);
+    }
+
+    const parsedWidth = Number(customCanvasWidth);
+    const parsedHeight = Number(customCanvasHeight);
+
+    return {
+      width: Number.isFinite(parsedWidth) && parsedWidth > 0 ? Math.round(parsedWidth) : selectedCanvasDimensions.width,
+      height: Number.isFinite(parsedHeight) && parsedHeight > 0 ? Math.round(parsedHeight) : selectedCanvasDimensions.height,
+    };
+  }, [
+    customCanvasHeight,
+    customCanvasWidth,
+    isCustomCanvasSelected,
+    projectCanvasOption,
+    selectedAspectRatio,
+    selectedCanvasDimensions.height,
+    selectedCanvasDimensions.width,
+  ]);
+
+  const resolvedProjectGenerationAspectRatio = useMemo(() => {
+    if (!isCustomCanvasSelected) {
+      return projectCanvasOption?.value || selectedAspectRatio;
+    }
+
+    return (
+      findClosestAspectRatioOption(projectCanvasDimensions, aspectRatioOptions)?.value ||
+      selectedAspectRatio ||
+      aspectRatioOptions?.[0]?.value ||
+      '1:1'
+    );
+  }, [
+    aspectRatioOptions,
+    isCustomCanvasSelected,
+    projectCanvasDimensions,
+    projectCanvasOption,
+    selectedAspectRatio,
+  ]);
+
+  const customCanvasValidationMessage = useMemo(() => {
+    if (!isCustomCanvasSelected) {
+      return null;
+    }
+
+    const parsedWidth = Number(customCanvasWidth);
+    const parsedHeight = Number(customCanvasHeight);
+
+    if (!Number.isFinite(parsedWidth) || !Number.isFinite(parsedHeight)) {
+      return 'Enter both width and height.';
+    }
+
+    if (parsedWidth < MIN_CANVAS_DIMENSION || parsedHeight < MIN_CANVAS_DIMENSION) {
+      return `Canvas dimensions must be at least ${MIN_CANVAS_DIMENSION}px.`;
+    }
+
+    if (parsedWidth > MAX_CANVAS_DIMENSION || parsedHeight > MAX_CANVAS_DIMENSION) {
+      return `Canvas dimensions must be ${MAX_CANVAS_DIMENSION}px or smaller.`;
+    }
+
+    return null;
+  }, [customCanvasHeight, customCanvasWidth, isCustomCanvasSelected]);
+
+  const selectedProjectCanvasOption = useMemo(() => {
+    if (isCustomCanvasSelected) {
+      return projectCanvasOptions.find((option) => option.value === CUSTOM_CANVAS_OPTION_VALUE) || null;
+    }
+
+    return (
+      projectCanvasOptions.find((option) => option.value === projectCanvasOption?.value) ||
+      selectedAspectRatioOptionWithResolution
+    );
+  }, [
+    isCustomCanvasSelected,
+    projectCanvasOption,
+    projectCanvasOptions,
+    selectedAspectRatioOptionWithResolution,
+  ]);
+
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
   };
 
   const openProjectModal = () => {
     setIsOpen(false);
-    setSessionName('');
+    setSessionName(getRandomFriendlyProjectName());
     setAddBackgroundLayer(false);
     setBackgroundLayerColor('#ffffff');
+    setProjectCanvasOption(selectedAspectRatioOptionWithResolution || aspectRatioOptionsWithResolution[0] || { value: '1:1', label: '1:1' });
+    setCustomCanvasWidth(String(selectedCanvasDimensions.width));
+    setCustomCanvasHeight(String(selectedCanvasDimensions.height));
     setIsProjectModalOpen(true);
   };
 
@@ -122,10 +253,15 @@ function AddSessionDropdown(props) {
 
   const addNewSession = () => {
     if (useImageProjectModal) {
+      if (customCanvasValidationMessage) {
+        return;
+      }
+      const resolvedSessionName = sessionName.trim() || getRandomFriendlyProjectName();
+
       createNewSession({
-        aspectRatio: selectedAspectRatio,
-        canvasDimensions: selectedCanvasDimensions,
-        sessionName: sessionName.trim(),
+        aspectRatio: resolvedProjectGenerationAspectRatio,
+        canvasDimensions: projectCanvasDimensions,
+        sessionName: resolvedSessionName,
         addBackgroundLayer,
         backgroundLayerColor,
       });
@@ -164,6 +300,22 @@ function AddSessionDropdown(props) {
     const selectedAspectRatioOption = aspectRatioOptions.find((option) => option.value === selectedOption.value);
     setAspectRatio(selectedAspectRatioOption || selectedOption);
 
+  };
+
+  const handleProjectCanvasOptionChange = (selectedOption) => {
+    if (!selectedOption?.value) return;
+    setProjectCanvasOption(selectedOption);
+
+    if (selectedOption.value === CUSTOM_CANVAS_OPTION_VALUE) {
+      setCustomCanvasWidth(String(selectedCanvasDimensions.width));
+      setCustomCanvasHeight(String(selectedCanvasDimensions.height));
+      return;
+    }
+
+    const selectedDimensions = getCanvasDimensionsForAspectRatio(selectedOption.value);
+    setCustomCanvasWidth(String(selectedDimensions.width));
+    setCustomCanvasHeight(String(selectedDimensions.height));
+    handleAspectRatioChange(selectedOption);
   };
 
   const handleSwitchEditor = () => {
@@ -295,23 +447,67 @@ function AddSessionDropdown(props) {
 
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Aspect ratio
+                    Canvas preset
                   </label>
                   <SingleSelect
-                    options={aspectRatioOptionsWithResolution}
-                    onChange={handleAspectRatioChange}
-                    value={selectedAspectRatioOptionWithResolution}
+                    options={projectCanvasOptions}
+                    onChange={handleProjectCanvasOptionChange}
+                    value={selectedProjectCanvasOption}
                     isSearchable={false}
                   />
                 </div>
+
+                {isCustomCanvasSelected && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-width">
+                        Width
+                      </label>
+                      <input
+                        id="custom-canvas-width"
+                        type="number"
+                        min={MIN_CANVAS_DIMENSION}
+                        max={MAX_CANVAS_DIMENSION}
+                        step="1"
+                        value={customCanvasWidth}
+                        onChange={(event) => setCustomCanvasWidth(event.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-height">
+                        Height
+                      </label>
+                      <input
+                        id="custom-canvas-height"
+                        type="number"
+                        min={MIN_CANVAS_DIMENSION}
+                        max={MAX_CANVAS_DIMENSION}
+                        step="1"
+                        value={customCanvasHeight}
+                        onChange={(event) => setCustomCanvasHeight(event.target.value)}
+                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className={`rounded-lg border px-3 py-3 text-sm ${modalInputSurface}`}>
                   <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
                     Canvas resolution
                   </div>
                   <div className="mt-1 font-semibold">
-                    {selectedCanvasDimensions.width} x {selectedCanvasDimensions.height} px
+                    {projectCanvasDimensions.width} x {projectCanvasDimensions.height} px
                   </div>
+                  {isCustomCanvasSelected && (
+                    <div className="mt-1 text-xs opacity-80">
+                      Custom ratio {getSimplifiedAspectRatioLabel(projectCanvasDimensions)}. Default model ratio will start at {resolvedProjectGenerationAspectRatio}.
+                    </div>
+                  )}
+                  {customCanvasValidationMessage && (
+                    <div className="mt-2 text-xs text-rose-500">{customCanvasValidationMessage}</div>
+                  )}
                 </div>
 
                 <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
@@ -367,6 +563,7 @@ function AddSessionDropdown(props) {
                 </button>
                 <button
                   type="submit"
+                  disabled={Boolean(customCanvasValidationMessage)}
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalPrimaryButton}`}
                 >
                   Create session

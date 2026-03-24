@@ -3,17 +3,19 @@ import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { FaChevronCircleLeft} from 'react-icons/fa';
 export default function VideoEditorToolbarMinimal(props) {
 
-  const { onToggleDisplay } = props;
+  const { onToggleDisplay, isRenderPending } = props;
 
   const { colorMode } = useColorMode();
+  const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
 
   return (
     <div
-      className={`h-full m-auto fixed top-0 overflow-y-auto pl-1 w-[2%] pr-0 transition-colors duration-200 ${
+      className={`h-full m-auto fixed top-0 overflow-y-auto pl-1 w-[2%] pr-0 transition-colors duration-200 ${disabledShellClass} ${
         colorMode === 'dark'
           ? 'bg-[#0f1629] border-l border-[#1f2a3d] text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
           : 'bg-white border-l border-slate-200 text-slate-700 shadow-sm'
       }`}
+      aria-disabled={isRenderPending}
     >
       <div className='mt-[80px]'>
         <FaChevronCircleLeft

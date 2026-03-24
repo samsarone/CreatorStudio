@@ -31,6 +31,8 @@ export default function VideoAiVideoOptionsViewer(props) {
     { label: 'Mirelo AI', value: 'MIRELOAI' }
   ];
   const [selectedSoundEffectOption, setSelectedSoundEffectOption] = useState(soundEffectOptions[0]);
+  const isUserUploadPending = Boolean(currentLayer?.userVideoGenerationPending);
+  const isUserUploadedVideo = Boolean(currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer);
 
   const handleDeleteLayer = () => {
     if (removeVideoLayer) {
@@ -83,6 +85,48 @@ export default function VideoAiVideoOptionsViewer(props) {
       <p>to generate lipsync</p>
     </div>
   );
+
+  if (isUserUploadPending) {
+    return (
+      <div className="flex flex-col items-center justify-center mt-2 mx-auto">
+        <div className="mb-3 text-sm text-center">
+          Uploaded video is being processed for this layer.
+        </div>
+        <div className="mb-2 text-xs text-center opacity-80">
+          The editor will refresh automatically when the background task finishes.
+        </div>
+        <div className="mt-4 mb-2">
+          <SecondaryButton
+            onClick={handleDeleteLayer}
+            extraClasses="bg-red-500 hover:bg-red-600"
+          >
+            Cancel Upload
+          </SecondaryButton>
+        </div>
+      </div>
+    );
+  }
+
+  if (isUserUploadedVideo) {
+    return (
+      <div className="flex flex-col items-center justify-center mt-2 mx-auto">
+        <div className="mb-3 text-sm text-center">
+          Uploaded videos are fixed layer video artefacts.
+        </div>
+        <div className="mb-2 text-xs text-center opacity-80">
+          Remove the video to switch this layer back to AI generation.
+        </div>
+        <div className="mt-4 mb-2">
+          <SecondaryButton
+            onClick={handleDeleteLayer}
+            extraClasses="bg-red-500 hover:bg-red-600"
+          >
+            Delete Video Layer
+          </SecondaryButton>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center mt-2 mx-auto">

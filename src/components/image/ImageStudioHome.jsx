@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -13,7 +13,17 @@ import {
   TOOLBAR_ACTION_VIEW,
   IMAGE_EDIT_MODEL_TYPES,
 } from '../../constants/Types.ts';
-import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+import {
+  findAspectRatioOptionForCanvasDimensions,
+  findClosestAspectRatioOption,
+  fitDimensionsToCanvas,
+  getCanvasDimensionsForAspectRatio,
+  getSimplifiedAspectRatioLabel,
+  isSupportedAspectRatioOptionValue,
+  MAX_CANVAS_DIMENSION,
+  MIN_CANVAS_DIMENSION,
+  normalizeCanvasDimensions,
+} from '../../utils/canvas.jsx';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 
 import CommonContainer from '../common/CommonContainer.tsx';
@@ -25,12 +35,260 @@ import ImageLibraryHome from '../library/image/ImageLibraryHome.jsx';
 import ImageEditorToolbar from './ImageEditorToolbar.jsx';
 import ImageUploadDialog from './ImageUploadDialog.jsx';
 import ImageDownloadDialog from './ImageDownloadDialog.jsx';
+import SingleSelect from '../common/SingleSelect.jsx';
 
 import 'react-toastify/dist/ReactToastify.css';
 import '../video/toolbars/editorToolbar.css';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const IMAGE_LIBRARY_PAGE_SIZE = 40;
+const CUSTOM_CANVAS_OPTION_VALUE = '__custom_canvas__';
+
+function EditImageProjectDialogContent({
+  aspectRatio,
+  canvasDimensions,
+  aspectRatioOptions,
+  colorMode,
+  onClose,
+  onSave,
+}) {
+  const normalizedCurrentCanvasDimensions = useMemo(
+    () => normalizeCanvasDimensions(canvasDimensions, aspectRatio || '1:1'),
+    [aspectRatio, canvasDimensions]
+  );
+  const matchingCanvasAspectRatioOption = useMemo(
+    () => findAspectRatioOptionForCanvasDimensions(normalizedCurrentCanvasDimensions, aspectRatioOptions),
+    [aspectRatioOptions, normalizedCurrentCanvasDimensions]
+  );
+
+  const [selectedCanvasOption, setSelectedCanvasOption] = useState(
+    matchingCanvasAspectRatioOption?.value || CUSTOM_CANVAS_OPTION_VALUE
+  );
+  const [customCanvasWidth, setCustomCanvasWidth] = useState(
+    String(normalizedCurrentCanvasDimensions.width)
+  );
+  const [customCanvasHeight, setCustomCanvasHeight] = useState(
+    String(normalizedCurrentCanvasDimensions.height)
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  const aspectRatioOptionsWithResolution = useMemo(
+    () =>
+      (aspectRatioOptions || []).map((option) => {
+        const dimensions = getCanvasDimensionsForAspectRatio(option.value);
+        return {
+          ...option,
+          label: `${option.label} - ${dimensions.width} x ${dimensions.height}`,
+        };
+      }),
+    [aspectRatioOptions]
+  );
+
+  const projectCanvasOptions = useMemo(
+    () => [
+      ...aspectRatioOptionsWithResolution,
+      { value: CUSTOM_CANVAS_OPTION_VALUE, label: 'Custom' },
+    ],
+    [aspectRatioOptionsWithResolution]
+  );
+
+  const selectedCanvasDimensions = useMemo(
+    () =>
+      selectedCanvasOption === CUSTOM_CANVAS_OPTION_VALUE
+        ? {
+            width: Number.isFinite(Number(customCanvasWidth))
+              ? Math.round(Number(customCanvasWidth))
+              : normalizedCurrentCanvasDimensions.width,
+            height: Number.isFinite(Number(customCanvasHeight))
+              ? Math.round(Number(customCanvasHeight))
+              : normalizedCurrentCanvasDimensions.height,
+          }
+        : getCanvasDimensionsForAspectRatio(selectedCanvasOption),
+    [
+      customCanvasHeight,
+      customCanvasWidth,
+      normalizedCurrentCanvasDimensions.height,
+      normalizedCurrentCanvasDimensions.width,
+      selectedCanvasOption,
+    ]
+  );
+
+  const selectedCanvasOptionValue = useMemo(
+    () =>
+      projectCanvasOptions.find((option) => option.value === selectedCanvasOption) ||
+      projectCanvasOptions[0] ||
+      null,
+    [projectCanvasOptions, selectedCanvasOption]
+  );
+
+  const validationMessage = useMemo(() => {
+    if (selectedCanvasOption !== CUSTOM_CANVAS_OPTION_VALUE) {
+      return null;
+    }
+
+    const parsedWidth = Number(customCanvasWidth);
+    const parsedHeight = Number(customCanvasHeight);
+
+    if (!Number.isFinite(parsedWidth) || !Number.isFinite(parsedHeight)) {
+      return 'Enter both width and height.';
+    }
+
+    if (parsedWidth < MIN_CANVAS_DIMENSION || parsedHeight < MIN_CANVAS_DIMENSION) {
+      return `Canvas dimensions must be at least ${MIN_CANVAS_DIMENSION}px.`;
+    }
+
+    if (parsedWidth > MAX_CANVAS_DIMENSION || parsedHeight > MAX_CANVAS_DIMENSION) {
+      return `Canvas dimensions must be ${MAX_CANVAS_DIMENSION}px or smaller.`;
+    }
+
+    return null;
+  }, [customCanvasHeight, customCanvasWidth, selectedCanvasOption]);
+
+  const resolvedAspectRatio = useMemo(() => {
+    if (selectedCanvasOption !== CUSTOM_CANVAS_OPTION_VALUE) {
+      return selectedCanvasOption;
+    }
+
+    return (
+      (isSupportedAspectRatioOptionValue(aspectRatio, aspectRatioOptions) && aspectRatio) ||
+      findClosestAspectRatioOption(selectedCanvasDimensions, aspectRatioOptions)?.value ||
+      aspectRatioOptions?.[0]?.value ||
+      '1:1'
+    );
+  }, [aspectRatio, aspectRatioOptions, selectedCanvasDimensions, selectedCanvasOption]);
+
+  const dialogSurface =
+    colorMode === 'dark'
+      ? 'bg-[#0f172a] text-slate-100 border border-[#1f2a3d]'
+      : 'bg-white text-slate-900 border border-slate-200';
+  const dialogInputSurface =
+    colorMode === 'dark'
+      ? 'bg-slate-900 border-slate-700 text-slate-100'
+      : 'bg-white border-slate-300 text-slate-900';
+  const dialogSecondaryButton =
+    colorMode === 'dark'
+      ? 'bg-[#17253f] text-slate-100 hover:bg-[#1c3153]'
+      : 'bg-slate-100 text-slate-800 hover:bg-white';
+  const dialogPrimaryButton =
+    colorMode === 'dark'
+      ? 'bg-rose-500 text-white hover:bg-rose-400'
+      : 'bg-rose-500 text-white hover:bg-rose-600';
+  const dialogSubtleText = colorMode === 'dark' ? 'text-slate-300' : 'text-slate-600';
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (isSaving) return;
+    if (validationMessage) return;
+    setIsSaving(true);
+    try {
+      await onSave?.({
+        aspectRatio: resolvedAspectRatio,
+        canvasDimensions: selectedCanvasDimensions,
+      });
+      onClose?.();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className={`relative w-full max-w-md rounded-2xl p-6 shadow-[0_20px_46px_rgba(0,0,0,0.5)] ${dialogSurface}`}>
+      <FaTimes className="absolute top-3 right-3 cursor-pointer" onClick={onClose} />
+      <form onSubmit={handleSubmit}>
+        <div className="text-lg font-semibold">Edit project</div>
+        <div className={`mt-1 text-sm ${dialogSubtleText}`}>
+          Update your project parameters.
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Canvas preset</label>
+            <SingleSelect
+              options={projectCanvasOptions}
+              onChange={(selectedOption) => {
+                if (!selectedOption?.value) return;
+                setSelectedCanvasOption(selectedOption.value);
+              }}
+              value={selectedCanvasOptionValue}
+              isSearchable={false}
+            />
+          </div>
+
+          {selectedCanvasOption === CUSTOM_CANVAS_OPTION_VALUE && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="edit-project-canvas-width">
+                  Width
+                </label>
+                <input
+                  id="edit-project-canvas-width"
+                  type="number"
+                  min={MIN_CANVAS_DIMENSION}
+                  max={MAX_CANVAS_DIMENSION}
+                  step="1"
+                  value={customCanvasWidth}
+                  onChange={(event) => setCustomCanvasWidth(event.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${dialogInputSurface}`}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2" htmlFor="edit-project-canvas-height">
+                  Height
+                </label>
+                <input
+                  id="edit-project-canvas-height"
+                  type="number"
+                  min={MIN_CANVAS_DIMENSION}
+                  max={MAX_CANVAS_DIMENSION}
+                  step="1"
+                  value={customCanvasHeight}
+                  onChange={(event) => setCustomCanvasHeight(event.target.value)}
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${dialogInputSurface}`}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className={`rounded-lg border px-3 py-3 text-sm ${dialogInputSurface}`}>
+            <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+              Canvas resolution
+            </div>
+            <div className="mt-1 font-semibold">
+              {selectedCanvasDimensions.width} x {selectedCanvasDimensions.height} px
+            </div>
+            {selectedCanvasOption === CUSTOM_CANVAS_OPTION_VALUE && (
+              <div className="mt-1 text-xs opacity-80">
+                Custom ratio {getSimplifiedAspectRatioLabel(selectedCanvasDimensions)}. Default model ratio stays at {resolvedAspectRatio}.
+              </div>
+            )}
+            {validationMessage && (
+              <div className="mt-2 text-xs text-rose-500">{validationMessage}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className={`px-3 py-2 rounded-md text-sm transition disabled:opacity-60 ${dialogSecondaryButton}`}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving || Boolean(validationMessage)}
+            className={`px-4 py-2 rounded-md text-sm font-semibold transition disabled:opacity-60 ${dialogPrimaryButton}`}
+          >
+            {isSaving ? 'Saving...' : 'Save changes'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 export default function ImageStudioHome() {
   const { id } = useParams();
@@ -55,11 +313,12 @@ export default function ImageStudioHome() {
   });
 
   const [aspectRatio, setAspectRatio] = useState('1:1');
+  const [generationAspectRatio, setGenerationAspectRatio] = useState('1:1');
 
   const [promptText, setPromptText] = useState('');
-  const [selectedGenerationModel, setSelectedGenerationModel] = useState('NANOBANANAPRO');
+  const [selectedGenerationModel, setSelectedGenerationModel] = useState('NANOBANANA2');
   const [selectedEditModel, setSelectedEditModel] = useState(
-    'NANOBANANAPROEDIT'
+    'NANOBANANA2EDIT'
   );
   const [selectedEditModelValue, setSelectedEditModelValue] = useState(
     IMAGE_EDIT_MODEL_TYPES.find((model) => model.key === selectedEditModel)
@@ -100,6 +359,26 @@ export default function ImageStudioHome() {
   const generationPollIntervalRef = useRef(null);
   const outpaintPollIntervalRef = useRef(null);
 
+  const resolvedCanvasDimensions = useMemo(
+    () => normalizeCanvasDimensions(sessionDetails?.canvasDimensions, aspectRatio),
+    [aspectRatio, sessionDetails?.canvasDimensions]
+  );
+
+  const getPreferredGenerationAspectRatio = useCallback(
+    (nextAspectRatio, nextCanvasDimensions) => {
+      if (isSupportedAspectRatioOptionValue(nextAspectRatio, imageAspectRatioOptions)) {
+        return nextAspectRatio;
+      }
+
+      return (
+        findClosestAspectRatioOption(nextCanvasDimensions, imageAspectRatioOptions)?.value ||
+        imageAspectRatioOptions?.[0]?.value ||
+        '1:1'
+      );
+    },
+    []
+  );
+
   const showLoginDialog = () => {
     const redirectPath = id ? `/image/studio/${id}` : '/image/studio';
     openAlertDialog(<AuthContainer redirectTo={redirectPath} />, undefined, false, AUTH_DIALOG_OPTIONS);
@@ -119,6 +398,19 @@ export default function ImageStudioHome() {
       setEditMaskLines([]);
     }
   }, [currentView, selectedEditModelValue]);
+
+  useEffect(() => {
+    const preferredAspectRatio = getPreferredGenerationAspectRatio(
+      aspectRatio,
+      resolvedCanvasDimensions
+    );
+    setGenerationAspectRatio(preferredAspectRatio);
+  }, [
+    aspectRatio,
+    getPreferredGenerationAspectRatio,
+    resolvedCanvasDimensions.height,
+    resolvedCanvasDimensions.width,
+  ]);
 
   useEffect(() => {
     if (!id) return;
@@ -286,15 +578,61 @@ export default function ImageStudioHome() {
     [activeItemList, closeAlertDialog, updateSessionLayerActiveItemList]
   );
 
+  const getRenderableImageSource = useCallback((source) => {
+    if (!source || typeof source !== 'string') return '';
+    if (source.startsWith('data:') || source.startsWith('http://') || source.startsWith('https://')) {
+      return source;
+    }
+    const normalizedSource = source.startsWith('/') ? source.slice(1) : source;
+    return `${PROCESSOR_API_URL}/${normalizedSource}`;
+  }, []);
+
+  const resolveCanvasImagePlacement = useCallback(
+    (source) =>
+      new Promise((resolve, reject) => {
+        if (!source) {
+          reject(new Error('Missing image source'));
+          return;
+        }
+
+        const img = new Image();
+        if (!source.startsWith('data:')) {
+          img.crossOrigin = 'anonymous';
+        }
+
+        img.onload = () => {
+          const placement = fitDimensionsToCanvas(
+            { width: img.width, height: img.height },
+            resolvedCanvasDimensions
+          );
+
+          resolve({
+            url: source,
+            width: placement.width,
+            height: placement.height,
+            x: placement.x,
+            y: placement.y,
+          });
+        };
+        img.onerror = () => reject(new Error('Unable to read image'));
+        img.src = getRenderableImageSource(source);
+      }),
+    [getRenderableImageSource, resolvedCanvasDimensions]
+  );
+
   const openUploadDialog = useCallback(() => {
     setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
     openAlertDialog(
       <div>
         <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        <ImageUploadDialog setUploadURL={setUploadURL} aspectRatio={aspectRatio} />
+        <ImageUploadDialog
+          setUploadURL={setUploadURL}
+          aspectRatio={aspectRatio}
+          canvasDimensions={resolvedCanvasDimensions}
+        />
       </div>
     );
-  }, [aspectRatio, closeAlertDialog, openAlertDialog, setUploadURL]);
+  }, [aspectRatio, closeAlertDialog, openAlertDialog, resolvedCanvasDimensions, setUploadURL]);
 
   const isSupportedImageFile = useCallback((file) => {
     if (!file) return false;
@@ -305,35 +643,8 @@ export default function ImageStudioHome() {
   }, []);
 
   const resolveDroppedImagePlacement = useCallback(
-    (dataUrl) =>
-      new Promise((resolve, reject) => {
-        if (!dataUrl) {
-          reject(new Error('Missing data URL'));
-          return;
-        }
-        const img = new Image();
-        img.onload = () => {
-          const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
-          const stageWidth = canvasDimensions.width;
-          const stageHeight = canvasDimensions.height;
-          const scale = Math.min(stageWidth / img.width, stageHeight / img.height, 1);
-          const imageWidth = Math.round(img.width * scale);
-          const imageHeight = Math.round(img.height * scale);
-          const x = (stageWidth - imageWidth) / 2;
-          const y = (stageHeight - imageHeight) / 2;
-
-          resolve({
-            url: dataUrl,
-            width: imageWidth,
-            height: imageHeight,
-            x,
-            y,
-          });
-        };
-        img.onerror = () => reject(new Error('Unable to read image'));
-        img.src = dataUrl;
-      }),
-    [aspectRatio]
+    (dataUrl) => resolveCanvasImagePlacement(dataUrl),
+    [resolveCanvasImagePlacement]
   );
 
   const processCanvasDropFiles = useCallback(
@@ -449,15 +760,14 @@ export default function ImageStudioHome() {
 
   const selectImageFromLibrary = (imageItem) => {
     const newItemId = `item_${activeItemList.length}`;
-    const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
     const newItem = {
       src: imageItem,
       id: newItemId,
       type: 'image',
       x: 0,
       y: 0,
-      width: canvasDimensions.width,
-      height: canvasDimensions.height,
+      width: resolvedCanvasDimensions.width,
+      height: resolvedCanvasDimensions.height,
     };
     const newItemList = [...activeItemList, newItem];
     setActiveItemList(newItemList);
@@ -551,8 +861,8 @@ export default function ImageStudioHome() {
       ...payload,
       videoSessionId: id,
       layerId: currentLayer._id.toString(),
-      aspectRatio,
-      model: 'NANOBANANAPRO',
+      aspectRatio: payload?.aspectRatio || generationAspectRatio || aspectRatio,
+      model: 'NANOBANANA2',
     };
 
     axios
@@ -589,10 +899,9 @@ export default function ImageStudioHome() {
   };
 
   const exportBaseGroup = async () => {
-    const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
     const canvas = document.createElement('canvas');
-    canvas.width = stageDimensions.width;
-    canvas.height = stageDimensions.height;
+    canvas.width = resolvedCanvasDimensions.width;
+    canvas.height = resolvedCanvasDimensions.height;
     const ctx = canvas.getContext('2d');
 
     const loadImage = (src) =>
@@ -635,10 +944,9 @@ export default function ImageStudioHome() {
   };
 
   const renderActiveItemCanvas = useCallback(async () => {
-    const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
     const canvas = document.createElement('canvas');
-    canvas.width = stageDimensions.width;
-    canvas.height = stageDimensions.height;
+    canvas.width = resolvedCanvasDimensions.width;
+    canvas.height = resolvedCanvasDimensions.height;
     const ctx = canvas.getContext('2d');
 
     const loadImage = (src) =>
@@ -710,7 +1018,7 @@ export default function ImageStudioHome() {
     }
 
     return canvas;
-  }, [activeItemList, aspectRatio]);
+  }, [activeItemList, resolvedCanvasDimensions.height, resolvedCanvasDimensions.width]);
 
   const triggerDownload = (canvas, suffix = '') => {
     const dataURL = canvas.toDataURL('image/png');
@@ -783,7 +1091,7 @@ export default function ImageStudioHome() {
   );
 
   const openAdvancedDownloadDialog = useCallback(() => {
-    const { width, height } = getCanvasDimensionsForAspectRatio(aspectRatio);
+    const { width, height } = resolvedCanvasDimensions;
     openAlertDialog(
       <ImageDownloadDialog
         baseWidth={width}
@@ -797,7 +1105,7 @@ export default function ImageStudioHome() {
         onClose={closeAlertDialog}
       />
     );
-  }, [aspectRatio, closeAlertDialog, downloadImageAdvanced, openAlertDialog]);
+  }, [aspectRatio, closeAlertDialog, downloadImageAdvanced, openAlertDialog, resolvedCanvasDimensions]);
 
   const exportMaskedGroupAsBlackAndWhite = async () => {
     const baseStage = canvasRef.current?.getStage?.();
@@ -883,17 +1191,18 @@ export default function ImageStudioHome() {
     const guidanceScale = formData.get('guidanceScale');
     const numInferenceSteps = formData.get('numInferenceSteps');
     const strength = formData.get('strength');
+    const requestedAspectRatio = formData.get('aspectRatio') || generationAspectRatio || aspectRatio;
 
     const payload = {
       image: baseImageData,
       sessionId: id,
       layerId: currentLayer._id.toString(),
       prompt: promptValue,
-      model: 'NANOBANANAPROEDIT',
+      model: 'NANOBANANA2EDIT',
       guidanceScale,
       numInferenceSteps,
       strength,
-      aspectRatio,
+      aspectRatio: requestedAspectRatio,
     };
     const inputImageUrls = activeItemList
       .filter((item) => item?.type === 'image' && item?.src && !item?.isHidden)
@@ -961,19 +1270,25 @@ export default function ImageStudioHome() {
       const generatedImageUrlName = layerData.imageSession.activeGeneratedImage;
       const timestamp = Date.now();
       const generatedURL = `/generations/${generatedImageUrlName}?${timestamp}`;
-
-      const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+      const placement =
+        (await resolveCanvasImagePlacement(generatedURL).catch(() => null)) || {
+          url: generatedURL,
+          x: 0,
+          y: 0,
+          width: resolvedCanvasDimensions.width,
+          height: resolvedCanvasDimensions.height,
+        };
       const itemId = `item_${activeItemList.length}`;
       const newItemList = [
         ...activeItemList,
         {
-          src: generatedURL,
+          src: placement.url,
           id: itemId,
           type: 'image',
-          x: 0,
-          y: 0,
-          width: stageDimensions.width,
-          height: stageDimensions.height,
+          x: placement.x,
+          y: placement.y,
+          width: placement.width,
+          height: placement.height,
         },
       ];
 
@@ -1029,18 +1344,25 @@ export default function ImageStudioHome() {
       const imageSession = updatedLayer.imageSession;
       const generatedImageUrlName = imageSession.activeEditedImage;
       const generatedURL = `${generatedImageUrlName}`;
-      const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+      const placement =
+        (await resolveCanvasImagePlacement(generatedURL).catch(() => null)) || {
+          url: generatedURL,
+          x: 0,
+          y: 0,
+          width: resolvedCanvasDimensions.width,
+          height: resolvedCanvasDimensions.height,
+        };
       const itemId = `item_${activeItemList.length}`;
       const newItemList = [
         ...activeItemList,
         {
-          src: generatedURL,
+          src: placement.url,
           id: itemId,
           type: 'image',
-          x: 0,
-          y: 0,
-          width: stageDimensions.width,
-          height: stageDimensions.height,
+          x: placement.x,
+          y: placement.y,
+          width: placement.width,
+          height: placement.height,
         },
       ];
 
@@ -1088,32 +1410,98 @@ export default function ImageStudioHome() {
     }, 1000);
   };
 
-  const handleAspectRatioChange = (nextRatio) => {
+  const handleProjectSettingsChange = async (nextSettings) => {
+    if (!nextSettings) return;
+    const normalizedSettings =
+      typeof nextSettings === 'string'
+        ? {
+            aspectRatio: nextSettings,
+            canvasDimensions: getCanvasDimensionsForAspectRatio(nextSettings),
+          }
+        : nextSettings;
+    const nextRatio = normalizedSettings.aspectRatio;
+    const nextCanvasDimensions = normalizeCanvasDimensions(
+      normalizedSettings.canvasDimensions,
+      nextRatio || aspectRatio
+    );
+    if (!nextRatio) return;
+    const previousAspectRatio = aspectRatio;
+    const previousSessionDetails = sessionDetails;
     setAspectRatio(nextRatio);
     localStorage.setItem('defaultImageAspectRatio', nextRatio);
+    setSessionDetails((prevSessionDetails) =>
+      prevSessionDetails
+        ? {
+            ...prevSessionDetails,
+            aspectRatio: nextRatio,
+            canvasDimensions: nextCanvasDimensions,
+            canvasWidth: nextCanvasDimensions.width,
+            canvasHeight: nextCanvasDimensions.height,
+          }
+        : prevSessionDetails
+    );
     if (!id) return;
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
+      setAspectRatio(previousAspectRatio);
+      setSessionDetails(previousSessionDetails);
+      localStorage.setItem('defaultImageAspectRatio', previousAspectRatio);
       return;
     }
-    axios
-      .post(
+    try {
+      const response = await axios.post(
         `${PROCESSOR_API_URL}/image_sessions/update_aspect_ratio`,
-        { sessionId: id, aspectRatio: nextRatio },
+        {
+          sessionId: id,
+          aspectRatio: nextRatio,
+          canvasDimensions: nextCanvasDimensions,
+        },
         headers
-      )
-      .then((response) => {
-        const session = response.data?.session || response.data;
-        if (session) {
-          setSessionDetails(session);
-          if (session?.layers?.[0]) {
-            setCurrentLayer(session.layers[0]);
-          }
+      );
+      const session = response.data?.session || response.data;
+      if (session) {
+        setSessionDetails(session);
+        if (session?.layers?.[0]) {
+          setCurrentLayer(session.layers[0]);
         }
-      })
-      .catch(() => {});
+      }
+    } catch (_) {
+      setAspectRatio(previousAspectRatio);
+      setSessionDetails(previousSessionDetails);
+      localStorage.setItem('defaultImageAspectRatio', previousAspectRatio);
+      toast.error(
+        <div>
+          <FaTimes /> Unable to update project settings.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      throw _;
+    }
   };
+
+  const openEditProjectDialog = useCallback(() => {
+    openAlertDialog(
+      <EditImageProjectDialogContent
+        aspectRatio={aspectRatio}
+        canvasDimensions={resolvedCanvasDimensions}
+        aspectRatioOptions={imageAspectRatioOptions}
+        colorMode={colorMode}
+        onClose={closeAlertDialog}
+        onSave={handleProjectSettingsChange}
+      />
+    );
+  }, [
+    aspectRatio,
+    closeAlertDialog,
+    colorMode,
+    handleProjectSettingsChange,
+    openAlertDialog,
+    resolvedCanvasDimensions,
+  ]);
 
   const updateCanvasDisplayScale = useCallback(() => {
     const viewportNode = canvasViewportRef.current;
@@ -1185,7 +1573,12 @@ export default function ImageStudioHome() {
         resizeObserver.disconnect();
       }
     };
-  }, [isCanvasStudioDisplay, aspectRatio, updateCanvasDisplayScale]);
+  }, [
+    isCanvasStudioDisplay,
+    resolvedCanvasDimensions.height,
+    resolvedCanvasDimensions.width,
+    updateCanvasDisplayScale,
+  ]);
 
   let viewDisplay = <span />;
   if (!currentLayer || !sessionDetails) {
@@ -1241,7 +1634,7 @@ export default function ImageStudioHome() {
       : undefined;
 
     viewDisplay = (
-      <div className="mt-4 inline-block relative" style={scaledCanvasWrapperStyle}>
+      <div className="mt-8 inline-block relative" style={scaledCanvasWrapperStyle}>
         <div className={`mb-2 text-xs ${canvasDropHintText}`}>Drag an drop an image to upload</div>
         <div
           ref={canvasSurfaceRef}
@@ -1303,6 +1696,9 @@ export default function ImageStudioHome() {
             isExpressGeneration={false}
             removeVideoLayer={() => {}}
             aspectRatio={aspectRatio}
+            canvasDimensions={resolvedCanvasDimensions}
+            promptAspectRatio={generationAspectRatio}
+            setPromptAspectRatio={setGenerationAspectRatio}
             isAIVideoGenerationPending={false}
             toggleStageZoom={() => {}}
             stageZoomScale={1}
@@ -1381,8 +1777,10 @@ export default function ImageStudioHome() {
             showUploadAction={openUploadDialog}
             onShowLibrary={openImageLibrary}
             aspectRatio={aspectRatio}
-            aspectRatioOptions={imageAspectRatioOptions}
-            onAspectRatioChange={handleAspectRatioChange}
+            canvasDimensions={resolvedCanvasDimensions}
+            generationAspectRatio={generationAspectRatio}
+            setGenerationAspectRatio={setGenerationAspectRatio}
+            onEditProject={openEditProjectDialog}
             onDownloadSimple={downloadImageSimple}
             onDownloadAdvanced={openAdvancedDownloadDialog}
             activeItemList={activeItemList}

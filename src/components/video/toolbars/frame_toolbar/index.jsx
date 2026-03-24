@@ -79,11 +79,28 @@ export default function FrameToolbar(props) {
     isSessionPublished,
     renderCompletedThisSession,
     isRenderPending,
+    framesPerSecond = 24,
 
   } = props;
 
 
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+  const DISPLAY_FRAMES_PER_SECOND = 30;
+  const sessionFramesPerSecond = Number(framesPerSecond) === 30 ? 30 : 24;
+
+  const secondsToDisplayFrames = (value) => Math.max(
+    0,
+    Math.round((Number(value) || 0) * DISPLAY_FRAMES_PER_SECOND),
+  );
+  const displayFramesToSeconds = (value) => (Number(value) || 0) / DISPLAY_FRAMES_PER_SECOND;
+  const actualFramesToDisplayFrames = (value) => Math.max(
+    0,
+    Math.round(((Number(value) || 0) / sessionFramesPerSecond) * DISPLAY_FRAMES_PER_SECOND),
+  );
+  const displayFramesToActualFrames = (value) => Math.max(
+    0,
+    Math.round(((Number(value) || 0) / DISPLAY_FRAMES_PER_SECOND) * sessionFramesPerSecond),
+  );
 
 
   const totalDuration = useMemo(() => {
@@ -115,22 +132,21 @@ export default function FrameToolbar(props) {
   const borderColor = colorMode === 'light' ? 'border-slate-200' : 'border-[#1f2a3d]';
 
   const [highlightBoundaries, setHighlightBoundaries] = useState({ start: 0, height: 0 });
-  const totalDurationInFrames = Math.max(0, Math.floor(totalDuration * 30)); // Convert total duration to frames (30 fps)
-  const [startSelectDurationInFrames, setStartSelectDurationInFrames] = useState(0);
-  const [endSelectDurationInFrames, setEndSelectDurationInFrames] = useState(0);
+  const totalDurationInFrames = Math.max(0, secondsToDisplayFrames(totalDuration));
+  const disabledMenuClass = isRenderPending ? 'pending-disabled-shell' : '';
 
   const [openPopupLayerIndex, setOpenPopupLayerIndex] = useState(null);
 
   const [visibleStartTime, setVisibleStartTime] = useState(0);
   const [visibleEndTime, setVisibleEndTime] = useState(totalDuration);
 
-  const [dragAmount, setDragAmount] = useState(0);
-
-  const [clipStart, setClipStart] = useState(false);
-  const [clipEnd, setClipEnd] = useState(false);
+  const [, setClipStart] = useState(false);
+  const [, setClipEnd] = useState(false);
 
   const [clipStartValue, setClipStartValue] = useState(0);
   const [clipEndValue, setClipEndValue] = useState(0);
+  const [pendingDuration, setPendingDuration] = useState(null);
+  const [durationChanged, setDurationChanged] = useState(false);
 
 
 
@@ -169,6 +185,63 @@ export default function FrameToolbar(props) {
 
   const [renderDropdownOpen, setRenderDropdownOpen] = useState(false);
   const { user } = useUser();
+
+  const selectedLayerData = selectedLayerIndex >= 0 ? layers[selectedLayerIndex] : null;
+  const persistedClipStartDisplayFrames = useMemo(
+    () => actualFramesToDisplayFrames(
+      selectedLayerData?.clipStart ? selectedLayerData?.clipStartFrames : 0
+    ),
+    [selectedLayerData, sessionFramesPerSecond]
+  );
+  const persistedClipEndDisplayFrames = useMemo(
+    () => actualFramesToDisplayFrames(
+      selectedLayerData?.clipEnd ? selectedLayerData?.clipEndFrames : 0
+    ),
+    [selectedLayerData, sessionFramesPerSecond]
+  );
+  const savedVisibleLayerDurationInFrames = useMemo(
+    () => Math.max(1, secondsToDisplayFrames(selectedLayerData?.duration || 0)),
+    [selectedLayerData]
+  );
+  const currentVisibleLayerDurationInFrames = useMemo(() => {
+    const effectiveDuration = durationChanged && pendingDuration != null
+      ? pendingDuration
+      : selectedLayerData?.duration;
+    return Math.max(1, secondsToDisplayFrames(effectiveDuration || 0));
+  }, [durationChanged, pendingDuration, selectedLayerData]);
+  const trimDisplayRange = useMemo(() => {
+    const displayRangeMax = Math.max(1, savedVisibleLayerDurationInFrames);
+    const trimmedStartDelta = Math.max(
+      0,
+      Math.round(clipStartValue) - persistedClipStartDisplayFrames,
+    );
+    const trimmedEndDelta = Math.max(
+      0,
+      Math.round(clipEndValue) - persistedClipEndDisplayFrames,
+    );
+    const displayStart = Math.min(
+      trimmedStartDelta,
+      Math.max(0, displayRangeMax - 1),
+    );
+    const unclampedDisplayEnd = displayRangeMax - trimmedEndDelta;
+    const displayEnd = Math.max(
+      displayStart + 1,
+      Math.min(displayRangeMax, unclampedDisplayEnd),
+    );
+
+    return {
+      displayRangeMax,
+      displayStart,
+      displayEnd,
+    };
+  }, [
+    clipEndValue,
+    clipStartValue,
+    persistedClipEndDisplayFrames,
+    persistedClipStartDisplayFrames,
+    savedVisibleLayerDurationInFrames,
+  ]);
+  const trimDragBaselineRef = useRef(null);
 
 
 
@@ -475,6 +548,52 @@ export default function FrameToolbar(props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (durationChanged) {
+      return;
+    }
+
+    if (!selectedLayerData) {
+      setClipStart(false);
+      setClipEnd(false);
+      setClipStartValue(0);
+      setClipEndValue(0);
+      return;
+    }
+
+    setClipStart(persistedClipStartDisplayFrames > 0);
+    setClipEnd(persistedClipEndDisplayFrames > 0);
+    setClipStartValue(persistedClipStartDisplayFrames);
+    setClipEndValue(persistedClipEndDisplayFrames);
+  }, [
+    durationChanged,
+    persistedClipEndDisplayFrames,
+    persistedClipStartDisplayFrames,
+    selectedLayerData,
+  ]);
+
+  useEffect(() => {
+    if (!openPopupLayerIdRef.current) {
+      return;
+    }
+
+    const resolvedLayerIndex = layers.findIndex(
+      (layer) => layer?._id?.toString?.() === openPopupLayerIdRef.current
+    );
+
+    if (resolvedLayerIndex === -1) {
+      openPopupLayerIdRef.current = null;
+      if (openPopupLayerIndex !== null) {
+        setOpenPopupLayerIndex(null);
+      }
+      return;
+    }
+
+    if (openPopupLayerIndex !== resolvedLayerIndex) {
+      setOpenPopupLayerIndex(resolvedLayerIndex);
+    }
+  }, [layers, openPopupLayerIndex]);
+
   // State to manage visible layers
   const [visibleLayersStartIndex, setVisibleLayersStartIndex] = useState(0);
 
@@ -491,12 +610,34 @@ export default function FrameToolbar(props) {
 
   // Compute grid line positions
   const [gridLinePositionsInPixels, setGridLinePositionsInPixels] = useState([]);
+  const openPopupLayerIdRef = useRef(null);
+
+  const restoreSelectedLayerChrome = (preferredLayerId = null) => {
+    const fallbackLayerId =
+      preferredLayerId
+      || openPopupLayerIdRef.current
+      || layers[selectedLayerIndex]?._id?.toString?.()
+      || null;
+
+    if (!fallbackLayerId) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      updateHighlightBoundary(fallbackLayerId);
+    });
+  };
 
 
   const onDragEnd = (result) => {
     setIsDragging(false);
+    if (isRenderPending) {
+      restoreSelectedLayerChrome();
+      return;
+    }
 
     if (!result.destination) {
+      restoreSelectedLayerChrome();
       return;
     }
 
@@ -515,6 +656,7 @@ export default function FrameToolbar(props) {
     );
 
     if (movedLayerIndexInLayers === destinationLayerIndexInLayers) {
+      restoreSelectedLayerChrome(movedLayer?._id?.toString?.() || null);
       return;
     }
 
@@ -527,10 +669,27 @@ export default function FrameToolbar(props) {
     // Insert the item at the new position.
     newLayersOrder.splice(destinationLayerIndexInLayers, 0, removed);
 
+    const movedLayerId = movedLayer?._id?.toString?.() || null;
+    const selectedLayerId = layers[selectedLayerIndex]?._id?.toString?.() || null;
+    const shouldKeepPopupOnMovedLayer = openPopupLayerIdRef.current === movedLayerId;
+
+    if (movedLayerId && (shouldKeepPopupOnMovedLayer || selectedLayerId === movedLayerId)) {
+      setSelectedLayerIndex(destinationLayerIndexInLayers);
+      setSelectedLayer(removed);
+      setOpenPopupLayerIndex(destinationLayerIndexInLayers);
+      openPopupLayerIdRef.current = movedLayerId;
+    }
+
     // If there's a callback prop for layers order change, call it.
     if (props.onLayersOrderChange) {
       props.onLayersOrderChange(newLayersOrder, movedLayer._id);
     }
+
+    restoreSelectedLayerChrome(
+      movedLayerId && (shouldKeepPopupOnMovedLayer || selectedLayerId === movedLayerId)
+        ? movedLayerId
+        : selectedLayerId
+    );
   };
 
 
@@ -568,10 +727,6 @@ export default function FrameToolbar(props) {
 
   const layerRefs = useRef({}); // Add this line to store refs to layer items
   const [popupPosition, setPopupPosition] = useState({ top: '50%', transform: 'translateY(-50%)' });
-
-  // New state variables for duration change
-  const [pendingDuration, setPendingDuration] = useState(null);
-  const [durationChanged, setDurationChanged] = useState(false);
 
   const [isExpandedTrackView, setIsExpandedTrackView] = useState(false);
 
@@ -815,18 +970,6 @@ export default function FrameToolbar(props) {
 
 
 
-  useEffect(() => {
-    if (selectedLayerIndex >= 0 && parentRef.current && visibleLayers.length > 0) {
-      const selectedLayerId = layers[selectedLayerIndex]._id.toString();
-      const selectedLayerElement = layerRefs.current[selectedLayerId];
-      if (selectedLayerElement) {
-        updateLayerDurations();
-      }
-    }
-  }, [dragAmount, selectedLayerIndex, layers, visibleLayers]);
-
-
-
   const toggleShowExpandedTrackView = () => {
 
 
@@ -834,39 +977,6 @@ export default function FrameToolbar(props) {
     setIsExpandedTrackView(!isExpandedTrackView);
     showAudioTrackView();
   }
-
-  const updateLayerDurations = () => {
-    if (selectedLayerIndex >= 0 && visibleLayers && visibleLayers.length > 0) {
-      // Find the selected layer ID
-      const selectedLayerId = layers[selectedLayerIndex]._id;
-
-      // Find the index of the selected layer in visibleLayers
-      const visibleLayerIndex = visibleLayers.findIndex(layer => layer._id === selectedLayerId);
-
-      if (visibleLayerIndex >= 0) {
-        // Calculate start duration using visibleLayers up to the selected layer
-        const startDuration = visibleLayers
-          .slice(0, visibleLayerIndex)
-          .reduce((acc, layer) => acc + layer.duration, 0);
-
-        const currentLayerDuration =
-          pendingDuration != null ? pendingDuration : visibleLayers[visibleLayerIndex].duration;
-
-        setStartSelectDurationInFrames(startDuration * 30);
-        const endDurationInFrames = (startDuration + currentLayerDuration) * 30;
-
-
-        setEndSelectDurationInFrames(Math.floor(endDurationInFrames));
-
-      } else {
-        // If the selected layer is not in visibleLayers
-        setStartSelectDurationInFrames(0);
-        setEndSelectDurationInFrames(0);
-      }
-    }
-  };
-
-
 
   const previousSnappedStartFrameRef = useRef(selectedFrameRange[0]);
   const previousSnappedEndFrameRef = useRef(selectedFrameRange[1]);
@@ -918,12 +1028,59 @@ export default function FrameToolbar(props) {
 
 
 
-  const layerDurationUpdated = (val) => {
-    const newDurationInFrames = val[1] - val[0];
-    const newDuration = newDurationInFrames / 30;
+  const applySelectedLayerDurationRange = (value) => {
+    const baseline = trimDragBaselineRef.current || {
+      durationInFrames: currentVisibleLayerDurationInFrames,
+      clipStartValue: Math.max(0, clipStartValue),
+      clipEndValue: Math.max(0, clipEndValue),
+      displayRangeMax: trimDisplayRange.displayRangeMax,
+      displayStartFrame: trimDisplayRange.displayStart,
+      displayEndFrame: trimDisplayRange.displayEnd,
+    };
+    const baselineDurationInFrames = Math.max(1, baseline.durationInFrames);
+    const minFrame = 0;
+    const maxFrame = Math.max(1, baseline.displayRangeMax ?? baselineDurationInFrames);
+    const nextStartFrame = Math.min(
+      Math.max(Math.round(value[0]), minFrame),
+      Math.max(minFrame, maxFrame - 1),
+    );
+    const nextEndFrame = Math.min(
+      Math.max(Math.round(value[1]), nextStartFrame + 1),
+      maxFrame,
+    );
 
-    setPendingDuration(newDuration);
+    const startDelta = nextStartFrame - (baseline.displayStartFrame ?? 0);
+    const endDelta = (baseline.displayEndFrame ?? maxFrame) - nextEndFrame;
+    const nextClipStartValue = Math.max(0, baseline.clipStartValue + startDelta);
+    const nextClipEndValue = Math.max(0, baseline.clipEndValue + endDelta);
+
+    setClipStart(nextClipStartValue > 0);
+    setClipEnd(nextClipEndValue > 0);
+    setClipStartValue(nextClipStartValue);
+    setClipEndValue(nextClipEndValue);
+
+    const newDurationInFrames = nextEndFrame - nextStartFrame;
+    setPendingDuration(displayFramesToSeconds(newDurationInFrames));
     setDurationChanged(true);
+  };
+
+  const layerDurationUpdated = (val) => {
+    applySelectedLayerDurationRange(val);
+  };
+
+  const captureTrimDragBaseline = () => {
+    trimDragBaselineRef.current = {
+      durationInFrames: currentVisibleLayerDurationInFrames,
+      clipStartValue: Math.max(0, clipStartValue),
+      clipEndValue: Math.max(0, clipEndValue),
+      displayRangeMax: trimDisplayRange.displayRangeMax,
+      displayStartFrame: trimDisplayRange.displayStart,
+      displayEndFrame: trimDisplayRange.displayEnd,
+    };
+  };
+
+  const clearTrimDragBaseline = () => {
+    trimDragBaselineRef.current = null;
   };
 
   const layerDurationCellUpdated = (value, index) => {
@@ -939,16 +1096,16 @@ export default function FrameToolbar(props) {
     let layer = layers[selectedLayerIndex];
     layer.duration = newDuration;
 
-    // Here is where we now include clipStart
     const clipPayload = {
-      clipStart: clipStart,
-      clipEnd: clipEnd,
-      clipStartFrames: clipStartValue,
-      clipEndFrames: clipEndValue,
-    }
-    updateSessionLayer(layer, clipPayload);  // <--- pass it along
+      clipStart: clipStartValue > 0,
+      clipEnd: clipEndValue > 0,
+      clipStartFrames: displayFramesToActualFrames(clipStartValue),
+      clipEndFrames: displayFramesToActualFrames(clipEndValue),
+    };
+    updateSessionLayer(layer, clipPayload);
 
     if (pendingDuration != null) {
+      clearTrimDragBaseline();
       setPendingDuration(null);
       setDurationChanged(false);
       setOpenPopupLayerIndex(null);
@@ -957,6 +1114,8 @@ export default function FrameToolbar(props) {
 
 
   const onClosePopup = () => {
+    openPopupLayerIdRef.current = null;
+    clearTrimDragBaseline();
     setPendingDuration(null);
     setDurationChanged(false);
     setOpenPopupLayerIndex(null);
@@ -964,7 +1123,9 @@ export default function FrameToolbar(props) {
 
   const removeLayer = (index) => {
     if (!layers || layers.length === 0) return;
+    openPopupLayerIdRef.current = null;
     removeSessionLayer(index);
+    clearTrimDragBaseline();
     setPendingDuration(null);
     setDurationChanged(false);
     setOpenPopupLayerIndex(null); // Close the popup when layer is removed
@@ -972,39 +1133,7 @@ export default function FrameToolbar(props) {
 
 
   const setSelectedLayerDurationRange = (val) => {
-
-    const newStartFrame = val[0];
-    const newEndFrame = val[1];
-
-
-    if (newStartFrame !== startSelectDurationInFrames) {
-      setClipStart(true);
-      const clipStartValue = Math.floor(newStartFrame - startSelectDurationInFrames);
-
-      setClipStartValue(clipStartValue)
-    } else {
-      setClipStart(false);
-    }
-    if (newEndFrame !== endSelectDurationInFrames) {
-
-
-      const clipEndValue = Math.floor(endSelectDurationInFrames - newEndFrame);
-      if (clipEndValue > 0) {
-
-        setClipEnd(true);
-
-        setClipEndValue(clipEndValue)
-      }
-
-    } else {
-      setClipEnd(false);
-    }
-
-    const newDurationInFrames = newEndFrame - newStartFrame;
-    const newDuration = newDurationInFrames / 30;
-
-    setPendingDuration(newDuration);
-    setDurationChanged(true);
+    applySelectedLayerDurationRange(val);
   };
 
 
@@ -1494,18 +1623,18 @@ export default function FrameToolbar(props) {
 
   let layerSelectOverlay = null;
 
-  // Calculate totalVisibleDuration and totalVisibleDurationInFrames
-  const totalVisibleDuration = visibleLayers.reduce((acc, layer) => acc + layer.duration, 0);
-  const totalVisibleDurationInFrames = Math.floor(totalVisibleDuration * 30);
-
-
-  const sliderStartRange = Math.max(0, startSelectDurationInFrames);
-  const sliderEndRange = totalVisibleDurationInFrames;
+  const sliderStartRange = 0;
+  const sliderEndRange = Math.max(1, trimDisplayRange.displayRangeMax);
   const hasDurationRange = sliderEndRange > sliderStartRange;
   const safeSliderMax = Math.max(sliderEndRange, sliderStartRange + 1);
   const sliderValues = [
-    hasDurationRange ? startSelectDurationInFrames : sliderStartRange,
-    hasDurationRange ? endSelectDurationInFrames : safeSliderMax,
+    Math.min(trimDisplayRange.displayStart, Math.max(0, safeSliderMax - 1)),
+    hasDurationRange
+      ? Math.max(
+        Math.min(trimDisplayRange.displayEnd, safeSliderMax),
+        Math.min(trimDisplayRange.displayStart + 1, safeSliderMax),
+      )
+      : safeSliderMax,
   ];
 
   if (
@@ -1525,10 +1654,12 @@ export default function FrameToolbar(props) {
         }}
       >
         <div
-          className='absolute w-full'
+          className='absolute'
           style={{
             top: `${highlightBoundaries.start}px`,
-            bottom: '0',
+            left: '0',
+            width: '100%',
+            height: `${highlightBoundaries.height}px`,
           }}
         >
           <RangeOverlaySlider
@@ -1538,9 +1669,8 @@ export default function FrameToolbar(props) {
             value={sliderValues}
             highlightBoundaries={highlightBoundaries}
             layerDurationUpdated={layerDurationUpdated}
-            onDragAmountChange={(amount) => {
-              setDragAmount(amount);
-            }}
+            onBeforeChange={captureTrimDragBaseline}
+            onAfterChange={clearTrimDragBaseline}
           />
         </div>
       </div>
@@ -1552,12 +1682,24 @@ export default function FrameToolbar(props) {
   let layersList = <span />;
 
   const setUserSelectedLayer = (e, originalIndex, layer) => {
-
     e.stopPropagation();
+    const nextLayerId = layer?._id?.toString?.() || null;
+    const currentSelectedLayerId = layers[selectedLayerIndex]?._id?.toString?.() || null;
+    const isSameLayerSelection = nextLayerId && currentSelectedLayerId === nextLayerId;
+
     setSelectedLayerIndex(originalIndex);
     setSelectedLayer(layer);
+    openPopupLayerIdRef.current = nextLayerId;
     setOpenPopupLayerIndex(originalIndex);
+
+    if (isSameLayerSelection) {
+      restoreSelectedLayerChrome(nextLayerId);
+      return;
+    }
+
+    clearTrimDragBaseline();
     setPendingDuration(null);
+    setDurationChanged(false);
   }
 
   if (visibleLayers.length > 0) {
@@ -1580,14 +1722,20 @@ export default function FrameToolbar(props) {
         }
 
         // Calculate pixel height
-        const layerHeightInPixels = layerHeightPercentage * parentHeight;
+        const layerHeightInPixels = Math.max(MIN_LAYER_HEIGHT, layerHeightPercentage * parentHeight);
 
         const bgSelected = selectedLayerIndex === originalIndex ? bgSelectedColor : '';
 
         const layerId = layer._id.toString();
 
         return (
-          <Draggable key={layer._id} draggableId={layer._id.toString()} index={index} className="layer-draggable-item">
+          <Draggable
+            key={layer._id}
+            draggableId={layer._id.toString()}
+            index={index}
+            className="layer-draggable-item"
+            isDragDisabled={isRenderPending}
+          >
             {(provided, snapshot) => {
               const layerItem = (
                 <div
@@ -1596,7 +1744,6 @@ export default function FrameToolbar(props) {
                     provided.innerRef(el);
                   }}
                   {...provided.draggableProps}
-                  {...provided.dragHandleProps}
                   className={`${bg3Color} ${bgSelected} ml-1 mr-1 cursor-pointer border-t ${borderColor} border-b ${borderColor} relative`}
                   style={{
                     height: `${layerHeightInPixels}px`,
@@ -1612,6 +1759,14 @@ export default function FrameToolbar(props) {
                   <div className='absolute top-1 left-1 text-xs'>
                     <div className='text-xs font-bold mb-4'>{originalIndex + 1}</div>
                     <div>{layerDuration ? layerDuration.toFixed(1) : '3'}s</div>
+                  </div>
+                  <div
+                    {...provided.dragHandleProps}
+                    className='absolute right-0 top-0 h-full w-[14px] flex items-center justify-center cursor-grab active:cursor-grabbing z-20'
+                    onClick={(e) => e.stopPropagation()}
+                    title='Drag to reorder scene'
+                  >
+                    <div className='h-[32px] w-[4px] rounded-full bg-slate-400/60 shadow-[0_0_12px_rgba(148,163,184,0.35)]' />
                   </div>
                 </div>
               );
@@ -1745,7 +1900,7 @@ export default function FrameToolbar(props) {
     const visibleAudioLayers = audioTrackListDisplay.filter((audioTrack) => {
       const audioStartFrame = audioTrack.startTime * 30;
       const audioEndFrame = audioTrack.endTime * 30;
-      return audioEndFrame >= visibleStartFrame || audioStartFrame <= visibleEndFrame;
+      return audioEndFrame >= visibleStartFrame && audioStartFrame <= visibleEndFrame;
     });
 
     return visibleAudioLayers.map(function (audioTrack) {
@@ -2061,7 +2216,7 @@ export default function FrameToolbar(props) {
           {audioSelectedTrackViewDisplay}
         </div>
 
-        <div className='float-right'>
+        <div className={`float-right ${disabledMenuClass}`}>
           <DropdownButton
             addLayerToComposition={addLayerToComposition}
             copyCurrentLayerBelow={copyCurrentLayerBelow}
@@ -2336,6 +2491,7 @@ export default function FrameToolbar(props) {
         openPopupLayerIndex !== null &&
         !durationChanged // Do not close if duration has changed
       ) {
+        openPopupLayerIdRef.current = null;
         setOpenPopupLayerIndex(null);
       }
     };
@@ -2436,7 +2592,7 @@ export default function FrameToolbar(props) {
         <div className={`w-full pb-1 border-r-2 ${bgColor} border-stone-600`}>
       <div>
         <div className='m-auto text-center'>
-          <div className={isRenderPending ? 'pointer-events-none opacity-50' : ''}>
+          <div className={disabledMenuClass}>
             {layerActionCurrentView}
           </div>
           <div onClick={toggleShowExpandedTrackView} className='m-auto mt-1'>
@@ -2451,7 +2607,7 @@ export default function FrameToolbar(props) {
             </div>
 
             <div>
-              <div className={`flex w-full ${bg2Color} p-1 ${isRenderPending ? 'pointer-events-none opacity-50' : ''}`}>
+              <div className={`flex w-full ${bg2Color} p-1`}>
                 <div className='inline-flex w-full'>
                   {topSubToolbar}
                 </div>
@@ -2459,7 +2615,7 @@ export default function FrameToolbar(props) {
             </div>
           </div>
 
-          <div className={`${sliderContainerHeight} w-full flex flex-row pl-1 ${isRenderPending ? 'pointer-events-none opacity-50' : ''}`}>
+          <div className={`${sliderContainerHeight} w-full flex flex-row pl-1`}>
             <div className='text-xs font-bold basis-1/4'>
               <div className='relative h-full'>
                 {/* Previous and Next buttons */}

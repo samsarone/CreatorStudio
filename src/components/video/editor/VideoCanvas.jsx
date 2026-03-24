@@ -4,7 +4,6 @@ import { Stage, Layer, Group, Line, Image as KonvaImage, Rect } from 'react-konv
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
 
-import { getStageDimensions } from '../../../constants/Image.jsx';
 import DraggableToolbarRectangle from "../toolbars/toolbar_shapes/DraggableToolbarRectangle.jsx";
 import DraggableToolbarCircle from "../toolbars/toolbar_shapes/DraggableToolbarCircle.jsx";
 import { generateCursor } from "../util/GenerateSVG.jsx";
@@ -17,6 +16,7 @@ import { ActiveRenderItem } from './CanvasUtils.jsx';
 import VideoCanvasOverlay from './overlay/VideoCanvasOverlay.jsx';
 import ImageUploadOverlay from './overlay/ImageUploadOverlay.jsx';
 import CanvasLoaderTransparent from '../util/loader/CanvasLoaderTransparent.jsx';
+import MinimalTaskSkeleton from '../../common/MinimalTaskSkeleton.jsx';
 
 import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.jsx';
 import VideoCanvasGridOverlay from './overlay/VideoCanvasGridOverlay.jsx'; // Make sure the path is correct
@@ -52,6 +52,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     paintToolbarVisible, isDrawing, shapeSet, showPencil, pencilLines, overlayImage, shapeSelectToolbarVisible,
     shapeSelectToolbarPosition, enableSegmentationMask, segmentationData, setSegmentationData,
     isExpressGeneration, currentLayerSeek, removeVideoLayer, aspectRatio, isAIVideoGenerationPending,
+    canvasDimensions: canvasDimensionsProp,
     toggleStageZoom, stageZoomScale, displayZoomType, requestRegenerateSubtitles, aiVideoLayer,
     requestRegenerateAnimations, removeSelectedItem, requestRealignLayers, totalDuration,
     updateTargetTextActiveLayerConfig, createTextLayer, updateTargetImageActiveLayerConfig,
@@ -66,11 +67,11 @@ const VideoCanvas = forwardRef((props, ref) => {
     updateTargetShapeActiveLayerConfigNoScale,
     openUploadDialog,
     rightPanelView,
+    promptAspectRatio,
+    setPromptAspectRatio,
   
 
   } = props;
-
-  const [stageDimensions, setStageDimensions] = useState(null);
 
 
 
@@ -118,21 +119,13 @@ const VideoCanvas = forwardRef((props, ref) => {
   } = useContext(NavCanvasControlContext);
 
   useEffect(() => {
-    const newDimensions = getStageDimensions(aspectRatio);
-    setStageDimensions(newDimensions);
-  }, [aspectRatio]);
-
-  useEffect(() => {
     setTotalEffectiveDuration(totalDuration);
   }, [totalDuration]);
 
   useEffect(() => {
-    if (aspectRatio) {
-      const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
-      setCanvasActualDimensions(canvasDimensions);
-    }
-
-  }, [aspectRatio]);
+    const baseCanvasDimensions = canvasDimensionsProp || getCanvasDimensionsForAspectRatio(aspectRatio);
+    setCanvasActualDimensions(baseCanvasDimensions);
+  }, [aspectRatio, canvasDimensionsProp, setCanvasActualDimensions]);
 
 
   useEffect(() => {
@@ -177,12 +170,12 @@ const VideoCanvas = forwardRef((props, ref) => {
 
 
   useEffect(() => {
-    const baseDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+    const baseDimensions = canvasDimensionsProp || getCanvasDimensionsForAspectRatio(aspectRatio);
     setCanvasDimensions({
       width: baseDimensions.width * stageZoomScale,
       height: baseDimensions.height * stageZoomScale,
     });
-  }, [aspectRatio, displayZoomType, stageZoomScale]);
+  }, [aspectRatio, canvasDimensionsProp, displayZoomType, stageZoomScale]);
   useEffect(() => {
     if (currentCanvasAction === 'SHOW_SMART_SELECT_DISPLAY' && enableSegmentationMask && selectedBbox) {
       setShowAddRemoveMaskedItemButton(true);
@@ -726,7 +719,9 @@ const VideoCanvas = forwardRef((props, ref) => {
       generationError={generationError}
       currentDefaultPrompt={currentDefaultPrompt}
       submitGenerateNewRequest={submitGenerateNewRequest}
-      aspectRatio={aspectRatio}
+      aspectRatio={promptAspectRatio || aspectRatio}
+      setAspectRatio={setPromptAspectRatio}
+      canvasDimensions={canvasDimensions}
 
       videoPromptText={videoPromptText}
       setVideoPromptText={setVideoPromptText}
@@ -752,6 +747,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     canvasEditUploadOverlay = (
       <ImageUploadOverlay
         aspectRatio={aspectRatio}
+        canvasDimensions={canvasDimensions}
         onUpload={openUploadDialog}
         onOpenLibrary={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_LIBRARY_DISPLAY)}
         activeTab="upload"
@@ -767,8 +763,6 @@ const VideoCanvas = forwardRef((props, ref) => {
 
     }
     if (isUpdateLayerPending) {
-
-      const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
       canvasInternalLoading = (
         <div className={`absolute t-0 w-full pt-[150px]   z-10`}>
           <CanvasLoaderTransparent />
@@ -776,10 +770,17 @@ const VideoCanvas = forwardRef((props, ref) => {
       );
     }
  
-    let bgCanvasColor = '#111827';
+  let bgCanvasColor = '#111827';
     if (colorMode === 'light') {
       bgCanvasColor = '#F3F4F6';
     }
+
+  const pendingVideoTaskTitle = currentLayer?.userVideoGenerationPending
+    ? 'Processing uploaded video'
+    : 'Processing video task';
+  const pendingVideoTaskSubtitle = currentLayer?.userVideoGenerationPending
+    ? 'The server is normalizing frames and audio for this layer.'
+    : 'This can take a few minutes.';
 
   return (
     <div className={`m-auto relative  ${textColor} pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0`}
@@ -841,8 +842,8 @@ const VideoCanvas = forwardRef((props, ref) => {
               image={overlayImage}
               x={0}
               y={0}
-              width={stageDimensions.width}
-              height={stageDimensions.height}
+              width={canvasDimensions.width}
+              height={canvasDimensions.height}
               opacity={0.6}
             />
           )}
@@ -904,8 +905,11 @@ const VideoCanvas = forwardRef((props, ref) => {
         </div>
       )}
       {isAIVideoGenerationPending && (
-        <div className="animation-overlay">
-          <div className="spinner"></div>
+        <div className="animation-overlay flex items-center justify-center">
+          <MinimalTaskSkeleton
+            title={pendingVideoTaskTitle}
+            subtitle={pendingVideoTaskSubtitle}
+          />
         </div>
       )}
       {canvasEditUploadOverlay}

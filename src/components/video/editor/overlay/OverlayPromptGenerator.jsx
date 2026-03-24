@@ -8,6 +8,8 @@ import TextareaAutosize from "react-textarea-autosize";
 import { FaQuestionCircle } from "react-icons/fa";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
+import ImagePayloadAspectRatioSelector from "../../../image/ImagePayloadAspectRatioSelector.jsx";
+import { imageAspectRatioOptions } from "../../../../constants/ImageAspectRatios.js";
 
 export default function OverlayPromptGenerator(props) {
   const {
@@ -21,6 +23,8 @@ export default function OverlayPromptGenerator(props) {
     currentDefaultPrompt, // (unused in this snippet, but kept for compatibility)
     submitGenerateNewRequest,
     aspectRatio,
+    setAspectRatio,
+    canvasDimensions,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -125,6 +129,7 @@ export default function OverlayPromptGenerator(props) {
       model: selectedGenerationModel,
       retryOnFailure,
       isCharacterImage,
+      aspectRatio,
     };
 
     // If model has imageStyles & user selected one, attach it
@@ -205,6 +210,16 @@ export default function OverlayPromptGenerator(props) {
       </div>
 
       {/* ───────────────────────── Checkboxes (Retry/Speaker) ───────────────────────── */}
+      <div className="mb-2">
+        <ImagePayloadAspectRatioSelector
+          label="Generation ratio"
+          value={aspectRatio}
+          onChange={setAspectRatio}
+          options={imageAspectRatioOptions}
+          canvasDimensions={canvasDimensions}
+        />
+      </div>
+
       <div className={`flex flex-wrap items-center gap-3 px-1 ${checkboxText}`}>
         {/* Retry on fail */}
         <label className="flex items-center text-xs font-semibold">

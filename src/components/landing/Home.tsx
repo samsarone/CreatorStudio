@@ -42,6 +42,7 @@ import SnowMakerContainer from "../snowmaker/SnowMakerContainer.jsx";
 import ImageStudioHome from "../image/ImageStudioHome.jsx";
 import ListImageSessions from "../image/sessions/ListImageSessions.jsx";
 import ImageStudioLandingHome from "../image/ImageStudioLandingHome.jsx";
+import ExternalStudioDashboard from "../external/ExternalStudioDashboard.jsx";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -71,13 +72,16 @@ export default function Home() {
   }, [getUserAPI, location.pathname, location.search]);
 
   const credits = Number(user?.generationCredits || 0);
+  const isExternalUser = Boolean(user?.isExternalUser);
   const hasStudioAccess = Boolean(
+    isExternalUser ||
     user?.isPremiumUser ||
     credits >= 100 ||
     user?.autoRechargePaymentMethodId ||
     user?.autoRechargeEnabled
   );
   const isAccessAllowedPath = (() => {
+    if (location.pathname.startsWith('/external/studio') && isExternalUser) return true;
     if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
     if (location.pathname === '/image_sessions' && user) return true;
     const allowed = new Set([
@@ -98,6 +102,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!userInitiated || userFetching) return;
+    if (isExternalUser) {
+      if (location.pathname !== '/external/studio' && location.pathname !== '/verify') {
+        navigate('/external/studio', { replace: true });
+      }
+      return;
+    }
     if (hasStudioAccess) return;
     if (isAccessAllowedPath) return;
 
@@ -105,7 +115,7 @@ export default function Home() {
     if (location.pathname !== redirectTarget) {
       navigate(redirectTarget, { replace: true });
     }
-  }, [userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate]);
+  }, [userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
 
   const channel = new BroadcastChannel('oauth_channel');
   channel.onmessage = (event) => {
@@ -205,6 +215,7 @@ export default function Home() {
         <Route path="/image/studio/:id" element={<ImageStudioHome />} />
         <Route path="/iamge/studio" element={<ImageStudioLandingHome />} />
         <Route path="/iamge/studio/:id" element={<ImageStudioHome />} />
+        <Route path="/external/studio" element={<ExternalStudioDashboard />} />
         <Route path="/quick_video/:id" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorContainer />} />
         <Route path="/quick_video" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorLandingHome />} />
         <Route path="/vidgpt" element={<OneshotEditorContainer />} />

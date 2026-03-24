@@ -179,3 +179,19 @@ body.theme-light .text-slate-700 { color: #1f2a3d !important; }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+.pending-disabled-shell {
+  opacity: 0.5;
+}
+
+.pending-disabled-shell * {
+  pointer-events: none !important;
+}
+
+.pending-disabled-shell .pending-allow-scroll {
+  pointer-events: auto !important;
+}
+
+.pending-disabled-shell .pending-allow-scroll * {
+  pointer-events: none !important;
+}

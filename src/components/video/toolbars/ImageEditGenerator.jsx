@@ -4,6 +4,8 @@ import { IMAGE_EDIT_MODEL_TYPES } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import RangeSlider from '../../editor/utils/RangeSlider.jsx';
 import AutoExpandableTextarea from "../../common/AutoExpandableTextarea.jsx";
+import ImagePayloadAspectRatioSelector from "../../image/ImagePayloadAspectRatioSelector.jsx";
+import { imageAspectRatioOptions } from "../../../constants/ImageAspectRatios.js";
 
 export default function ImageEditGenerator(props) {
   const { promptText, setPromptText, submitOutpaintRequest,
@@ -11,6 +13,9 @@ export default function ImageEditGenerator(props) {
     selectedEditModelValue,
     isOutpaintPending, outpaintError,
     editBrushWidth, setEditBrushWidth,
+    aspectRatio,
+    setAspectRatio,
+    canvasDimensions,
     showModelSelector = true
   } = props;
   const { colorMode } = useColorMode();
@@ -97,6 +102,17 @@ export default function ImageEditGenerator(props) {
   return (
     <div>
       <form onSubmit={submitOutpaintRequest}>
+        <div className="mb-3">
+          <ImagePayloadAspectRatioSelector
+            label="Edit ratio"
+            name="aspectRatio"
+            value={aspectRatio}
+            onChange={setAspectRatio}
+            options={imageAspectRatioOptions}
+            canvasDimensions={canvasDimensions}
+          />
+        </div>
+
         <div className=" w-full mt-2 mb-2">
           {showModelSelector && (
             <div className="block">

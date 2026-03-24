@@ -39,6 +39,42 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
+const VIDEO_TASK_POLL_INTERVAL_MS = 1500;
+const USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
+
+function isAbsoluteUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+}
+
+function looksLikeStudioVideoRoute(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return /^\/?video\/[a-f0-9]{24}$/i.test(value.trim());
+}
+
+function resolveMediaUrl(value, baseUrl = '') {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue || looksLikeStudioVideoRoute(trimmedValue)) {
+    return null;
+  }
+
+  if (isAbsoluteUrl(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  const normalizedPath = trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`;
+  const trimmedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : '';
+  if (!trimmedBaseUrl) {
+    return normalizedPath;
+  }
+
+  return `${trimmedBaseUrl}${normalizedPath}`;
+}
 
 export default function VideoEditorContainer(props) {
   const {
@@ -72,6 +108,7 @@ export default function VideoEditorContainer(props) {
     isUpdateLayerPending,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    isRenderPending,
     audioLayers,
     setAudioLayers,
 
@@ -83,6 +120,7 @@ export default function VideoEditorContainer(props) {
 
   const [segmentationData, setSegmentationData] = useState([]);
   const [currentLayerDefaultPrompt, setCurrentLayerDefaultPrompt] = useState('');
+  const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
 
   // 1) State to store the current AI video URL and type
   const [aiVideoLayer, setAiVideoLayer] = useState(null);
@@ -130,74 +168,100 @@ export default function VideoEditorContainer(props) {
 
   const [aiVideoPollType, setAiVideoPollType] = useState(null);
 
-  // Helpers to return full video URLs based on which link is available
-  const getAIVideoLink = () => {
-    if (!currentLayer || !currentLayer.aiVideoLayer) return null;
-    const aiVidLink = currentLayer.aiVideoRemoteLink
-      ? `${STATIC_CDN_URL}/${currentLayer.aiVideoRemoteLink}`
-      : `${PROCESSOR_API_URL}${currentLayer.aiVideoLayer}`;
+  const resolveLayerVideoState = useCallback((layer) => {
+    if (!layer) {
+      return { url: null, type: null };
+    }
 
-    return aiVidLink;
+    const hasLipSyncVideo = Boolean(
+      (layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync') &&
+      layer.lipSyncVideoLayer
+    );
 
-  };
+    if (hasLipSyncVideo) {
+      return {
+        type: 'lip_sync',
+        url: layer.lipSyncRemoteLink
+          ? resolveMediaUrl(layer.lipSyncRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.lipSyncVideoLayer, PROCESSOR_API_URL),
+      };
+    }
 
-  const getLipSyncVideoLink = () => {
-    if (!currentLayer || !currentLayer.lipSyncVideoLayer) return null;
-    return currentLayer.lipSyncRemoteLink
-      ? `${STATIC_CDN_URL}/${currentLayer.lipSyncRemoteLink}`
-      : `${PROCESSOR_API_URL}${currentLayer.lipSyncVideoLayer}`;
-  };
+    if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
+      return {
+        type: 'sound_effect',
+        url: layer.soundEffectRemoteLink
+          ? resolveMediaUrl(layer.soundEffectRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.soundEffectVideoLayer, PROCESSOR_API_URL),
+      };
+    }
 
-  const getSoundEffectVideoLink = () => {
-    if (!currentLayer || !currentLayer.soundEffectVideoLayer) return null;
-    return currentLayer.soundEffectRemoteLink
-      ? `${STATIC_CDN_URL}/${currentLayer.soundEffectRemoteLink}`
-      : `${PROCESSOR_API_URL}${currentLayer.soundEffectVideoLayer}`;
-  };
+    if (layer.hasUserVideoLayer && layer.userVideoLayer) {
+      return {
+        type: 'user_video',
+        url: layer.userVideoRemoteLink
+          ? resolveMediaUrl(layer.userVideoRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.userVideoLayer, PROCESSOR_API_URL),
+      };
+    }
+
+    if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
+      return {
+        type: 'ai_video',
+        url: layer.aiVideoRemoteLink
+          ? resolveMediaUrl(layer.aiVideoRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.aiVideoLayer, PROCESSOR_API_URL),
+      };
+    }
+
+    return { url: null, type: null };
+  }, []);
+
+  const layerHasPendingVideoTask = useCallback((layer) => {
+    if (!layer) {
+      return false;
+    }
+
+    return Boolean(
+      layer.aiVideoGenerationPending
+      || layer.lipSyncGenerationPending
+      || layer.soundEffectGenerationPending
+      || layer.userVideoGenerationPending
+    );
+  }, []);
+
+  const layerHasAnyVideoArtefact = useCallback((layer) => {
+    const { url } = resolveLayerVideoState(layer);
+    return Boolean(url) || layerHasPendingVideoTask(layer);
+  }, [layerHasPendingVideoTask, resolveLayerVideoState]);
 
   // On each currentLayer change, figure out which AI video layer to use
   useEffect(() => {
     if (!currentLayer) {
       setAiVideoLayer(null);
       setAiVideoLayerType(null);
+      setAiVideoPollType(null);
+      setIsAIVideoGenerationPending(false);
       return;
     }
 
-    const hasLipSyncVideo = Boolean(
-      (currentLayer.hasLipSyncVideoLayer || currentLayer.layerAiVideoType === 'lip_sync') &&
-      currentLayer.lipSyncVideoLayer
-    );
-
-    if (hasLipSyncVideo) {
-      setAiVideoLayer(getLipSyncVideoLink());
-      setAiVideoLayerType('lip_sync');
-    } else if (currentLayer.hasSoundEffectVideoLayer && currentLayer.soundEffectVideoLayer) {
-      setAiVideoLayer(getSoundEffectVideoLink());
-      setAiVideoLayerType('sound_effect');
-    } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoLayer) {
-
-      const aiVideoLink = getAIVideoLink();
-
-
-      setAiVideoLayer(aiVideoLink);
-      setAiVideoLayerType('ai_video');
-    } else {
-      setAiVideoLayer(null);
-      setAiVideoLayerType(null);
-    }
+    const { url, type } = resolveLayerVideoState(currentLayer);
+    setAiVideoLayer(url);
+    setAiVideoLayerType(type);
+    setIsAIVideoGenerationPending(layerHasPendingVideoTask(currentLayer));
 
     if (currentLayer.lipSyncGenerationPending) {
       setAiVideoPollType('lip_sync');
-
     } else if (currentLayer.soundEffectGenerationPending) {
       setAiVideoPollType('sound_effect');
-
+    } else if (currentLayer.userVideoGenerationPending) {
+      setAiVideoPollType('user_video');
     } else if (currentLayer.aiVideoGenerationPending && currentLayer.layerAiVideoType === 'ai_video') {
       setAiVideoPollType('ai_video');
-
+    } else {
+      setAiVideoPollType(null);
     }
-
-  }, [currentLayer]);
+  }, [currentLayer, layerHasPendingVideoTask, resolveLayerVideoState]);
 
 
   useEffect(() => {
@@ -242,6 +306,9 @@ export default function VideoEditorContainer(props) {
         audio: audioEl,
         startTime: layer.startTime,
         endTime: layer.endTime,
+        sourceTrimStartTime: Number.isFinite(Number(layer.sourceTrimStartTime))
+          ? Math.max(0, Number(layer.sourceTrimStartTime))
+          : 0,
       };
     });
 
@@ -289,11 +356,14 @@ export default function VideoEditorContainer(props) {
       const previewTime = frame / fps;
 
       // Sync each audio
-      audioRefs.current.forEach(({ audio, startTime, endTime }) => {
+      audioRefs.current.forEach(({ audio, startTime, endTime, sourceTrimStartTime = 0 }) => {
 
 
         if (previewTime >= startTime && previewTime < endTime) {
-          const newCurrent = previewTime - startTime;
+          const newCurrent = Math.max(0, sourceTrimStartTime + (previewTime - startTime));
+          if (Math.abs(audio.currentTime - newCurrent) > 0.3) {
+            audio.currentTime = newCurrent;
+          }
           // If not playing, start playing
           if (audio.paused) {
             try {
@@ -301,12 +371,6 @@ export default function VideoEditorContainer(props) {
             } catch (err) {
               // Ignore play errors (e.g., autoplay restrictions).
             }
-          }
-
-          // Keep the audio's time in sync 
-          // (only if drifting too far, to avoid choppy re-seeks)
-          if (Math.abs(audio.currentTime - newCurrent) > 0.3) {
-            audio.currentTime = newCurrent;
           }
         } else {
           // Pause if out of range
@@ -528,6 +592,130 @@ export default function VideoEditorContainer(props) {
     [activeItemList]
   );
 
+  const setUploadVideo = useCallback(
+    async (file) => {
+      if (!file || !currentLayer) {
+        return;
+      }
+      if (layerHasAnyVideoArtefact(currentLayer)) {
+        throw new Error('Remove the existing or pending video artefact before uploading a new video.');
+      }
+
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        throw new Error('Unauthorized');
+      }
+
+      const requestUrl = `${PROCESSOR_API_URL}/video_sessions/upload_user_video_layer_chunk`;
+      const resolvedFileName = file.name || 'uploaded_video.mp4';
+      const uploadId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const totalChunks = Math.max(1, Math.ceil(file.size / USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES));
+
+      setAiVideoPollType(null);
+      setIsAIVideoGenerationPending(true);
+      closeAlertDialog();
+
+      try {
+        let response = null;
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+          const chunkStart = chunkIndex * USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES;
+          const chunkEnd = Math.min(file.size, chunkStart + USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES);
+          const chunk = file.slice(chunkStart, chunkEnd);
+          const chunkRequestUrl =
+            `${requestUrl}` +
+            `?sessionId=${encodeURIComponent(id)}` +
+            `&layerId=${encodeURIComponent(currentLayer._id.toString())}` +
+            `&uploadId=${encodeURIComponent(uploadId)}` +
+            `&chunkIndex=${encodeURIComponent(chunkIndex)}` +
+            `&totalChunks=${encodeURIComponent(totalChunks)}` +
+            `&totalFileSize=${encodeURIComponent(file.size)}` +
+            `&fileName=${encodeURIComponent(resolvedFileName)}`;
+
+          response = await axios.post(chunkRequestUrl, chunk, {
+            ...headers,
+            headers: {
+              ...headers.headers,
+              'Content-Type': file.type || 'video/mp4',
+            },
+          });
+        }
+
+        if (!response?.data?.session || !response?.data?.layer) {
+          throw new Error('Video upload did not complete successfully.');
+        }
+
+        const { session, layer, audioLayers: updatedAudioLayers } = response.data;
+        const updatedLayerIndex = session.layers.findIndex(
+          (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
+        );
+
+        setVideoSessionDetails(session);
+        updateCurrentLayerAndLayerList(session.layers, updatedLayerIndex);
+        setAudioLayers(updatedAudioLayers || session.audioLayers || []);
+        setActiveItemList(layer.imageSession?.activeItemList || []);
+        setIsCanvasDirty(true);
+        setAiVideoPollType('user_video');
+
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> Uploaded video processing started
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      } catch (error) {
+        setIsAIVideoGenerationPending(false);
+        setAiVideoPollType(null);
+        const statusCode = error?.response?.status;
+        const serverError =
+          error?.response?.data?.error
+          || error?.response?.data?.message
+          || error?.message;
+
+        if (statusCode === 413) {
+          toast.error(
+            <div>
+              <FaTimes className='inline-flex mr-2' /> A video upload chunk exceeded the server request limit. Please retry the upload.
+            </div>,
+            {
+              position: 'bottom-center',
+              className: 'custom-toast',
+            }
+          );
+          throw new Error('A video upload chunk exceeded the server request limit. Please retry the upload.');
+        }
+
+        toast.error(
+          <div>
+            <FaTimes className='inline-flex mr-2' /> {serverError || 'Video upload failed.'}
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+        throw new Error(serverError || 'Video upload failed.');
+      }
+    },
+    [
+      closeAlertDialog,
+      currentLayer,
+      id,
+      layerHasAnyVideoArtefact,
+      setActiveItemList,
+      setAudioLayers,
+      setIsCanvasDirty,
+      setVideoSessionDetails,
+      updateCurrentLayerAndLayerList,
+    ]
+  );
+
   const openUploadDialog = useCallback(
     (options = {}) => {
       const { closeView = false } = options;
@@ -535,11 +723,13 @@ export default function VideoEditorContainer(props) {
         setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
       }
       openAlertDialog(
-        <div>
-          <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
+        <div className='relative w-full max-w-[460px] overflow-hidden pt-8 text-left'>
+          <FaTimes className='absolute right-4 top-3 z-20 cursor-pointer text-slate-300 hover:text-white' onClick={closeAlertDialog} />
           <ImageUploadDialog
             setUploadURL={setUploadURL}
+            setUploadVideo={setUploadVideo}
             aspectRatio={aspectRatio}
+            canvasDimensions={getCanvasDimensionsForAspectRatio(aspectRatio)}
           />
         </div>,
         undefined,
@@ -547,7 +737,7 @@ export default function VideoEditorContainer(props) {
         { hideBorder: true }
       );
     },
-    [aspectRatio, closeAlertDialog, openAlertDialog, setCurrentView, setUploadURL]
+    [aspectRatio, closeAlertDialog, openAlertDialog, setCurrentView, setUploadURL, setUploadVideo]
   );
 
   useEffect(() => {
@@ -824,7 +1014,7 @@ export default function VideoEditorContainer(props) {
       maskImageData = await exportMaskedGroupAsBlackAndWhite();
     }
 
-    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANAPRO') {
+    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANA2') {
       submitNanoBananaOutpaintRequest();
       return;
 
@@ -1859,20 +2049,16 @@ export default function VideoEditorContainer(props) {
         const currentNewLayerIndex = layerList.findIndex(
           (l) => l._id.toString() === layer._id.toString()
         );
+        setVideoSessionDetails(session);
         updateCurrentLayerAndLayerList(layerList, currentNewLayerIndex);
         setActiveItemList(layer.imageSession.activeItemList);
         setAudioLayers(audioLayers);
 
         setIsCanvasDirty(true);
 
-
-        if (layer.hasAiVideoLayer) {
-          setAiVideoLayer(layer.aiVideoLayer);
-          setAiVideoLayerType(layer.aiVideoLayerType);
-        } else {
-          setAiVideoLayer(null);
-          setAiVideoLayerType(null);
-        }
+        const { url, type } = resolveLayerVideoState(layer);
+        setAiVideoLayer(url);
+        setAiVideoLayerType(type);
       }
 
     } catch (error) {
@@ -1973,6 +2159,18 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestLipSyncToSpeech = (selectedModel) => {
+    if (currentLayer?.userVideoGenerationPending || currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer) {
+      toast.error(
+        <div>
+          <FaTimes /> Remove the uploaded or pending video before requesting lip sync.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -2089,33 +2287,12 @@ export default function VideoEditorContainer(props) {
         const currentLayerIndex = newLayers.findIndex(
           (l) => l._id.toString() === layer._id.toString()
         );
+        setVideoSessionDetails(session);
         updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
 
-        // Decide which link to set
-        const hasLipSyncVideo = Boolean(
-          (layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync') &&
-          layer.lipSyncVideoLayer
-        );
-
-        if (hasLipSyncVideo) {
-          setAiVideoLayerType('lip_sync');
-          setAiVideoLayer(layer.lipSyncRemoteLink
-            ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
-            : `${PROCESSOR_API_URL}${layer.lipSyncVideoLayer}`);
-        } else if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
-          setAiVideoLayerType('sound_effect');
-          setAiVideoLayer(layer.soundEffectRemoteLink
-            ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
-            : `${PROCESSOR_API_URL}${layer.soundEffectVideoLayer}`);
-        } else if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
-          setAiVideoLayerType('ai_video');
-          setAiVideoLayer(layer.aiVideoRemoteLink
-            ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
-            : `${PROCESSOR_API_URL}${layer.aiVideoLayer}`);
-        } else {
-          setAiVideoLayer(null);
-          setAiVideoLayerType(null);
-        }
+        const { url, type } = resolveLayerVideoState(layer);
+        setAiVideoLayerType(type);
+        setAiVideoLayer(url);
       })
       .catch(() => {
         setIsSelectButtonDisabled(false);
@@ -2322,7 +2499,9 @@ export default function VideoEditorContainer(props) {
 
   // Poll for AI video generation
   const startAIVideoLayerGenerationPoll = async () => {
-
+    if (!currentLayer) {
+      return;
+    }
 
     const selectedLayerId = currentLayer._id.toString();
     const payload = {
@@ -2350,8 +2529,6 @@ export default function VideoEditorContainer(props) {
     const pollRes = pollResData.data;
     if (pollRes.status === 'COMPLETED') {
       const sessionData = pollRes.session;
-
-
       setIsAIVideoGenerationPending(false);
       const layerData = sessionData.layers.find(
         (layer) => layer._id.toString() === selectedLayerId
@@ -2362,25 +2539,37 @@ export default function VideoEditorContainer(props) {
         (layer) => layer._id.toString() === selectedLayerId
       );
 
-
       const hiddenContainer = document.getElementById('hidden-video-container');
-      const videoSrc = `${STATIC_CDN_URL}/${layerData.aiVideoRemoteLink}`;
+      const { url: videoSrc } = resolveLayerVideoState(layerData);
+      if (hiddenContainer && videoSrc) {
+        const video = document.createElement('video');
+        video.src = videoSrc;
+        video.preload = 'auto';
+        video.style.display = 'none';
+        hiddenContainer.appendChild(video);
+      }
 
-
-      const video = document.createElement('video');
-      video.src = videoSrc;
-      video.preload = 'auto';
-      video.style.display = 'none';
-      hiddenContainer.appendChild(video);
-
+      setVideoSessionDetails(sessionData);
       updateCurrentLayerAndLayerList(newLayers, updatedLayerIndex);
+      setAudioLayers(sessionData.audioLayers || []);
       setIsCanvasDirty(true);
+      if (aiVideoPollType === 'user_video') {
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> Uploaded video added to layer
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      }
       getUserAPI();
     } else if (pollRes.status === 'FAILED') {
       setIsAIVideoGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> {t("studio.notifications.aiVideoFailed")}
+          <FaTimes /> {pollRes.error || t("studio.notifications.aiVideoFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -2391,12 +2580,24 @@ export default function VideoEditorContainer(props) {
     } else {
       aiVideoGenerationPollIntervalRef.current = setTimeout(() => {
         startAIVideoLayerGenerationPoll();
-      }, 1000);
+      }, VIDEO_TASK_POLL_INTERVAL_MS);
     }
   };
 
   // Submit new AI video request
   const submitGenerateNewAIVideoRequest = (requestConfig) => {
+    if (currentLayer?.userVideoGenerationPending || currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer) {
+      toast.error(
+        <div>
+          <FaTimes /> Remove the uploaded or pending video before generating AI video.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
     setIsAIVideoGenerationPending(true);
     const payload = {
       model: selectedVideoGenerationModel,
@@ -2459,6 +2660,18 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestAddSyncedSoundEffect = (payload) => {
+    if (currentLayer?.userVideoGenerationPending || currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer) {
+      toast.error(
+        <div>
+          <FaTimes /> Remove the uploaded or pending video before generating synced sound effects.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
 
     const headers = getHeaders();
     if (!headers) {
@@ -2757,6 +2970,7 @@ export default function VideoEditorContainer(props) {
       movieVisualList={movieVisualList}
       movieGenSpeakers={movieGenSpeakers}
       updateMovieGenSpeakers={updateMovieGenSpeakers}
+      isRenderPending={isRenderPending}
     />
   )
 
@@ -2779,7 +2993,10 @@ export default function VideoEditorContainer(props) {
     if (mimialEditorDisplay) {
       editorToolbarDisplay = (
         <div className={`w-[2%] inline-block ${collapsedToolbarShell}`}>
-          <VideoEditorToolbarMinimal onToggleDisplay={onToggleEditorMinimalDisplay} />
+          <VideoEditorToolbarMinimal
+            onToggleDisplay={onToggleEditorMinimalDisplay}
+            isRenderPending={isRenderPending}
+          />
         </div>
       );
     } else {
@@ -2806,12 +3023,8 @@ export default function VideoEditorContainer(props) {
 
     return (
       <div className={`${mainWorkspaceShell} block min-h-screen`}>
-        <div className='text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8'>
+        <div className={`text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8 ${disabledShellClass}`} aria-disabled={isRenderPending}>
           {viewDisplay}
-
-
-
-
         </div>
         {editorToolbarDisplay}
         <ToastContainer
@@ -2834,7 +3047,7 @@ export default function VideoEditorContainer(props) {
 
   return (
     <div className={`${mainWorkspaceShell} block min-h-screen`}>
-      <div className='text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8'>
+      <div className={`text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8 ${disabledShellClass}`} aria-disabled={isRenderPending}>
         {viewDisplay}
       </div>
       <div className={`w-[18%] inline-block ${toolbarShell}`}>

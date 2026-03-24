@@ -127,8 +127,8 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
   {
-    name: 'NanoBanana Pro',
-    key: 'NANOBANANAPRO',
+    name: 'NanoBanana 2',
+    key: 'NANOBANANA2',
     isExpressModel: true,
   },
 ];
@@ -240,8 +240,8 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
 
 export const IMAGE_EDIT_MODEL_TYPES = [
   {
-    name: 'NanoBanana Pro Edit',
-    key: 'NANOBANANAPROEDIT',
+    name: 'NanoBanana 2 Edit',
+    key: 'NANOBANANA2EDIT',
     editType: 'prompt',
     isPromptEnabled: true
   },
@@ -289,6 +289,10 @@ export const ASSISTANT_MODEL_TYPES = [
     label: 'GPT 5.2',
     value: 'GPT5.2',
   },
+  {
+    label: 'GPT 5.4',
+    value: 'GPT5.4',
+  },
 
 
 ];
@@ -315,6 +319,10 @@ export const INFERENCE_MODEL_TYPES = [
   {
     label: 'GPT 5.2',
     value: 'GPT5.2',
+  },
+  {
+    label: 'GPT 5.4',
+    value: 'GPT5.4',
   },
 
 

@@ -127,13 +127,11 @@ export default function CanvasControlBar(props) {
 
     );
   }
-
-
-  const disabledClassName = isRenderPending ? "pointer-events-none opacity-50" : "";
+  const disabledShellClass = isRenderPending ? "pending-disabled-shell" : "";
 
   return (
     <div
-      className={`h-[25px] md:mt-[-10px] md:mb-[10px] relative flex justify-center ${disabledClassName}`}
+      className={`h-[25px] md:mt-[-10px] md:mb-[10px] relative flex justify-center ${disabledShellClass}`}
       style={{ zIndex: 5 }}
       aria-disabled={isRenderPending}
     >

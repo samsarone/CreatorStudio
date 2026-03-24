@@ -1,11 +1,17 @@
 import React from 'react';
-import { FaUpload } from 'react-icons/fa';
+import { FaUpload, FaChevronDown } from 'react-icons/fa';
 import { TbLibraryPhoto } from 'react-icons/tb';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import PromptGenerator from '../video/toolbars/PromptGenerator.jsx';
 import ImageEditGenerator from '../video/toolbars/ImageEditGenerator.jsx';
 import ImageLayersPanel from './ImageLayersPanel.jsx';
+import {
+  findAspectRatioOptionForCanvasDimensions,
+  getSimplifiedAspectRatioLabel,
+  normalizeCanvasDimensions,
+} from '../../utils/canvas.jsx';
+import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 
 export default function ImageEditorToolbar(props) {
   const {
@@ -29,8 +35,10 @@ export default function ImageEditorToolbar(props) {
     showUploadAction,
     onShowLibrary,
     aspectRatio,
-    aspectRatioOptions,
-    onAspectRatioChange,
+    canvasDimensions,
+    generationAspectRatio,
+    setGenerationAspectRatio,
+    onEditProject,
     onDownloadSimple,
     onDownloadAdvanced,
     activeItemList,
@@ -64,10 +72,6 @@ export default function ImageEditorToolbar(props) {
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-200'
       : 'bg-gray-200 border border-transparent text-gray-600';
-  const primaryButton =
-    colorMode === 'dark'
-      ? 'bg-rose-500 text-white hover:bg-rose-400'
-      : 'bg-rose-500 text-white hover:bg-rose-600';
   const secondaryButton =
     colorMode === 'dark'
       ? 'bg-[#111a2f] text-slate-200 hover:bg-[#16213a] border border-[#1f2a3d]'
@@ -88,10 +92,25 @@ export default function ImageEditorToolbar(props) {
     typeof updateSessionLayerActiveItemList === 'function' &&
     typeof setSelectedId === 'function' &&
     typeof hideItemInLayer === 'function';
+  const aspectRatioLabel = aspectRatio || '1:1';
+  const aspectRatioSurface =
+    colorMode === 'dark'
+      ? 'bg-[#111a2f] border border-[#1f2a3d]'
+      : 'bg-slate-50 border border-slate-200';
+  const normalizedCanvasDimensions = normalizeCanvasDimensions(canvasDimensions, aspectRatioLabel);
+  const matchingCanvasAspectRatioOption = findAspectRatioOptionForCanvasDimensions(
+    normalizedCanvasDimensions,
+    imageAspectRatioOptions
+  );
+  const canvasLabel = matchingCanvasAspectRatioOption
+    ? matchingCanvasAspectRatioOption.label
+    : `Custom (${getSimplifiedAspectRatioLabel(normalizedCanvasDimensions)})`;
 
-  let viewContent = <span />;
-  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY) {
-    viewContent = (
+  const toolbarSections = [
+    {
+      label: 'Generate Image',
+      view: CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY,
+      content: (
       <PromptGenerator
         promptText={promptText}
         setPromptText={setPromptText}
@@ -100,12 +119,17 @@ export default function ImageEditorToolbar(props) {
         selectedGenerationModel={selectedGenerationModel}
         setSelectedGenerationModel={setSelectedGenerationModel}
         generationError={generationError}
-        aspectRatio={aspectRatio}
+        aspectRatio={generationAspectRatio}
+        setAspectRatio={setGenerationAspectRatio}
+        canvasDimensions={normalizedCanvasDimensions}
         showModelSelector={false}
       />
-    );
-  } else if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY) {
-    viewContent = (
+      ),
+    },
+    {
+      label: 'Edit Image',
+      view: CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY,
+      content: (
       <ImageEditGenerator
         promptText={promptText}
         setPromptText={setPromptText}
@@ -117,11 +141,17 @@ export default function ImageEditorToolbar(props) {
         outpaintError={outpaintError}
         editBrushWidth={editBrushWidth}
         setEditBrushWidth={setEditBrushWidth}
+        aspectRatio={generationAspectRatio}
+        setAspectRatio={setGenerationAspectRatio}
+        canvasDimensions={normalizedCanvasDimensions}
         showModelSelector={false}
       />
-    );
-  } else if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY) {
-    viewContent = (
+      ),
+    },
+    {
+      label: 'Upload/Library',
+      view: CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY,
+      content: (
       <div className="m-auto text-center grid grid-cols-2">
         <div className="text-center m-auto align-center mt-4 mb-4">
           <FaUpload className="text-2xl m-auto cursor-pointer" onClick={showUploadAction} />
@@ -132,55 +162,49 @@ export default function ImageEditorToolbar(props) {
           <div className="text-[12px] tracking-tight m-auto text-center">Library</div>
         </div>
       </div>
-    );
-  }
+      ),
+    },
+  ];
 
   return (
     <div className="px-3 pb-3 pt-2 h-full overflow-y-auto">
       <div className={`${panelSurface} rounded-xl p-3 min-h-full flex flex-col`}>
-        <div className="flex flex-col gap-2">
+        <div className={`${aspectRatioSurface} rounded-lg px-3 py-2 flex items-center justify-between`}>
+          <div>
+            <div className={`text-[10px] uppercase tracking-wide ${colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              Canvas
+            </div>
+            <div className={`text-xs font-semibold ${textColor}`}>{canvasLabel}</div>
+            <div className={`text-[11px] ${colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+              {normalizedCanvasDimensions.width} x {normalizedCanvasDimensions.height} px
+            </div>
+          </div>
           <button
-            className={`px-3 py-1 text-sm rounded-full transition ${isSelected(CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY) ? pillSelected : pillUnselected}`}
-            onClick={() => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY)}
+            type="button"
+            className={`text-xs px-2 py-1 rounded-md ${secondaryButton}`}
+            onClick={() => onEditProject?.()}
           >
-            Generate Image
-          </button>
-          <button
-            className={`px-3 py-1 text-sm rounded-full transition ${isSelected(CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY) ? pillSelected : pillUnselected}`}
-            onClick={() => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY)}
-          >
-            Edit Image
-          </button>
-          <button
-            className={`px-3 py-1 text-sm rounded-full transition ${isSelected(CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY) ? pillSelected : pillUnselected}`}
-            onClick={() => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY)}
-          >
-            Upload/Library
+            Edit
           </button>
         </div>
 
-        {aspectRatioOptions && aspectRatioOptions.length > 0 && (
-          <div className={`mt-4 ${textColor}`}>
-            <div className="text-xs font-semibold mb-1">Aspect Ratio</div>
-            <select
-              className={`w-full rounded-md px-2 py-2 text-xs ${
-                colorMode === 'dark'
-                  ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100'
-                  : 'bg-white border border-slate-200 text-slate-900'
-              }`}
-              value={aspectRatio}
-              onChange={(evt) => onAspectRatioChange?.(evt.target.value)}
-            >
-              {aspectRatioOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <div className="mt-4">{viewContent}</div>
+        <div className="mt-3 flex flex-col gap-2">
+          {toolbarSections.map((section) => (
+            <div key={section.view}>
+              <button
+                type="button"
+                className={`w-full px-3 py-1 text-sm rounded-full transition flex items-center justify-between ${isSelected(section.view) ? pillSelected : pillUnselected}`}
+                onClick={() => toggleCurrentViewDisplay(section.view)}
+              >
+                <span>{section.label}</span>
+                <FaChevronDown
+                  className={`text-[10px] transition-transform duration-150 ${isSelected(section.view) ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {isSelected(section.view) && <div className="mt-2">{section.content}</div>}
+            </div>
+          ))}
+        </div>
 
         {canShowLayersPanel && (
           <ImageLayersPanel

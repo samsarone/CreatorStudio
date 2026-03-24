@@ -36,10 +36,10 @@ import {
   IMAGE_GENERAITON_MODEL_TYPES,
   IDEOGRAM_IMAGE_STYLES,
   PIXVERRSE_VIDEO_STYLES,
+  VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
-import { getVideoGenerationModelDropdownData } from '../video/util/videoGenerationModelOptions.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
@@ -61,6 +61,28 @@ const OFFLINE_POLL = 30_000;   // 30 s while offline
 const MAX_BACKOFF = 60_000;    // 1 min cap
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
+const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE1', 'NANOBANANA2', 'SEEDREAM'];
+const VIDGENIE_IMAGE_MODEL_LABELS = {
+  GPTIMAGE1: 'GPT Image 1',
+  NANOBANANA2: 'Nano Banana 2',
+  SEEDREAM: 'Seedream',
+};
+const VIDGENIE_VIDEO_MODEL_ORDER = [
+  'VEO3.1I2V',
+  'VEO3.1I2VFAST',
+  'SEEDANCEI2V',
+  'KLINGIMGTOVID3PRO',
+  'RUNWAYML',
+  'SORA2PRO',
+];
+const VIDGENIE_VIDEO_MODEL_LABELS = {
+  'VEO3.1I2V': 'VEO3.1 I2V (Default)',
+  'VEO3.1I2VFAST': 'VEO3.1 I2V Fast',
+  SEEDANCEI2V: 'Seedance I2V',
+  KLINGIMGTOVID3PRO: 'Kling 3 Pro',
+  RUNWAYML: 'Runway Gen 4',
+  SORA2PRO: 'Sora 2 Pro',
+};
 
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
@@ -602,6 +624,7 @@ export default function OneshotEditor() {
   const [selectedLanguageOption, setSelectedLanguageOption] = useState(
     () => defaultLanguageOption
   );
+  const [enableSubtitles, setEnableSubtitles] = useState(false);
 
   useEffect(() => {
     setSelectedLanguageOption((prev) => {
@@ -637,17 +660,33 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Image-model select & styles
   // ─────────────────────────────────────────────────────────
-  const expressImageModels = IMAGE_GENERAITON_MODEL_TYPES
-    .filter((m) => {
-      const modelPricing = IMAGE_MODEL_PRICES.find(
-        (imp) => imp.key.toLowerCase() === m.key.toLowerCase()
-      )?.prices || [];
-      const hasAspect = modelPricing.find(
-        (p) => p.aspectRatio === selectedAspectRatioOption.value
-      );
-      return m.isExpressModel && hasAspect;
-    })
-    .map((m) => ({ label: m.name, value: m.key, imageStyles: m.imageStyles }));
+  const expressImageModels = useMemo(() => {
+    const availableModelMap = new Map(
+      IMAGE_GENERAITON_MODEL_TYPES
+        .filter((m) => {
+          const modelPricing = IMAGE_MODEL_PRICES.find(
+            (imp) => imp.key.toLowerCase() === m.key.toLowerCase()
+          )?.prices || [];
+          const hasAspect = modelPricing.find(
+            (p) => p.aspectRatio === selectedAspectRatioOption.value
+          );
+          return m.isExpressModel && hasAspect;
+        })
+        .map((model) => [model.key, model])
+    );
+
+    return VIDGENIE_IMAGE_MODEL_ORDER
+      .map((modelKey) => {
+        const model = availableModelMap.get(modelKey);
+        if (!model) return null;
+        return {
+          label: VIDGENIE_IMAGE_MODEL_LABELS[modelKey] || model.name,
+          value: model.key,
+          imageStyles: model.imageStyles,
+        };
+      })
+      .filter(Boolean);
+  }, [selectedAspectRatioOption.value]);
 
   const [selectedImageModel, setSelectedImageModel] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
@@ -686,16 +725,28 @@ export default function OneshotEditor() {
   //  Video-model select
   // ─────────────────────────────────────────────────────────
   const expressVideoModels = useMemo(() => {
-    const { availableModels } = getVideoGenerationModelDropdownData({ mode: 'text' });
+    const availableModelMap = new Map(
+      VIDEO_GENERATION_MODEL_TYPES
+        .filter(
+          (m) =>
+            m.isExpressModel &&
+            m.supportedAspectRatios?.includes(selectedAspectRatioOption.value)
+        )
+        .map((model) => [model.key, model])
+    );
 
-    return availableModels
-      .filter(
-        (m) =>
-          m.isExpressModel &&
-          m.supportedAspectRatios?.includes(selectedAspectRatioOption.value)
-      )
-      .map((m) => ({ label: m.name, value: m.key, ...m }));
-  }, [selectedAspectRatioOption]);
+    return VIDGENIE_VIDEO_MODEL_ORDER
+      .map((modelKey) => {
+        const model = availableModelMap.get(modelKey);
+        if (!model) return null;
+        return {
+          label: VIDGENIE_VIDEO_MODEL_LABELS[modelKey] || model.name,
+          value: model.key,
+          ...model,
+        };
+      })
+      .filter(Boolean);
+  }, [selectedAspectRatioOption.value]);
 
   const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
     const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
@@ -1299,6 +1350,9 @@ export default function OneshotEditor() {
         ? selectedLanguageOption
         : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
     requestInput.language = resolveLanguageCode(selectedLanguageValue);
+    if (!enableSubtitles) {
+      requestInput.enable_subtitles = false;
+    }
 
     try {
       if (!isTextToVideo) {
@@ -1374,6 +1428,7 @@ export default function OneshotEditor() {
     setSessionDetails(null);                // ⬅️ NEW
     setUploadedImageFiles([]);
     setUploadedImageDataUrls([]);
+    setEnableSubtitles(false);
     setSelectedImageStyle(null);
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
@@ -1404,26 +1459,17 @@ export default function OneshotEditor() {
       return IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND;
     }
     const key = selectedVideoModel?.value || '';
-    if (key === 'KLINGIMGTOVID3PRO' || key === 'KLINGIMGTOVIDTURBO') return 23;
+    if (key === 'KLINGIMGTOVID3PRO') return 23;
     if (key === 'VEO3.1I2VFAST') return 45;
     if (key === 'VEO3.1I2V') return 90;
-    if (key === 'SORA2') return 45;
     if (key === 'SORA2PRO') return 105;
     return 15; // default
   }, [generationMode, selectedVideoModel]);
 
 
   const expectedCreditsPerSecond = useMemo(() => {
-    if (generationMode === 'I2V') {
-      return creditsPerSecondVideo;
-    }
-    let base = creditsPerSecondVideo;
-    const imageModelKey = selectedImageModel?.value || '';
-    if (imageModelKey === 'HUNYUAN') {
-      base = base * 1.5;
-    }
-    return base;
-  }, [creditsPerSecondVideo, generationMode, selectedImageModel]);
+    return creditsPerSecondVideo;
+  }, [creditsPerSecondVideo]);
 
   const pricingInfoDisplay = (
     <div className="relative">
@@ -1741,6 +1787,28 @@ export default function OneshotEditor() {
                 />
               </div>
               <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.languageLabel", {}, "Language")}</p>
+            </div>
+
+            <div className="group w-full">
+              <label
+                className={`flex items-start gap-3 ${controlShell} rounded-xl p-3 transition-transform duration-200 group-hover:translate-y-[-1px] cursor-pointer`}
+              >
+                <input
+                  type="checkbox"
+                  checked={enableSubtitles}
+                  onChange={(e) => setEnableSubtitles(e.target.checked)}
+                  disabled={isFormDisabled}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">
+                    {t("vidgenie.enableSubtitles")}
+                  </div>
+                  <p className={`mt-1 text-[11px] ${mutedText}`}>
+                    {t("vidgenie.enableSubtitlesHelp")}
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         </div>
