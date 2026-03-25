@@ -384,4 +384,13 @@ export const MUSIC_MODEL_PRICES = [
       }
     ]
   },
+  {
+    key: 'ELEVENLABS_MUSIC',
+    prices: [
+      {
+        operationType: "generate_song",
+        price: 3,
+      }
+    ]
+  },
 ]

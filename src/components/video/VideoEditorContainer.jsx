@@ -2212,7 +2212,7 @@ export default function VideoEditorContainer(props) {
   };
 
   // Add audio from library
-  const requestAddAudioLayerFromLibrary = (audioItem) => {
+  const requestAddAudioLayerFromLibrary = (audioItem, addConfig = {}) => {
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -2221,6 +2221,7 @@ export default function VideoEditorContainer(props) {
     const payload = {
       sessionId: id,
       audioItem,
+      ...addConfig,
     };
     axios.post(`${PROCESSOR_API_URL}/video_sessions/add_audio_from_library`, payload, headers).then((dataRes) => {
       const response = dataRes.data;
@@ -2765,6 +2766,8 @@ export default function VideoEditorContainer(props) {
             onSelectMusic={requestAddAudioLayerFromLibrary}
             onSelectVideo={addSelectedAiVideoToLayer}
             isSelectButtonDisabled={isSelectButtonDisabled}
+            sessionDetails={videoSessionDetails}
+            sessionId={id}
           />
         );
       } else {

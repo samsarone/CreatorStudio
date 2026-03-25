@@ -726,7 +726,11 @@ export default function FrameToolbar(props) {
   const [incomingVisibleLayers, setIncomingVisibleLayers] = useState([]);
 
   const layerRefs = useRef({}); // Add this line to store refs to layer items
-  const [popupPosition, setPopupPosition] = useState({ top: '50%', transform: 'translateY(-50%)' });
+  const [popupPosition, setPopupPosition] = useState({
+    top: '50%',
+    left: '100px',
+    transform: 'translateY(-50%)',
+  });
 
   const [isExpandedTrackView, setIsExpandedTrackView] = useState(false);
 
@@ -1744,6 +1748,7 @@ export default function FrameToolbar(props) {
                     provided.innerRef(el);
                   }}
                   {...provided.draggableProps}
+                  data-scene-layer-body="true"
                   className={`${bg3Color} ${bgSelected} ml-1 mr-1 cursor-pointer border-t ${borderColor} border-b ${borderColor} relative`}
                   style={{
                     height: `${layerHeightInPixels}px`,
@@ -1751,7 +1756,10 @@ export default function FrameToolbar(props) {
                     boxSizing: 'border-box', // Include borders in height
                     ...provided.draggableProps.style,
                   }}
-                  onClick={(e) => {
+                  onMouseDown={(e) => {
+                    if (e.button !== 0) {
+                      return;
+                    }
                     setUserSelectedLayer(e, originalIndex, layer);
                   }}
                 >
@@ -1762,7 +1770,9 @@ export default function FrameToolbar(props) {
                   </div>
                   <div
                     {...provided.dragHandleProps}
+                    data-layer-reorder-handle="true"
                     className='absolute right-0 top-0 h-full w-[14px] flex items-center justify-center cursor-grab active:cursor-grabbing z-20'
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                     title='Drag to reorder scene'
                   >
@@ -2485,6 +2495,10 @@ export default function FrameToolbar(props) {
   // Hide the popup when clicking outside of it
   useEffect(() => {
     const handleClickOutside = (event) => {
+      if (parentRef.current?.contains(event.target)) {
+        return;
+      }
+
       if (
         popupRef.current &&
         !popupRef.current.contains(event.target) &&
@@ -2707,7 +2721,7 @@ export default function FrameToolbar(props) {
             className={`fixed z-[200] p-1 rounded-lg ${bg3Color} shadow-lg border border-neutral-500`}
             style={{
               top: popupPosition.top, // Use the calculated top position
-              left: '100px',
+              left: popupPosition.left,
               transform: popupPosition.transform, // Remove the translateY(-50%)
               width: '150px',
 

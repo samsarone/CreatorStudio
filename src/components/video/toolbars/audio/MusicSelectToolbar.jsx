@@ -53,19 +53,20 @@ export default function MusicSelectToolbar(props) {
 
     const formData = new FormData(evt.target);
 
-    const startTimestamp = formData.get('track');
+    const startTimestamp = Number(formData.get('track'));
  
     evt.preventDefault();
 
-    const volume = formData.get('volume');
+    const volume = Number(formData.get('volume'));
     let payload = {
-      startTime: startTimestamp,
-      volume: volume
+      startTime: Number.isFinite(startTimestamp) ? startTimestamp : 0,
+      volume: Number.isFinite(volume) ? volume : 100
     }
 
     if (audioLayer.generationType === 'music') {
-      const duration = 120;
-      const endTime = startTimestamp + duration;
+      const parsedDuration = Number(audioLayer.duration);
+      const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 120;
+      const endTime = payload.startTime + duration;
       payload = {
         ...payload,
         endTime: endTime,
@@ -90,7 +91,7 @@ export default function MusicSelectToolbar(props) {
           <form onSubmit={(evt) => addTrackSubmit(evt, index)} className="grid grid-cols-3 gap-3 items-end">
             <div>
               <input
-                type='text'
+                type='number'
                 name="track"
                 placeholder='Start timestamp (secs)'
                 defaultValue={0}
@@ -102,7 +103,7 @@ export default function MusicSelectToolbar(props) {
             </div>
             <div>
               <input
-                type='text'
+                type='number'
                 name="volume"
                 placeholder='Volume'
                 defaultValue={100}

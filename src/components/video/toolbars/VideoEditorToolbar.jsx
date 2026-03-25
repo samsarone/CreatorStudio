@@ -138,6 +138,7 @@ export default function VideoEditorToolbar(props) {
   const [numberOfSpeechLayersRequested, setNumberOfSpeechLayersRequested] = useState(0);
   const [selectedMusicProvider, setSelectedMusicProvider] = useState(MUSIC_PROVIDERS[0]);
   const [isInstrumental, setIsInstrumental] = useState(false);
+  const [musicLyrics, setMusicLyrics] = useState('');
 
   // Duration state for AUDIOCRAFT
   const [musicDuration, setMusicDuration] = useState(10);
@@ -180,14 +181,19 @@ export default function VideoEditorToolbar(props) {
 
   const { colorMode } = useColorMode();
   const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
+  const currentMusicProvider = selectedMusicProvider || MUSIC_PROVIDERS[0];
+  const musicDurationMin = currentMusicProvider?.minDurationSeconds || 1;
+  const musicDurationMax = currentMusicProvider?.maxDurationSeconds || 180;
+  const supportsMusicLyrics = currentMusicProvider?.supportsLyrics === true;
+  const musicProviderLocksInstrumental = currentMusicProvider?.locksInstrumental === true;
 
   const handleMusicProviderChange = (selectedOption) => {
-    const selectedProvider = MUSIC_PROVIDERS.find(provider => provider.key === selectedOption.value);
+    const selectedProvider = MUSIC_PROVIDERS.find(provider => provider.key === selectedOption.value) || MUSIC_PROVIDERS[0];
     setSelectedMusicProvider(selectedProvider);
-    // Force instrumental if AUDIOCRAFT
-    if (selectedOption.value === 'AUDIOCRAFT') {
+
+    if (selectedProvider.locksInstrumental) {
       setIsInstrumental(true);
-    } else {
+    } else if (selectedMusicProvider?.locksInstrumental) {
       setIsInstrumental(false);
     }
   };
@@ -813,22 +819,25 @@ export default function VideoEditorToolbar(props) {
   const submitGenerateMusic = (evt) => {
     evt.preventDefault();
     const formData = new FormData(evt.target);
-    const promptText = formData.get('promptText');
+    const promptText = (formData.get('promptText') || '').toString().trim();
+    const lyricsText = (formData.get('lyricsText') || '').toString().trim();
+    const normalizedMusicDuration = Number(musicDuration);
 
-    if (selectedMusicProvider.key === 'AUDIOCRAFT') {
-      // Validate musicDuration
-      if (isNaN(musicDuration) || musicDuration < 1 || musicDuration > 180) {
-        toast.error(
-          <div>
-            <FaTimes className="inline-flex mr-2" /> Duration must be between 1 and 180 seconds.
-          </div>,
-          {
-            position: "bottom-center",
-            className: "custom-toast",
-          }
-        );
-        return;
-      }
+    if (
+      Number.isNaN(normalizedMusicDuration)
+      || normalizedMusicDuration < musicDurationMin
+      || normalizedMusicDuration > musicDurationMax
+    ) {
+      toast.error(
+        <div>
+          <FaTimes className="inline-flex mr-2" /> Duration must be between {musicDurationMin} and {musicDurationMax} seconds.
+        </div>,
+        {
+          position: "bottom-center",
+          className: "custom-toast",
+        }
+      );
+      return;
     }
 
     const body = {
@@ -836,12 +845,26 @@ export default function VideoEditorToolbar(props) {
       generationType: 'music',
       isInstrumental: isInstrumental,
       model: selectedMusicProvider.key,
+      duration: normalizedMusicDuration,
     };
-    if (selectedMusicProvider.key === 'AUDIOCRAFT' || selectedMusicProvider.key === 'CASSETTEAI' || 
-        selectedMusicProvider.key === 'LYRIA2'
-    ) {
-      body.duration = Number(musicDuration);
+
+    if (selectedMusicProvider.key === 'ELEVENLABS_MUSIC') {
+      if (lyricsText) {
+        body.lyrics = lyricsText;
+      }
+
+      body.generationMeta = {
+        providerKey: selectedMusicProvider.key,
+        musicLengthMs: Math.round(normalizedMusicDuration * 1000),
+        forceInstrumental: isInstrumental,
+        outputFormat: 'mp3_44100_128',
+      };
+
+      if (lyricsText) {
+        body.generationMeta.lyrics = lyricsText;
+      }
     }
+
     submitGenerateMusicRequest(body);
   };
 
@@ -963,8 +986,8 @@ export default function VideoEditorToolbar(props) {
                 <input
                   type="number"
                   name="musicDuration"
-                  min="1"
-                  max="180"
+                  min={musicDurationMin}
+                  max={musicDurationMax}
                   value={musicDuration}
                   onChange={(e) => setMusicDuration(e.target.value)}
                   className={`w-full ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
@@ -979,6 +1002,16 @@ export default function VideoEditorToolbar(props) {
               className={`w-full h-24 ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
               minRows={3}
             />
+            {supportsMusicLyrics && !isInstrumental && (
+              <TextareaAutosize
+                name="lyricsText"
+                placeholder="Optional lyrics for the vocal track"
+                value={musicLyrics}
+                onChange={(e) => setMusicLyrics(e.target.value)}
+                className={`w-full h-24 mt-2 ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
+                minRows={3}
+              />
+            )}
             <div className="flex flex-row mt-2">
               <div className="basis-1/3 flex items-center">
                 <input
@@ -986,7 +1019,7 @@ export default function VideoEditorToolbar(props) {
                   name="isInstrumental"
                   checked={isInstrumental}
                   onChange={(e) => setIsInstrumental(e.target.checked)}
-                  disabled={selectedMusicProvider.key === 'AUDIOCRAFT'}
+                  disabled={musicProviderLocksInstrumental}
                 />
                 <div className={`inline-flex text-xs ${text2Color} ml-1`}>Instr</div>
               </div>

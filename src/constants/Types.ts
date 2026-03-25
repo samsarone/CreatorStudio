@@ -408,15 +408,35 @@ export const OPENAI_SPEAKER_TYPES = [
 export const MUSIC_PROVIDERS = [
   {
     name: 'CassetteAI',
-    key: 'CASSETTEAI'
+    key: 'CASSETTEAI',
+    minDurationSeconds: 1,
+    maxDurationSeconds: 180,
+    supportsLyrics: false,
+    locksInstrumental: false,
   },
   {
     name: 'AudioCraft',
-    key: 'AUDIOCRAFT'
+    key: 'AUDIOCRAFT',
+    minDurationSeconds: 1,
+    maxDurationSeconds: 180,
+    supportsLyrics: false,
+    locksInstrumental: true,
   },
   {
     name: 'Lyria 2',
-    key: 'LYRIA2'
+    key: 'LYRIA2',
+    minDurationSeconds: 1,
+    maxDurationSeconds: 180,
+    supportsLyrics: false,
+    locksInstrumental: false,
+  },
+  {
+    name: 'ElevenLabs Music',
+    key: 'ELEVENLABS_MUSIC',
+    minDurationSeconds: 3,
+    maxDurationSeconds: 600,
+    supportsLyrics: true,
+    locksInstrumental: false,
   },
 ]
 

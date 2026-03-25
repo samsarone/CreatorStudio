@@ -18,7 +18,7 @@ export default function LibraryHome(props) {
     switch (selectedOption) {
       case 'Image':
         return <ImageLibraryHome {...props} />;
-      case 'Music':
+      case 'Audio':
         return <MusicLibraryHome {...props} />;
       case 'Scenes':
         return <SceneLibraryHome {...props} onSelectVideo={onSelectVideo} />;
@@ -33,7 +33,7 @@ export default function LibraryHome(props) {
 
   const headings = {
     Image: 'Image Library',
-    Music: 'Music Library',
+    Audio: 'Audio Library',
     Scenes: 'Scene Library',
   };
 
@@ -56,7 +56,7 @@ export default function LibraryHome(props) {
 
         {/* Options */}
         <div className="flex space-x-2">
-          {['Image', 'Music', 'Scenes'].map((option) => (
+          {['Image', 'Audio', 'Scenes'].map((option) => (
             <button
               key={option}
               onClick={() => setSelectedOption(option)}

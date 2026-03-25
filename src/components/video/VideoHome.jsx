@@ -92,6 +92,23 @@ export default function VideoHome(props) {
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
   const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
 
+  const hasPendingFrameOrLayerGeneration = (sessionData) => {
+    if (!sessionData) {
+      return false;
+    }
+
+    if (sessionData.frameGenerationPending) {
+      return true;
+    }
+
+    const sessionLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
+    return sessionLayers.some((layer) => (
+      layer?.frameGenerationPending
+      || layer?.aiVideoFrameGenerationPending
+      || layer?.imageSession?.generationStatus === 'PENDING'
+    ));
+  };
+
 
 
 
@@ -518,14 +535,7 @@ export default function VideoHome(props) {
         totalDuration += layer.duration;
       });
       setTotalDuration(totalDuration);
-      let isLayerPending = false;
-      layers.forEach(layer => {
-        if (layer.imageSession && layer.imageSession.generationStatus === 'PENDING') {
-          isLayerPending = true;
-        }
-      });
-
-      setIsLayerGenerationPending(isLayerPending);
+      setIsLayerGenerationPending(hasPendingFrameOrLayerGeneration(sessionDetails));
       setGenerationImages(sessionDetails.generations);
       setSessionMessages(sessionDetails.sessionMessages);
     }).catch(function (err) {
@@ -697,35 +707,48 @@ export default function VideoHome(props) {
       axios.post(`${PROCESSOR_API_URL}/video_sessions/refresh_session_layers`, { id: id }, headers).then((dataRes) => {
         const frameResponse = dataRes.data;
         if (frameResponse) {
-          const newLayers = frameResponse.layers;
-          let layersUpdated = false;
-          let isGenerationPending = false;
-          let updatedLayers = [...layers];
+          const newLayers = Array.isArray(frameResponse.layers) ? frameResponse.layers : [];
+          const isGenerationPending = hasPendingFrameOrLayerGeneration(frameResponse);
+          let layersUpdated = newLayers.length !== layers.length;
 
-          for (let i = 0; i < newLayers.length; i++) {
-            if (!layers[i]) {
-              continue;
-            }
+          if (!layersUpdated) {
+            for (let i = 0; i < newLayers.length; i++) {
+              const prevLayer = layers[i];
+              const nextLayer = newLayers[i];
+              if (!prevLayer || !nextLayer) {
+                layersUpdated = true;
+                break;
+              }
 
-            if (layers[i].imageSession && layers[i].imageSession.generationStatus !== newLayers[i].imageSession.generationStatus) {
-              updatedLayers[i] = newLayers[i];
-              layersUpdated = true;
-            }
-            if (layers[i].imageSession && newLayers[i].imageSession.generationStatus === 'PENDING') {
-              isGenerationPending = true;
-            }
-          }
+              const didImageStatusChange =
+                prevLayer?.imageSession?.generationStatus !== nextLayer?.imageSession?.generationStatus;
+              const didFrameStatusChange =
+                prevLayer?.frameGenerationPending !== nextLayer?.frameGenerationPending
+                || prevLayer?.aiVideoFrameGenerationPending !== nextLayer?.aiVideoFrameGenerationPending;
+              const didFrameCountChange =
+                (Array.isArray(prevLayer?.frames) ? prevLayer.frames.length : 0)
+                !== (Array.isArray(nextLayer?.frames) ? nextLayer.frames.length : 0);
 
-          if (layersUpdated && currentLayer) {
-            setLayers(updatedLayers);
-            let isCurrentLayerPending = currentLayer.imageSession.generationStatus === 'PENDING';
-            if (isCurrentLayerPending) {
-              const newCurrentLayer = updatedLayers.find(layer => layer._id === currentLayer._id);
-              if (newCurrentLayer.imageSession.generationStatus === 'COMPLETED') {
-                // setCurrentLayer(newCurrentLayer);
+              if (didImageStatusChange || didFrameStatusChange || didFrameCountChange) {
+                layersUpdated = true;
+                break;
               }
             }
           }
+
+          if (layersUpdated) {
+            setLayers(newLayers);
+            setVideoSessionDetails(frameResponse);
+
+            if (currentLayer?._id) {
+              const refreshedCurrentLayer = newLayers.find((layer) => layer._id === currentLayer._id);
+              if (refreshedCurrentLayer) {
+                setCurrentLayer(refreshedCurrentLayer);
+              }
+            }
+          }
+
+          setIsLayerGenerationPending(isGenerationPending);
 
           if (!isGenerationPending) {
             clearInterval(timer);
@@ -1836,14 +1859,25 @@ export default function VideoHome(props) {
   };
 
   const submitRegenerateFrames = () => {
-
     const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
     axios.post(`${PROCESSOR_API_URL}/video_sessions/regenerate_frames`, { sessionId: id }, headers).then((response) => {
       const videoSessionData = response.data;
+      if (videoSessionData?.layers) {
+        setLayers(videoSessionData.layers);
+        setVideoSessionDetails(videoSessionData);
+      }
       toast.success(t("studio.notifications.framesRegenerationRequested"));
       setIsCanvasDirty(true);
       setIsVideoGenerating(false);
-
+      setIsLayerGenerationPending(true);
+      pollForLayersUpdate();
+    }).catch((error) => {
+      toast.error(error?.response?.data?.error || 'Failed to request frame regeneration');
     });
   }
 
