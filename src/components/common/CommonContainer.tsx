@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import TopNav from "./TopNav.tsx";
 import { AlertDialog } from "./AlertDialog.tsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
@@ -7,6 +7,47 @@ import { useColorMode } from "../../contexts/ColorMode.jsx";
 export default function CommonContainer(props) {
   const { children, isVideoPreviewPlaying, setIsVideoPreviewPlaying, downloadCurrentFrame, resetSession, isRenderPending } = props;
   const { colorMode } = useColorMode();
+
+  useEffect(() => {
+    if (typeof setIsVideoPreviewPlaying !== 'function') {
+      return undefined;
+    }
+
+    const shouldIgnoreSpaceToggle = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      const interactiveAncestor = target.closest(
+        'input, textarea, select, button, [contenteditable="true"], [role="textbox"]'
+      );
+
+      return Boolean(interactiveAncestor);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'Space') {
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      if (shouldIgnoreSpaceToggle(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      setIsVideoPreviewPlaying((previousValue: boolean) => !previousValue);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setIsVideoPreviewPlaying]);
 
   const resetCurrentSession = () => {
     if (resetSession) {

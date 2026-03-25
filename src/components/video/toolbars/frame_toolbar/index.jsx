@@ -386,6 +386,14 @@ export default function FrameToolbar(props) {
     colorMode === 'light'
       ? 'bg-slate-50 border border-slate-200'
       : 'bg-[#0f172a] border border-[#1f2a3d]';
+  const panelShellSurface =
+    colorMode === 'light'
+      ? 'bg-white/80 backdrop-blur-sm'
+      : 'bg-[#0b1224]/80 backdrop-blur-sm';
+  const panelBodySurface =
+    colorMode === 'light'
+      ? 'bg-white/80'
+      : 'bg-[#0b1224]/80';
   const bgSelectedColor =
     colorMode === 'light'
       ? 'bg-indigo-50 border border-indigo-200 shadow-lg'
@@ -3603,7 +3611,7 @@ export default function FrameToolbar(props) {
 
   return (
     <div
-      className={`shadow-lg m-auto fixed ${panelVerticalBoundsClass} ${containerWdidth} ${textColor}
+      className={`shadow-lg m-auto fixed ${panelVerticalBoundsClass} ${containerWdidth} ${textColor} ${panelShellSurface}
        text-left left-0 toolbar-container overflow-hidden`}
       aria-disabled={isRenderPending}
     >
@@ -3635,7 +3643,7 @@ export default function FrameToolbar(props) {
           </div>
         </div>
 
-        <div className='min-h-0 h-full w-full flex flex-row pl-1'>
+        <div className={`min-h-0 h-full w-full flex flex-row pl-1 ${panelBodySurface}`}>
           <div className='text-xs font-bold basis-1/4 min-h-0'>
             <div className='relative h-full min-h-0'>
               {/* Previous and Next buttons */}
