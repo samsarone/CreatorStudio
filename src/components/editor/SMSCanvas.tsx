@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useState, useRef } from "react";
-import { Stage, Layer, Group, Line, Circle } from 'react-konva';
+import { Stage, Layer, Group, Line } from 'react-konva';
 import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import ResizableImage from "./ResizableImage.tsx";
 import ResizableText from "./ResizableText.tsx";
@@ -11,15 +11,11 @@ import ResizableDialogBubble from "./shapes/ResizableDialogBubble.tsx";
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { FaChevronCircleDown, FaChevronCircleUp } from "react-icons/fa";
 import ImageToolbar from './utils/LayerToolbar/ImageToolbar.jsx';
-import TextToolbar from './utils/LayerToolbar/TextToolbar.jsx';
-import ShapeToolbar from './utils/LayerToolbar/ShapeToolbar.jsx';
 import SimpleImage from "./items/SimpleImage.jsx";
-
-const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
 
 const SELECTABLE_TYPES = ['SHOW_DEFAULT_DISPLAY', 'SHOW_CURSOR_SELECT_DISPLAY'];
 const SMSCanvas = forwardRef((props: any, ref: any) => {
-  const { sessionDetails, activeItemList, setActiveItemList, currentView, editBrushWidth,
+  const { activeItemList, setActiveItemList, currentView, editBrushWidth,
     editMasklines, setEditMaskLines, currentCanvasAction,
     setSelectedId, selectedId, buttonPositions, setButtonPositions,
     selectedLayerType, setSelectedLayerType, applyFilter, onChange,
@@ -33,7 +29,6 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
   const [isPainting, setIsPainting] = useState(false);
   const [showPencil, setShowPencil] = useState(false);
   const [pencilLines, setPencilLines] = useState([]);
-  const [eraserLines, setEraserLines] = useState([]);
 
   const [eraserLayer, setEraserLayer] = useState(null);
 
@@ -153,7 +148,7 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
     };
   }, []);
 
-  if (currentView === currentView === CURRENT_TOOLBAR_VIEW.SHOW_ERASER) {
+  if (currentView === CURRENT_TOOLBAR_VIEW.SHOW_ERASER) {
     const stage = ref.current.getStage();
     const container = stage.container();
     container.style.cursor = generateCursor(eraserWidthRef.current);
@@ -238,7 +233,6 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
   useEffect(() => {
     if (previousViewRef.current === CURRENT_TOOLBAR_VIEW.SHOW_ERASER_DISPLAY && currentView !== CURRENT_TOOLBAR_VIEW.SHOW_ERASER_DISPLAY) {
       const stage = ref.current.getStage();
-      const layer0 = stage.children[0];
       const layer1 = stage.children[1];
 
       if (layer1) {
@@ -271,7 +265,6 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
   useEffect(() => {
     if (previousViewRef.current === CURRENT_TOOLBAR_VIEW.SHOW_PENCIL_DISPLAY && currentView !== CURRENT_TOOLBAR_VIEW.SHOW_PENCIL_DISPLAY) {
       const stage = ref.current.getStage();
-      const layer0 = stage.children[0];
       const pencilGroup = stage.findOne('#pencilGroup');
 
       if (pencilGroup) {
@@ -435,7 +428,7 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
 
           setHandlersForLayer(newEraserLayer);
 
-          newEraserLayer.on('mousedown', (e) => {
+          newEraserLayer.on('mousedown', () => {
             if (showEraserRef.current) {
               setHandlersForLayer(newEraserLayer);
             } else {
@@ -444,7 +437,7 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
           });
 
           function setHandlersForLayer(newEraserLayer) {
-            newEraserLayer.on('mousemove', (e) => {
+            newEraserLayer.on('mousemove', () => {
               const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
               const point = stage.getPointerPosition();
               const eraserShape = new Konva.Circle({
@@ -513,7 +506,7 @@ const SMSCanvas = forwardRef((props: any, ref: any) => {
     }
   };
 
-  const handleLayerMouseUp = (e) => {
+  const handleLayerMouseUp = () => {
     setIsPainting(false);
   };
 

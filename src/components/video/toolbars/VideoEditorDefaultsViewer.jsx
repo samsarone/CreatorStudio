@@ -3,7 +3,6 @@ import ace from 'ace-builds';
 import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
-import SecondaryButton from '../../common/SecondaryButton.tsx';
 import CommonButton from '../../common/CommonButton.tsx';
 import { cleanJsonTheme } from '../../../utils/web.jsx';
 import { MdExpand } from "react-icons/md";
@@ -44,8 +43,7 @@ export default function VideoEditorDefaultsViewer(props) {
     try {
       const parsed = JSON.parse(jsonString);
       return JSON.stringify(parsed, null, 2); 
-    } catch (e) {
-      
+    } catch {
       return jsonString; 
     }
   };
@@ -86,8 +84,7 @@ export default function VideoEditorDefaultsViewer(props) {
           // If no content, just set empty object or null
           setEditorData({});
         }
-      } catch (e) {
-        
+      } catch {
         alert("Unable to parse JSON for UI view. Reverting to JSON view.");
         setUiViewMode('json');
       }
@@ -111,7 +108,7 @@ export default function VideoEditorDefaultsViewer(props) {
       try {
         const parsed = JSON.parse(value);
         setEditorData(parsed);
-      } catch (e) {
+      } catch {
         // do nothing, invalid json will be handled on mode switch
       }
     }
@@ -174,8 +171,7 @@ export default function VideoEditorDefaultsViewer(props) {
         setEditorData(parsed);
         setUiViewMode('ui');
         localStorage.setItem('defaultUserThemeUIVideoMode', 'ui');
-      } catch (e) {
-        
+      } catch {
         alert("JSON is invalid, please fix before switching to UI mode.");
       }
     } else {
