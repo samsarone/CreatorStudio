@@ -563,7 +563,11 @@ export default function VideoEditorToolbar(props) {
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY) {
     if (currentLayer.hasLipSyncVideoLayer) {
       generateVideoDisplay = <VideoLipSyncOptionsViewer {...props} />;
-    } else if (currentLayer.userVideoGenerationPending) {
+    } else if (
+      currentLayer.userVideoGenerationPending
+      || currentLayer?.userVideoUploadTask?.status === 'UPLOADING'
+      || currentLayer?.userVideoUploadTask?.status === 'PROCESSING'
+    ) {
       generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
     } else if (currentLayer.hasUserVideoLayer && currentLayer.userVideoGenerationStatus === "COMPLETED") {
       generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
@@ -1094,6 +1098,7 @@ export default function VideoEditorToolbar(props) {
         audioOptionsDisplay = (
           <MusicSelectToolbar
             audioLayer={latestAudioLayer}
+            sessionDetails={sessionDetails}
             submitAddTrackToProject={submitAddTrackToProject}
             setCurrentCanvasAction={setCurrentCanvasAction}
           />

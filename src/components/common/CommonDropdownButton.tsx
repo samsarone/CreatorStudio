@@ -33,7 +33,9 @@ export default function CommonDropdownButton({
 
   // If isPending, show the spinner
   const pendingSpinner = isPending ? (
-    <FaSpinner className="animate-spin inline-flex ml-2" />
+    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+      <FaSpinner className="animate-spin" />
+    </span>
   ) : null;
 
   // Replicate the gradient styles from CommonButton
@@ -54,10 +56,10 @@ export default function CommonDropdownButton({
           onClick={onMainClick}
           disabled={isBtnDisabled}
           className={`
-            m-auto text-center min-w-16
+            relative m-auto inline-flex min-h-[42px] min-w-16 items-center justify-center text-center
             rounded-l-lg shadow-sm
             font-bold bg-gradient-to-r
-            px-3 py-2
+            px-3 py-2 whitespace-nowrap leading-none
             cursor-pointer
             disabled:opacity-50 disabled:cursor-not-allowed
             disabled:bg-gray-800 disabled:text-neutral-100
@@ -66,7 +68,9 @@ export default function CommonDropdownButton({
             ${extraClasses}
           `}
         >
-          {mainLabel}
+          <span className={`inline-flex items-center justify-center leading-none ${isPending ? "pr-5" : ""}`}>
+            {mainLabel}
+          </span>
           {pendingSpinner}
         </button>
 
@@ -74,7 +78,7 @@ export default function CommonDropdownButton({
         <Menu.Button
           disabled={isBtnDisabled}
           className={`
-            inline-flex items-center justify-center
+            inline-flex min-h-[42px] items-center justify-center
             rounded-r-lg
             px-2
             font-bold bg-gradient-to-r

@@ -42,6 +42,10 @@ const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
 const VIDEO_TASK_POLL_INTERVAL_MS = 1500;
 const USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
 
+function isActiveUserVideoUploadTask(task) {
+  return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
+}
+
 function isAbsoluteUrl(value) {
   return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
 }
@@ -227,6 +231,7 @@ export default function VideoEditorContainer(props) {
       || layer.lipSyncGenerationPending
       || layer.soundEffectGenerationPending
       || layer.userVideoGenerationPending
+      || isActiveUserVideoUploadTask(layer.userVideoUploadTask)
     );
   }, []);
 
@@ -234,6 +239,40 @@ export default function VideoEditorContainer(props) {
     const { url } = resolveLayerVideoState(layer);
     return Boolean(url) || layerHasPendingVideoTask(layer);
   }, [layerHasPendingVideoTask, resolveLayerVideoState]);
+
+  const syncCurrentLayerUserVideoUploadTask = useCallback((task, extraLayerPatch = {}) => {
+    if (!currentLayer?._id || !Array.isArray(layers)) {
+      return;
+    }
+
+    const currentLayerId = currentLayer._id.toString();
+    const updatedLayers = layers.map((layer) => {
+      if (layer?._id?.toString?.() !== currentLayerId) {
+        return layer;
+      }
+
+      return {
+        ...layer,
+        ...extraLayerPatch,
+        userVideoUploadTask: task,
+      };
+    });
+    const updatedLayerIndex = updatedLayers.findIndex(
+      (layer) => layer?._id?.toString?.() === currentLayerId
+    );
+
+    if (updatedLayerIndex === -1) {
+      return;
+    }
+
+    updateCurrentLayerAndLayerList(updatedLayers, updatedLayerIndex);
+    if (videoSessionDetails) {
+      setVideoSessionDetails({
+        ...videoSessionDetails,
+        layers: updatedLayers,
+      });
+    }
+  }, [currentLayer, layers, setVideoSessionDetails, updateCurrentLayerAndLayerList, videoSessionDetails]);
 
   // On each currentLayer change, figure out which AI video layer to use
   useEffect(() => {
@@ -247,14 +286,17 @@ export default function VideoEditorContainer(props) {
 
     const { url, type } = resolveLayerVideoState(currentLayer);
     setAiVideoLayer(url);
-    setAiVideoLayerType(type);
+    setAiVideoLayerType(type || (isActiveUserVideoUploadTask(currentLayer?.userVideoUploadTask) ? 'user_video' : null));
     setIsAIVideoGenerationPending(layerHasPendingVideoTask(currentLayer));
 
     if (currentLayer.lipSyncGenerationPending) {
       setAiVideoPollType('lip_sync');
     } else if (currentLayer.soundEffectGenerationPending) {
       setAiVideoPollType('sound_effect');
-    } else if (currentLayer.userVideoGenerationPending) {
+    } else if (
+      currentLayer.userVideoGenerationPending
+      || currentLayer?.userVideoUploadTask?.status === 'PROCESSING'
+    ) {
       setAiVideoPollType('user_video');
     } else if (currentLayer.aiVideoGenerationPending && currentLayer.layerAiVideoType === 'ai_video') {
       setAiVideoPollType('ai_video');
@@ -616,6 +658,19 @@ export default function VideoEditorContainer(props) {
 
       setAiVideoPollType(null);
       setIsAIVideoGenerationPending(true);
+      syncCurrentLayerUserVideoUploadTask({
+        uploadId,
+        status: 'UPLOADING',
+        fileName: resolvedFileName,
+        totalChunks,
+        uploadedChunks: 0,
+        totalFileSize: file.size,
+        uploadedBytes: 0,
+        progressPercent: 0,
+        message: 'Uploading video to server.',
+      }, {
+        frameGenerationPending: true,
+      });
       closeAlertDialog();
 
       try {
@@ -635,30 +690,100 @@ export default function VideoEditorContainer(props) {
             `&totalFileSize=${encodeURIComponent(file.size)}` +
             `&fileName=${encodeURIComponent(resolvedFileName)}`;
 
-          response = await axios.post(chunkRequestUrl, chunk, {
+          syncCurrentLayerUserVideoUploadTask({
+            uploadId,
+            status: 'UPLOADING',
+            fileName: resolvedFileName,
+            totalChunks,
+            uploadedChunks: chunkIndex,
+            totalFileSize: file.size,
+            uploadedBytes: chunkStart,
+            progressPercent: file.size > 0 ? Math.round((chunkStart / file.size) * 100) : 0,
+            message: 'Uploading video to server.',
+          }, {
+            frameGenerationPending: true,
+          });
+
+          const isLastChunk = chunkIndex === totalChunks - 1;
+          const responsePromise = axios.post(chunkRequestUrl, chunk, {
             ...headers,
             headers: {
               ...headers.headers,
               'Content-Type': file.type || 'video/mp4',
             },
           });
+
+          if (isLastChunk) {
+            pollForLayersUpdate();
+          }
+
+          response = await responsePromise;
+          const responseTask = response?.data?.task;
+          if (responseTask) {
+            syncCurrentLayerUserVideoUploadTask(responseTask, {
+              frameGenerationPending: true,
+              userVideoGenerationPending: responseTask.status === 'PROCESSING',
+            });
+          } else {
+            syncCurrentLayerUserVideoUploadTask({
+              uploadId,
+              status: 'UPLOADING',
+              fileName: resolvedFileName,
+              totalChunks,
+              uploadedChunks: chunkIndex + 1,
+              totalFileSize: file.size,
+              uploadedBytes: chunkEnd,
+              progressPercent: file.size > 0 ? Math.round((chunkEnd / file.size) * 100) : 0,
+              message: isLastChunk
+                ? 'Upload complete. Waiting for server processing.'
+                : 'Uploading video to server.',
+            }, {
+              frameGenerationPending: true,
+            });
+          }
         }
 
-        if (!response?.data?.session || !response?.data?.layer) {
+        if (
+          !response?.data?.session
+          && !response?.data?.layer
+          && !response?.data?.task
+          && response?.data?.status !== 'PENDING'
+          && response?.data?.complete !== true
+        ) {
           throw new Error('Video upload did not complete successfully.');
         }
 
-        const { session, layer, audioLayers: updatedAudioLayers } = response.data;
-        const updatedLayerIndex = session.layers.findIndex(
-          (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
-        );
+        const { session, layer, audioLayers: updatedAudioLayers, task: responseTask } = response.data;
+        if (session && layer) {
+          const updatedLayerIndex = session.layers.findIndex(
+            (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
+          );
 
-        setVideoSessionDetails(session);
-        updateCurrentLayerAndLayerList(session.layers, updatedLayerIndex);
-        setAudioLayers(updatedAudioLayers || session.audioLayers || []);
-        setActiveItemList(layer.imageSession?.activeItemList || []);
-        setIsCanvasDirty(true);
+          setVideoSessionDetails(session);
+          updateCurrentLayerAndLayerList(session.layers, updatedLayerIndex);
+          setAudioLayers(updatedAudioLayers || session.audioLayers || []);
+          setActiveItemList(layer.imageSession?.activeItemList || []);
+          setIsCanvasDirty(true);
+        } else {
+          syncCurrentLayerUserVideoUploadTask(responseTask || {
+            uploadId,
+            status: 'PROCESSING',
+            fileName: resolvedFileName,
+            totalChunks,
+            uploadedChunks: totalChunks,
+            totalFileSize: file.size,
+            uploadedBytes: file.size,
+            progressPercent: 100,
+            message: 'Upload complete. Processing video on server.',
+          }, {
+            frameGenerationPending: true,
+            userVideoGenerationPending: true,
+            userVideoUploadTaskId: response?.data?.taskId || null,
+          });
+        }
+
         setAiVideoPollType('user_video');
+        pollForLayersUpdate();
 
         toast.success(
           <div>
@@ -672,6 +797,10 @@ export default function VideoEditorContainer(props) {
       } catch (error) {
         setIsAIVideoGenerationPending(false);
         setAiVideoPollType(null);
+        syncCurrentLayerUserVideoUploadTask(null, {
+          userVideoGenerationPending: false,
+          userVideoUploadTaskId: null,
+        });
         const statusCode = error?.response?.status;
         const serverError =
           error?.response?.data?.error
@@ -708,10 +837,13 @@ export default function VideoEditorContainer(props) {
       currentLayer,
       id,
       layerHasAnyVideoArtefact,
+      layers,
+      pollForLayersUpdate,
       setActiveItemList,
       setAudioLayers,
       setIsCanvasDirty,
       setVideoSessionDetails,
+      syncCurrentLayerUserVideoUploadTask,
       updateCurrentLayerAndLayerList,
     ]
   );
@@ -2159,7 +2291,7 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestLipSyncToSpeech = (selectedModel) => {
-    if (currentLayer?.userVideoGenerationPending || currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer) {
+    if (layerHasAnyVideoArtefact(currentLayer)) {
       toast.error(
         <div>
           <FaTimes /> Remove the uploaded or pending video before requesting lip sync.
@@ -2242,36 +2374,62 @@ export default function VideoEditorContainer(props) {
     });
   };
 
-  // Add selected AI video to layer
+  // Add selected video to layer
   const addSelectedAiVideoToLayer = (payload) => {
-
-
-
     setIsSelectButtonDisabled(true);
-    const { video, trimScene, model } = payload;
 
-
-    const videoURL = video.url;
-
-    const requestPayload = {
-      sessionId: id,
-      videoURL,
-      trimScene,
-      layerId: currentLayer._id.toString(),
-      videoModel: video.model,
-      audioPrompt: video.audioPrompt,
-    };
+    const selectedVideo = payload?.videoItem || payload?.video;
+    const trimScene = Boolean(payload?.trimScene);
+    const sourceType = typeof selectedVideo?.sourceType === 'string'
+      ? selectedVideo.sourceType
+      : 'ai_video';
     const headers = getHeaders();
+
     if (!headers) {
       showLoginDialog();
       setIsSelectButtonDisabled(false);
       return;
     }
+
+    const isLibraryImport = sourceType !== 'ai_video';
+    const requestUrl = isLibraryImport
+      ? `${PROCESSOR_API_URL}/video_sessions/add_video_from_library`
+      : `${PROCESSOR_API_URL}/video_sessions/add_ai_video_layer`;
+    const requestPayload = isLibraryImport
+      ? {
+        sessionId: id,
+        layerId: currentLayer._id.toString(),
+        trimScene,
+        videoItem: selectedVideo,
+      }
+      : {
+        sessionId: id,
+        videoURL: selectedVideo?.url,
+        trimScene,
+        layerId: currentLayer._id.toString(),
+        videoModel: selectedVideo?.model,
+        audioPrompt: selectedVideo?.audioPrompt,
+      };
+
     axios
-      .post(`${PROCESSOR_API_URL}/video_sessions/add_ai_video_layer`, requestPayload, headers)
+      .post(requestUrl, requestPayload, headers)
       .then((dataRes) => {
         const response = dataRes.data;
+        const { session, layer, audioLayers: updatedAudioLayers } = response;
+        const newLayers = Array.isArray(session?.layers) ? session.layers : [];
+        const currentLayerIndex = newLayers.findIndex(
+          (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
+        );
+
         setIsSelectButtonDisabled(false);
+        setVideoSessionDetails(session);
+        setAudioLayers(updatedAudioLayers || session.audioLayers || []);
+        updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
+
+        const { url, type } = resolveLayerVideoState(layer);
+        setAiVideoLayerType(type || sourceType);
+        setAiVideoLayer(url);
+
         toast.success(
           <div>
             <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.videoAddedToProject")}
@@ -2282,21 +2440,19 @@ export default function VideoEditorContainer(props) {
           }
         );
         resetImageLibrary();
-
-        const { session, layer } = response;
-        const newLayers = session.layers;
-        const currentLayerIndex = newLayers.findIndex(
-          (l) => l._id.toString() === layer._id.toString()
-        );
-        setVideoSessionDetails(session);
-        updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
-
-        const { url, type } = resolveLayerVideoState(layer);
-        setAiVideoLayerType(type);
-        setAiVideoLayer(url);
       })
-      .catch(() => {
+      .catch((error) => {
         setIsSelectButtonDisabled(false);
+        toast.error(
+          <div>
+            <FaTimes className='inline-flex mr-2' />
+            {error?.response?.data?.error || 'Unable to add the selected video.'}
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
       });
   };
 
@@ -2587,7 +2743,7 @@ export default function VideoEditorContainer(props) {
 
   // Submit new AI video request
   const submitGenerateNewAIVideoRequest = (requestConfig) => {
-    if (currentLayer?.userVideoGenerationPending || currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer) {
+    if (layerHasAnyVideoArtefact(currentLayer)) {
       toast.error(
         <div>
           <FaTimes /> Remove the uploaded or pending video before generating AI video.
@@ -2661,7 +2817,7 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestAddSyncedSoundEffect = (payload) => {
-    if (currentLayer?.userVideoGenerationPending || currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer) {
+    if (layerHasAnyVideoArtefact(currentLayer)) {
       toast.error(
         <div>
           <FaTimes /> Remove the uploaded or pending video before generating synced sound effects.

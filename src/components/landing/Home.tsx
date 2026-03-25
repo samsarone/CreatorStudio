@@ -29,6 +29,7 @@ import LoginPage from "../auth/pages/LoginPage.jsx";
 import ForgotPasswordPage from "../auth/pages/ForgotPasswordPage.jsx";
 import ResetPasswordPage from "../auth/pages/ResetPasswordPage.jsx";
 import RegisterPage from "../auth/pages/RegisterPage.jsx";
+import ExtensionAuthBridge from "../auth/ExtensionAuthBridge.jsx";
 import AdVideoCreatorContainer from "../advideo_creator/AdVideoCreatorContainer.jsx";
 import AdVideoCreator from "../advideo_creator/AdVideoCreator.jsx";
 
@@ -91,6 +92,7 @@ export default function Home() {
       '/reset_password',
       '/verify',
       '/verify_email',
+      '/extension-auth',
       '/payment_success',
       '/payment_cancel',
       '/create_payment',
@@ -226,6 +228,7 @@ export default function Home() {
         <Route path="/forgot_password" element={<ForgotPasswordPage />} />
 
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/extension-auth" element={<ExtensionAuthBridge />} />
         <Route path="/vidgenie" element={<OneshotEditorContainer />} />
         <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
         <Route path="/adcreator" element={<AdVideoCreatorContainer />} />

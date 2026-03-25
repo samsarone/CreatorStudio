@@ -28,6 +28,10 @@ import 'react-toastify/dist/ReactToastify.css';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
+function isActiveUserVideoUploadTask(task) {
+  return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
+}
+
 export default function VideoHome(props) {
   const [videoSessionDetails, setVideoSessionDetails] = useState(null);
   const [selectedLayerIndex, setSelectedLayerIndex] = useState(0);
@@ -109,6 +113,12 @@ export default function VideoHome(props) {
       layer?.frameGenerationPending
       || layer?.aiVideoFrameGenerationPending
       || layer?.imageSession?.generationStatus === 'PENDING'
+      || layer?.aiVideoGenerationPending
+      || layer?.lipSyncGenerationPending
+      || layer?.soundEffectGenerationPending
+      || layer?.userVideoGenerationPending
+      || layer?.videoEditPending
+      || isActiveUserVideoUploadTask(layer?.userVideoUploadTask)
     ));
   };
 
@@ -516,9 +526,45 @@ export default function VideoHome(props) {
 
   useEffect(() => {
     if (videoSessionDetails) {
-      setApplyAudioDucking(videoSessionDetails.applyAudioDucking);
+      const defaultApplyAudioDucking = localStorage.getItem("applyAudioDucking") !== 'false';
+      const resolvedApplyAudioDucking = typeof videoSessionDetails.applyAudioDucking === 'boolean'
+        ? videoSessionDetails.applyAudioDucking
+        : defaultApplyAudioDucking;
+      setApplyAudioDucking(resolvedApplyAudioDucking);
     }
   }, [videoSessionDetails]);
+
+  const handleApplyAudioDuckingChange = (nextValue) => {
+    const resolvedValue = Boolean(nextValue);
+    localStorage.setItem("applyAudioDucking", resolvedValue ? 'true' : 'false');
+    setApplyAudioDucking(resolvedValue);
+    setVideoSessionDetails((prevDetails) => {
+      if (!prevDetails) {
+        return prevDetails;
+      }
+
+      return {
+        ...prevDetails,
+        applyAudioDucking: resolvedValue,
+      };
+    });
+
+    if (isGuestSession) {
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      return;
+    }
+
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_defaults`, {
+      sessionId: id,
+      defaults: {
+        applyAudioDucking: resolvedValue,
+      },
+    }, headers).catch(() => {});
+  };
 
   useEffect(() => {
     const headers = getHeaders();
@@ -534,10 +580,19 @@ export default function VideoHome(props) {
       setVideoSessionDetails(sessionDetails);
       setIsGuestSession(sessionDetails.isGuestSession);
       const layers = sessionDetails.layers;
+      const initialLayerIndex = Math.max(
+        0,
+        layers.findIndex((layer) => (
+          isActiveUserVideoUploadTask(layer?.userVideoUploadTask)
+          || layer?.userVideoGenerationPending
+          || layer?.videoEditPending
+        ))
+      );
       setLayers(layers);
-      setCurrentLayer(layers[0]);
-      setSelectedLayerIndex(0);
+      setCurrentLayer(layers[initialLayerIndex] || layers[0]);
+      setSelectedLayerIndex(initialLayerIndex);
       setAspectRatio(sessionDetails.aspectRatio);
+      setAudioLayers(sessionDetails.audioLayers || []);
 
       if (sessionDetails.videoGenerationPending) {
         setIsVideoGenerating(true);
@@ -754,8 +809,28 @@ export default function VideoHome(props) {
               const didFrameStatusChange =
                 prevLayer?.frameGenerationPending !== nextLayer?.frameGenerationPending
                 || prevLayer?.aiVideoFrameGenerationPending !== nextLayer?.aiVideoFrameGenerationPending;
+              const didVideoTaskChange =
+                prevLayer?.aiVideoGenerationPending !== nextLayer?.aiVideoGenerationPending
+                || prevLayer?.lipSyncGenerationPending !== nextLayer?.lipSyncGenerationPending
+                || prevLayer?.soundEffectGenerationPending !== nextLayer?.soundEffectGenerationPending
+                || prevLayer?.userVideoGenerationPending !== nextLayer?.userVideoGenerationPending
+                || prevLayer?.videoEditPending !== nextLayer?.videoEditPending
+                || prevLayer?.videoEditStatus !== nextLayer?.videoEditStatus
+                || prevLayer?.videoEditError !== nextLayer?.videoEditError
+                || prevLayer?.videoEditTaskId !== nextLayer?.videoEditTaskId
+                || prevLayer?.videoEditTaskMessage !== nextLayer?.videoEditTaskMessage
+                || JSON.stringify(prevLayer?.videoEditPendingOperations || [])
+                  !== JSON.stringify(nextLayer?.videoEditPendingOperations || [])
+                || prevLayer?.userVideoGenerationStatus !== nextLayer?.userVideoGenerationStatus
+                || prevLayer?.userVideoLayer !== nextLayer?.userVideoLayer
+                || prevLayer?.userVideoGenerationError !== nextLayer?.userVideoGenerationError
+                || prevLayer?.userVideoUploadTaskId !== nextLayer?.userVideoUploadTaskId
+                || prevLayer?.userVideoUploadTask?.status !== nextLayer?.userVideoUploadTask?.status
+                || prevLayer?.userVideoUploadTask?.uploadedBytes !== nextLayer?.userVideoUploadTask?.uploadedBytes
+                || prevLayer?.userVideoUploadTask?.uploadedChunks !== nextLayer?.userVideoUploadTask?.uploadedChunks
+                || prevLayer?.userVideoUploadTask?.message !== nextLayer?.userVideoUploadTask?.message;
 
-              if (didImageStatusChange || didFrameStatusChange) {
+              if (didImageStatusChange || didFrameStatusChange || didVideoTaskChange) {
                 layersUpdated = true;
                 break;
               }
@@ -765,6 +840,10 @@ export default function VideoHome(props) {
           if (layersUpdated) {
             setLayers(newLayers);
             setVideoSessionDetails(frameResponse);
+            setAudioLayers(frameResponse.audioLayers || []);
+            if (Number.isFinite(frameResponse.totalDuration)) {
+              setTotalDuration(frameResponse.totalDuration);
+            }
 
             if (currentLayerRef.current?._id) {
               const refreshedCurrentLayer = newLayers.find(
@@ -805,24 +884,30 @@ export default function VideoHome(props) {
 
     const timer = setInterval(() => {
       axios.post(`${PROCESSOR_API_URL}/video_sessions/get_render_video_status`, { id: id }, headers).then((dataRes) => {
-        const renderData = dataRes.data;
+        const renderData = dataRes.data || {};
         const renderStatus = renderData.status;
-        if (renderStatus === 'COMPLETED') {
-          clearInterval(timer);
-          renderPollTimerRef.current = null;
-          const sessionData = renderData.session;
+        const sessionData = renderData.session;
 
-          let videoLink;
-          if (sessionData.remoteURL) {
-            videoLink = sessionData.remoteURL;
-          } else {
-            videoLink = `${PROCESSOR_API_URL}/${sessionData.videoLink}`;
-          }
+        if (sessionData) {
+          setVideoSessionDetails(sessionData);
+        }
 
+        if (renderStatus === 'PENDING') {
+          setIsVideoGenerating(true);
+          return;
+        }
+
+        clearInterval(timer);
+        renderPollTimerRef.current = null;
+        setIsVideoGenerating(false);
+
+        if (renderStatus === 'COMPLETED' && sessionData) {
+          const videoLink = sessionData.remoteURL
+            ? sessionData.remoteURL
+            : `${PROCESSOR_API_URL}/${sessionData.videoLink}`;
 
           setRenderedVideoPath(`${videoLink}`);
           setDownloadVideoDisplay(true);
-          setIsVideoGenerating(false);
           setIsCanvasDirty(false);
           setDownloadLink(videoLink);
           setRenderCompletedThisSession(true);
@@ -830,8 +915,24 @@ export default function VideoHome(props) {
             position: "bottom-center",
             className: "custom-toast",
           });
-
+          return;
         }
+
+        setVideoSessionDetails((prev) => {
+          if (!prev) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            videoGenerationPending: false,
+            expressGenerationPending: false,
+          };
+        });
+      }).catch(() => {
+        clearInterval(timer);
+        renderPollTimerRef.current = null;
+        setIsVideoGenerating(false);
       });
     }, 3000);
 
@@ -865,11 +966,92 @@ export default function VideoHome(props) {
     }
   }, [layers, selectedLayerIndex]);
 
+  const requestVideoLayerEdit = async ({ layerId, operations }) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return { success: false };
+    }
+
+    try {
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/request_video_layer_edit`,
+        {
+          sessionId: id,
+          layerId,
+          operations,
+        },
+        headers
+      );
+
+      const sessionData = response?.data?.session;
+      const updatedLayers = Array.isArray(sessionData?.layers) ? sessionData.layers : [];
+      const updatedLayer = updatedLayers.find(
+        (layer) => layer?._id?.toString?.() === layerId?.toString?.()
+      );
+
+      if (sessionData) {
+        setVideoSessionDetails(sessionData);
+        setLayers(updatedLayers);
+        setIsLayerGenerationPending(true);
+        if (updatedLayer) {
+          setCurrentLayer(updatedLayer);
+        }
+      }
+
+      pollForLayersUpdate();
+
+      toast.success(
+        <div>
+          <FaCheck className='inline-flex mr-2' /> Video edit queued
+        </div>,
+        {
+          position: "bottom-center",
+          className: "custom-toast",
+        }
+      );
+
+      return {
+        success: true,
+        session: sessionData,
+        layer: updatedLayer,
+      };
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Unable to queue the video edit.', {
+        position: "bottom-center",
+        className: "custom-toast",
+      });
+      return {
+        success: false,
+        error,
+      };
+    }
+  };
+
   const submitRenderVideo = () => {
+    if (isUpdateLayerPending) {
+      toast.error('Please wait for the scene update to finish before rendering.', {
+        position: "bottom-center",
+        className: "custom-toast",
+      });
+      return;
+    }
+    if (isLayerGenerationPending) {
+      toast.error('Wait for the current layer processing to finish before rendering.', {
+        position: "bottom-center",
+        className: "custom-toast",
+      });
+      return;
+    }
+
     setRenderCompletedThisSession(false);
+    const renderPayload = {
+      id,
+      applyAudioDucking,
+    };
 
     if (isGuestSession) {
-      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, { id: id }).then((dataRes) => {
+      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, renderPayload).then((dataRes) => {
         setIsVideoGenerating(true);
         startVideoRenderPoll();
       });
@@ -882,7 +1064,7 @@ export default function VideoHome(props) {
       }
 
 
-      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, { id: id }, headers).then((dataRes) => {
+      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, renderPayload, headers).then((dataRes) => {
         setIsVideoGenerating(true);
         startVideoRenderPoll();
       });
@@ -2097,7 +2279,7 @@ export default function VideoHome(props) {
       });
   }
 
-  const isVideoRenderPending = Boolean(isVideoGenerating);
+  const isVideoRenderPending = Boolean(isVideoGenerating || videoSessionDetails?.videoGenerationPending);
 
 
   const editorContainerDisplay = (
@@ -2216,6 +2398,7 @@ export default function VideoHome(props) {
           submitRegenerateFrames={submitRegenerateFrames}
           applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
           applyAudioDucking={applyAudioDucking}
+          onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
           applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
           applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
           applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
@@ -2232,8 +2415,10 @@ export default function VideoHome(props) {
           generateMeta={generateMeta}
           sessionMetadata={sessionMetadata}
           updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+          requestVideoLayerEdit={requestVideoLayerEdit}
           renderCompletedThisSession={renderCompletedThisSession}
           isRenderPending={isVideoRenderPending}
+          isUpdateLayerPending={isUpdateLayerPending}
           requestRealignLayers={requestRealignLayers}
           cancelPendingRender={cancelPendingRender}
           framesPerSecond={videoSessionDetails?.framesPerSecond || 24}
@@ -2317,6 +2502,7 @@ export default function VideoHome(props) {
               submitRegenerateFrames={submitRegenerateFrames}
               applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
               applyAudioDucking={applyAudioDucking}
+              onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
               applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
               applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
               applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
@@ -2330,8 +2516,10 @@ export default function VideoHome(props) {
               sessionMetadata={sessionMetadata}
               isGuestSession={isGuestSession}
               updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+              requestVideoLayerEdit={requestVideoLayerEdit}
               renderCompletedThisSession={renderCompletedThisSession}
               isRenderPending={isVideoRenderPending}
+              isUpdateLayerPending={isUpdateLayerPending}
               requestRealignLayers={requestRealignLayers}
               cancelPendingRender={cancelPendingRender}
               framesPerSecond={videoSessionDetails?.framesPerSecond || 24}

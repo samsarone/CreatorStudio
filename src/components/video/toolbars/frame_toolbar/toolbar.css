@@ -56,20 +56,39 @@
 
 /* src/components/util/DualThumbSlider.css */
 
-.dual-thumb-slider {
-  width: 60px;
+.dual-thumb-shell {
+  position: relative;
+  overflow: hidden;
+  align-items: stretch;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 0;
+}
 
+.dual-thumb-slider {
+  width: 30px;
+  height: calc(100% - 8px);
+  margin: 4px auto;
   display: flex;
   justify-content: center;
+  align-items: stretch;
+  overflow: visible;
+  position: relative;
+  box-sizing: border-box;
+  min-height: 0;
 }
 
 .dual-thumb-slider .thumb {
   background-color: #0b1021;
-  width: 30px; /* Adjust thumb width as needed */
-  height: 12px; /* Adjust thumb height as needed */
+  width: 28px; /* Adjust thumb width as needed */
+  height: 10px; /* Adjust thumb height as needed */
   cursor: pointer;
   border-radius: 50%;
-  position: relative;
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.65);
 }
 
 .dual-thumb-slider .thumb-0 {
@@ -84,8 +103,10 @@
 .dual-thumb-slider .track {
   background-color: grey;
   width: 10px; /* Adjust track width as needed */
-
-  position: relative;
+  height: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0 auto;
 }
 
 .time-ruler {
@@ -93,9 +114,12 @@
   flex-direction: column;
   justify-content: space-between;
   height: 100%;
+  min-height: 0;
   padding:  0;
   color: #fff; /* Adjust color based on your theme */
   width: 15px; /* Reduced width */
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .time-ruler-tick {
@@ -105,6 +129,7 @@
   text-align: right;
   width: 100%; /* Ensure the tick spans the full width of the time ruler */
   border-bottom: 1px solid #fff; /* Adjust color based on your theme */
+  box-sizing: border-box;
 }
 
 
@@ -189,6 +214,8 @@
 
 .layers-container {
   will-change: transform;
+  min-height: 0;
+  overflow: hidden;
 }
 
 
@@ -209,4 +236,111 @@
 .text-track-container { 
   min-width: 80%;
   display: inline-flex;
+  height: 100%;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.video-edit-range-track {
+  top: 50%;
+  height: 10px;
+  border-radius: 999px;
+  transform: translateY(-50%);
+  position: relative;
+}
+
+.video-edit-range-track-0,
+.video-edit-range-track-2 {
+  background: rgba(100, 116, 139, 0.3);
+}
+
+.video-edit-range-track-1 {
+  background: linear-gradient(90deg, rgba(34, 211, 238, 0.45) 0%, rgba(59, 130, 246, 0.42) 50%, rgba(99, 102, 241, 0.42) 100%);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+}
+
+.video-edit-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 50%, #6366f1 100%);
+  border: 2px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.38);
+  cursor: pointer;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.video-edit-rail-slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.video-edit-rail-track {
+  position: absolute;
+  left: 50%;
+  width: 14px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+}
+
+.video-edit-rail-track-0,
+.video-edit-rail-track-2 {
+  background: rgba(100, 116, 139, 0.2);
+}
+
+.video-edit-rail-track-1 {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.42) 0%, rgba(59, 130, 246, 0.42) 60%, rgba(99, 102, 241, 0.42) 100%);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.16);
+}
+
+.video-edit-rail-thumb {
+  position: relative;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  transform: translate(-50%, 0);
+  background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 50%, #6366f1 100%);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.38);
+  cursor: pointer;
+}
+
+.video-diamond-slider {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.video-diamond-track {
+  position: absolute;
+  left: 50%;
+  width: 8px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+}
+
+.video-diamond-track-0,
+.video-diamond-track-2 {
+  background: transparent;
+}
+
+.video-diamond-track-1 {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.38) 0%, rgba(59, 130, 246, 0.42) 55%, rgba(99, 102, 241, 0.4) 100%);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.18);
+}
+
+.video-diamond-thumb {
+  position: relative;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateX(-50%) rotate(45deg);
+  background: linear-gradient(135deg, #22d3ee 0%, #3b82f6 55%, #6366f1 100%);
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.36);
+  border-radius: 4px;
+  cursor: pointer;
 }

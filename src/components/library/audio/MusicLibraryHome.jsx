@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { FaCheck, FaCopy, FaDownload, FaPause, FaPlay } from 'react-icons/fa';
+import { FaCheck, FaCopy, FaDownload, FaPause, FaPlay, FaUpload } from 'react-icons/fa';
 import { getHeaders } from '../../../utils/web';
 import { useColorMode } from '../../../contexts/ColorMode';
 
@@ -16,6 +16,21 @@ const EMPTY_GLOBAL_ARTIFACTS = {
   speech: [],
   soundEffect: [],
 };
+
+function normalizeSessionId(value) {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+
+  if (value && typeof value.toString === 'function') {
+    const stringValue = value.toString();
+    if (typeof stringValue === 'string' && stringValue.trim()) {
+      return stringValue.trim();
+    }
+  }
+
+  return '';
+}
 
 function normalizeAudioLibraryType(generationType) {
   const normalizedGenerationType = typeof generationType === 'string'
@@ -138,6 +153,23 @@ function getDefaultDurationValue(item = {}) {
   return '5';
 }
 
+function getSessionEndTime(sessionDetails = {}) {
+  const sessionLayers = Array.isArray(sessionDetails?.layers) ? sessionDetails.layers : [];
+  const explicitEndTime = sessionLayers.reduce((maxEndTime, layer) => {
+    const layerDuration = Number(layer?.duration) || 0;
+    const layerOffset = Number(layer?.durationOffset) || 0;
+    return Math.max(maxEndTime, layerOffset + layerDuration);
+  }, 0);
+
+  if (explicitEndTime > 0) {
+    return explicitEndTime;
+  }
+
+  return sessionLayers.reduce((totalDuration, layer) => {
+    return totalDuration + (Number(layer?.duration) || 0);
+  }, 0);
+}
+
 function formatTimelineValue(value) {
   if (!Number.isFinite(value)) {
     return '--';
@@ -190,6 +222,59 @@ function mapSessionAudioLayerToLibraryItem(audioLayer, index, sessionDetails) {
     url: audioPath,
     tags: getItemTags(audioLayer, libraryType),
   };
+}
+
+function mapGeneratedMusicToProjectLibraryItem(generatedMusic, projectName, fallbackSessionId) {
+  const audioPath = resolveAudioPath(generatedMusic);
+  if (!audioPath) {
+    return null;
+  }
+
+  const sessionId = normalizeSessionId(generatedMusic?.sessionId) || normalizeSessionId(fallbackSessionId);
+  const generatedMusicItem = {
+    ...generatedMusic,
+    generationType: AUDIO_TYPE_MUSIC,
+  };
+
+  return {
+    ...generatedMusicItem,
+    _id: `generated_music:${generatedMusic?._id?.toString?.() || generatedMusic?._id || audioPath}`,
+    sessionId,
+    projectId: sessionId,
+    projectName: projectName || 'Current Project',
+    libraryType: AUDIO_TYPE_MUSIC,
+    title: getDisplayTitle(generatedMusicItem, AUDIO_TYPE_MUSIC),
+    description: typeof generatedMusic?.description === 'string' ? generatedMusic.description : '',
+    prompt: typeof generatedMusic?.prompt === 'string' ? generatedMusic.prompt : '',
+    url: audioPath,
+    localAudioLinks: Array.isArray(generatedMusic?.localAudioLinks) && generatedMusic.localAudioLinks.length > 0
+      ? generatedMusic.localAudioLinks
+      : [audioPath],
+    selectedLocalAudioLink: generatedMusic?.selectedLocalAudioLink || audioPath,
+    tags: getItemTags(generatedMusicItem, AUDIO_TYPE_MUSIC),
+  };
+}
+
+function dedupeProjectLibraryItems(items = []) {
+  const seenKeys = new Set();
+
+  return items.filter((item) => {
+    const libraryType = item?.libraryType || normalizeAudioLibraryType(item?.generationType);
+    const audioPath = resolveAudioPath(item) || item?.url || '';
+    const dedupeKey = [
+      normalizeSessionId(item?.sessionId) || normalizeSessionId(item?.projectId),
+      libraryType,
+      audioPath,
+      getDisplayTitle(item, libraryType),
+    ].join('|');
+
+    if (seenKeys.has(dedupeKey)) {
+      return false;
+    }
+
+    seenKeys.add(dedupeKey);
+    return true;
+  });
 }
 
 function matchesAudioSearch(item, searchTerm) {
@@ -247,6 +332,7 @@ export default function MusicLibraryHome({
   sessionId,
 }) {
   const [globalArtifacts, setGlobalArtifacts] = useState(EMPTY_GLOBAL_ARTIFACTS);
+  const [projectGeneratedMusicItems, setProjectGeneratedMusicItems] = useState([]);
   const [selectedScope, setSelectedScope] = useState(LIBRARY_SCOPE_PROJECT);
   const [selectedAudioType, setSelectedAudioType] = useState(AUDIO_TYPE_MUSIC);
   const [searchTerm, setSearchTerm] = useState('');
@@ -257,9 +343,13 @@ export default function MusicLibraryHome({
   const [globalLibraryError, setGlobalLibraryError] = useState('');
   const [addConfigByItemId, setAddConfigByItemId] = useState({});
   const [copiedPromptId, setCopiedPromptId] = useState(null);
+  const [isAudioUploadPending, setIsAudioUploadPending] = useState(false);
+  const [audioUploadError, setAudioUploadError] = useState('');
 
   const audioRef = useRef(new Audio());
+  const uploadInputRef = useRef(null);
   const { colorMode } = useColorMode();
+  const currentProjectName = getProjectName(sessionDetails);
 
   const textColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
   const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
@@ -275,54 +365,50 @@ export default function MusicLibraryHome({
   const iconColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-800';
   const sliderAccent = colorMode === 'dark' ? '#6366f1' : '#2563eb';
   const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
+  const sessionEndTime = getSessionEndTime(sessionDetails);
+
+  const fetchLibraryData = useCallback(async () => {
+    const headers = getHeaders();
+    if (!headers || !sessionId) {
+      setGlobalArtifacts(EMPTY_GLOBAL_ARTIFACTS);
+      setProjectGeneratedMusicItems([]);
+      setIsGlobalLibraryLoading(false);
+      return;
+    }
+
+    setIsGlobalLibraryLoading(true);
+    setGlobalLibraryError('');
+
+    try {
+      const response = await axios.get(
+        `${API_SERVER}/audio/user_music_library?sessionId=${encodeURIComponent(sessionId)}`,
+        headers
+      );
+
+      setGlobalArtifacts(response.data?.globalArtifacts || EMPTY_GLOBAL_ARTIFACTS);
+      const currentSessionId = normalizeSessionId(sessionId);
+      const projectItemsFromApi = Array.isArray(response.data?.projectItems)
+        ? response.data.projectItems
+        : [];
+      const fallbackCurrentSessionGeneratedItems = (Array.isArray(response.data?.items) ? response.data.items : [])
+        .filter((item) => normalizeSessionId(item?.sessionId) === currentSessionId)
+        .map((item) => mapGeneratedMusicToProjectLibraryItem(item, currentProjectName, currentSessionId))
+        .filter(Boolean);
+      setProjectGeneratedMusicItems(
+        projectItemsFromApi.length > 0 ? projectItemsFromApi : fallbackCurrentSessionGeneratedItems
+      );
+    } catch {
+      setGlobalArtifacts(EMPTY_GLOBAL_ARTIFACTS);
+      setProjectGeneratedMusicItems([]);
+      setGlobalLibraryError('Unable to load global audio artefacts.');
+    } finally {
+      setIsGlobalLibraryLoading(false);
+    }
+  }, [currentProjectName, sessionId]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchGlobalLibrary = async () => {
-      const headers = getHeaders();
-      if (!headers || !sessionId) {
-        if (isMounted) {
-          setGlobalArtifacts(EMPTY_GLOBAL_ARTIFACTS);
-          setIsGlobalLibraryLoading(false);
-        }
-        return;
-      }
-
-      setIsGlobalLibraryLoading(true);
-      setGlobalLibraryError('');
-
-      try {
-        const response = await axios.get(
-          `${API_SERVER}/audio/user_music_library?sessionId=${encodeURIComponent(sessionId)}`,
-          headers
-        );
-
-        if (!isMounted) {
-          return;
-        }
-
-        setGlobalArtifacts(response.data?.globalArtifacts || EMPTY_GLOBAL_ARTIFACTS);
-      } catch {
-        if (!isMounted) {
-          return;
-        }
-
-        setGlobalArtifacts(EMPTY_GLOBAL_ARTIFACTS);
-        setGlobalLibraryError('Unable to load global audio artefacts.');
-      } finally {
-        if (isMounted) {
-          setIsGlobalLibraryLoading(false);
-        }
-      }
-    };
-
-    fetchGlobalLibrary();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [sessionId]);
+    fetchLibraryData().catch(() => {});
+  }, [fetchLibraryData]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -354,9 +440,12 @@ export default function MusicLibraryHome({
   }, []);
 
   const sessionAudioLayers = Array.isArray(sessionDetails?.audioLayers) ? sessionDetails.audioLayers : [];
-  const projectItems = sessionAudioLayers
-    .map((audioLayer, index) => mapSessionAudioLayerToLibraryItem(audioLayer, index, sessionDetails))
-    .filter(Boolean);
+  const projectItems = dedupeProjectLibraryItems([
+    ...sessionAudioLayers
+      .map((audioLayer, index) => mapSessionAudioLayerToLibraryItem(audioLayer, index, sessionDetails))
+      .filter(Boolean),
+    ...projectGeneratedMusicItems,
+  ]);
 
   const filteredProjectItems = projectItems.filter((item) => (
     item.libraryType === selectedAudioType && matchesAudioSearch(item, searchTerm)
@@ -374,6 +463,84 @@ export default function MusicLibraryHome({
       items: (Array.isArray(group.items) ? group.items : []).filter((item) => matchesAudioSearch(item, searchTerm)),
     }))
     .filter((group) => group.items.length > 0);
+
+  const openUploadPicker = () => {
+    if (uploadInputRef.current) {
+      uploadInputRef.current.click();
+    }
+  };
+
+  const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Unable to read the selected MP3 file.'));
+    reader.readAsDataURL(file);
+  });
+
+  const uploadAudioFile = async (file) => {
+    if (!file || !sessionId) {
+      return;
+    }
+
+    const isMp3File = file.type === 'audio/mpeg' || /\.mp3$/i.test(file.name || '');
+    if (!isMp3File) {
+      setAudioUploadError('Only MP3 files are supported.');
+      return;
+    }
+
+    if (!(sessionEndTime > 0)) {
+      setAudioUploadError('Unable to determine the current video session duration.');
+      return;
+    }
+
+    setAudioUploadError('');
+    setIsAudioUploadPending(true);
+
+    try {
+      const dataURL = await readFileAsDataUrl(file);
+      const headers = getHeaders();
+      if (!headers) {
+        setAudioUploadError('You must be logged in to upload audio.');
+        setIsAudioUploadPending(false);
+        return;
+      }
+
+      const response = await axios.post(`${API_SERVER}/video_sessions/upload_audio_library_item`, {
+        sessionId,
+        dataURL,
+        fileName: file.name,
+      }, headers);
+
+      const uploadedItem = response?.data?.item;
+      if (uploadedItem) {
+        setProjectGeneratedMusicItems((currentItems) => (
+          dedupeProjectLibraryItems([uploadedItem, ...currentItems])
+        ));
+      }
+
+      setSelectedScope(LIBRARY_SCOPE_PROJECT);
+      setSelectedAudioType(AUDIO_TYPE_MUSIC);
+      await fetchLibraryData();
+    } catch (error) {
+      setAudioUploadError(
+        error?.response?.data?.error || 'Unable to upload the selected MP3 file.'
+      );
+    } finally {
+      setIsAudioUploadPending(false);
+      if (uploadInputRef.current) {
+        uploadInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAudioFileChange = async (event) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) {
+      return;
+    }
+
+    await uploadAudioFile(selectedFile);
+  };
 
   const handlePlayPause = (item) => {
     const audio = audioRef.current;
@@ -430,23 +597,32 @@ export default function MusicLibraryHome({
     return {
       startTime: currentConfig.startTime ?? '0',
       duration: currentConfig.duration ?? getDefaultDurationValue(item),
+      loopOverEntireSession: Boolean(currentConfig.loopOverEntireSession),
     };
   };
 
   const getValidatedAddConfig = (item) => {
     const currentConfig = getAddConfig(item);
     const startTime = Number(currentConfig.startTime);
-    const durationValue = Number(currentConfig.duration);
+    const shouldLoopOverEntireSession = item.libraryType === AUDIO_TYPE_MUSIC
+      && currentConfig.loopOverEntireSession === true;
+    const durationValue = shouldLoopOverEntireSession
+      ? sessionEndTime - startTime
+      : Number(currentConfig.duration);
+    const endTime = shouldLoopOverEntireSession ? sessionEndTime : startTime + durationValue;
     const isValid = Number.isFinite(startTime)
       && startTime >= 0
       && Number.isFinite(durationValue)
-      && durationValue > 0;
+      && durationValue > 0
+      && Number.isFinite(endTime)
+      && endTime > startTime;
 
     return {
       ...currentConfig,
       parsedStartTime: startTime,
       parsedDuration: durationValue,
-      endTime: isValid ? startTime + durationValue : null,
+      endTime: isValid ? endTime : null,
+      loopOverEntireSession: shouldLoopOverEntireSession,
       isValid,
     };
   };
@@ -456,6 +632,7 @@ export default function MusicLibraryHome({
       const existingItemConfig = previousConfigByItemId[item._id] || {
         startTime: '0',
         duration: getDefaultDurationValue(item),
+        loopOverEntireSession: false,
       };
 
       return {
@@ -477,6 +654,7 @@ export default function MusicLibraryHome({
     onSelectMusic(item, {
       startTime: validatedConfig.parsedStartTime,
       duration: validatedConfig.parsedDuration,
+      loopOverEntireSession: validatedConfig.loopOverEntireSession,
     });
   };
 
@@ -510,9 +688,17 @@ export default function MusicLibraryHome({
     const displayTitle = getDisplayTitle(item, item.libraryType);
     const addConfig = getAddConfig(item);
     const validatedAddConfig = getValidatedAddConfig(item);
+    const canLoopOverEntireSession = item.libraryType === AUDIO_TYPE_MUSIC
+      && Number.isFinite(sessionEndTime)
+      && sessionEndTime > 0;
+    const displayDurationValue = validatedAddConfig.loopOverEntireSession
+      ? (Number.isFinite(validatedAddConfig.parsedDuration)
+        ? `${Math.round(validatedAddConfig.parsedDuration * 1000) / 1000}`
+        : '')
+      : addConfig.duration;
 
     return (
-      <div key={item._id} className={`rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
+      <div key={item._id} className={`relative rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
         <div className="mb-3 flex items-center gap-2">
           <button
             className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
@@ -608,7 +794,7 @@ export default function MusicLibraryHome({
         )}
 
         {!hideSelectButton && (
-          <>
+          <div className="relative z-20">
             <div className="mt-4 grid grid-cols-3 gap-2">
               <label className="block">
                 <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Start</span>
@@ -628,8 +814,9 @@ export default function MusicLibraryHome({
                   type="number"
                   min="0.1"
                   step="0.1"
-                  value={addConfig.duration}
+                  value={displayDurationValue}
                   onChange={(e) => updateAddConfig(item, 'duration', e.target.value)}
+                  disabled={validatedAddConfig.loopOverEntireSession}
                   className={`w-full rounded-lg border ${borderColor} ${surfaceButton} px-3 py-2 text-sm focus:outline-none`}
                 />
               </label>
@@ -642,14 +829,25 @@ export default function MusicLibraryHome({
               </div>
             </div>
 
+            {canLoopOverEntireSession && (
+              <label className={`mt-3 flex items-center gap-2 text-sm ${mutedText}`}>
+                <input
+                  type="checkbox"
+                  checked={addConfig.loopOverEntireSession}
+                  onChange={(e) => updateAddConfig(item, 'loopOverEntireSession', e.target.checked)}
+                />
+                <span>Loop over entire session</span>
+              </label>
+            )}
+
             <button
-              className={`mt-4 w-full ${selectButtonBg} px-3 py-2 rounded-lg font-semibold shadow disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`relative z-30 mt-4 w-full ${selectButtonBg} px-3 py-2 rounded-lg font-semibold shadow-lg disabled:cursor-not-allowed disabled:opacity-60`}
               onClick={() => handleAddToProject(item)}
               disabled={!validatedAddConfig.isValid}
             >
               Add To Project
             </button>
-          </>
+          </div>
         )}
         {hideSelectButton && (
           <p className={`mt-3 text-xs ${mutedText}`}>Click play to preview and download.</p>
@@ -721,28 +919,72 @@ export default function MusicLibraryHome({
     );
   };
 
-  return (
-    <div className={`space-y-4 pb-32 md:pb-16 ${textColor}`}>
-      <div className={`rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm space-y-4`}>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+  const renderUploadPanel = () => {
+    if (hideSelectButton || selectedScope !== LIBRARY_SCOPE_PROJECT || selectedAudioType !== AUDIO_TYPE_MUSIC) {
+      return null;
+    }
+
+    return (
+      <div className={`rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <h2 className="text-lg font-semibold">Upload MP3</h2>
+            <p className={`mt-1 text-sm ${mutedText}`}>
+              MP3 only. Maximum duration: {formatTimelineValue(sessionEndTime)} seconds.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept=".mp3,audio/mpeg"
+              className="hidden"
+              onChange={handleAudioFileChange}
+            />
+            <button
+              type="button"
+              onClick={openUploadPicker}
+              disabled={isAudioUploadPending || !(sessionEndTime > 0)}
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 font-semibold ${selectButtonBg} disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <FaUpload />
+              {isAudioUploadPending ? 'Uploading...' : 'Upload MP3'}
+            </button>
+          </div>
+        </div>
+
+        {audioUploadError && (
+          <p className="mt-3 text-sm text-red-500">
+            {audioUploadError}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className={`space-y-4 pb-40 lg:pb-48 ${textColor}`}>
+      <div className={`rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm space-y-4`}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold">Audio Library</h1>
             <p className={`mt-1 text-sm ${mutedText}`}>
               {getScopeLabel(selectedScope)} {getAudioTypeLabel(selectedAudioType)} artefacts
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 xl:items-end">
+          <div className="flex flex-col gap-3 lg:min-w-0 lg:flex-row lg:items-center lg:justify-end lg:gap-2">
             <input
               type="text"
               placeholder="Search audio"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`min-w-[220px] xl:min-w-[280px] px-3 py-2 text-sm rounded-lg border ${borderColor} ${surfaceButton} focus:outline-none`}
+              className={`w-full min-w-0 sm:min-w-[220px] lg:w-[220px] xl:w-[280px] px-3 py-2 text-sm rounded-lg border ${borderColor} ${surfaceButton} focus:outline-none`}
             />
 
-            <div className="flex flex-wrap items-center gap-3 xl:justify-end">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:justify-end">
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
                 {[LIBRARY_SCOPE_PROJECT, LIBRARY_SCOPE_GLOBAL].map((scope) => (
                   <button
                     key={scope}
@@ -756,7 +998,7 @@ export default function MusicLibraryHome({
                 ))}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
                 {[AUDIO_TYPE_MUSIC, AUDIO_TYPE_SPEECH, AUDIO_TYPE_SOUND_EFFECT].map((audioType) => (
                   <button
                     key={audioType}
@@ -773,6 +1015,8 @@ export default function MusicLibraryHome({
           </div>
         </div>
       </div>
+
+      {renderUploadPanel()}
 
       {selectedScope === LIBRARY_SCOPE_PROJECT ? renderProjectContent() : renderGlobalContent()}
     </div>

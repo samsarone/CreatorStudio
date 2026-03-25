@@ -775,12 +775,21 @@ const VideoCanvas = forwardRef((props, ref) => {
       bgCanvasColor = '#F3F4F6';
     }
 
-  const pendingVideoTaskTitle = currentLayer?.userVideoGenerationPending
-    ? 'Processing uploaded video'
-    : 'Processing video task';
-  const pendingVideoTaskSubtitle = currentLayer?.userVideoGenerationPending
-    ? 'The server is normalizing frames and audio for this layer.'
-    : 'This can take a few minutes.';
+  const activeUserVideoUploadTask = currentLayer?.userVideoUploadTask || null;
+  const isUserVideoUploadActive = Boolean(
+    currentLayer?.userVideoGenerationPending
+    || activeUserVideoUploadTask?.status === 'UPLOADING'
+    || activeUserVideoUploadTask?.status === 'PROCESSING'
+  );
+  const pendingVideoTaskTitle = activeUserVideoUploadTask?.status === 'UPLOADING'
+    ? `Uploading video${Number.isFinite(activeUserVideoUploadTask?.progressPercent) ? ` (${activeUserVideoUploadTask.progressPercent}%)` : ''}`
+    : isUserVideoUploadActive
+      ? 'Processing uploaded video'
+      : 'Processing video task';
+  const pendingVideoTaskSubtitle = activeUserVideoUploadTask?.message
+    || (isUserVideoUploadActive
+      ? 'The server is normalizing the uploaded video for this layer.'
+      : 'This can take a few minutes.');
 
   return (
     <div className={`m-auto relative  ${textColor} pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0`}

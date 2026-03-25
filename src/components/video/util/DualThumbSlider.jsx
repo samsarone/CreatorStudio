@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactSlider from 'react-slider';
 
-export default function DualThumbSlider({ min, max, value, onChange }) {
+export default function DualThumbSlider({ min, max, value, onChange, onAfterChange }) {
   const [sliderValues, setSliderValues] = useState(() => (
     Array.isArray(value) ? value : [min, max]
   ));
@@ -10,19 +10,31 @@ export default function DualThumbSlider({ min, max, value, onChange }) {
   const sliderSpan = max - min;
   const safeMax = sliderSpan === 0 ? min + 1 : max;
 
-  const handleSliderChange = (values) => {
-    const sanitizedValues = Array.isArray(values)
+  const sanitizeValues = (values) => (
+    Array.isArray(values)
       ? values.map((val) => {
-          if (!Number.isFinite(val)) return min;
-          const clamped = Math.min(Math.max(val, min), max);
-          return sliderSpan === 0 ? min : clamped;
-        })
-      : values;
+        if (!Number.isFinite(val)) return min;
+        const clamped = Math.min(Math.max(val, min), max);
+        return sliderSpan === 0 ? min : clamped;
+      })
+      : values
+  );
 
+  const handleSliderChange = (values) => {
+    const sanitizedValues = sanitizeValues(values);
     setSliderValues(sanitizedValues);
 
     if (sliderSpan !== 0 && typeof onChange === 'function') {
       onChange(sanitizedValues);
+    }
+  };
+
+  const handleSliderAfterChange = (values) => {
+    const sanitizedValues = sanitizeValues(values);
+    setSliderValues(sanitizedValues);
+
+    if (sliderSpan !== 0 && typeof onAfterChange === 'function') {
+      onAfterChange(sanitizedValues);
     }
   };
 
@@ -52,7 +64,10 @@ export default function DualThumbSlider({ min, max, value, onChange }) {
       min={min}
       max={safeMax}
       value={displayValues}
+      minDistance={1}
+      pearling
       onChange={handleSliderChange}
+      onAfterChange={handleSliderAfterChange}
       renderThumb={(props) => {
         const { key, ...thumbProps } = props;
         return <div key={key} {...thumbProps} />;

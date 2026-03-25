@@ -21,7 +21,7 @@ export default function CommonContainer(props) {
       : 'bg-gradient-to-b from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb]';
 
   return (
-    <div className={`h-[100vh] overflow-hidden ${shellBg}`}>
+    <div className={`h-[100dvh] min-h-[100dvh] overflow-hidden ${shellBg}`}>
       <TopNav
         resetCurrentSession={resetCurrentSession}
         isVideoPreviewPlaying={isVideoPreviewPlaying}

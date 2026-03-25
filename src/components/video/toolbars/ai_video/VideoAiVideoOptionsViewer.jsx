@@ -31,8 +31,18 @@ export default function VideoAiVideoOptionsViewer(props) {
     { label: 'Mirelo AI', value: 'MIRELOAI' }
   ];
   const [selectedSoundEffectOption, setSelectedSoundEffectOption] = useState(soundEffectOptions[0]);
-  const isUserUploadPending = Boolean(currentLayer?.userVideoGenerationPending);
+  const currentUploadTask = currentLayer?.userVideoUploadTask || null;
+  const isUserUploadPending = Boolean(
+    currentLayer?.userVideoGenerationPending
+    || currentUploadTask?.status === 'UPLOADING'
+    || currentUploadTask?.status === 'PROCESSING'
+  );
   const isUserUploadedVideo = Boolean(currentLayer?.hasUserVideoLayer || currentLayer?.userVideoLayer);
+  const uploadStatusLabel = currentUploadTask?.status === 'UPLOADING'
+    ? `Uploading video${Number.isFinite(currentUploadTask?.progressPercent) ? ` (${currentUploadTask.progressPercent}%)` : ''}`
+    : 'Uploaded video is being processed for this layer.';
+  const uploadStatusMessage = currentUploadTask?.message
+    || 'The editor will refresh automatically when the background task finishes.';
 
   const handleDeleteLayer = () => {
     if (removeVideoLayer) {
@@ -90,10 +100,10 @@ export default function VideoAiVideoOptionsViewer(props) {
     return (
       <div className="flex flex-col items-center justify-center mt-2 mx-auto">
         <div className="mb-3 text-sm text-center">
-          Uploaded video is being processed for this layer.
+          {uploadStatusLabel}
         </div>
         <div className="mb-2 text-xs text-center opacity-80">
-          The editor will refresh automatically when the background task finishes.
+          {uploadStatusMessage}
         </div>
         <div className="mt-4 mb-2">
           <SecondaryButton

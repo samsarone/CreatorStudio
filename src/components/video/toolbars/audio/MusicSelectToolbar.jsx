@@ -3,9 +3,26 @@ import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 import { TOOLBAR_ACTION_VIEW } from '../../../../constants/Types.ts';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 
+function getSessionEndTime(sessionDetails = {}) {
+  const sessionLayers = Array.isArray(sessionDetails?.layers) ? sessionDetails.layers : [];
+  const explicitEndTime = sessionLayers.reduce((maxEndTime, layer) => {
+    const layerDuration = Number(layer?.duration) || 0;
+    const layerOffset = Number(layer?.durationOffset) || 0;
+    return Math.max(maxEndTime, layerOffset + layerDuration);
+  }, 0);
+
+  if (explicitEndTime > 0) {
+    return explicitEndTime;
+  }
+
+  return sessionLayers.reduce((totalDuration, layer) => {
+    return totalDuration + (Number(layer?.duration) || 0);
+  }, 0);
+}
+
 export default function MusicSelectToolbar(props) {
 
-  const { audioLayer, setCurrentCanvasAction, submitAddTrackToProject } = props;
+  const { audioLayer, sessionDetails, setCurrentCanvasAction, submitAddTrackToProject } = props;
 
   const [audioData, setAudioData] = useState([]);
 
@@ -45,6 +62,7 @@ export default function MusicSelectToolbar(props) {
       : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
 
   const latestLayer = audioData[audioData.length - 1];
+  const sessionEndTime = getSessionEndTime(sessionDetails);
   if (!latestLayer) {
     return;
   }
@@ -54,17 +72,19 @@ export default function MusicSelectToolbar(props) {
     const formData = new FormData(evt.target);
 
     const startTimestamp = Number(formData.get('track'));
+    const loopOverEntireSession = formData.get('loopOverEntireSession') === 'on';
  
     evt.preventDefault();
 
     const volume = Number(formData.get('volume'));
     let payload = {
       startTime: Number.isFinite(startTimestamp) ? startTimestamp : 0,
-      volume: Number.isFinite(volume) ? volume : 100
+      volume: Number.isFinite(volume) ? volume : 100,
+      loopOverEntireSession,
     }
 
     if (audioLayer.generationType === 'music') {
-      const parsedDuration = Number(audioLayer.duration);
+      const parsedDuration = Number(audioLayer.originalDuration ?? audioLayer.duration);
       const duration = Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 120;
       const endTime = payload.startTime + duration;
       payload = {
@@ -88,7 +108,7 @@ export default function MusicSelectToolbar(props) {
     if (layer.isOptionSelected) {
       optionsSelectDisplay = (
         <div className={`${panelSurface} mt-3 rounded-lg p-3`}>
-          <form onSubmit={(evt) => addTrackSubmit(evt, index)} className="grid grid-cols-3 gap-3 items-end">
+          <form onSubmit={(evt) => addTrackSubmit(evt, index)} className="grid grid-cols-1 gap-3 sm:grid-cols-4 items-end">
             <div>
               <input
                 type='number'
@@ -113,6 +133,21 @@ export default function MusicSelectToolbar(props) {
                 Volume
               </div>
             </div>
+            <label className="flex flex-col justify-center gap-2 text-sm">
+              <span className="text-xs text-center">Loop</span>
+              <div className="flex items-center justify-center gap-2">
+                <input
+                  type="checkbox"
+                  name="loopOverEntireSession"
+                />
+                <span>Entire Session</span>
+              </div>
+              {Number.isFinite(sessionEndTime) && sessionEndTime > 0 && (
+                <div className='text-[11px] text-center opacity-75'>
+                  Ends at {Math.round(sessionEndTime * 10) / 10}s
+                </div>
+              )}
+            </label>
             <SecondaryButton type="submit" className="w-full">
               Add
             </SecondaryButton>

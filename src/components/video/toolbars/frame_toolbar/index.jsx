@@ -33,6 +33,8 @@ import BatchPrompt from '../../util/BatchPrompt.jsx';
 import TextTrackDisplay from './text_toolbar/TextTrackDisplay.jsx';
 import VisualTrackDisplay from './visual_toolbar/VisualTrackDisplay.jsx';
 import SelectedVisualTrackDisplay from './visual_toolbar/SelectedVisualTrackDisplay.jsx';
+import VideoTrackDisplay from './video_toolbar/VideoTrackDisplay.jsx';
+import SelectedVideoTrackDisplay from './video_toolbar/SelectedVideoTrackDisplay.jsx';
 
 import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaEye } from 'react-icons/fa6';
@@ -43,6 +45,9 @@ import _ from 'lodash';
 const MAX_VISIBLE_LAYERS = 10;
 const MIN_LAYER_HEIGHT = 20; // in pixels
 const VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND = 30;
+const VIDEO_EDIT_DEFAULT_SPEED_MULTIPLIER = 1.5;
+const VIDEO_EDIT_MIN_SPEED_MULTIPLIER = 1.25;
+const VIDEO_EDIT_MAX_SPEED_MULTIPLIER = 8;
 
 function isVisualLayerItem(item) {
   return item?.type === 'image' || item?.type === 'shape';
@@ -129,6 +134,175 @@ function buildVisualTrackDisplayList(layers, framesPerSecond) {
   return visualTrackItems;
 }
 
+function getVideoTrackSourceMeta(layer = {}) {
+  if (layer?.lipSyncVideoLayer || layer?.hasLipSyncVideoLayer) {
+    return {
+      sourceType: 'lip_sync',
+      assetLabel: 'Lip sync video',
+      shortLabel: 'LS',
+    };
+  }
+
+  if (layer?.soundEffectVideoLayer || layer?.hasSoundEffectVideoLayer) {
+    return {
+      sourceType: 'sound_effect',
+      assetLabel: 'Sound FX video',
+      shortLabel: 'FX',
+    };
+  }
+
+  if (layer?.userVideoLayer || layer?.hasUserVideoLayer || layer?.userVideoGenerationPending) {
+    return {
+      sourceType: 'user_video',
+      assetLabel: 'Uploaded video',
+      shortLabel: 'UP',
+    };
+  }
+
+  if (layer?.aiVideoLayer || layer?.hasAiVideoLayer || layer?.aiVideoGenerationPending) {
+    return {
+      sourceType: 'ai_video',
+      assetLabel: 'AI video',
+      shortLabel: 'AI',
+    };
+  }
+
+  return null;
+}
+
+function buildVideoOperationDisplayList(operations = [], trackStartFrame = 0, displayFramesPerSecond = 30, status = 'draft') {
+  if (!Array.isArray(operations) || operations.length === 0) {
+    return [];
+  }
+
+  return operations.map((operation, index) => {
+    const startTime = Math.max(0, Number(operation?.startTime) || 0);
+    const endTime = Math.max(startTime + (1 / displayFramesPerSecond), Number(operation?.endTime) || 0);
+    const startFrame = trackStartFrame + Math.max(0, Math.round(startTime * displayFramesPerSecond));
+    const endFrame = trackStartFrame + Math.max(
+      startFrame + 1,
+      Math.round(endTime * displayFramesPerSecond),
+    );
+
+    return {
+      id: operation?.id || `${status}_${index}`,
+      type: typeof operation?.type === 'string' ? operation.type.toUpperCase() : 'REMOVE',
+      startTime,
+      endTime,
+      speedMultiplier: Number(operation?.speedMultiplier) > 1 ? Number(operation.speedMultiplier) : 1,
+      startFrame,
+      endFrame,
+      status,
+    };
+  });
+}
+
+function buildVideoTrackDisplayList(layers, displayFramesPerSecond = 30) {
+  if (!Array.isArray(layers) || layers.length === 0) {
+    return [];
+  }
+
+  return layers.flatMap((layer, layerIndex) => {
+    const sourceMeta = getVideoTrackSourceMeta(layer);
+    if (!sourceMeta) {
+      return [];
+    }
+
+    const trackStartFrame = Math.max(
+      0,
+      Math.round((Number(layer?.durationOffset) || 0) * displayFramesPerSecond)
+    );
+    const durationFrames = Math.max(
+      1,
+      Math.round((Number(layer?.duration) || 0) * displayFramesPerSecond)
+    );
+    const trackEndFrame = trackStartFrame + durationFrames;
+    const layerId = layer?._id?.toString?.() || `${layerIndex}`;
+    const pendingOperations = buildVideoOperationDisplayList(
+      layer?.videoEditPendingOperations,
+      trackStartFrame,
+      displayFramesPerSecond,
+      'pending'
+    );
+
+    return [{
+      layerId,
+      layerIndex,
+      trackKey: `video_${layerId}`,
+      assetLabel: sourceMeta.assetLabel,
+      shortLabel: sourceMeta.shortLabel,
+      sourceType: sourceMeta.sourceType,
+      startFrame: trackStartFrame,
+      endFrame: trackEndFrame,
+      startTime: trackStartFrame / displayFramesPerSecond,
+      endTime: trackEndFrame / displayFramesPerSecond,
+      duration: durationFrames / displayFramesPerSecond,
+      durationFrames,
+      videoEditPending: Boolean(layer?.videoEditPending),
+      videoEditStatus: layer?.videoEditStatus || 'INIT',
+      videoEditError: layer?.videoEditError || null,
+      videoEditTaskId: layer?.videoEditTaskId || null,
+      videoEditTaskMessage: layer?.videoEditTaskMessage || null,
+      pendingOperations,
+    }];
+  });
+}
+
+function buildLayerFrameMetadata(layers = [], displayFramesPerSecond = 30) {
+  let fallbackStartFrame = 0;
+
+  return layers.map((layer, index) => {
+    const durationFrames = Math.max(
+      1,
+      Math.round((Number(layer?.duration) || 0) * displayFramesPerSecond)
+    );
+    const configuredStartFrame = Number.isFinite(Number(layer?.durationOffset))
+      ? Math.max(0, Math.round(Number(layer.durationOffset) * displayFramesPerSecond))
+      : null;
+    const startFrame = configuredStartFrame ?? fallbackStartFrame;
+    const endFrame = startFrame + durationFrames;
+
+    fallbackStartFrame = endFrame;
+
+    return {
+      layer,
+      originalIndex: index,
+      startFrame,
+      endFrame,
+      durationFrames,
+    };
+  });
+}
+
+function clampVideoEditRange(rawRange, durationFrames) {
+  const safeDurationFrames = Math.max(1, Math.round(durationFrames) || 1);
+  const rawStartFrame = Array.isArray(rawRange) ? Math.round(Number(rawRange[0]) || 0) : 0;
+  const rawEndFrame = Array.isArray(rawRange) ? Math.round(Number(rawRange[1]) || 0) : safeDurationFrames;
+  const nextStartFrame = Math.min(Math.max(rawStartFrame, 0), safeDurationFrames - 1);
+  const nextEndFrame = Math.max(
+    nextStartFrame + 1,
+    Math.min(Math.max(rawEndFrame, 1), safeDurationFrames),
+  );
+
+  return [nextStartFrame, nextEndFrame];
+}
+
+function areVideoEditToolsEqual(leftTool, rightTool) {
+  if (!leftTool || !rightTool) {
+    return false;
+  }
+
+  if (leftTool.type !== rightTool.type) {
+    return false;
+  }
+
+  if (leftTool.type === 'SPEED') {
+    return Number(leftTool.speedMultiplier) === Number(rightTool.speedMultiplier);
+  }
+
+  return true;
+}
+
 export default function FrameToolbar(props) {
   const {
     layers,
@@ -155,6 +329,8 @@ export default function FrameToolbar(props) {
     updateChangesToActiveSessionLayers,
     downloadLink,
     submitRegenerateFrames,
+    applyAudioDucking,
+    onApplyAudioDuckingChange,
     selectedLayerIndex,
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
@@ -166,9 +342,12 @@ export default function FrameToolbar(props) {
     deleteLayerVisualItem,
     isGuestSession,
     updateAllAudioLayersOneShot,
+    requestVideoLayerEdit,
     isSessionPublished,
     renderCompletedThisSession,
     isRenderPending,
+    isCanvasDirty,
+    isUpdateLayerPending,
     framesPerSecond = 24,
 
   } = props;
@@ -193,13 +372,6 @@ export default function FrameToolbar(props) {
   );
 
 
-  const totalDuration = useMemo(() => {
-    if (layers && layers.length > 0) {
-      return layers.reduce((acc, layer) => acc + layer.duration, 0);
-    }
-    return 0;
-  }, [layers]);
-
   const { colorMode } = useColorMode();
 
   const bgColor =
@@ -221,15 +393,26 @@ export default function FrameToolbar(props) {
   const textColor = colorMode === 'light' ? 'text-slate-800' : 'text-slate-100';
   const borderColor = colorMode === 'light' ? 'border-slate-200' : 'border-[#1f2a3d]';
 
+  const totalDuration = useMemo(() => {
+    if (!Array.isArray(layers) || layers.length === 0) {
+      return 0;
+    }
+
+    return layers.reduce((maximumEndTime, layer) => {
+      const layerStart = Math.max(0, Number(layer?.durationOffset) || 0);
+      const layerDuration = Math.max(0, Number(layer?.duration) || 0);
+      return Math.max(maximumEndTime, layerStart + layerDuration);
+    }, 0);
+  }, [layers]);
   const [highlightBoundaries, setHighlightBoundaries] = useState({ start: 0, height: 0 });
   const totalDurationInFrames = Math.max(0, secondsToDisplayFrames(totalDuration));
   const disabledMenuClass = isRenderPending ? 'pending-disabled-shell' : '';
+  const layerFrameMetadata = useMemo(
+    () => buildLayerFrameMetadata(layers, DISPLAY_FRAMES_PER_SECOND),
+    [layers, DISPLAY_FRAMES_PER_SECOND]
+  );
 
   const [openPopupLayerIndex, setOpenPopupLayerIndex] = useState(null);
-
-  const [visibleStartTime, setVisibleStartTime] = useState(0);
-  const [visibleEndTime, setVisibleEndTime] = useState(totalDuration);
-
   const [, setClipStart] = useState(false);
   const [, setClipEnd] = useState(false);
 
@@ -241,6 +424,7 @@ export default function FrameToolbar(props) {
 
 
   const [showTextTrackAnimations, setShowTextTrackAnimations] = useState(false);
+  const [showVerticalWaveform, setShowVerticalWaveform] = useState(false);
 
   const [selectedAudioTrackDisplay, setSelectedAudioTrackDisplay] = useState(null);
   const [isPromptDropdownOpen, setIsPromptDropdownOpen] = useState(false);
@@ -250,12 +434,6 @@ export default function FrameToolbar(props) {
     width: 420,
   });
   const [promptCopyState, setPromptCopyState] = useState('idle');
-
-  const [effectiveVisibleDisplaySliderRange, setEffectiveVisibleDisplaySliderRange] = useState([
-    0,
-    totalDurationInFrames,
-  ]);
-
 
   const [currentLayerActionSuperView, setCurrentLayerActionSuperView] = useState("AUDIO");
 
@@ -455,6 +633,10 @@ export default function FrameToolbar(props) {
 
   const [audioTrackListDisplay, setAudioTrackListDisplay] = useState([]);
   const [visualTrackListDisplay, setVisualTrackListDisplay] = useState([]);
+  const [videoTrackListDisplay, setVideoTrackListDisplay] = useState([]);
+  const [videoEditDraftOperationsByLayer, setVideoEditDraftOperationsByLayer] = useState({});
+  const [videoEditRangeByLayer, setVideoEditRangeByLayer] = useState({});
+  const [videoActiveToolByLayer, setVideoActiveToolByLayer] = useState({});
 
   useEffect(() => {
 
@@ -517,6 +699,58 @@ export default function FrameToolbar(props) {
     });
   }, [layers, DISPLAY_FRAMES_PER_SECOND]);
 
+  useEffect(() => {
+    const nextVideoTracks = buildVideoTrackDisplayList(
+      layers,
+      DISPLAY_FRAMES_PER_SECOND,
+    );
+
+    setVideoTrackListDisplay((previousVideoTracks) => {
+      const previousTrackMap = new Map(
+        previousVideoTracks.map((track) => [track.layerId, track])
+      );
+
+      return nextVideoTracks.map((track) => ({
+        ...track,
+        isDisplaySelected: previousTrackMap.get(track.layerId)?.isDisplaySelected ?? false,
+      }));
+    });
+  }, [layers, DISPLAY_FRAMES_PER_SECOND]);
+
+  useEffect(() => {
+    const validLayerIds = new Set(videoTrackListDisplay.map((track) => track.layerId));
+
+    setVideoEditDraftOperationsByLayer((previousValue) => {
+      const nextValue = {};
+      Object.entries(previousValue || {}).forEach(([layerId, operations]) => {
+        if (validLayerIds.has(layerId)) {
+          nextValue[layerId] = operations;
+        }
+      });
+      return nextValue;
+    });
+
+    setVideoEditRangeByLayer((previousValue) => {
+      const nextValue = {};
+      Object.entries(previousValue || {}).forEach(([layerId, range]) => {
+        if (validLayerIds.has(layerId)) {
+          nextValue[layerId] = range;
+        }
+      });
+      return nextValue;
+    });
+
+    setVideoActiveToolByLayer((previousValue) => {
+      const nextValue = {};
+      Object.entries(previousValue || {}).forEach(([layerId, toolConfig]) => {
+        if (validLayerIds.has(layerId)) {
+          nextValue[layerId] = toolConfig;
+        }
+      });
+      return nextValue;
+    });
+  }, [videoTrackListDisplay]);
+
 
   const dirtyCount = useMemo(
     () => audioTrackListDisplay.filter((track) => track.isDirty).length,
@@ -536,6 +770,75 @@ export default function FrameToolbar(props) {
       ),
     [visualTrackListDisplay]
   );
+  const selectedVideoTrack = useMemo(
+    () =>
+      videoTrackListDisplay.find(
+        (videoTrack) => videoTrack.isDisplaySelected
+      ),
+    [videoTrackListDisplay]
+  );
+  const getDefaultVideoEditRangeForTrack = (track) => {
+    const maximumPreviewRange = Math.max(
+      1,
+      Math.round(DISPLAY_FRAMES_PER_SECOND * 1.5)
+    );
+    return [
+      0,
+      Math.min(
+        Math.max(1, track?.durationFrames || 1),
+        maximumPreviewRange,
+      ),
+    ];
+  };
+  const selectedVideoRangeFrames = useMemo(() => {
+    if (!selectedVideoTrack) {
+      return [0, 1];
+    }
+
+    const savedRange = videoEditRangeByLayer[selectedVideoTrack.layerId];
+    return clampVideoEditRange(
+      savedRange || getDefaultVideoEditRangeForTrack(selectedVideoTrack),
+      selectedVideoTrack.durationFrames,
+    );
+  }, [selectedVideoTrack, videoEditRangeByLayer]);
+  const selectedVideoDraftOperations = useMemo(() => {
+    if (!selectedVideoTrack) {
+      return [];
+    }
+    return Array.isArray(videoEditDraftOperationsByLayer[selectedVideoTrack.layerId])
+      ? videoEditDraftOperationsByLayer[selectedVideoTrack.layerId]
+      : [];
+  }, [selectedVideoTrack, videoEditDraftOperationsByLayer]);
+  const selectedVideoPendingOperations = useMemo(() => (
+    Array.isArray(selectedVideoTrack?.pendingOperations)
+      ? selectedVideoTrack.pendingOperations
+      : []
+  ), [selectedVideoTrack]);
+  const videoDraftDisplayByLayer = useMemo(() => {
+    const nextDraftMap = {};
+
+    videoTrackListDisplay.forEach((track) => {
+      const draftOperations = Array.isArray(videoEditDraftOperationsByLayer[track.layerId])
+        ? videoEditDraftOperationsByLayer[track.layerId]
+        : [];
+
+      nextDraftMap[track.layerId] = buildVideoOperationDisplayList(
+        draftOperations,
+        track.startFrame,
+        DISPLAY_FRAMES_PER_SECOND,
+        'draft'
+      );
+    });
+
+    return nextDraftMap;
+  }, [DISPLAY_FRAMES_PER_SECOND, videoEditDraftOperationsByLayer, videoTrackListDisplay]);
+  const selectedVideoActiveTool = useMemo(() => {
+    if (!selectedVideoTrack) {
+      return null;
+    }
+
+    return videoActiveToolByLayer[selectedVideoTrack.layerId] || null;
+  }, [selectedVideoTrack, videoActiveToolByLayer]);
 
   const resetPromptCopyState = () => {
     if (copyPromptTimeoutRef.current) {
@@ -770,7 +1073,6 @@ export default function FrameToolbar(props) {
     });
   };
 
-
   const onDragEnd = (result) => {
     setIsDragging(false);
     if (isRenderPending) {
@@ -789,6 +1091,11 @@ export default function FrameToolbar(props) {
     // Map visibleLayers indices to layers indices using unique IDs.
     const movedLayer = visibleLayers[sourceIndex];
     const destinationLayer = visibleLayers[destinationIndex];
+
+    if (!movedLayer || !destinationLayer) {
+      restoreSelectedLayerChrome();
+      return;
+    }
 
     const movedLayerIndexInLayers = layers.findIndex(
       (layer) => layer._id === movedLayer._id
@@ -836,30 +1143,27 @@ export default function FrameToolbar(props) {
 
 
 
-  // Memoize visibleLayers to prevent unnecessary re-renders
-  const visibleLayers = useMemo(() => {
-    // Compute cumulative start frames
-    const cumulativeStartFrames = [];
-    let totalFrames = 0;
-    layers.forEach((layer) => {
-      cumulativeStartFrames.push(totalFrames);
-      totalFrames += layer.duration * 30; // Convert to frames
-    });
-
-    // Find layers that overlap with selectedFrameRange
+  const allVisibleLayerMetadata = useMemo(() => {
     const [startFrame, endFrame] = selectedFrameRange;
 
-    const newVisibleLayers = [];
-    for (let i = 0; i < layers.length; i++) {
-      const layerStartFrame = cumulativeStartFrames[i];
-      const layerEndFrame = layerStartFrame + layers[i].duration * 30;
-      if (layerEndFrame > startFrame && layerStartFrame < endFrame) {
-        newVisibleLayers.push(layers[i]);
-      }
-    }
+    return layerFrameMetadata.filter((layerMeta) => (
+      layerMeta.endFrame > startFrame && layerMeta.startFrame < endFrame
+    ));
+  }, [layerFrameMetadata, selectedFrameRange]);
 
-    return newVisibleLayers;
-  }, [layers, selectedFrameRange]);
+  useEffect(() => {
+    setVisibleLayersStartIndex((previousIndex) => {
+      const maxStartIndex = Math.max(0, allVisibleLayerMetadata.length - MAX_VISIBLE_LAYERS);
+      return Math.min(previousIndex, maxStartIndex);
+    });
+  }, [allVisibleLayerMetadata.length]);
+
+  // Memoize visibleLayers to prevent unnecessary re-renders
+  const visibleLayers = useMemo(() => (
+    allVisibleLayerMetadata
+      .slice(visibleLayersStartIndex, visibleLayersStartIndex + MAX_VISIBLE_LAYERS)
+      .map((layerMeta) => layerMeta.layer)
+  ), [allVisibleLayerMetadata, visibleLayersStartIndex]);
 
 
   // Animation States
@@ -886,7 +1190,7 @@ export default function FrameToolbar(props) {
 
   // Compute whether we can navigate further
   const canGoPrev = visibleLayersStartIndex > 0;
-  const canGoNext = visibleLayersStartIndex + MAX_VISIBLE_LAYERS < layers.length;
+  const canGoNext = visibleLayersStartIndex + MAX_VISIBLE_LAYERS < allVisibleLayerMetadata.length;
 
   // Handle Previous Click
   const handlePrevClick = () => {
@@ -894,7 +1198,9 @@ export default function FrameToolbar(props) {
 
     const numLayersToMove = Math.min(3, visibleLayersStartIndex);
     const newStartIndex = visibleLayersStartIndex - numLayersToMove;
-    const newVisibleLayers = layers.slice(newStartIndex, newStartIndex + MAX_VISIBLE_LAYERS);
+    const newVisibleLayers = allVisibleLayerMetadata
+      .slice(newStartIndex, newStartIndex + MAX_VISIBLE_LAYERS)
+      .map((layerMeta) => layerMeta.layer);
 
     setIncomingVisibleLayers(newVisibleLayers);
     setAnimationDirection('prev');
@@ -907,10 +1213,12 @@ export default function FrameToolbar(props) {
 
     const numLayersToMove = Math.min(
       3,
-      layers.length - (visibleLayersStartIndex + MAX_VISIBLE_LAYERS)
+      allVisibleLayerMetadata.length - (visibleLayersStartIndex + MAX_VISIBLE_LAYERS)
     );
     const newStartIndex = visibleLayersStartIndex + numLayersToMove;
-    const newVisibleLayers = layers.slice(newStartIndex, newStartIndex + MAX_VISIBLE_LAYERS);
+    const newVisibleLayers = allVisibleLayerMetadata
+      .slice(newStartIndex, newStartIndex + MAX_VISIBLE_LAYERS)
+      .map((layerMeta) => layerMeta.layer);
 
     setIncomingVisibleLayers(newVisibleLayers);
     setAnimationDirection('next');
@@ -930,7 +1238,7 @@ export default function FrameToolbar(props) {
         updateHighlightBoundary(selectedLayerId);
       }
     }
-  }, [selectedLayerIndex, effectiveVisibleDisplaySliderRange,
+  }, [selectedLayerIndex, selectedFrameRange,
     frameToolbarView,
     layers,
 
@@ -1020,9 +1328,21 @@ export default function FrameToolbar(props) {
 
       const timer = setTimeout(() => {
         // After animation duration, update the visible layers
-        setVisibleLayersStartIndex((prevIndex) =>
-          animationDirection === 'next' ? prevIndex + 3 : prevIndex - 3
+        const nextVisibleLayersStartIndex = Math.max(
+          0,
+          animationDirection === 'next'
+            ? Math.min(
+              visibleLayersStartIndex + 3,
+              Math.max(0, allVisibleLayerMetadata.length - MAX_VISIBLE_LAYERS)
+            )
+            : Math.max(0, visibleLayersStartIndex - 3)
         );
+        const nextVisibleLayerWindow = allVisibleLayerMetadata.slice(
+          nextVisibleLayersStartIndex,
+          nextVisibleLayersStartIndex + MAX_VISIBLE_LAYERS
+        );
+
+        setVisibleLayersStartIndex(nextVisibleLayersStartIndex);
         setIsAnimating(false);
         setAnimationDirection(null);
         setIncomingVisibleLayers([]);
@@ -1034,25 +1354,19 @@ export default function FrameToolbar(props) {
         incomingLayersRef.current.style.transition = '';
 
         // Reset currentLayerSeek and selectedLayerIndex if out of range
-        const newSelectedIndex =
-          animationDirection === 'next'
-            ? visibleLayersStartIndex + 3
-            : visibleLayersStartIndex - 3;
+        const isSelectionStillVisible = nextVisibleLayerWindow.some(
+          (layerMeta) => layerMeta.originalIndex === selectedLayerIndex
+        );
+        const nextSelectedLayerMeta = nextVisibleLayerWindow[0] || null;
 
-        if (
-          selectedLayerIndex < newSelectedIndex ||
-          selectedLayerIndex >= newSelectedIndex + MAX_VISIBLE_LAYERS
-        ) {
-          setSelectedLayerIndex(newSelectedIndex);
-          setSelectedLayer(layers[newSelectedIndex]);
+        if (!isSelectionStillVisible && nextSelectedLayerMeta) {
+          setSelectedLayerIndex(nextSelectedLayerMeta.originalIndex);
+          setSelectedLayer(nextSelectedLayerMeta.layer);
         }
 
         // Adjust currentLayerSeek to the start of the new visible range
-        if (!isLayerSeeking) {
-          const visibleStartTime = layers
-            .slice(0, newSelectedIndex)
-            .reduce((acc, layer) => acc + layer.duration, 0);
-          setCurrentLayerSeek(Math.floor(visibleStartTime * 30));
+        if (!isLayerSeeking && nextSelectedLayerMeta) {
+          setCurrentLayerSeek(nextSelectedLayerMeta.startFrame);
         }
       }, 500); // Duration should match CSS transition duration
 
@@ -1062,8 +1376,8 @@ export default function FrameToolbar(props) {
     isAnimating,
     incomingVisibleLayers,
     animationDirection,
+    allVisibleLayerMetadata,
     visibleLayersStartIndex,
-    layers,
     selectedLayerIndex,
     setSelectedLayerIndex,
     setSelectedLayer,
@@ -1074,23 +1388,12 @@ export default function FrameToolbar(props) {
   useEffect(() => {
     const [startFrame, endFrame] = selectedFrameRange;
 
-
-    const visibleStartTime = startFrame / 30;
-    const visibleEndTime = endFrame / 30;
-
-    setEffectiveVisibleDisplaySliderRange([startFrame, endFrame]);
-
-    // Set visible start and end times in seconds
-    setVisibleStartTime(visibleStartTime);
-    setVisibleEndTime(visibleEndTime);
-
     // Adjust currentLayerSeek if it moves out of the new visible range
     if (!isLayerSeeking && (currentLayerSeek < startFrame || currentLayerSeek > endFrame)) {
       setCurrentLayerSeek(startFrame);
     }
 
-  }, [selectedFrameRange, currentLayerSeek, isLayerSeeking, isExpandedTrackView,
-    totalDurationInFrames, layers]);
+  }, [selectedFrameRange, currentLayerSeek, isLayerSeeking, setCurrentLayerSeek]);
 
 
 
@@ -1099,14 +1402,16 @@ export default function FrameToolbar(props) {
     const [startFrame, endFrame] = selectedFrameRange;
     let newEndFrame = endFrame;
 
-    // Ensure endFrame does not exceed totalDurationInFrames
-
-    newEndFrame = totalDurationInFrames;
+    if (endFrame <= 0 && totalDurationInFrames > 0) {
+      newEndFrame = totalDurationInFrames;
+    } else {
+      newEndFrame = Math.min(endFrame, totalDurationInFrames);
+    }
 
     // Optionally, ensure startFrame does not exceed newEndFrame
     let newStartFrame = startFrame;
-    if (newStartFrame > newEndFrame) {
-      newStartFrame = 0; // or set to newEndFrame, depending on your needs
+    if (newStartFrame >= newEndFrame) {
+      newStartFrame = Math.max(0, newEndFrame - 1);
     }
 
     if (newStartFrame !== startFrame || newEndFrame !== endFrame) {
@@ -1124,52 +1429,35 @@ export default function FrameToolbar(props) {
     showAudioTrackView();
   }
 
-  const previousSnappedStartFrameRef = useRef(selectedFrameRange[0]);
-  const previousSnappedEndFrameRef = useRef(selectedFrameRange[1]);
+  const normalizeViewRangeSelection = (rangeValues) => {
+    const safeMaximumFrame = Math.max(1, totalDurationInFrames);
+    const rawStartFrame = Array.isArray(rangeValues) ? Math.round(Number(rangeValues[0]) || 0) : 0;
+    const rawEndFrame = Array.isArray(rangeValues)
+      ? Math.round(Number(rangeValues[1]) || safeMaximumFrame)
+      : safeMaximumFrame;
+    const nextStartFrame = Math.min(Math.max(rawStartFrame, 0), Math.max(0, safeMaximumFrame - 1));
+    const nextEndFrame = Math.max(nextStartFrame + 1, Math.min(rawEndFrame, safeMaximumFrame));
+
+    return [nextStartFrame, nextEndFrame];
+  };
 
   const handleViewRangeSliderChange = (val) => {
-    // Precompute cumulative start and end frames
-    const cumulativeStartFrames = [];
-    const cumulativeEndFrames = [];
-    let totalFrames = 0;
+    const normalizedRange = normalizeViewRangeSelection(val);
 
-    layers.forEach(layer => {
-      cumulativeStartFrames.push(totalFrames);
-      totalFrames += layer.duration * 30; // Convert duration to frames
-      cumulativeEndFrames.push(totalFrames);
-    });
+    setSelectedFrameRange((previousRange) => (
+      previousRange[0] === normalizedRange[0] && previousRange[1] === normalizedRange[1]
+        ? previousRange
+        : normalizedRange
+    ));
+  };
 
-    // For val[0], find the cumulative start frame to snap to
-    const startFrame = val[0];
-    let snappedStartFrame = cumulativeStartFrames[0];
-    for (let i = 0; i < cumulativeStartFrames.length; i++) {
-      if (cumulativeStartFrames[i] <= startFrame) {
-        snappedStartFrame = cumulativeStartFrames[i];
-      } else {
-        break;
-      }
-    }
-
-    // For val[1], find the cumulative end frame to snap to
-    const endFrame = val[1];
-    let snappedEndFrame = cumulativeEndFrames[cumulativeEndFrames.length - 1];
-    for (let i = 0; i < cumulativeEndFrames.length; i++) {
-      if (cumulativeEndFrames[i] >= endFrame) {
-        snappedEndFrame = cumulativeEndFrames[i];
-        break;
-      }
-    }
-
-    // Update only if the snapped values have changed
-    if (
-      snappedStartFrame !== previousSnappedStartFrameRef.current ||
-      snappedEndFrame !== previousSnappedEndFrameRef.current
-    ) {
-      previousSnappedStartFrameRef.current = snappedStartFrame;
-      previousSnappedEndFrameRef.current = snappedEndFrame;
-
-      setSelectedFrameRange([snappedStartFrame, snappedEndFrame]);
-    }
+  const handleViewRangeSliderCommit = (val) => {
+    const normalizedRange = normalizeViewRangeSelection(val);
+    setSelectedFrameRange((previousRange) => (
+      previousRange[0] === normalizedRange[0] && previousRange[1] === normalizedRange[1]
+        ? previousRange
+        : normalizedRange
+    ));
   };
 
 
@@ -1752,8 +2040,8 @@ export default function FrameToolbar(props) {
 
   }
 
-  const viewRangeStart = effectiveVisibleDisplaySliderRange?.[0] ?? 0;
-  const viewRangeEnd = effectiveVisibleDisplaySliderRange?.[1] ?? 0;
+  const viewRangeStart = selectedFrameRange?.[0] ?? 0;
+  const viewRangeEnd = selectedFrameRange?.[1] ?? 0;
   const hasValidViewRange =
     Number.isFinite(viewRangeStart) &&
     Number.isFinite(viewRangeEnd) &&
@@ -1849,14 +2137,12 @@ export default function FrameToolbar(props) {
   }
 
   if (visibleLayers.length > 0) {
-    const totalVisibleDuration = visibleLayers.reduce(
-      (acc, layer) => acc + layer.duration,
-      0
-    );
-
-
     const renderLayers = (layersToRender, keyPrefix) => {
       const parentHeight = parentRef.current ? parentRef.current.clientHeight : 500; // Default height if null
+      const totalVisibleDuration = layersToRender.reduce(
+        (acc, layer) => acc + layer.duration,
+        0
+      );
 
       return layersToRender.map((layer, index) => {
         const originalIndex = layers.findIndex((l) => l._id === layer._id);
@@ -1997,16 +2283,10 @@ export default function FrameToolbar(props) {
     );
   };
 
-
-  const [showVerticalWaveform, setShowVerticalWaveform] = useState(false);
-
   const musicAudioLayer = audioLayers.find((layer) => layer.generationType === 'music');
 
-
-
   const audioLocalLink = musicAudioLayer ? musicAudioLayer.selectedLocalAudioLink : null;
-
-  const audioUrl = `${PROCESSOR_API_URL}/${audioLocalLink}`;
+  const audioUrl = audioLocalLink ? `${PROCESSOR_API_URL}/${audioLocalLink}` : null;
 
 
   const setAudioRangeSliderDisplayAsSelected = (selectedLayerId) => {
@@ -2048,6 +2328,263 @@ export default function FrameToolbar(props) {
         isDisplaySelected: track.trackKey === selectedTrackKey,
       }))
     );
+  };
+
+  const setVideoTrackDisplayAsSelected = (selectedLayerId) => {
+    const selectedTrack = videoTrackListDisplay.find((track) => track.layerId === selectedLayerId);
+
+    if (selectedTrack && Number.isInteger(selectedTrack.layerIndex)) {
+      setSelectedLayerIndex(selectedTrack.layerIndex);
+      setSelectedLayer(layers[selectedTrack.layerIndex]);
+      setCurrentLayerSeek(selectedTrack.startFrame);
+    }
+
+    setVideoTrackListDisplay((previousVideoTracks) =>
+      previousVideoTracks.map((track) => ({
+        ...track,
+        isDisplaySelected: track.layerId === selectedLayerId,
+      }))
+    );
+
+    setVideoEditRangeByLayer((previousValue) => {
+      if (previousValue[selectedLayerId]) {
+        return previousValue;
+      }
+
+      return {
+        ...previousValue,
+        [selectedLayerId]: clampVideoEditRange(
+          getDefaultVideoEditRangeForTrack(selectedTrack),
+          selectedTrack?.durationFrames,
+        ),
+      };
+    });
+
+  };
+
+  const updateSelectedVideoEditRange = (nextRange) => {
+    if (!selectedVideoTrack) {
+      return;
+    }
+
+    const clampedRange = clampVideoEditRange(
+      nextRange,
+      selectedVideoTrack.durationFrames,
+    );
+
+    setVideoEditRangeByLayer((previousValue) => ({
+      ...previousValue,
+      [selectedVideoTrack.layerId]: clampedRange,
+    }));
+  };
+
+  const applyVideoEditForTrack = async (track, toolConfig, rangeFrames) => {
+    if (
+      !track
+      || track.videoEditPending
+      || typeof requestVideoLayerEdit !== 'function'
+      || !toolConfig
+    ) {
+      return;
+    }
+
+    const [startFrame, endFrame] = clampVideoEditRange(
+      rangeFrames,
+      track.durationFrames,
+    );
+
+    const nextOperation = {
+      id: `video_edit_${Date.now()}_${Math.round(Math.random() * 100000)}`,
+      type: toolConfig.type,
+      startTime: startFrame / DISPLAY_FRAMES_PER_SECOND,
+      endTime: endFrame / DISPLAY_FRAMES_PER_SECOND,
+      speedMultiplier: toolConfig.type === 'SPEED'
+        ? Math.max(2, Number(toolConfig.speedMultiplier) || 2)
+        : 1,
+    };
+
+    await requestVideoLayerEdit({
+      layerId: track.layerId,
+      operations: [nextOperation],
+    });
+  };
+
+  const handleSelectedVideoToolChange = (toolConfig) => {
+    if (!selectedVideoTrack || !toolConfig) {
+      return;
+    }
+
+    setVideoActiveToolByLayer((previousValue) => {
+      const currentTool = previousValue[selectedVideoTrack.layerId] || null;
+
+      if (areVideoEditToolsEqual(currentTool, toolConfig)) {
+        const nextValue = { ...previousValue };
+        delete nextValue[selectedVideoTrack.layerId];
+        return nextValue;
+      }
+
+      return {
+        ...previousValue,
+        [selectedVideoTrack.layerId]: toolConfig,
+      };
+    });
+  };
+
+  const updateSelectedVideoSpeedMultiplier = (nextMultiplier) => {
+    if (!selectedVideoTrack) {
+      return;
+    }
+
+    const sanitizedMultiplier = Math.min(
+      VIDEO_EDIT_MAX_SPEED_MULTIPLIER,
+      Math.max(
+        VIDEO_EDIT_MIN_SPEED_MULTIPLIER,
+        Math.round((Number(nextMultiplier) || VIDEO_EDIT_DEFAULT_SPEED_MULTIPLIER) * 100) / 100
+      )
+    );
+
+    setVideoActiveToolByLayer((previousValue) => ({
+      ...previousValue,
+      [selectedVideoTrack.layerId]: {
+        type: 'SPEED',
+        speedMultiplier: sanitizedMultiplier,
+      },
+    }));
+  };
+
+  const handleSelectedVideoRangeCommit = (nextRange) => {
+    if (!selectedVideoTrack) {
+      return;
+    }
+
+    const clampedRange = clampVideoEditRange(
+      nextRange,
+      selectedVideoTrack.durationFrames,
+    );
+    updateSelectedVideoEditRange(clampedRange);
+  };
+
+  const queueSelectedVideoOperation = () => {
+    if (!selectedVideoTrack || selectedVideoTrack.videoEditPending) {
+      return {
+        success: false,
+        error: 'Wait for the current video update to finish before staging another change.',
+      };
+    }
+
+    if (!selectedVideoActiveTool) {
+      return {
+        success: false,
+        error: 'Choose a video action first.',
+      };
+    }
+
+    const [startFrame, endFrame] = selectedVideoRangeFrames;
+    if (endFrame <= startFrame) {
+      return {
+        success: false,
+        error: 'Select a valid range first.',
+      };
+    }
+
+    const nextOperation = {
+      id: `video_edit_${Date.now()}_${Math.round(Math.random() * 100000)}`,
+      type: selectedVideoActiveTool.type,
+      startTime: startFrame / DISPLAY_FRAMES_PER_SECOND,
+      endTime: endFrame / DISPLAY_FRAMES_PER_SECOND,
+      speedMultiplier: selectedVideoActiveTool.type === 'SPEED'
+        ? Math.max(
+          VIDEO_EDIT_MIN_SPEED_MULTIPLIER,
+          Number(selectedVideoActiveTool.speedMultiplier) || VIDEO_EDIT_DEFAULT_SPEED_MULTIPLIER
+        )
+        : 1,
+    };
+
+    const existingOperations = Array.isArray(videoEditDraftOperationsByLayer[selectedVideoTrack.layerId])
+      ? videoEditDraftOperationsByLayer[selectedVideoTrack.layerId]
+      : [];
+
+    const overlapsExistingOperation = existingOperations.some((operation) => (
+      nextOperation.startTime < Number(operation?.endTime || 0)
+      && nextOperation.endTime > Number(operation?.startTime || 0)
+    ));
+
+    if (overlapsExistingOperation) {
+      return {
+        success: false,
+        error: 'Staged video changes cannot overlap. Adjust the range or clear an existing staged change.',
+      };
+    }
+
+    setVideoEditDraftOperationsByLayer((previousValue) => {
+      const currentOperations = Array.isArray(previousValue[selectedVideoTrack.layerId])
+        ? previousValue[selectedVideoTrack.layerId]
+        : [];
+      const nextOperations = [...currentOperations, nextOperation].sort(
+        (leftOperation, rightOperation) => leftOperation.startTime - rightOperation.startTime
+      );
+
+      return {
+        ...previousValue,
+        [selectedVideoTrack.layerId]: nextOperations,
+      };
+    });
+
+    return { success: true };
+  };
+
+  const removeSelectedVideoDraftOperation = (operationId) => {
+    if (!selectedVideoTrack) {
+      return;
+    }
+
+    setVideoEditDraftOperationsByLayer((previousValue) => ({
+      ...previousValue,
+      [selectedVideoTrack.layerId]: (
+        Array.isArray(previousValue[selectedVideoTrack.layerId])
+          ? previousValue[selectedVideoTrack.layerId]
+          : []
+      ).filter((operation) => operation.id !== operationId),
+    }));
+  };
+
+  const clearSelectedVideoDraftOperations = () => {
+    if (!selectedVideoTrack) {
+      return;
+    }
+
+    setVideoEditDraftOperationsByLayer((previousValue) => ({
+      ...previousValue,
+      [selectedVideoTrack.layerId]: [],
+    }));
+  };
+
+  const applySelectedVideoEditOperations = async () => {
+    if (
+      !selectedVideoTrack
+      || selectedVideoTrack.videoEditPending
+      || typeof requestVideoLayerEdit !== 'function'
+      || selectedVideoDraftOperations.length === 0
+    ) {
+      return {
+        success: false,
+        error: 'Add at least one staged video change before clicking Update.',
+      };
+    }
+
+    const response = await requestVideoLayerEdit({
+      layerId: selectedVideoTrack.layerId,
+      operations: selectedVideoDraftOperations,
+    });
+
+    if (response?.success) {
+      setVideoEditDraftOperationsByLayer((previousValue) => ({
+        ...previousValue,
+        [selectedVideoTrack.layerId]: [],
+      }));
+    }
+
+    return response;
   };
 
   const updateVisualTrackFromSlider = (trackKey, startFrame, endFrame) => {
@@ -2243,6 +2780,37 @@ export default function FrameToolbar(props) {
     );
   };
 
+  const showSelectedVideoTrack = () => {
+    if (!selectedVideoTrack) {
+      return (
+        <div className="flex items-center justify-start px-3 text-[11px] text-slate-400">
+          Select a video lane, choose an action above, add each selection, then click Update.
+        </div>
+      );
+    }
+
+    return (
+      <SelectedVideoTrackDisplay
+        selectedVideoTrack={selectedVideoTrack}
+        activeTool={selectedVideoActiveTool}
+        onSelectTool={handleSelectedVideoToolChange}
+        onSpeedMultiplierChange={updateSelectedVideoSpeedMultiplier}
+        selectedRangeFrames={selectedVideoRangeFrames}
+        draftOperations={selectedVideoDraftOperations}
+        pendingOperations={selectedVideoPendingOperations}
+        onAddDraft={queueSelectedVideoOperation}
+        onRemoveDraft={removeSelectedVideoDraftOperation}
+        onClearDrafts={clearSelectedVideoDraftOperations}
+        onApplyDrafts={applySelectedVideoEditOperations}
+        isBusy={Boolean(
+          selectedVideoTrack.videoEditPending
+          || isUpdateLayerPending
+          || isRenderPending
+        )}
+      />
+    );
+  };
+
   const showAddedVisualTracks = () => {
     const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
 
@@ -2276,6 +2844,55 @@ export default function FrameToolbar(props) {
           parentLayerEndFrame={visualTrack.parentLayerEndFrame}
           setVisualTrackDisplayAsSelected={setVisualTrackDisplayAsSelected}
         />
+      );
+    });
+  };
+
+  const showAddedVideoTracks = () => {
+    const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
+
+    const visibleVideoTracks = videoTrackListDisplay.filter((videoTrack) => (
+      videoTrack.endFrame >= visibleStartFrame
+      && videoTrack.startFrame <= visibleEndFrame
+    ));
+
+    if (visibleVideoTracks.length === 0) {
+      return (
+        <div className="flex items-start px-3 py-4 text-[11px] text-slate-400">
+          No video layers in the visible range.
+        </div>
+      );
+    }
+
+    return visibleVideoTracks.map((videoTrack) => {
+      const combinedOperationDisplayList = [
+        ...(videoDraftDisplayByLayer[videoTrack.layerId] || []),
+        ...(Array.isArray(videoTrack.pendingOperations) ? videoTrack.pendingOperations : []),
+      ].sort((leftOperation, rightOperation) => leftOperation.startFrame - rightOperation.startFrame);
+
+      return (
+        <React.Fragment key={videoTrack.trackKey}>
+          <VideoTrackDisplay
+            videoTrackItem={videoTrack}
+            selectedFrameRange={selectedFrameRange}
+            isDisplaySelected={Boolean(videoTrack.isDisplaySelected)}
+            showSelectionHandles={Boolean(
+              videoTrack.isDisplaySelected
+              && selectedVideoActiveTool
+              && selectedVideoTrack?.layerId === videoTrack.layerId
+            )}
+            setVideoTrackDisplayAsSelected={setVideoTrackDisplayAsSelected}
+            operationDisplayList={combinedOperationDisplayList}
+            selectedLocalRangeFrames={selectedVideoRangeFrames}
+            onSelectionChange={updateSelectedVideoEditRange}
+            onSelectionCommit={handleSelectedVideoRangeCommit}
+            isBusy={Boolean(
+              videoTrack.videoEditPending
+              || isUpdateLayerPending
+              || isRenderPending
+            )}
+          />
+        </React.Fragment>
       );
     });
   };
@@ -2453,18 +3070,25 @@ export default function FrameToolbar(props) {
       trackViewDisplay = showAddedAudioTracks();
       selectedTrackViewDisplay = showSelectedAudioTrack();
     }
+    if (currentLayerActionSuperView === 'VIDEO') {
+      trackViewDisplay =
+        <div className='text-track-container'>
+          {showAddedVideoTracks()}
+        </div>;
+      selectedTrackViewDisplay = showSelectedVideoTrack();
+    }
     if (currentLayerActionSuperView === 'IMAGE') {
       trackViewDisplay =
-        <span className='text-track-container'>
+        <div className='text-track-container'>
           {showAddedVisualTracks()}
-        </span>;
+        </div>;
       selectedTrackViewDisplay = showSelectedVisualTrack();
     }
     if (currentLayerActionSuperView === 'TEXT') {
       trackViewDisplay =
-        <span className='text-track-container'>
+        <div className='text-track-container'>
           {showAddedTextTracks()}
-        </span>
+        </div>
 
 
       selectedTrackViewDisplay = showSelectedTextTrack();
@@ -2596,8 +3220,14 @@ export default function FrameToolbar(props) {
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
   const hasExistingRender = Boolean(resolvedDownloadLink);
   const canCancelPendingRender = Boolean(isRenderPending && typeof cancelPendingRender === 'function');
-  const shouldShowDropdown = !isAnonymousGuest && (hasExistingRender || canCancelPendingRender);
-  const shouldDownloadOnMain = !canCancelPendingRender && renderCompletedThisSession && hasExistingRender;
+  const hasPendingSceneChanges = Boolean(isCanvasDirty);
+  const shouldShowDropdown = !isAnonymousGuest && hasExistingRender && !canCancelPendingRender;
+  const shouldDownloadOnMain = (
+    !canCancelPendingRender
+    && !hasPendingSceneChanges
+    && renderCompletedThisSession
+    && hasExistingRender
+  );
   const dropdownMainLabel = shouldDownloadOnMain ? "Download" : "Render";
 
   let prevDownloadLink = <span />;
@@ -2621,7 +3251,8 @@ export default function FrameToolbar(props) {
   if (isVideoGenerating) {
     renderButtonExtraClasss = '!pl-4 !pr-4';
   }
-  const isRenderActionDisabled = Boolean(isRenderPending);
+  const isRenderActionDisabled = Boolean(isUpdateLayerPending || isRenderPending);
+  const shouldShowRenderPendingSpinner = Boolean(isVideoGenerating);
 
 
 
@@ -2683,49 +3314,42 @@ export default function FrameToolbar(props) {
   }
 
   const dropdownItems = [];
-  if (canCancelPendingRender) {
+  if (shouldDownloadOnMain) {
     dropdownItems.push({
-      label: "Cancel pending render",
-      onClick: cancelPendingRender,
+      label: "Render again",
+      onClick: submitRenderVideo,
+    });
+  } else if (resolvedDownloadLink) {
+    dropdownItems.push({
+      label: "Download",
+      onClick: submitDownloadVideo,
+    });
+  }
+
+  if (isSessionPublished) {
+    dropdownItems.push({
+      label: "Unpublish",
+      onClick: () => {
+        if (typeof unpublishVideoSession === 'function') {
+          unpublishVideoSession();
+        }
+      },
     });
   } else {
-    if (shouldDownloadOnMain) {
-      dropdownItems.push({
-        label: "Render again",
-        onClick: submitRenderVideo,
-      });
-    } else if (resolvedDownloadLink) {
-      dropdownItems.push({
-        label: "Download",
-        onClick: submitDownloadVideo,
-      });
-    }
-
-    if (isSessionPublished) {
-      dropdownItems.push({
-        label: "Unpublish",
-        onClick: () => {
-          if (typeof unpublishVideoSession === 'function') {
-            unpublishVideoSession();
-          }
-        },
-      });
-    } else {
-      dropdownItems.push({
-        label: "Publish",
-        onClick: () => {
-          // open your Publish dialog
-          showPublishOptionsDialog();
-        },
-      });
-    }
+    dropdownItems.push({
+      label: "Publish",
+      onClick: () => {
+        // open your Publish dialog
+        showPublishOptionsDialog();
+      },
+    });
   }
 
   let submitRenderDisplay = (
     <div>
       <CommonButton
         onClick={submitRenderVideo}
-        isPending={isVideoGenerating}
+        isPending={shouldShowRenderPendingSpinner}
         isDisabled={isRenderActionDisabled}
         extraClasses={renderButtonExtraClasss}
       >
@@ -2736,12 +3360,39 @@ export default function FrameToolbar(props) {
 
   let btnLeftMargin = 'ml-2';
 
-  if (isAnonymousGuest && resolvedDownloadLink && !canCancelPendingRender) {
+  if (canCancelPendingRender) {
+    const cancelButtonClasses = colorMode === 'light'
+      ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+      : 'border border-[#31405e] bg-[#111a2f] text-slate-200 hover:bg-[#16213a]';
+    submitRenderDisplay = (
+      <div className='inline-flex items-center gap-2'>
+        <div>
+          <CommonButton
+            onClick={submitRenderVideo}
+            isPending={shouldShowRenderPendingSpinner}
+            isDisabled={true}
+            extraClasses={renderButtonExtraClasss}
+          >
+            Render
+          </CommonButton>
+        </div>
+        <button
+          type="button"
+          onClick={cancelPendingRender}
+          className={`inline-flex items-center justify-center rounded-lg px-2 py-2 shadow-[0_6px_14px_rgba(3,12,28,0.2)] transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0 ${cancelButtonClasses}`}
+          title="Cancel render"
+          aria-label="Cancel render"
+        >
+          <FaTimes />
+        </button>
+      </div>
+    );
+  } else if (isAnonymousGuest && resolvedDownloadLink) {
     submitRenderDisplay = (
       <div>
         <PublicPrimaryButton
           onClick={submitDownloadVideo}
-          isPending={isVideoGenerating}
+          isPending={shouldShowRenderPendingSpinner}
           isDisabled={isRenderActionDisabled}
           extraClasses={renderButtonExtraClasss}
         >
@@ -2755,8 +3406,8 @@ export default function FrameToolbar(props) {
       <div className="relative inline-block text-left">
         <CommonDropdownButton
           mainLabel={dropdownMainLabel}
-          onMainClick={canCancelPendingRender ? (() => { }) : (shouldDownloadOnMain ? submitDownloadVideo : submitRenderVideo)}
-          isPending={isVideoGenerating}
+          onMainClick={shouldDownloadOnMain ? submitDownloadVideo : submitRenderVideo}
+          isPending={shouldShowRenderPendingSpinner}
           isDisabled={isRenderActionDisabled}
           dropdownItems={dropdownItems}
           extraClasses="my-extra-class-names"
@@ -2780,13 +3431,15 @@ export default function FrameToolbar(props) {
         <AudioOptionsDialog
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
           requestRealignLayers={requestRealignLayers}
+          applyAudioDucking={applyAudioDucking}
+          onApplyAudioDuckingChange={onApplyAudioDuckingChange}
           closeDialog={closeAlertDialog}
         />
       </div>
     );
   };
 
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED && !isRenderPending) {
+  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
     submitRenderFullActionDisplay = (
       <div className='flex'>
         <div className='inline-flex'>{submitRenderDisplay}</div>
@@ -2817,28 +3470,16 @@ export default function FrameToolbar(props) {
 
   const handleSeekBarChange = (value) => {
     setCurrentLayerSeek(value);
+    const selectedLayerMeta = layerFrameMetadata.find((layerMeta) => (
+      value >= layerMeta.startFrame && value < layerMeta.endFrame
+    )) || layerFrameMetadata[layerFrameMetadata.length - 1];
 
-    // Compute cumulative start frames
-    const cumulativeStartFrames = [];
-    let totalFrames = 0;
-    layers.forEach((layer) => {
-      cumulativeStartFrames.push(totalFrames);
-      totalFrames += layer.duration * 30; // Convert duration to frames
-    });
-
-    // Find the layer corresponding to the current seek position
-    let layerIndex = layers.length - 1; // Default to last layer
-    for (let i = 0; i < cumulativeStartFrames.length; i++) {
-      const layerStart = cumulativeStartFrames[i];
-      const layerEnd = layerStart + layers[i].duration * 30;
-      if (value >= layerStart && value < layerEnd) {
-        layerIndex = i;
-        break;
-      }
+    if (!selectedLayerMeta) {
+      return;
     }
 
-    setSelectedLayerIndex(layerIndex);
-    setSelectedLayer(layers[layerIndex]);
+    setSelectedLayerIndex(selectedLayerMeta.originalIndex);
+    setSelectedLayer(selectedLayerMeta.layer);
   };
 
 
@@ -2869,15 +3510,7 @@ export default function FrameToolbar(props) {
     };
   }, [openPopupLayerIndex, durationChanged]);
 
-  let mtContainer = 'mt-[50px]';
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
-    mtContainer = 'mt-0';
-  }
-
-  let sliderContainerHeight = 'h-[74vh]';
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
-    sliderContainerHeight = 'h-[82vh]';
-  }
+  const panelVerticalBoundsClass = 'top-[56px] bottom-0';
 
   let buttonGroupMT = 'mt-2';
   if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
@@ -2904,8 +3537,6 @@ export default function FrameToolbar(props) {
     />
   ));
 
-
-
   let layerActionCurrentView = <span />;
 
   if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
@@ -2923,6 +3554,10 @@ export default function FrameToolbar(props) {
       ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
       : 'bg-gray-700 text-gray-300'
       } ${baseTabClassName}`;
+    const videoTabClassName = `${currentLayerActionSuperView === 'VIDEO'
+      ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
+      : 'bg-gray-700 text-gray-300'
+      } ${baseTabClassName}`;
 
     // Conditional class for the "Text" tab
     const textTabClassName = `${currentLayerActionSuperView === 'TEXT'
@@ -2933,13 +3568,19 @@ export default function FrameToolbar(props) {
     // Update the JSX to use the computed class names
     layerActionCurrentView = (
       <div className="">
-        <div className="grid grid-cols-3 h-8">
+        <div className="grid grid-cols-4 h-8">
           {/* Audio Tab */}
           <div
             className={audioTabClassName}
             onClick={() => setCurrentLayerActionSuperView('AUDIO')}
           >
             <div className="text-xs font-bold">Audio</div>
+          </div>
+          <div
+            className={videoTabClassName}
+            onClick={() => setCurrentLayerActionSuperView('VIDEO')}
+          >
+            <div className="text-xs font-bold">Video</div>
           </div>
           <div
             className={imageTabClassName}
@@ -2962,21 +3603,21 @@ export default function FrameToolbar(props) {
 
   return (
     <div
-      className={` shadow-lg m-auto fixed top-0 ${containerWdidth} ${textColor}
-       text-left left-0 toolbar-container`}
+      className={`shadow-lg m-auto fixed ${panelVerticalBoundsClass} ${containerWdidth} ${textColor}
+       text-left left-0 toolbar-container overflow-hidden`}
       aria-disabled={isRenderPending}
     >
-      <div className={`${mtContainer}`}>
-        <div className={`w-full pb-1 border-r-2 ${bgColor} border-stone-600`}>
-      <div>
-        <div className='m-auto text-center'>
-          <div className={disabledMenuClass}>
-            {layerActionCurrentView}
-          </div>
-          <div onClick={toggleShowExpandedTrackView} className='m-auto mt-1'>
-            {expandButtonLabel}
-          </div>
-        </div>
+      <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]'>
+        <div className={`w-full shrink-0 pb-1 border-r-2 ${bgColor} border-stone-600`}>
+          <div>
+            <div className='m-auto text-center'>
+              <div className={disabledMenuClass}>
+                {layerActionCurrentView}
+              </div>
+              <div onClick={toggleShowExpandedTrackView} className='m-auto mt-1'>
+                {expandButtonLabel}
+              </div>
+            </div>
 
             <div className={`btn-container flex-w-full ${btnLeftMargin} mb-1`}>
               <div className={`basis-1/2 inline-flex ${buttonGroupMT}`}>
@@ -2992,87 +3633,88 @@ export default function FrameToolbar(props) {
               </div>
             </div>
           </div>
+        </div>
 
-          <div className={`${sliderContainerHeight} w-full flex flex-row pl-1`}>
-            <div className='text-xs font-bold basis-1/4'>
-              <div className='relative h-full'>
-                {/* Previous and Next buttons */}
-                <div className='relative h-full w-full overflow-y-clip' ref={parentRef}>
-                  {layersList}
-                  {layerSelectOverlay}
-
-
-                  {isGridVisible && (
-                    <div
-                      className='grid-overlay absolute top-0 left-0 w-full h-full pointer-events-none'
-                      style={{ zIndex: 1 }}
-                    >
-                      {gridLines}
-                    </div>
-                  )}
+        <div className='min-h-0 h-full w-full flex flex-row pl-1'>
+          <div className='text-xs font-bold basis-1/4 min-h-0'>
+            <div className='relative h-full min-h-0'>
+              {/* Previous and Next buttons */}
+              <div className='relative h-full min-h-0 w-full overflow-y-clip' ref={parentRef}>
+                {layersList}
+                {layerSelectOverlay}
 
 
-                </div>
-              </div>
-            </div>
-            <div className='basis-3/4'>
-              <div className='flex flex-row h-full'>
-                {showVerticalWaveform && audioUrl && frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED && (
-                  <div className='inline-flex h-full'>
-                    <VerticalWaveform
-                      audioUrl={audioUrl}
-                      totalDuration={totalDuration}
-                      viewRange={effectiveVisibleDisplaySliderRange}
-                    />
+                {isGridVisible && (
+                  <div
+                    className='grid-overlay absolute top-0 left-0 w-full h-full pointer-events-none'
+                    style={{ zIndex: 1 }}
+                  >
+                    {gridLines}
                   </div>
                 )}
 
-                <div className={`inline-flex h-full ${trackSliderML}`}>
-                  {hasUsableFrameRange ? (
-                    <ReactSlider
-                      key={`slider_layer_seek`}
-                      className="modern-vertical-slider-seek"
-                      thumbClassName="thumb"
-                      trackClassName="track"
-                      orientation="vertical"
-                      min={safeViewRange[0]}
-                      max={safeViewRange[1]}
-                      value={clampedLayerSeek}
-                      onChange={(value) => {
-                        handleSeekBarChange(value);
-                      }}
-                      onBeforeChange={() => setIsLayerSeeking(true)}
-                      onAfterChange={() => setIsLayerSeeking(false)}
-                    />
-                  ) : (
-                    <div className="w-[30px]" />
-                  )}
-                </div>
 
-                {trackViewDisplay}
-
-
-
-                <div className='inline-flex dual-thumb h-auto w-[30px] ml-1'>
-                  {hasUsableFrameRange ? (
-                    <DualThumbSlider
-                      min={0}
-                      max={safeViewRange[1]}
-                      value={safeViewRange}
-                      onChange={handleViewRangeSliderChange}
-                    />
-                  ) : (
-                    <div className="w-[30px]" />
-                  )}
-                </div>
-
-                <div className='inline-flex h-full'>
-                  <TimeRuler
+              </div>
+            </div>
+          </div>
+          <div className='basis-3/4 min-h-0'>
+            <div className='flex flex-row h-full min-h-0'>
+              {showVerticalWaveform && audioUrl && frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED && (
+                <div className='inline-flex h-full min-h-0'>
+                  <VerticalWaveform
+                    audioUrl={audioUrl}
                     totalDuration={totalDuration}
-                    visibleStartTime={visibleStartTime}
-                    visibleEndTime={visibleEndTime}
+                    viewRange={selectedFrameRange}
                   />
                 </div>
+              )}
+
+              <div className={`inline-flex h-full min-h-0 ${trackSliderML}`}>
+                {hasUsableFrameRange ? (
+                  <ReactSlider
+                    key={`slider_layer_seek`}
+                    className="modern-vertical-slider-seek"
+                    thumbClassName="thumb"
+                    trackClassName="track"
+                    orientation="vertical"
+                    min={safeViewRange[0]}
+                    max={safeViewRange[1]}
+                    value={clampedLayerSeek}
+                    onChange={(value) => {
+                      handleSeekBarChange(value);
+                    }}
+                    onBeforeChange={() => setIsLayerSeeking(true)}
+                    onAfterChange={() => setIsLayerSeeking(false)}
+                  />
+                ) : (
+                  <div className="w-[30px]" />
+                )}
+              </div>
+
+              {trackViewDisplay}
+
+
+
+              <div className='inline-flex dual-thumb-shell h-full min-h-0 w-[30px] ml-1'>
+                {hasUsableFrameRange ? (
+                  <DualThumbSlider
+                    min={0}
+                    max={Math.max(1, totalDurationInFrames)}
+                    value={selectedFrameRange}
+                    onChange={handleViewRangeSliderChange}
+                    onAfterChange={handleViewRangeSliderCommit}
+                  />
+                ) : (
+                  <div className="w-[30px]" />
+                )}
+              </div>
+
+              <div className='inline-flex h-full min-h-0'>
+                <TimeRuler
+                  totalDuration={totalDuration}
+                  visibleStartTime={viewRangeStart / 30}
+                  visibleEndTime={viewRangeEnd / 30}
+                />
               </div>
             </div>
           </div>

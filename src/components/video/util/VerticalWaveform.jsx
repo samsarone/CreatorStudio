@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useColorMode } from '../../../contexts/ColorMode';
 import { useDebounce } from 'use-debounce';
@@ -7,6 +7,7 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
   const canvasRef = useRef(null);
   const parentRef = useRef(null);
   const { colorMode } = useColorMode();
+  const [audioBuffer, setAudioBuffer] = useState(null);
 
   const graphColor = colorMode === 'light' ? '#2563eb' : '#f8fafc';
   const backgroundShade = colorMode === 'light' ? '#f8fafc' : '#020617';
@@ -15,17 +16,59 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
   const [debouncedViewRange] = useDebounce(viewRange, 200); // Debounce delay in milliseconds
 
   useEffect(() => {
-    const fetchAndDrawAudio = async () => {
-      const { data } = await axios.get(audioUrl, { responseType: 'arraybuffer' });
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioContext.decodeAudioData(data, (buffer) => {
-        drawWaveform(buffer);
-      });
+    if (!audioUrl) {
+      setAudioBuffer(null);
+      return undefined;
+    }
+
+    let isDisposed = false;
+    const abortController = new AbortController();
+
+    const fetchAudioBuffer = async () => {
+      let audioContext;
+
+      try {
+        const { data } = await axios.get(audioUrl, {
+          responseType: 'arraybuffer',
+          signal: abortController.signal,
+        });
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const decodedBuffer = await audioContext.decodeAudioData(data.slice(0));
+
+        if (!isDisposed) {
+          setAudioBuffer(decodedBuffer);
+        }
+      } catch (error) {
+        if (abortController.signal.aborted || isDisposed) {
+          return;
+        }
+        setAudioBuffer(null);
+      } finally {
+        if (audioContext && typeof audioContext.close === 'function') {
+          audioContext.close().catch(() => {});
+        }
+      }
     };
 
-    const drawWaveform = (audioBuffer) => {
+    fetchAudioBuffer();
+
+    return () => {
+      isDisposed = true;
+      abortController.abort();
+    };
+  }, [audioUrl]);
+
+  useEffect(() => {
+    const drawWaveform = () => {
+      if (!audioBuffer || !canvasRef.current || !parentRef.current) {
+        return;
+      }
+
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return;
+      }
       
       const parentHeight = parentRef.current.clientHeight;
       canvas.width = parentRef.current.clientWidth;
@@ -34,7 +77,8 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
       const { width, height } = canvas;
 
       const sampleRate = audioBuffer.sampleRate;
-      const [viewStart, viewEnd] = debouncedViewRange.map(v => v / 30); // Use debounced viewRange
+      const safeViewRange = Array.isArray(debouncedViewRange) ? debouncedViewRange : [0, 1];
+      const [viewStart, viewEnd] = safeViewRange.map((v) => v / 30);
       const startSample = Math.floor(viewStart * sampleRate);
       const endSample = Math.min(audioBuffer.length, Math.ceil(viewEnd * sampleRate));
       const channelData = audioBuffer.getChannelData(0).slice(startSample, endSample);
@@ -61,8 +105,8 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
       ctx.stroke();
     };
 
-    fetchAndDrawAudio();
-  }, [audioUrl, totalDuration, debouncedViewRange]);
+    drawWaveform();
+  }, [audioBuffer, backgroundShade, debouncedViewRange, graphColor, totalDuration]);
 
   useEffect(() => {
     const resizeCanvas = () => {
@@ -82,7 +126,7 @@ const VerticalWaveform = ({ audioUrl, totalDuration, viewRange }) => {
   return (
     <div
       ref={parentRef}
-      className={`h-[82vh] w-full relative rounded-xl overflow-hidden shadow-sm ${
+      className={`h-full min-h-0 w-full relative rounded-xl overflow-hidden shadow-sm ${
         colorMode === 'dark'
           ? 'bg-[#0f1629] border border-[#1f2a3d]'
           : 'bg-slate-50 border border-slate-200'

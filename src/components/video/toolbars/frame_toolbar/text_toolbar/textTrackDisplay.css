@@ -27,6 +27,8 @@
 .text-track-slider-component {
   margin: 0 auto;
   display: inline-flex;
+  height: 100%;
+  min-height: 0;
 }
 .text-track-slider-component {
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ImageLibraryHome from './image/ImageLibraryHome';
 import MusicLibraryHome from './audio/MusicLibraryHome'; // Adjust the import path as needed
 import SceneLibraryHome from './aivideo/SceneLibraryHome';
+import VideoLibraryHome from './video/VideoLibraryHome';
 import { FaChevronCircleLeft, FaSpinner } from 'react-icons/fa';
 import { useColorMode } from '../../contexts/ColorMode';
 import './library.css'; // If you have shared styles
@@ -20,6 +21,8 @@ export default function LibraryHome(props) {
         return <ImageLibraryHome {...props} />;
       case 'Audio':
         return <MusicLibraryHome {...props} />;
+      case 'Video':
+        return <VideoLibraryHome {...props} onSelectVideo={onSelectVideo} />;
       case 'Scenes':
         return <SceneLibraryHome {...props} onSelectVideo={onSelectVideo} />;
       default:
@@ -34,6 +37,7 @@ export default function LibraryHome(props) {
   const headings = {
     Image: 'Image Library',
     Audio: 'Audio Library',
+    Video: 'Video Library',
     Scenes: 'Scene Library',
   };
 
@@ -56,7 +60,7 @@ export default function LibraryHome(props) {
 
         {/* Options */}
         <div className="flex space-x-2">
-          {['Image', 'Audio', 'Scenes'].map((option) => (
+          {['Image', 'Audio', 'Video', 'Scenes'].map((option) => (
             <button
               key={option}
               onClick={() => setSelectedOption(option)}
