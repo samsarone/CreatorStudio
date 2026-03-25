@@ -2071,11 +2071,15 @@ export default function FrameToolbar(props) {
     );
   };
 
-  const saveVisualTrackTiming = async (trackKey, startFrame, endFrame) => {
-    const targetTrack = visualTrackListDisplay.find((track) => track.trackKey === trackKey);
+  const saveVisualTrackTiming = async (trackKeyOrTrack, startFrame, endFrame) => {
+    const targetTrack = typeof trackKeyOrTrack === 'string'
+      ? visualTrackListDisplay.find((track) => track.trackKey === trackKeyOrTrack)
+      : trackKeyOrTrack;
     if (!targetTrack || targetTrack.isSaving || typeof updateLayerVisualItem !== 'function') {
       return;
     }
+
+    const targetTrackKey = targetTrack.trackKey;
 
     const resolvedStartFrame = Number.isFinite(startFrame)
       ? Math.round(startFrame)
@@ -2086,7 +2090,7 @@ export default function FrameToolbar(props) {
 
     setVisualTrackListDisplay((prevVisualTracks) =>
       prevVisualTracks.map((track) =>
-        track.trackKey === trackKey
+        track.trackKey === targetTrackKey
           ? {
             ...track,
             startFrame: resolvedStartFrame,
@@ -2110,7 +2114,7 @@ export default function FrameToolbar(props) {
 
     setVisualTrackListDisplay((prevVisualTracks) =>
       prevVisualTracks.map((track) =>
-        track.trackKey === trackKey
+        track.trackKey === targetTrackKey
           ? {
             ...track,
             isDirty: response?.success ? false : track.isDirty,
@@ -2214,6 +2218,7 @@ export default function FrameToolbar(props) {
     return (
       <SelectedVisualTrackDisplay
         selectedVisualTrack={selectedVisualTrack}
+        onSave={saveVisualTrackTiming}
         onDelete={deleteSelectedVisualTrack}
       />
     );
@@ -2244,7 +2249,6 @@ export default function FrameToolbar(props) {
           key={visualTrack.trackKey}
           visualTrackItem={visualTrack}
           onUpdate={updateVisualTrackFromSlider}
-          onCommit={saveVisualTrackTiming}
           selectedFrameRange={selectedFrameRange}
           isDisplaySelected={Boolean(visualTrack.isDisplaySelected)}
           isStartVisible={isStartVisible}

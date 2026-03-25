@@ -1,11 +1,14 @@
 import React from 'react';
 import { FaTimes } from 'react-icons/fa';
+import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
 
 export default function SelectedVisualTrackDisplay(props) {
   const {
     selectedVisualTrack,
     onDelete,
+    onSave,
   } = props;
+  const { colorMode } = useColorMode();
 
   if (!selectedVisualTrack) {
     return <span />;
@@ -31,31 +34,43 @@ export default function SelectedVisualTrackDisplay(props) {
     statusClassName = 'text-amber-300';
   }
 
+  const metaChipClassName = colorMode === 'dark'
+    ? 'bg-slate-900/70 border border-slate-700/70 text-slate-200'
+    : 'bg-slate-100 border border-slate-200 text-slate-700';
+  const headingClassName = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-800';
+  const subTextClassName = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+  const deleteButtonClassName = colorMode === 'dark'
+    ? 'bg-red-800 hover:bg-red-700'
+    : 'bg-red-600 hover:bg-red-500';
+  const saveButtonClassName = colorMode === 'dark'
+    ? 'bg-emerald-700 hover:bg-emerald-600'
+    : 'bg-emerald-600 hover:bg-emerald-500';
+
   return (
-    <div className="flex flex-nowrap items-center w-full gap-4 text-xs">
-      <div className="flex flex-col justify-center min-w-[140px]">
-        <span className="uppercase font-bold text-emerald-300 text-xs">
+    <div className="flex flex-nowrap items-center w-full gap-3 text-xs">
+      <div className="flex flex-col justify-center min-w-[150px]">
+        <span className="uppercase font-bold tracking-[0.12em] text-emerald-300 text-[10px]">
           {selectedVisualTrack.assetLabel}
         </span>
-        <span className="text-neutral-300">
+        <span className={`font-medium ${headingClassName}`}>
           {selectedVisualTrack.id}
         </span>
-        <span className="text-neutral-400">
+        <span className={subTextClassName}>
           Layer {selectedVisualTrack.layerIndex + 1}
         </span>
       </div>
 
-      <div className="flex flex-row items-center gap-4">
-        <div className="flex flex-col">
-          <span className="font-semibold">Start</span>
+      <div className="flex flex-row items-center gap-2">
+        <div className={`flex flex-col min-w-[62px] rounded-md px-2 py-1 ${metaChipClassName}`}>
+          <span className="font-semibold uppercase text-[10px] tracking-[0.08em]">Start</span>
           <span>{startTime}s</span>
         </div>
-        <div className="flex flex-col">
-          <span className="font-semibold">End</span>
+        <div className={`flex flex-col min-w-[62px] rounded-md px-2 py-1 ${metaChipClassName}`}>
+          <span className="font-semibold uppercase text-[10px] tracking-[0.08em]">End</span>
           <span>{endTime}s</span>
         </div>
-        <div className="flex flex-col">
-          <span className="font-semibold">Duration</span>
+        <div className={`flex flex-col min-w-[74px] rounded-md px-2 py-1 ${metaChipClassName}`}>
+          <span className="font-semibold uppercase text-[10px] tracking-[0.08em]">Duration</span>
           <span>{durationTime}s</span>
         </div>
       </div>
@@ -69,7 +84,16 @@ export default function SelectedVisualTrackDisplay(props) {
 
         <button
           type="button"
-          className="bg-red-800 text-white px-2 py-1 rounded-sm inline-flex items-center gap-1 disabled:opacity-60"
+          className={`${saveButtonClassName} text-white px-3 py-1 rounded-md inline-flex items-center gap-1 disabled:opacity-60`}
+          onClick={() => onSave?.(selectedVisualTrack)}
+          disabled={!selectedVisualTrack.isDirty || selectedVisualTrack.isSaving}
+        >
+          Update
+        </button>
+
+        <button
+          type="button"
+          className={`${deleteButtonClassName} text-white px-2 py-1 rounded-md inline-flex items-center gap-1 disabled:opacity-60`}
           onClick={() => onDelete?.(selectedVisualTrack)}
           disabled={selectedVisualTrack.isSaving}
         >
