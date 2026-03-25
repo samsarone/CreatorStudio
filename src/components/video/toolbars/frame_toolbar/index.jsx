@@ -31,6 +31,8 @@ import { useAlertDialog } from '../../../../contexts/AlertDialogContext.jsx';
 import { useUser } from '../../../../contexts/UserContext.jsx';
 import BatchPrompt from '../../util/BatchPrompt.jsx';
 import TextTrackDisplay from './text_toolbar/TextTrackDisplay.jsx';
+import VisualTrackDisplay from './visual_toolbar/VisualTrackDisplay.jsx';
+import SelectedVisualTrackDisplay from './visual_toolbar/SelectedVisualTrackDisplay.jsx';
 
 import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaEye } from 'react-icons/fa6';
@@ -40,6 +42,92 @@ import PublishOptionsDialog from './PublishOptionsDialog.jsx';
 import _ from 'lodash';
 const MAX_VISIBLE_LAYERS = 10;
 const MIN_LAYER_HEIGHT = 20; // in pixels
+const VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND = 30;
+
+function isVisualLayerItem(item) {
+  return item?.type === 'image' || item?.type === 'shape';
+}
+
+function getVisualTrackAssetLabel(item) {
+  if (!item) {
+    return 'Visual';
+  }
+  if (item.type === 'image') {
+    return item.is_base_image ? 'Base image' : 'Image';
+  }
+  if (item.type === 'shape') {
+    const shapeName = item.shape ? `${item.shape}` : 'shape';
+    return `${shapeName} shape`;
+  }
+  return 'Visual';
+}
+
+function buildVisualTrackDisplayList(layers, framesPerSecond) {
+  if (!Array.isArray(layers) || layers.length === 0) {
+    return [];
+  }
+
+  const resolvedFramesPerSecond = Number(framesPerSecond) || VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND;
+  const visualTrackItems = [];
+
+  layers.forEach((layer, layerIndex) => {
+    const activeItemList = Array.isArray(layer?.imageSession?.activeItemList)
+      ? layer.imageSession.activeItemList
+      : [];
+
+    const parentLayerStartFrame = Math.max(
+      0,
+      Math.round((Number(layer?.durationOffset) || 0) * resolvedFramesPerSecond)
+    );
+    const parentLayerDurationFrames = Math.max(
+      1,
+      Math.round((Number(layer?.duration) || 0) * resolvedFramesPerSecond)
+    );
+    const parentLayerEndFrame = parentLayerStartFrame + parentLayerDurationFrames;
+
+    activeItemList.forEach((item, itemIndex) => {
+      if (!isVisualLayerItem(item)) {
+        return;
+      }
+
+      const configuredFrameOffset = Number(item?.config?.frameOffset);
+      const configuredFrameDuration = Number(item?.config?.frameDuration);
+
+      const relativeStartFrame = Number.isFinite(configuredFrameOffset)
+        ? Math.max(0, Math.round(configuredFrameOffset))
+        : 0;
+      const relativeEndFrame = Number.isFinite(configuredFrameDuration) && configuredFrameDuration > 0
+        ? relativeStartFrame + Math.round(configuredFrameDuration)
+        : parentLayerDurationFrames;
+      const clampedRelativeEndFrame = Math.max(
+        relativeStartFrame + 1,
+        Math.min(relativeEndFrame, parentLayerDurationFrames)
+      );
+
+      const startFrame = parentLayerStartFrame + relativeStartFrame;
+      const endFrame = parentLayerStartFrame + clampedRelativeEndFrame;
+
+      visualTrackItems.push({
+        ...item,
+        layerId: layer._id,
+        layerIndex,
+        itemIndex,
+        trackKey: `${layer._id}_${item.id}`,
+        assetLabel: getVisualTrackAssetLabel(item),
+        parentLayerStartFrame,
+        parentLayerEndFrame,
+        parentLayerDurationFrames,
+        startFrame,
+        endFrame,
+        startTime: startFrame / resolvedFramesPerSecond,
+        endTime: endFrame / resolvedFramesPerSecond,
+        duration: (endFrame - startFrame) / resolvedFramesPerSecond,
+      });
+    });
+  });
+
+  return visualTrackItems;
+}
 
 export default function FrameToolbar(props) {
   const {
@@ -74,6 +162,8 @@ export default function FrameToolbar(props) {
     cancelPendingRender,
     publishVideoSession,
     unpublishVideoSession,
+    updateLayerVisualItem,
+    deleteLayerVisualItem,
     isGuestSession,
     updateAllAudioLayersOneShot,
     isSessionPublished,
@@ -364,6 +454,7 @@ export default function FrameToolbar(props) {
   };
 
   const [audioTrackListDisplay, setAudioTrackListDisplay] = useState([]);
+  const [visualTrackListDisplay, setVisualTrackListDisplay] = useState([]);
 
   useEffect(() => {
 
@@ -382,6 +473,42 @@ export default function FrameToolbar(props) {
     }
   }, [audioLayers]);
 
+  useEffect(() => {
+    const nextVisualTracks = buildVisualTrackDisplayList(
+      layers,
+      DISPLAY_FRAMES_PER_SECOND,
+    );
+
+    setVisualTrackListDisplay((prevVisualTracks) => {
+      const previousTrackMap = new Map(
+        prevVisualTracks.map((track) => [track.trackKey, track])
+      );
+
+      return nextVisualTracks.map((track) => {
+        const previousTrack = previousTrackMap.get(track.trackKey);
+        const shouldPreservePendingTiming = previousTrack?.isDirty || previousTrack?.isSaving;
+        const mergedTrack = shouldPreservePendingTiming
+          ? {
+            ...track,
+            startFrame: previousTrack.startFrame,
+            endFrame: previousTrack.endFrame,
+            startTime: previousTrack.startTime,
+            endTime: previousTrack.endTime,
+            duration: previousTrack.duration,
+          }
+          : track;
+
+        return {
+          ...mergedTrack,
+          isDisplaySelected: previousTrack?.isDisplaySelected ?? false,
+          isDirty: previousTrack?.isDirty ?? false,
+          isSaving: previousTrack?.isSaving ?? false,
+          saveError: previousTrack?.saveError ?? null,
+        };
+      });
+    });
+  }, [layers, DISPLAY_FRAMES_PER_SECOND]);
+
 
   const dirtyCount = useMemo(
     () => audioTrackListDisplay.filter((track) => track.isDirty).length,
@@ -393,6 +520,13 @@ export default function FrameToolbar(props) {
         (audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected
       ),
     [audioTrackListDisplay]
+  );
+  const selectedVisualTrack = useMemo(
+    () =>
+      visualTrackListDisplay.find(
+        (visualTrack) => visualTrack.isDisplaySelected
+      ),
+    [visualTrackListDisplay]
   );
 
   const resetPromptCopyState = () => {
@@ -1891,6 +2025,144 @@ export default function FrameToolbar(props) {
 
   }
 
+  const setVisualTrackDisplayAsSelected = (selectedTrackKey) => {
+    const selectedTrack = visualTrackListDisplay.find((track) => track.trackKey === selectedTrackKey);
+
+    if (selectedTrack && Number.isInteger(selectedTrack.layerIndex)) {
+      setSelectedLayerIndex(selectedTrack.layerIndex);
+      setSelectedLayer(layers[selectedTrack.layerIndex]);
+      setCurrentLayerSeek(selectedTrack.startFrame);
+    }
+
+    setVisualTrackListDisplay((prevVisualTracks) =>
+      prevVisualTracks.map((track) => ({
+        ...track,
+        isDisplaySelected: track.trackKey === selectedTrackKey,
+      }))
+    );
+  };
+
+  const updateVisualTrackFromSlider = (trackKey, startFrame, endFrame) => {
+    const normalizedStartFrame = Math.round(startFrame);
+    const normalizedEndFrame = Math.round(endFrame);
+
+    setVisualTrackListDisplay((prevVisualTracks) =>
+      prevVisualTracks.map((track) => {
+        if (track.trackKey !== trackKey) {
+          return {
+            ...track,
+            isDisplaySelected: false,
+          };
+        }
+
+        return {
+          ...track,
+          startFrame: normalizedStartFrame,
+          endFrame: normalizedEndFrame,
+          startTime: normalizedStartFrame / DISPLAY_FRAMES_PER_SECOND,
+          endTime: normalizedEndFrame / DISPLAY_FRAMES_PER_SECOND,
+          duration: (normalizedEndFrame - normalizedStartFrame) / DISPLAY_FRAMES_PER_SECOND,
+          isDirty: true,
+          isSaving: false,
+          saveError: null,
+          isDisplaySelected: true,
+        };
+      })
+    );
+  };
+
+  const saveVisualTrackTiming = async (trackKey, startFrame, endFrame) => {
+    const targetTrack = visualTrackListDisplay.find((track) => track.trackKey === trackKey);
+    if (!targetTrack || targetTrack.isSaving || typeof updateLayerVisualItem !== 'function') {
+      return;
+    }
+
+    const resolvedStartFrame = Number.isFinite(startFrame)
+      ? Math.round(startFrame)
+      : targetTrack.startFrame;
+    const resolvedEndFrame = Number.isFinite(endFrame)
+      ? Math.round(endFrame)
+      : targetTrack.endFrame;
+
+    setVisualTrackListDisplay((prevVisualTracks) =>
+      prevVisualTracks.map((track) =>
+        track.trackKey === trackKey
+          ? {
+            ...track,
+            startFrame: resolvedStartFrame,
+            endFrame: resolvedEndFrame,
+            startTime: resolvedStartFrame / DISPLAY_FRAMES_PER_SECOND,
+            endTime: resolvedEndFrame / DISPLAY_FRAMES_PER_SECOND,
+            duration: (resolvedEndFrame - resolvedStartFrame) / DISPLAY_FRAMES_PER_SECOND,
+            isSaving: true,
+            saveError: null,
+          }
+          : track
+      )
+    );
+
+    const response = await updateLayerVisualItem({
+      layerId: targetTrack.layerId,
+      itemId: targetTrack.id,
+      startFrame: resolvedStartFrame,
+      endFrame: resolvedEndFrame,
+    });
+
+    setVisualTrackListDisplay((prevVisualTracks) =>
+      prevVisualTracks.map((track) =>
+        track.trackKey === trackKey
+          ? {
+            ...track,
+            isDirty: response?.success ? false : track.isDirty,
+            isSaving: false,
+            saveError: response?.success ? null : 'Failed to save changes',
+          }
+          : track
+      )
+    );
+  };
+
+  const deleteSelectedVisualTrack = async (trackToDelete = selectedVisualTrack) => {
+    if (!trackToDelete || trackToDelete.isSaving || typeof deleteLayerVisualItem !== 'function') {
+      return;
+    }
+
+    setVisualTrackListDisplay((prevVisualTracks) =>
+      prevVisualTracks.map((track) =>
+        track.trackKey === trackToDelete.trackKey
+          ? {
+            ...track,
+            isSaving: true,
+            saveError: null,
+          }
+          : track
+      )
+    );
+
+    const response = await deleteLayerVisualItem({
+      layerId: trackToDelete.layerId,
+      itemId: trackToDelete.id,
+    });
+
+    if (response?.success) {
+      setVisualTrackListDisplay((prevVisualTracks) =>
+        prevVisualTracks.filter((track) => track.trackKey !== trackToDelete.trackKey)
+      );
+      return;
+    }
+
+    setVisualTrackListDisplay((prevVisualTracks) =>
+      prevVisualTracks.map((track) =>
+        track.trackKey === trackToDelete.trackKey
+          ? {
+            ...track,
+            isSaving: false,
+            saveError: 'Failed to delete item',
+          }
+          : track
+      )
+    );
+  };
 
   const setTextTrackDisplayAsSelected = (selectedTextItem) => {
     // Select the text track
@@ -1931,6 +2203,57 @@ export default function FrameToolbar(props) {
         setAudioRangeSliderDisplayAsSelected={setAudioRangeSliderDisplayAsSelected}
         totalDuration={totalDuration}
       />
+    });
+  };
+
+  const showSelectedVisualTrack = () => {
+    if (!selectedVisualTrack) {
+      return <span />;
+    }
+
+    return (
+      <SelectedVisualTrackDisplay
+        selectedVisualTrack={selectedVisualTrack}
+        onDelete={deleteSelectedVisualTrack}
+      />
+    );
+  };
+
+  const showAddedVisualTracks = () => {
+    const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
+
+    const visibleVisualTracks = visualTrackListDisplay.filter((visualTrack) => (
+      visualTrack.endFrame >= visibleStartFrame
+      && visualTrack.startFrame <= visibleEndFrame
+    ));
+
+    if (visibleVisualTracks.length === 0) {
+      return (
+        <div className="flex items-start px-3 py-4 text-[11px] text-slate-400">
+          No image or shape items in the visible range.
+        </div>
+      );
+    }
+
+    return visibleVisualTracks.map((visualTrack) => {
+      const isStartVisible = visualTrack.startFrame >= visibleStartFrame;
+      const isEndVisible = visualTrack.endFrame <= visibleEndFrame;
+
+      return (
+        <VisualTrackDisplay
+          key={visualTrack.trackKey}
+          visualTrackItem={visualTrack}
+          onUpdate={updateVisualTrackFromSlider}
+          onCommit={saveVisualTrackTiming}
+          selectedFrameRange={selectedFrameRange}
+          isDisplaySelected={Boolean(visualTrack.isDisplaySelected)}
+          isStartVisible={isStartVisible}
+          isEndVisible={isEndVisible}
+          parentLayerStartFrame={visualTrack.parentLayerStartFrame}
+          parentLayerEndFrame={visualTrack.parentLayerEndFrame}
+          setVisualTrackDisplayAsSelected={setVisualTrackDisplayAsSelected}
+        />
+      );
     });
   };
 
@@ -2099,22 +2422,29 @@ export default function FrameToolbar(props) {
     containerWdidth = 'min-w-[50%] max-w-[90%] overflow-x-auto z-[102]';
   }
 
-  let audioTrackViewDisplay = <span />;
-  let audioSelectedTrackViewDisplay = <span />;
+  let trackViewDisplay = <span />;
+  let selectedTrackViewDisplay = <span />;
 
   if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
     if (currentLayerActionSuperView === 'AUDIO') {
-      audioTrackViewDisplay = showAddedAudioTracks();
-      audioSelectedTrackViewDisplay = showSelectedAudioTrack();
+      trackViewDisplay = showAddedAudioTracks();
+      selectedTrackViewDisplay = showSelectedAudioTrack();
+    }
+    if (currentLayerActionSuperView === 'IMAGE') {
+      trackViewDisplay =
+        <span className='text-track-container'>
+          {showAddedVisualTracks()}
+        </span>;
+      selectedTrackViewDisplay = showSelectedVisualTrack();
     }
     if (currentLayerActionSuperView === 'TEXT') {
-      audioTrackViewDisplay =
+      trackViewDisplay =
         <span className='text-track-container'>
           {showAddedTextTracks()}
         </span>
 
 
-      audioSelectedTrackViewDisplay = showSelectedTextTrack();
+      selectedTrackViewDisplay = showSelectedTextTrack();
     }
   }
 
@@ -2223,7 +2553,7 @@ export default function FrameToolbar(props) {
           {showGridsView}
         </div>
         <div className='basis-3/4'>
-          {audioSelectedTrackViewDisplay}
+          {selectedTrackViewDisplay}
         </div>
 
         <div className={`float-right ${disabledMenuClass}`}>
@@ -2566,6 +2896,11 @@ export default function FrameToolbar(props) {
       : 'bg-gray-700 text-gray-300'
       } ${baseTabClassName}`;
 
+    const imageTabClassName = `${currentLayerActionSuperView === 'IMAGE'
+      ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
+      : 'bg-gray-700 text-gray-300'
+      } ${baseTabClassName}`;
+
     // Conditional class for the "Text" tab
     const textTabClassName = `${currentLayerActionSuperView === 'TEXT'
       ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
@@ -2582,6 +2917,12 @@ export default function FrameToolbar(props) {
             onClick={() => setCurrentLayerActionSuperView('AUDIO')}
           >
             <div className="text-xs font-bold">Audio</div>
+          </div>
+          <div
+            className={imageTabClassName}
+            onClick={() => setCurrentLayerActionSuperView('IMAGE')}
+          >
+            <div className="text-xs font-bold">Image view</div>
           </div>
           {/* Text Tab */}
           <div
@@ -2685,7 +3026,7 @@ export default function FrameToolbar(props) {
                   )}
                 </div>
 
-                {audioTrackViewDisplay}
+                {trackViewDisplay}
 
 
 

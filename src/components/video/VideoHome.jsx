@@ -1089,6 +1089,33 @@ export default function VideoHome(props) {
 
   }, 5);
 
+  const syncSessionAfterLayerItemMutation = (sessionData, updatedLayer) => {
+    if (!sessionData) {
+      return;
+    }
+
+    const updatedLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
+    setVideoSessionDetails(sessionData);
+    setLayers(updatedLayers);
+
+    if (!updatedLayer?._id) {
+      return;
+    }
+
+    if (currentLayer?._id?.toString?.() === updatedLayer._id.toString()) {
+      setCurrentLayer(updatedLayer);
+      setActiveItemList(updatedLayer.imageSession?.activeItemList || []);
+      return;
+    }
+
+    const refreshedCurrentLayer = updatedLayers.find(
+      (layer) => layer?._id?.toString?.() === currentLayer?._id?.toString?.()
+    );
+    if (refreshedCurrentLayer) {
+      setCurrentLayer(refreshedCurrentLayer);
+    }
+  };
+
   const updateSessionLayerActiveItemList = (newActiveItemList) => {
 
 
@@ -1103,6 +1130,76 @@ export default function VideoHome(props) {
     //setActiveItemList(newActiveItemList);
     if (currentEditorView !== CURRENT_EDITOR_VIEW.SHOW_ANIMATE_DISPLAY) {
       debouncedUpdateSessionLayerActiveItemList(newActiveItemList);
+    }
+  };
+
+  const updateLayerVisualItem = async ({ layerId, itemId, startFrame, endFrame }) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return { success: false };
+    }
+
+    try {
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/update_layer_visual_item`,
+        {
+          sessionId: id,
+          layerId,
+          itemId,
+          startFrame,
+          endFrame,
+        },
+        headers
+      );
+
+      syncSessionAfterLayerItemMutation(response.data?.session, response.data?.layer);
+      setIsCanvasDirty(true);
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      toast.error('Failed to update image or shape timing');
+      return {
+        success: false,
+        error,
+      };
+    }
+  };
+
+  const deleteLayerVisualItem = async ({ layerId, itemId }) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return { success: false };
+    }
+
+    try {
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/delete_layer_visual_item`,
+        {
+          sessionId: id,
+          layerId,
+          itemId,
+        },
+        headers
+      );
+
+      syncSessionAfterLayerItemMutation(response.data?.session, response.data?.layer);
+      setIsCanvasDirty(true);
+
+      return {
+        success: true,
+        data: response.data,
+      };
+    } catch (error) {
+      toast.error('Failed to delete image or shape item');
+      return {
+        success: false,
+        error,
+      };
     }
   };
 
@@ -2091,6 +2188,8 @@ export default function VideoHome(props) {
           updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
           isGuestSession={isGuestSession}
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+          updateLayerVisualItem={updateLayerVisualItem}
+          deleteLayerVisualItem={deleteLayerVisualItem}
           publishVideoSession={publishVideoSession}
           unpublishVideoSession={unpublishVideoSession}
           isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
@@ -2170,6 +2269,8 @@ export default function VideoHome(props) {
               removeAudioLayer={removeAudioLayer}
               updateChangesToActiveAudioLayers={updateChangesToActiveAudioLayers}
               updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
+              updateLayerVisualItem={updateLayerVisualItem}
+              deleteLayerVisualItem={deleteLayerVisualItem}
               addLayerToComposition={addLayerToComposition}
               copyCurrentLayerBelow={copyCurrentLayerBelow}
               removeSessionLayer={removeSessionLayer}
