@@ -78,6 +78,9 @@ export default function VideoHome(props) {
   const [preloadedLayerIds, setPreloadedLayerIds] = useState(new Set());
   const [renderCompletedThisSession, setRenderCompletedThisSession] = useState(false);
   const renderPollTimerRef = useRef(null);
+  const layerPollTimerRef = useRef(null);
+  const layersRef = useRef([]);
+  const currentLayerRef = useRef({});
 
   let { id } = useParams();
 
@@ -109,11 +112,23 @@ export default function VideoHome(props) {
     ));
   };
 
+  const stopLayerPolling = () => {
+    if (layerPollTimerRef.current) {
+      clearInterval(layerPollTimerRef.current);
+      layerPollTimerRef.current = null;
+    }
+    setPolling(false);
+  };
+
 
 
 
   useEffect(() => {
     // Reset all state variables
+    if (layerPollTimerRef.current) {
+      clearInterval(layerPollTimerRef.current);
+      layerPollTimerRef.current = null;
+    }
     setVideoSessionDetails(null);
     setSelectedLayerIndex(0);
     setCurrentLayer({});
@@ -166,6 +181,14 @@ export default function VideoHome(props) {
       applyAudioDucking: defaultApplyAudioDucking,
     }));
   }, [id]);
+
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
+
+  useEffect(() => {
+    currentLayerRef.current = currentLayer;
+  }, [currentLayer]);
 
   useEffect(() => {
     if (layers && layers.length > 0) {
@@ -421,6 +444,10 @@ export default function VideoHome(props) {
   }, [layerListRequestAdded, layers]);
 
   useEffect(() => {
+    if (layerPollTimerRef.current) {
+      clearInterval(layerPollTimerRef.current);
+      layerPollTimerRef.current = null;
+    }
     setVideoSessionDetails(null);
     setSelectedLayerIndex(0);
     setCurrentLayer({});
@@ -694,12 +721,13 @@ export default function VideoHome(props) {
   };
 
   const pollForLayersUpdate = () => {
-    if (polling) return; // Check if already polling
+    if (polling || layerPollTimerRef.current) return; // Check if already polling
     setPolling(true); // Set polling status to true
 
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
+      setPolling(false);
       return;
     }
 
@@ -709,11 +737,12 @@ export default function VideoHome(props) {
         if (frameResponse) {
           const newLayers = Array.isArray(frameResponse.layers) ? frameResponse.layers : [];
           const isGenerationPending = hasPendingFrameOrLayerGeneration(frameResponse);
-          let layersUpdated = newLayers.length !== layers.length;
+          const previousLayers = layersRef.current;
+          let layersUpdated = newLayers.length !== previousLayers.length;
 
           if (!layersUpdated) {
             for (let i = 0; i < newLayers.length; i++) {
-              const prevLayer = layers[i];
+              const prevLayer = previousLayers[i];
               const nextLayer = newLayers[i];
               if (!prevLayer || !nextLayer) {
                 layersUpdated = true;
@@ -725,11 +754,8 @@ export default function VideoHome(props) {
               const didFrameStatusChange =
                 prevLayer?.frameGenerationPending !== nextLayer?.frameGenerationPending
                 || prevLayer?.aiVideoFrameGenerationPending !== nextLayer?.aiVideoFrameGenerationPending;
-              const didFrameCountChange =
-                (Array.isArray(prevLayer?.frames) ? prevLayer.frames.length : 0)
-                !== (Array.isArray(nextLayer?.frames) ? nextLayer.frames.length : 0);
 
-              if (didImageStatusChange || didFrameStatusChange || didFrameCountChange) {
+              if (didImageStatusChange || didFrameStatusChange) {
                 layersUpdated = true;
                 break;
               }
@@ -740,8 +766,10 @@ export default function VideoHome(props) {
             setLayers(newLayers);
             setVideoSessionDetails(frameResponse);
 
-            if (currentLayer?._id) {
-              const refreshedCurrentLayer = newLayers.find((layer) => layer._id === currentLayer._id);
+            if (currentLayerRef.current?._id) {
+              const refreshedCurrentLayer = newLayers.find(
+                (layer) => layer._id === currentLayerRef.current._id
+              );
               if (refreshedCurrentLayer) {
                 setCurrentLayer(refreshedCurrentLayer);
               }
@@ -751,12 +779,15 @@ export default function VideoHome(props) {
           setIsLayerGenerationPending(isGenerationPending);
 
           if (!isGenerationPending) {
-            clearInterval(timer);
-            setPolling(false); // Reset polling status
+            stopLayerPolling();
           }
         }
+      }).catch(() => {
+        stopLayerPolling();
       });
     }, 1000);
+
+    layerPollTimerRef.current = timer;
   }
 
   const startVideoRenderPoll = () => {
@@ -947,6 +978,10 @@ export default function VideoHome(props) {
 
   useEffect(() => {
     return () => {
+      if (layerPollTimerRef.current) {
+        clearInterval(layerPollTimerRef.current);
+        layerPollTimerRef.current = null;
+      }
       stopVideoRenderPoll();
     };
   }, []);
@@ -1097,6 +1132,7 @@ export default function VideoHome(props) {
     const updatedLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
     setVideoSessionDetails(sessionData);
     setLayers(updatedLayers);
+    setIsLayerGenerationPending(hasPendingFrameOrLayerGeneration(sessionData));
 
     if (!updatedLayer?._id) {
       return;

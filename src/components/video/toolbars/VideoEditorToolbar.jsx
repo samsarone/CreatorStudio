@@ -719,6 +719,10 @@ export default function VideoEditorToolbar(props) {
   const formSelectHoverColor = colorMode === 'dark' ? '#1b2438' : '#2563EB';
   const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
   const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
+  const compactFieldLabelClass = `block mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${text2Color}`;
+  const compactInputClass = `w-full rounded-lg ${inputSurface} ${text2Color} px-3 py-2.5 text-sm leading-5 shadow-sm transition-colors duration-200 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20`;
+  const compactNumericInputClass = `${compactInputClass} min-w-0 text-center text-base font-semibold tabular-nums`;
+  const compactTextareaClass = `${compactInputClass} min-h-[96px]`;
 
   const getSliderStyle = (value, min, max) => {
     const numValue = Number(value);
@@ -961,10 +965,10 @@ export default function VideoEditorToolbar(props) {
         <div className="transition-all duration-300 ease-in-out">
           <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateMusic}>
 
-            <div className="mb-2 grid grid-cols-4 gap-2 items-center">
-              <div className="col-span-3">
-                <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicProvider">
-                  Provider:
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1">
+                <label className={compactFieldLabelClass} htmlFor="musicProvider">
+                  Provider
                 </label>
                 <SingleSelect
                   name="musicProvider"
@@ -979,19 +983,24 @@ export default function VideoEditorToolbar(props) {
                   onChange={handleMusicProviderChange}
                 />
               </div>
-              <div className="col-span-1 relative">
-                <label className={`text-xs ${text2Color} block mb-1`} htmlFor="musicDuration">
-                  Seconds
+              <div className="w-full sm:w-[120px] sm:flex-shrink-0">
+                <label className={compactFieldLabelClass} htmlFor="musicDuration">
+                  Duration
                 </label>
                 <input
                   type="number"
+                  id="musicDuration"
                   name="musicDuration"
                   min={musicDurationMin}
                   max={musicDurationMax}
+                  step="1"
                   value={musicDuration}
                   onChange={(e) => setMusicDuration(e.target.value)}
-                  className={`w-full ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
+                  className={compactNumericInputClass}
                 />
+                <div className={`mt-1 text-[11px] ${text2Color} opacity-70 text-center`}>
+                  {musicDurationMin}-{musicDurationMax} sec
+                </div>
               </div>
             </div>
 
@@ -999,7 +1008,7 @@ export default function VideoEditorToolbar(props) {
             <TextareaAutosize
               name="promptText"
               placeholder="Add prompt text here"
-              className={`w-full h-24 ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
+              className={compactTextareaClass}
               minRows={3}
             />
             {supportsMusicLyrics && !isInstrumental && (
@@ -1008,12 +1017,12 @@ export default function VideoEditorToolbar(props) {
                 placeholder="Optional lyrics for the vocal track"
                 value={musicLyrics}
                 onChange={(e) => setMusicLyrics(e.target.value)}
-                className={`w-full h-24 mt-2 ${inputSurface} ${text2Color} rounded-md px-3 py-2 bg-transparent`}
+                className={`${compactTextareaClass} mt-2`}
                 minRows={3}
               />
             )}
-            <div className="flex flex-row mt-2">
-              <div className="basis-1/3 flex items-center">
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center">
                 <input
                   type="checkbox"
                   name="isInstrumental"
@@ -1023,8 +1032,12 @@ export default function VideoEditorToolbar(props) {
                 />
                 <div className={`inline-flex text-xs ${text2Color} ml-1`}>Instr</div>
               </div>
-              <div className="basis-2/3 flex justify-end">
-                <SecondaryButton type="submit" isPending={audioGenerationPending}>
+              <div className="w-full sm:w-auto">
+                <SecondaryButton
+                  type="submit"
+                  isPending={audioGenerationPending}
+                  className="w-full px-4 py-2.5 text-sm"
+                >
                   Generate
                 </SecondaryButton>
               </div>

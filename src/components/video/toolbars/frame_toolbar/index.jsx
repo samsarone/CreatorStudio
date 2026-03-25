@@ -497,9 +497,17 @@ export default function FrameToolbar(props) {
             duration: previousTrack.duration,
           }
           : track;
+        const persistedStartFrame = shouldPreservePendingTiming
+          ? (previousTrack?.persistedStartFrame ?? track.startFrame)
+          : track.startFrame;
+        const persistedEndFrame = shouldPreservePendingTiming
+          ? (previousTrack?.persistedEndFrame ?? track.endFrame)
+          : track.endFrame;
 
         return {
           ...mergedTrack,
+          persistedStartFrame,
+          persistedEndFrame,
           isDisplaySelected: previousTrack?.isDisplaySelected ?? false,
           isDirty: previousTrack?.isDirty ?? false,
           isSaving: previousTrack?.isSaving ?? false,
@@ -2055,6 +2063,13 @@ export default function FrameToolbar(props) {
           };
         }
 
+        const persistedStartFrame = Number.isFinite(track.persistedStartFrame)
+          ? track.persistedStartFrame
+          : track.startFrame;
+        const persistedEndFrame = Number.isFinite(track.persistedEndFrame)
+          ? track.persistedEndFrame
+          : track.endFrame;
+
         return {
           ...track,
           startFrame: normalizedStartFrame,
@@ -2062,7 +2077,9 @@ export default function FrameToolbar(props) {
           startTime: normalizedStartFrame / DISPLAY_FRAMES_PER_SECOND,
           endTime: normalizedEndFrame / DISPLAY_FRAMES_PER_SECOND,
           duration: (normalizedEndFrame - normalizedStartFrame) / DISPLAY_FRAMES_PER_SECOND,
-          isDirty: true,
+          isDirty:
+            normalizedStartFrame !== persistedStartFrame
+            || normalizedEndFrame !== persistedEndFrame,
           isSaving: false,
           saveError: null,
           isDisplaySelected: true,
@@ -2117,6 +2134,8 @@ export default function FrameToolbar(props) {
         track.trackKey === targetTrackKey
           ? {
             ...track,
+            persistedStartFrame: response?.success ? resolvedStartFrame : track.persistedStartFrame,
+            persistedEndFrame: response?.success ? resolvedEndFrame : track.persistedEndFrame,
             isDirty: response?.success ? false : track.isDirty,
             isSaving: false,
             saveError: response?.success ? null : 'Failed to save changes',
