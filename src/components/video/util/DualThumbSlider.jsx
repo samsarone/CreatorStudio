@@ -2,6 +2,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactSlider from 'react-slider';
 
+const DUAL_THUMB_HANDLE_HEIGHT = 10;
+
 export default function DualThumbSlider({ min, max, value, onChange, onAfterChange }) {
   const [sliderValues, setSliderValues] = useState(() => (
     Array.isArray(value) ? value : [min, max]
@@ -57,22 +59,31 @@ export default function DualThumbSlider({ min, max, value, onChange, onAfterChan
   }, [sliderValues, min, safeMax, sliderSpan]);
 
   return (
-    <ReactSlider
+    <div
       className='dual-thumb-slider'
-      thumbClassName='thumb'
-      trackClassName='track'
-      min={min}
-      max={safeMax}
-      value={displayValues}
-      minDistance={1}
-      pearling
-      onChange={handleSliderChange}
-      onAfterChange={handleSliderAfterChange}
-      renderThumb={(props) => {
-        const { key, ...thumbProps } = props;
-        return <div key={key} {...thumbProps} />;
-      }}
-      orientation="vertical"
-    />
+      style={{ height: `calc(100% + ${DUAL_THUMB_HANDLE_HEIGHT}px)` }}
+    >
+      <div
+        className='dual-thumb-slider-rail'
+        style={{ bottom: `${DUAL_THUMB_HANDLE_HEIGHT}px` }}
+      />
+      <ReactSlider
+        className='h-full w-full'
+        thumbClassName='thumb'
+        min={min}
+        max={safeMax}
+        value={displayValues}
+        minDistance={1}
+        pearling
+        withTracks={false}
+        onChange={handleSliderChange}
+        onAfterChange={handleSliderAfterChange}
+        renderThumb={(props) => {
+          const { key, ...thumbProps } = props;
+          return <div key={key} {...thumbProps} />;
+        }}
+        orientation="vertical"
+      />
+    </div>
   );
 }

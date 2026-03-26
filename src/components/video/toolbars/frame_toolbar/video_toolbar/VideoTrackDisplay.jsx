@@ -41,10 +41,33 @@ function clampSelectionRange(range, durationFrames) {
   return [nextStart, nextEnd];
 }
 
+function clampSelectionRangeToWindow(range, minimumFrame, maximumFrame) {
+  const safeMinimumFrame = Math.max(0, Math.round(Number(minimumFrame) || 0));
+  const safeMaximumFrame = Math.max(
+    safeMinimumFrame + 1,
+    Math.round(Number(maximumFrame) || safeMinimumFrame + 1),
+  );
+  const [normalizedStartFrame, normalizedEndFrame] = clampSelectionRange(range, safeMaximumFrame);
+  const nextStartFrame = Math.min(
+    Math.max(normalizedStartFrame, safeMinimumFrame),
+    safeMaximumFrame - 1,
+  );
+  const nextEndFrame = Math.max(
+    nextStartFrame + 1,
+    Math.min(normalizedEndFrame, safeMaximumFrame),
+  );
+
+  return [nextStartFrame, nextEndFrame];
+}
+
+const VIDEO_DIAMOND_THUMB_SIZE = 16;
+const VIDEO_DIAMOND_OVERHANG = VIDEO_DIAMOND_THUMB_SIZE / 2;
+
 export default function VideoTrackDisplay(props) {
   const {
     videoTrackItem,
     selectedFrameRange,
+    visibleLayerLayout = null,
     isDisplaySelected = false,
     showSelectionHandles = false,
     setVideoTrackDisplayAsSelected,
@@ -57,6 +80,20 @@ export default function VideoTrackDisplay(props) {
   const { colorMode } = useColorMode();
   const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
   const visibleFrameRange = Math.max(1, visibleEndFrame - visibleStartFrame);
+  const visibleTrackStartFrame = Math.max(videoTrackItem.startFrame, visibleStartFrame);
+  const visibleTrackEndFrame = Math.max(
+    visibleTrackStartFrame + 1,
+    Math.min(videoTrackItem.endFrame, visibleEndFrame),
+  );
+  const visibleTrackDurationFrames = Math.max(1, visibleTrackEndFrame - visibleTrackStartFrame);
+  const visibleLocalStartFrame = Math.max(0, visibleTrackStartFrame - videoTrackItem.startFrame);
+  const visibleLocalEndFrame = Math.max(
+    visibleLocalStartFrame + 1,
+    Math.min(videoTrackItem.durationFrames, visibleTrackEndFrame - videoTrackItem.startFrame),
+  );
+  const hasExplicitLayerLayout = Number.isFinite(visibleLayerLayout?.top)
+    && Number.isFinite(visibleLayerLayout?.height)
+    && Number(visibleLayerLayout.height) > 0;
 
   const trackTopPercent = clampPercent(
     ((videoTrackItem.startFrame - visibleStartFrame) / visibleFrameRange) * 100
@@ -69,6 +106,37 @@ export default function VideoTrackDisplay(props) {
     selectedLocalRangeFrames,
     videoTrackItem.durationFrames,
   );
+  const visibleSelectionRange = clampSelectionRangeToWindow(
+    normalizedSelectionRange,
+    visibleLocalStartFrame,
+    visibleLocalEndFrame,
+  );
+  const visibleSelectionWindowFrames = Math.max(1, visibleLocalEndFrame - visibleLocalStartFrame);
+  const selectionTopPercent = clampPercent(
+    ((visibleSelectionRange[0] - visibleLocalStartFrame) / visibleSelectionWindowFrames) * 100
+  );
+  const selectionBottomPercent = clampPercent(
+    ((visibleSelectionRange[1] - visibleLocalStartFrame) / visibleSelectionWindowFrames) * 100
+  );
+  const selectionHeightPercent = Math.max(0, selectionBottomPercent - selectionTopPercent);
+  const trackStyle = hasExplicitLayerLayout
+    ? {
+      top: `${visibleLayerLayout.top}px`,
+      height: `${Math.max(1, visibleLayerLayout.height)}px`,
+    }
+    : {
+      top: `${trackTopPercent}%`,
+      height: `${trackHeightPercent}%`,
+    };
+  const selectionOverlayStyle = hasExplicitLayerLayout
+    ? {
+      top: `${visibleLayerLayout.top}px`,
+      height: `${Math.max(1, visibleLayerLayout.height) + VIDEO_DIAMOND_THUMB_SIZE}px`,
+    }
+    : {
+      top: `${trackTopPercent}%`,
+      height: `calc(${trackHeightPercent}% + ${VIDEO_DIAMOND_THUMB_SIZE}px)`,
+    };
 
   const visibleOperations = useMemo(() => (
     operationDisplayList.filter((operation) => (
@@ -77,17 +145,17 @@ export default function VideoTrackDisplay(props) {
   ), [operationDisplayList, visibleEndFrame, visibleStartFrame]);
 
   const railSurface = colorMode === 'dark'
-    ? 'bg-slate-950/70 border border-slate-800'
-    : 'bg-slate-100 border border-slate-200';
+    ? 'bg-[#0b1220] border border-[#273449]'
+    : 'bg-slate-100 border border-slate-300';
   const inactiveTrackSurface = colorMode === 'dark'
-    ? 'bg-gradient-to-b from-[#1f2937] to-[#111827] border border-slate-700/80'
-    : 'bg-gradient-to-b from-slate-200 to-slate-300 border border-slate-300';
+    ? 'bg-[#182234] border border-[#46556b]'
+    : 'bg-slate-200 border border-slate-400/90';
   const activeTrackSurface = colorMode === 'dark'
-    ? 'bg-gradient-to-b from-cyan-500/20 via-sky-500/24 to-indigo-500/22 border border-cyan-300/40 shadow-[0_0_18px_rgba(34,211,238,0.14)]'
-    : 'bg-gradient-to-b from-cyan-100 via-sky-100 to-indigo-100 border border-sky-400/40 shadow-[0_0_18px_rgba(14,165,233,0.12)]';
+    ? 'bg-[#123046] border border-cyan-300/60'
+    : 'bg-sky-100 border border-sky-500/70';
   const labelClassName = colorMode === 'dark' ? 'text-slate-300' : 'text-slate-500';
   const selectedRing = isDisplaySelected
-    ? (colorMode === 'dark' ? 'ring-2 ring-cyan-300/55' : 'ring-2 ring-sky-400/55')
+    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
     : '';
 
   const handleSelect = (event) => {
@@ -98,56 +166,106 @@ export default function VideoTrackDisplay(props) {
   return (
     <button
       type="button"
-      className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] border-0 bg-transparent px-2 py-2 transition ${selectedRing}`}
+      className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] border-0 bg-transparent px-2 transition ${selectedRing}`}
       onClick={handleSelect}
       title={`${videoTrackItem.assetLabel} on layer ${videoTrackItem.layerIndex + 1}`}
     >
-      <div className={`relative h-full w-full rounded-[20px] ${railSurface}`}>
+      <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurface}`}>
         <div
-          className={`absolute left-1/2 w-[16px] -translate-x-1/2 rounded-[18px] ${isDisplaySelected ? activeTrackSurface : inactiveTrackSurface}`}
-          style={{
-            top: `${trackTopPercent}%`,
-            height: `${trackHeightPercent}%`,
-          }}
+          className={`absolute left-1/2 w-[16px] -translate-x-1/2 overflow-hidden rounded-[18px] ${isDisplaySelected ? activeTrackSurface : inactiveTrackSurface}`}
+          style={trackStyle}
         >
-          {isDisplaySelected && showSelectionHandles && (
-            <div className="absolute inset-0 px-[2px] py-[4px]">
-              <ReactSlider
-                min={0}
-                max={Math.max(1, videoTrackItem.durationFrames)}
-                value={normalizedSelectionRange}
-                minDistance={1}
-                pearling
-                orientation="vertical"
-                className="video-diamond-slider"
-                thumbClassName="video-diamond-thumb"
-                trackClassName="video-diamond-track"
-                onChange={onSelectionChange}
-                onAfterChange={onSelectionCommit}
-                disabled={isBusy}
+          <div
+            className={`pointer-events-none absolute inset-x-0 top-0 h-px ${
+              colorMode === 'dark' ? 'bg-white/12' : 'bg-white/80'
+            }`}
+          />
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-px ${
+              isDisplaySelected
+                ? (colorMode === 'dark' ? 'bg-cyan-200/80' : 'bg-sky-600/80')
+                : (colorMode === 'dark' ? 'bg-[#6b7d95]' : 'bg-slate-500/70')
+            }`}
+          />
+        </div>
+
+        {isDisplaySelected && showSelectionHandles && (
+          <div
+            className="absolute left-1/2 z-[5] w-[24px] -translate-x-1/2"
+            style={selectionOverlayStyle}
+          >
+            <div
+              className="pointer-events-none absolute inset-x-0"
+              style={{
+                top: '0',
+                bottom: `${VIDEO_DIAMOND_THUMB_SIZE}px`,
+              }}
+            >
+              <div
+                className="video-diamond-selection-rail"
+                style={{
+                  top: `${selectionTopPercent}%`,
+                  height: `${selectionHeightPercent}%`,
+                  minHeight: '2px',
+                }}
               />
             </div>
-          )}
-        </div>
+            <ReactSlider
+              min={visibleLocalStartFrame}
+              max={Math.max(visibleLocalStartFrame + 1, visibleLocalEndFrame)}
+              value={visibleSelectionRange}
+              minDistance={1}
+              pearling
+              orientation="vertical"
+              withTracks={false}
+              className="video-diamond-slider"
+              thumbClassName="video-diamond-thumb"
+              onChange={onSelectionChange}
+              onAfterChange={onSelectionCommit}
+              disabled={isBusy}
+            />
+          </div>
+        )}
 
         {visibleOperations.map((operation) => {
           const operationPalette = getOperationPalette(operation, colorMode);
-          const operationTopPercent = clampPercent(
-            ((operation.startFrame - visibleStartFrame) / visibleFrameRange) * 100
+          const clippedOperationStartFrame = Math.max(operation.startFrame, visibleTrackStartFrame);
+          const clippedOperationEndFrame = Math.max(
+            clippedOperationStartFrame + 1,
+            Math.min(operation.endFrame, visibleTrackEndFrame),
           );
-          const operationBottomPercent = clampPercent(
-            ((operation.endFrame - visibleStartFrame) / visibleFrameRange) * 100
-          );
-          const operationHeightPercent = Math.max(1, operationBottomPercent - operationTopPercent);
+          const operationStyle = hasExplicitLayerLayout
+            ? {
+              top: `${visibleLayerLayout.top + (
+                ((clippedOperationStartFrame - visibleTrackStartFrame) / visibleTrackDurationFrames)
+                * visibleLayerLayout.height
+              )}px`,
+              height: `${Math.max(
+                1,
+                ((clippedOperationEndFrame - clippedOperationStartFrame) / visibleTrackDurationFrames)
+                * visibleLayerLayout.height,
+              )}px`,
+            }
+            : (() => {
+              const operationTopPercent = clampPercent(
+                ((operation.startFrame - visibleStartFrame) / visibleFrameRange) * 100
+              );
+              const operationBottomPercent = clampPercent(
+                ((operation.endFrame - visibleStartFrame) / visibleFrameRange) * 100
+              );
+              const operationHeightPercent = Math.max(1, operationBottomPercent - operationTopPercent);
+
+              return {
+                top: `${operationTopPercent}%`,
+                height: `${operationHeightPercent}%`,
+              };
+            })();
 
           return (
             <div
               key={operation.id}
               className="pointer-events-none absolute left-1/2 z-[3] w-[24px] -translate-x-1/2"
-              style={{
-                top: `${operationTopPercent}%`,
-                height: `${operationHeightPercent}%`,
-              }}
+              style={operationStyle}
             >
               <div
                 className="absolute left-1/2 top-0 h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2px]"

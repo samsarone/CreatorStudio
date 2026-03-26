@@ -1,27 +1,36 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
+import { frameToViewportValue, viewportValueToFrame } from '../../../util/viewportGeometry.js';
 
 function getTrackPalette(visualTrackItem, isDisplaySelected, colorMode) {
   const isShape = visualTrackItem?.type === 'shape';
 
   if (colorMode === 'light') {
     return {
-      base: '#e2e8f0',
       active: isDisplaySelected
-        ? (isShape ? 'rgba(217, 119, 6, 0.45)' : 'rgba(37, 99, 235, 0.35)')
-        : (isShape ? 'rgba(245, 158, 11, 0.28)' : 'rgba(59, 130, 246, 0.22)'),
-      border: isShape ? 'rgba(180, 83, 9, 0.55)' : 'rgba(29, 78, 216, 0.45)',
+        ? (isShape ? '#fef3c7' : '#dbeafe')
+        : (isShape ? '#fef3c7' : '#e2e8f0'),
+      border: isDisplaySelected
+        ? (isShape ? 'rgba(217, 119, 6, 0.68)' : 'rgba(14, 165, 233, 0.62)')
+        : (isShape ? 'rgba(217, 119, 6, 0.45)' : 'rgba(148, 163, 184, 0.82)'),
+      bottomEdge: isDisplaySelected
+        ? (isShape ? 'bg-amber-600/85' : 'bg-sky-600/80')
+        : (isShape ? 'bg-amber-500/70' : 'bg-slate-500/70'),
     };
   }
 
   return {
-    base: '#0f172a',
     active: isDisplaySelected
-      ? (isShape ? 'rgba(245, 158, 11, 0.48)' : 'rgba(59, 130, 246, 0.42)')
-      : (isShape ? 'rgba(217, 119, 6, 0.35)' : 'rgba(37, 99, 235, 0.3)'),
-    border: isShape ? 'rgba(251, 191, 36, 0.55)' : 'rgba(96, 165, 250, 0.55)',
+      ? (isShape ? '#3a2a12' : '#123046')
+      : (isShape ? '#2b2118' : '#182234'),
+    border: isDisplaySelected
+      ? (isShape ? 'rgba(251, 191, 36, 0.62)' : 'rgba(103, 232, 249, 0.58)')
+      : (isShape ? 'rgba(217, 119, 6, 0.52)' : 'rgba(100, 116, 139, 0.72)'),
+    bottomEdge: isDisplaySelected
+      ? (isShape ? 'bg-amber-300/80' : 'bg-cyan-200/80')
+      : (isShape ? 'bg-amber-400/65' : 'bg-[#6b7d95]'),
   };
 }
 
@@ -41,6 +50,20 @@ function clampTrackRange(rawValue, parentLayerStartFrame, parentLayerEndFrame) {
   return [nextStart, nextEnd];
 }
 
+const VISUAL_TRACK_THUMB_HEIGHT = 10;
+
+function addStyleValueOffset(styleValue, offsetPixels) {
+  if (typeof styleValue === 'number') {
+    return styleValue + offsetPixels;
+  }
+
+  if (typeof styleValue === 'string' && styleValue.length > 0) {
+    return `calc(${styleValue} + ${offsetPixels}px)`;
+  }
+
+  return offsetPixels;
+}
+
 export default function VisualTrackDisplay(props) {
   const {
     visualTrackItem,
@@ -53,24 +76,41 @@ export default function VisualTrackDisplay(props) {
     isEndVisible,
     parentLayerStartFrame,
     parentLayerEndFrame,
+    viewportGeometry = null,
   } = props;
 
   const { colorMode } = useColorMode();
-  const [min, max] = selectedFrameRange;
+  const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
+  const hasViewportGeometry = Array.isArray(viewportGeometry?.segments) && viewportGeometry.segments.length > 0;
+  const min = hasViewportGeometry ? 0 : visibleStartFrame;
+  const max = hasViewportGeometry
+    ? Math.max(1, Math.round(Number(viewportGeometry?.totalPixels) || 1))
+    : visibleEndFrame;
+  const frameToSliderValue = useCallback((value) => (
+    hasViewportGeometry
+      ? frameToViewportValue(value, viewportGeometry)
+      : Number(value) || 0
+  ), [hasViewportGeometry, viewportGeometry]);
+  const sliderValueToFrame = useCallback((value) => (
+    hasViewportGeometry
+      ? viewportValueToFrame(value, viewportGeometry)
+      : Number(value) || 0
+  ), [hasViewportGeometry, viewportGeometry]);
   const sliderContainerRef = useRef(null);
   const dragStartYRef = useRef(0);
   const dragBaselineRef = useRef(null);
   const [isDraggingBody, setIsDraggingBody] = useState(false);
 
   const visibleSliderValues = useMemo(() => {
-    const clampedStart = Math.max(min, Math.min(max, visualTrackItem.startFrame));
+    const clampedStart = Math.max(min, Math.min(max, frameToSliderValue(visualTrackItem.startFrame)));
     const clampedEnd = Math.max(
       clampedStart + 1,
-      Math.min(max, visualTrackItem.endFrame),
+      Math.min(max, frameToSliderValue(visualTrackItem.endFrame)),
     );
 
     return [clampedStart, clampedEnd];
   }, [
+    frameToSliderValue,
     max,
     min,
     visualTrackItem.endFrame,
@@ -87,6 +127,12 @@ export default function VisualTrackDisplay(props) {
     () => getTrackPalette(visualTrackItem, isDisplaySelected, colorMode),
     [colorMode, isDisplaySelected, visualTrackItem]
   );
+  const railSurfaceClassName = colorMode === 'dark'
+    ? 'bg-[#0b1220] border border-[#273449]'
+    : 'bg-slate-100 border border-slate-300';
+  const selectedRingClassName = isDisplaySelected
+    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
+    : '';
 
   const selectTrack = (event) => {
     if (event && typeof event.stopPropagation === 'function') {
@@ -114,26 +160,28 @@ export default function VisualTrackDisplay(props) {
 
       const deltaY = event.clientY - dragStartYRef.current;
       const visibleFrameRange = Math.max(1, max - min);
-      const frameDelta = Math.round((deltaY / sliderHeight) * visibleFrameRange);
+      const valueDelta = (deltaY / sliderHeight) * visibleFrameRange;
 
-      const baselineStart = dragBaselineRef.current.startFrame;
-      const baselineEnd = dragBaselineRef.current.endFrame;
+      const baselineStart = dragBaselineRef.current.startValue;
+      const baselineEnd = dragBaselineRef.current.endValue;
       const baselineLength = baselineEnd - baselineStart;
+      const parentStartValue = frameToSliderValue(parentLayerStartFrame);
+      const parentEndValue = frameToSliderValue(parentLayerEndFrame);
 
-      let shiftedStart = baselineStart + frameDelta;
-      let shiftedEnd = baselineEnd + frameDelta;
+      let shiftedStart = baselineStart + valueDelta;
+      let shiftedEnd = baselineEnd + valueDelta;
 
-      if (shiftedStart < parentLayerStartFrame) {
-        shiftedStart = parentLayerStartFrame;
+      if (shiftedStart < parentStartValue) {
+        shiftedStart = parentStartValue;
         shiftedEnd = shiftedStart + baselineLength;
       }
-      if (shiftedEnd > parentLayerEndFrame) {
-        shiftedEnd = parentLayerEndFrame;
+      if (shiftedEnd > parentEndValue) {
+        shiftedEnd = parentEndValue;
         shiftedStart = shiftedEnd - baselineLength;
       }
 
       const [absoluteStart, absoluteEnd] = clampTrackRange(
-        [shiftedStart, shiftedEnd],
+        [sliderValueToFrame(shiftedStart), sliderValueToFrame(shiftedEnd)],
         parentLayerStartFrame,
         parentLayerEndFrame,
       );
@@ -142,8 +190,8 @@ export default function VisualTrackDisplay(props) {
       dragBaselineRef.current.currentEndFrame = absoluteEnd;
 
       setSliderValues([
-        Math.max(min, absoluteStart),
-        Math.min(max, absoluteEnd),
+        Math.max(min, Math.min(max, frameToSliderValue(absoluteStart))),
+        Math.max(min, Math.min(max, frameToSliderValue(absoluteEnd))),
       ]);
 
       if (onUpdate) {
@@ -180,19 +228,21 @@ export default function VisualTrackDisplay(props) {
     onUpdate,
     parentLayerEndFrame,
     parentLayerStartFrame,
+    frameToSliderValue,
+    sliderValueToFrame,
     visualTrackItem.trackKey,
   ]);
 
   const handleChange = (value) => {
     const [absoluteStart, absoluteEnd] = clampTrackRange(
-      value,
+      [sliderValueToFrame(value[0]), sliderValueToFrame(value[1])],
       parentLayerStartFrame,
       parentLayerEndFrame,
     );
 
     setSliderValues([
-      Math.max(min, absoluteStart),
-      Math.min(max, absoluteEnd),
+      Math.max(min, Math.min(max, frameToSliderValue(absoluteStart))),
+      Math.max(min, Math.min(max, frameToSliderValue(absoluteEnd))),
     ]);
 
     if (onUpdate) {
@@ -202,7 +252,7 @@ export default function VisualTrackDisplay(props) {
 
   const handleAfterChange = (value) => {
     const [absoluteStart, absoluteEnd] = clampTrackRange(
-      value,
+      [sliderValueToFrame(value[0]), sliderValueToFrame(value[1])],
       parentLayerStartFrame,
       parentLayerEndFrame,
     );
@@ -223,8 +273,8 @@ export default function VisualTrackDisplay(props) {
 
     dragStartYRef.current = event.clientY;
     dragBaselineRef.current = {
-      startFrame: visualTrackItem.startFrame,
-      endFrame: visualTrackItem.endFrame,
+      startValue: frameToSliderValue(visualTrackItem.startFrame),
+      endValue: frameToSliderValue(visualTrackItem.endFrame),
       currentStartFrame: visualTrackItem.startFrame,
       currentEndFrame: visualTrackItem.endFrame,
     };
@@ -242,73 +292,88 @@ export default function VisualTrackDisplay(props) {
         className={`track rounded-full ${className ?? ''}`}
         style={{
           ...style,
-          backgroundColor: isActiveTrack ? palette.active : palette.base,
+          bottom: isActiveTrack
+            ? addStyleValueOffset(style?.bottom, VISUAL_TRACK_THUMB_HEIGHT)
+            : style?.bottom,
+          backgroundColor: isActiveTrack ? palette.active : 'transparent',
           border: isActiveTrack ? `1px solid ${palette.border}` : 'none',
-          width: isActiveTrack ? '12px' : '4px',
+          width: isActiveTrack ? '16px' : '4px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           cursor: isActiveTrack ? 'pointer' : 'default',
-          boxShadow: isActiveTrack
-            ? (colorMode === 'dark'
-              ? '0 0 0 1px rgba(15,23,42,0.65), 0 8px 18px rgba(15,23,42,0.35)'
-              : '0 0 0 1px rgba(255,255,255,0.55), 0 6px 14px rgba(148,163,184,0.18)')
-            : 'none',
+          overflow: 'hidden',
         }}
         onClick={selectTrack}
         onMouseDown={isActiveTrack ? handleTrackMouseDown : undefined}
         title={`${visualTrackItem.assetLabel} · ${visualTrackItem.id}`}
-      />
+      >
+        {isActiveTrack ? (
+          <>
+            <div className={`pointer-events-none absolute inset-x-0 top-0 h-px ${colorMode === 'dark' ? 'bg-white/12' : 'bg-white/80'}`} />
+            <div className={`pointer-events-none absolute inset-x-0 bottom-0 h-px ${palette.bottomEdge}`} />
+          </>
+        ) : null}
+      </div>
     );
   };
 
   return (
-    <span
+    <div
       ref={sliderContainerRef}
-      className="inline-flex justify-center w-[28px] mx-[2px] py-[2px] h-full"
+      className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2 ${selectedRingClassName}`}
     >
-      <ReactSlider
-        className="w-[24px] h-full relative flex items-center justify-center mr-1 ml-1"
-        orientation="vertical"
-        min={min}
-        max={max}
-        value={sliderValues}
-        onChange={handleChange}
-        onAfterChange={handleAfterChange}
-        onBeforeChange={() => selectTrack()}
-        pearling
-        renderTrack={renderTrack}
-        renderThumb={(thumbProps, state) => {
-          const { index } = state;
-          const shouldRenderThumb =
-            (index === 0 && isStartVisible) || (index === 1 && isEndVisible);
+      <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}>
+        <ReactSlider
+          className="w-full relative"
+          orientation="vertical"
+          min={min}
+          max={max}
+          value={sliderValues}
+          onChange={handleChange}
+          onAfterChange={handleAfterChange}
+          onBeforeChange={() => selectTrack()}
+          pearling
+          style={{ height: `calc(100% + ${VISUAL_TRACK_THUMB_HEIGHT}px)` }}
+          renderTrack={renderTrack}
+          renderThumb={(thumbProps, state) => {
+            const { index } = state;
+            const shouldRenderThumb =
+              (index === 0 && isStartVisible) || (index === 1 && isEndVisible);
 
-          if (!shouldRenderThumb) {
-            return null;
-          }
+            if (!shouldRenderThumb) {
+              return null;
+            }
 
-          const { key, className, style, ...restThumbProps } = thumbProps;
+            const { key, className, style, ...restThumbProps } = thumbProps;
 
-          return (
-            <div
-              key={key}
-              {...restThumbProps}
-              className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
-                colorMode === 'dark'
-                  ? 'bg-white border-white/40 text-slate-800'
-                  : 'bg-slate-100 border-slate-300 text-slate-700'
-              } ${className ?? ''}`}
-              style={style}
-              onMouseDown={(event) => {
-                selectTrack(event);
-                if (typeof restThumbProps.onMouseDown === 'function') {
-                  restThumbProps.onMouseDown(event);
-                }
-              }}
-              title={`${visualTrackItem.assetLabel} · ${visualTrackItem.id}`}
-            >
-              <FaGripLines />
-            </div>
-          );
-        }}
-      />
-    </span>
+            return (
+              <div
+                key={key}
+                {...restThumbProps}
+                className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
+                  colorMode === 'dark'
+                    ? 'bg-white border-white/40 text-slate-800'
+                    : 'bg-slate-100 border-slate-300 text-slate-700'
+                } ${className ?? ''}`}
+                style={{
+                  ...style,
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                }}
+                onMouseDown={(event) => {
+                  selectTrack(event);
+                  if (typeof restThumbProps.onMouseDown === 'function') {
+                    restThumbProps.onMouseDown(event);
+                  }
+                }}
+                title={`${visualTrackItem.assetLabel} · ${visualTrackItem.id}`}
+              >
+                <FaGripLines />
+              </div>
+            );
+          }}
+        />
+      </div>
+    </div>
   );
 }

@@ -3,6 +3,20 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
+const RANGE_OVERLAY_THUMB_HEIGHT = 12;
+
+function addStyleValueOffset(styleValue, offsetPixels) {
+  if (typeof styleValue === 'number') {
+    return styleValue + offsetPixels;
+  }
+
+  if (typeof styleValue === 'string' && styleValue.length > 0) {
+    return `calc(${styleValue} + ${offsetPixels}px)`;
+  }
+
+  return offsetPixels;
+}
+
 export default function RangeOverlaySlider({
   min,
   max,
@@ -117,6 +131,7 @@ export default function RangeOverlaySlider({
     <div
       style={{
         height: `100%`,
+        overflow: 'visible',
       }}
       onMouseDown={handleMouseDown}
       onMouseUp={(event) => {
@@ -141,7 +156,11 @@ export default function RangeOverlaySlider({
               key={key}
               {...thumbProps}
               className={className}
-              style={style}
+              style={{
+                ...style,
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+              }}
               onMouseDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -168,7 +187,12 @@ export default function RangeOverlaySlider({
               key={key}
               {...trackProps}
               className={`${classes} ${incomingClass ?? ''}`}
-              style={style}
+              style={{
+                ...style,
+                bottom: isActiveSegment
+                  ? addStyleValueOffset(style?.bottom, RANGE_OVERLAY_THUMB_HEIGHT)
+                  : style?.bottom,
+              }}
             />
           );
         }}
@@ -184,7 +208,7 @@ export default function RangeOverlaySlider({
         }}
         orientation="vertical"
         minDistance={MIN_DISTANCE_IN_FRAMES}
-        style={{ height: '100%', pointerEvents: 'auto' }}
+        style={{ height: `calc(100% + ${RANGE_OVERLAY_THUMB_HEIGHT}px)`, pointerEvents: 'auto' }}
       />
     </div>
   );

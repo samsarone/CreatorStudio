@@ -2500,6 +2500,7 @@ export default function VideoHome(props) {
           renderCompletedThisSession={renderCompletedThisSession}
           isRenderPending={isVideoRenderPending}
           isUpdateLayerPending={isUpdateLayerPending}
+          isVideoPreviewPlaying={isVideoPreviewPlaying}
           requestRealignLayers={requestRealignLayers}
           cancelPendingRender={cancelPendingRender}
           framesPerSecond={videoSessionDetails?.framesPerSecond || 24}
@@ -2602,6 +2603,7 @@ export default function VideoHome(props) {
               renderCompletedThisSession={renderCompletedThisSession}
               isRenderPending={isVideoRenderPending}
               isUpdateLayerPending={isUpdateLayerPending}
+              isVideoPreviewPlaying={isVideoPreviewPlaying}
               requestRealignLayers={requestRealignLayers}
               cancelPendingRender={cancelPendingRender}
               framesPerSecond={videoSessionDetails?.framesPerSecond || 24}

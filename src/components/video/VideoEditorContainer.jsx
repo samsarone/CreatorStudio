@@ -23,9 +23,12 @@ import VideoEditorToolbar from './toolbars/VideoEditorToolbar.jsx'
 import LoadingImage from './util/LoadingImage.jsx';
 import LoadingImageBase from './util/LoadingImageBase.jsx';
 import {
+  buildResolvedPreviewAudioVolumeAutomationPoints,
   buildMusicDuckingWindows,
   clampAudioValue,
+  getAudioVolumeGainAtTime,
   getMusicDuckingVolumeAtTime,
+  hasManualAudioVolumeAutomation,
   isMusicLikeAudioType,
   isRenderablePreviewAudioLayer,
   normalizeAudioLayerType,
@@ -338,7 +341,21 @@ export default function VideoEditorContainer(props) {
   const audioRefs = useRef([]);  // Each element: { audio: HTMLAudioElement, startTime, endTime, ... }
   const audioContextRef = useRef(null);
 
-  const setPreviewMusicGain = useCallback((audioEntry, duckGain = 1) => {
+  const setPreviewBaseGain = useCallback((audioEntry, baseGain = 1) => {
+    if (!audioEntry) {
+      return;
+    }
+
+    const resolvedBaseGain = Math.max(0, Number(baseGain) || 0);
+    if (audioEntry.baseGainNode) {
+      audioEntry.baseGainNode.gain.value = resolvedBaseGain;
+      return;
+    }
+
+    audioEntry.audio.volume = clampAudioValue(resolvedBaseGain);
+  }, []);
+
+  const setPreviewDuckGain = useCallback((audioEntry, duckGain = 1) => {
     if (!audioEntry) {
       return;
     }
@@ -352,39 +369,60 @@ export default function VideoEditorContainer(props) {
     audioEntry.audio.volume = clampAudioValue(audioEntry.baseVolume * resolvedDuckGain);
   }, []);
 
-  const resetPreviewAudioDucking = useCallback(() => {
+  const resetPreviewAudioLevels = useCallback(() => {
     audioRefs.current.forEach((audioEntry) => {
+      const nextBaseGain = audioEntry.manualVolumeAdjustmentEnabled
+        ? getAudioVolumeGainAtTime(0, audioEntry.manualVolumeAutomationPoints)
+        : audioEntry.baseVolume;
+
+      setPreviewBaseGain(audioEntry, nextBaseGain);
+
       if (isMusicLikeAudioType(audioEntry?.type)) {
-        setPreviewMusicGain(audioEntry, 1);
+        setPreviewDuckGain(audioEntry, 1);
       }
     });
-  }, [setPreviewMusicGain]);
+  }, [setPreviewBaseGain, setPreviewDuckGain]);
 
-  const syncPreviewAudioDucking = useCallback((previewTime) => {
+  const syncPreviewAudioLevels = useCallback((previewTime) => {
+    const musicEntries = audioRefs.current.filter((audioEntry) => isMusicLikeAudioType(audioEntry?.type));
+
+    audioRefs.current.forEach((audioEntry) => {
+      const layerTime = Math.max(0, previewTime - audioEntry.startTime);
+      const nextBaseGain = audioEntry.manualVolumeAdjustmentEnabled
+        ? getAudioVolumeGainAtTime(layerTime, audioEntry.manualVolumeAutomationPoints)
+        : audioEntry.baseVolume;
+
+      setPreviewBaseGain(audioEntry, nextBaseGain);
+    });
+
     if (!applyAudioDucking) {
-      resetPreviewAudioDucking();
+      musicEntries.forEach((audioEntry) => setPreviewDuckGain(audioEntry, 1));
       return;
     }
 
-    const musicEntries = audioRefs.current.filter((audioEntry) => isMusicLikeAudioType(audioEntry?.type));
-    if (musicEntries.length === 0) {
+    const autoDuckMusicEntries = musicEntries.filter((audioEntry) => !audioEntry.manualVolumeAdjustmentEnabled);
+    musicEntries
+      .filter((audioEntry) => audioEntry.manualVolumeAdjustmentEnabled)
+      .forEach((audioEntry) => setPreviewDuckGain(audioEntry, 1));
+
+    if (autoDuckMusicEntries.length === 0) {
       return;
     }
 
     const duckingEntries = audioRefs.current.filter((audioEntry) => shouldDuckMusicAgainstAudioType(audioEntry?.type));
     if (duckingEntries.length === 0) {
-      resetPreviewAudioDucking();
+      autoDuckMusicEntries.forEach((audioEntry) => setPreviewDuckGain(audioEntry, 1));
       return;
     }
 
-    musicEntries.forEach((audioEntry) => {
+    autoDuckMusicEntries.forEach((audioEntry) => {
       const nextGain = getMusicDuckingVolumeAtTime(previewTime, audioEntry.duckingWindows);
-      setPreviewMusicGain(audioEntry, nextGain);
+      setPreviewDuckGain(audioEntry, nextGain);
     });
   }, [
     applyAudioDucking,
-    resetPreviewAudioDucking,
-    setPreviewMusicGain,
+    setPreviewBaseGain,
+    setPreviewDuckGain,
   ]);
 
   useEffect(() => {
@@ -392,8 +430,12 @@ export default function VideoEditorContainer(props) {
       ? audioLayers.filter(isRenderablePreviewAudioLayer)
       : [];
     const shouldBuildPreviewAudioGraph = Boolean(
-      applyAudioDucking &&
       renderableAudioLayers.length > 0
+      && renderableAudioLayers.some((layer) => (
+        applyAudioDucking
+        || hasManualAudioVolumeAutomation(layer)
+        || resolvePreviewLayerBaseVolume(layer) > 1
+      ))
     );
     const AudioContextCtor = typeof window !== 'undefined'
       ? (window.AudioContext || window.webkitAudioContext)
@@ -421,6 +463,11 @@ export default function VideoEditorContainer(props) {
         audioEl.crossOrigin = 'anonymous';
         audioEl.volume = mediaElementVolume;
 
+        const manualVolumeAdjustmentEnabled = hasManualAudioVolumeAutomation(layer);
+        const manualVolumeAutomationPoints = manualVolumeAdjustmentEnabled
+          ? buildResolvedPreviewAudioVolumeAutomationPoints(layer)
+          : [];
+
         const audioEntry = {
           audio: audioEl,
           baseVolume,
@@ -434,13 +481,18 @@ export default function VideoEditorContainer(props) {
           sourceNode: null,
           baseGainNode: null,
           duckGainNode: null,
+          manualVolumeAdjustmentEnabled,
+          manualVolumeAutomationPoints,
         };
 
         if (audioContext) {
           try {
             const sourceNode = audioContext.createMediaElementSource(audioEl);
             const baseGainNode = audioContext.createGain();
-            baseGainNode.gain.value = baseVolume;
+            const initialBaseGain = manualVolumeAdjustmentEnabled
+              ? getAudioVolumeGainAtTime(0, manualVolumeAutomationPoints)
+              : baseVolume;
+            baseGainNode.gain.value = initialBaseGain;
 
             audioEntry.sourceNode = sourceNode;
             audioEntry.baseGainNode = baseGainNode;
@@ -484,7 +536,7 @@ export default function VideoEditorContainer(props) {
 
     audioContextRef.current = audioContext;
     audioRefs.current = createdAudioRefs;
-    resetPreviewAudioDucking();
+    resetPreviewAudioLevels();
 
     return () => {
       createdAudioRefs.forEach((audioEntry) => {
@@ -518,8 +570,7 @@ export default function VideoEditorContainer(props) {
   }, [
     audioLayers,
     applyAudioDucking,
-    isExpressGeneration,
-    resetPreviewAudioDucking,
+    resetPreviewAudioLevels,
   ]);
 
 
@@ -531,7 +582,7 @@ export default function VideoEditorContainer(props) {
         // Optionally reset to 0
         // audio.currentTime = 0;
       });
-      resetPreviewAudioDucking();
+      resetPreviewAudioLevels();
       return;
     }
 
@@ -587,7 +638,7 @@ export default function VideoEditorContainer(props) {
         }
       });
 
-      syncPreviewAudioDucking(previewTime);
+      syncPreviewAudioLevels(previewTime);
     }, 1000 / fps);
 
     return () => clearInterval(intervalId);
@@ -596,10 +647,10 @@ export default function VideoEditorContainer(props) {
     isVideoPreviewPlaying,
     currentLayerSeek,
     totalDuration,
-    resetPreviewAudioDucking,
+    resetPreviewAudioLevels,
     setCurrentLayerSeek,
     setIsVideoPreviewPlaying,
-    syncPreviewAudioDucking,
+    syncPreviewAudioLevels,
   ]);
 
 

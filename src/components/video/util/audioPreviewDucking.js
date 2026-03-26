@@ -6,6 +6,8 @@ const MUSIC_SIDECHAIN_RATIO = 14;
 const MUSIC_SIDECHAIN_ATTACK_SECONDS = 0.09;
 const MUSIC_SIDECHAIN_RELEASE_SECONDS = 0.9;
 const MUSIC_SIDECHAIN_KNEE = 6;
+const AUDIO_VOLUME_PRECISION = 4;
+const AUDIO_TIME_EPSILON = 0.0001;
 
 export function clampAudioValue(value, min = 0, max = 1) {
   return Math.min(Math.max(Number(value) || 0, min), max);
@@ -57,15 +59,181 @@ export function shouldDuckMusicAgainstAudioType(value) {
   return Boolean(normalized) && normalized !== 'music';
 }
 
-export function resolvePreviewLayerBaseVolume(audioLayer = {}) {
-  const rawVolume = Number(audioLayer?.volume);
+function roundAudioNumber(value, precision = AUDIO_VOLUME_PRECISION) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Number(numericValue.toFixed(precision));
+}
+
+export function clampAudioVolumeValue(value, fallbackValue = 100) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    return roundAudioNumber(Math.max(0, Number(fallbackValue) || 100));
+  }
+
+  return roundAudioNumber(Math.max(0, numericValue));
+}
+
+export function resolvePreviewVolumeGainFromVolumeValue(volumeValue, generationType) {
+  const rawVolume = Number(volumeValue);
   if (!Number.isFinite(rawVolume) || rawVolume < 0) {
     return 1;
   }
 
-  const normalizedAudioType = normalizeAudioLayerType(audioLayer?.generationType);
+  const normalizedAudioType = normalizeAudioLayerType(generationType);
   const multiplier = isSpeechLikeAudioType(normalizedAudioType) ? 8 : 2;
-  return clampAudioValue((rawVolume * multiplier) / 100, 0, 8);
+  return roundAudioNumber((rawVolume * multiplier) / 100);
+}
+
+export function isManualAudioVolumeAdjustmentEnabled(audioLayer = {}) {
+  return Boolean(audioLayer?.manualVolumeAdjustmentEnabled);
+}
+
+export function resolveAudioLayerAutomationDuration(audioLayer = {}) {
+  const startTime = Number.isFinite(Number(audioLayer?.startTime))
+    ? Math.max(0, Number(audioLayer.startTime))
+    : 0;
+  const endTime = Number.isFinite(Number(audioLayer?.endTime))
+    ? Math.max(startTime, Number(audioLayer.endTime))
+    : startTime;
+  const explicitDuration = Number.isFinite(Number(audioLayer?.duration))
+    ? Math.max(0, Number(audioLayer.duration))
+    : null;
+
+  if (explicitDuration != null) {
+    return explicitDuration;
+  }
+
+  return Math.max(0, endTime - startTime);
+}
+
+export function normalizeAudioLayerTimestampedVolumes(timestampedVolumes, duration, fallbackVolume = 100) {
+  const resolvedDuration = Number.isFinite(Number(duration))
+    ? Math.max(0, Number(duration))
+    : 0;
+  const normalizedTimestampedVolumes = Array.isArray(timestampedVolumes)
+    ? timestampedVolumes
+    : [];
+  const dedupedPointsByTime = new Map();
+
+  normalizedTimestampedVolumes.forEach((point, index) => {
+    const time = Number.isFinite(Number(point?.time))
+      ? Math.max(0, Math.min(resolvedDuration, Number(point.time)))
+      : null;
+
+    if (time == null) {
+      return;
+    }
+
+    if (
+      time <= AUDIO_TIME_EPSILON
+      || (resolvedDuration > 0 && time >= resolvedDuration - AUDIO_TIME_EPSILON)
+    ) {
+      return;
+    }
+
+    const normalizedTime = roundAudioNumber(time);
+    const pointId = typeof point?.id === 'string' && point.id.trim()
+      ? point.id.trim()
+      : `point_${index}_${normalizedTime}`;
+
+    dedupedPointsByTime.set(normalizedTime, {
+      id: pointId,
+      time: normalizedTime,
+      volume: clampAudioVolumeValue(point?.volume, fallbackVolume),
+    });
+  });
+
+  return Array.from(dedupedPointsByTime.values()).sort((leftPoint, rightPoint) => leftPoint.time - rightPoint.time);
+}
+
+export function buildAudioLayerVolumeAutomationPoints(audioLayer = {}, durationOverride = null) {
+  const baseVolume = clampAudioVolumeValue(audioLayer?.volume, 100);
+  const duration = durationOverride != null
+    ? Math.max(0, Number(durationOverride) || 0)
+    : resolveAudioLayerAutomationDuration(audioLayer);
+  const timestampedVolumes = normalizeAudioLayerTimestampedVolumes(
+    audioLayer?.timestampedVolumes || audioLayer?.volumeEnvelope,
+    duration,
+    baseVolume,
+  );
+
+  return [
+    {
+      id: 'start',
+      time: 0,
+      volume: clampAudioVolumeValue(audioLayer?.startVolume, baseVolume),
+      kind: 'start',
+      fixed: true,
+    },
+    ...timestampedVolumes.map((point) => ({
+      ...point,
+      kind: 'point',
+      fixed: false,
+    })),
+    {
+      id: 'end',
+      time: roundAudioNumber(duration),
+      volume: clampAudioVolumeValue(audioLayer?.endVolume, baseVolume),
+      kind: 'end',
+      fixed: true,
+    },
+  ];
+}
+
+export function buildResolvedPreviewAudioVolumeAutomationPoints(audioLayer = {}, durationOverride = null) {
+  return buildAudioLayerVolumeAutomationPoints(audioLayer, durationOverride).map((point) => ({
+    ...point,
+    gain: resolvePreviewVolumeGainFromVolumeValue(point.volume, audioLayer?.generationType),
+  }));
+}
+
+export function hasManualAudioVolumeAutomation(audioLayer = {}, durationOverride = null) {
+  return isManualAudioVolumeAdjustmentEnabled(audioLayer)
+    && buildAudioLayerVolumeAutomationPoints(audioLayer, durationOverride).length >= 2;
+}
+
+export function getAudioVolumeGainAtTime(layerTimeSeconds, points = []) {
+  if (!Array.isArray(points) || points.length === 0) {
+    return 1;
+  }
+
+  const time = Number.isFinite(Number(layerTimeSeconds))
+    ? Math.max(0, Number(layerTimeSeconds))
+    : 0;
+  const sortedPoints = [...points].sort((leftPoint, rightPoint) => leftPoint.time - rightPoint.time);
+
+  if (time <= sortedPoints[0].time) {
+    return Number(sortedPoints[0].gain ?? sortedPoints[0].volume ?? 1) || 1;
+  }
+
+  for (let index = 1; index < sortedPoints.length; index += 1) {
+    const previousPoint = sortedPoints[index - 1];
+    const nextPoint = sortedPoints[index];
+    if (time > nextPoint.time) {
+      continue;
+    }
+
+    const previousGain = Number(previousPoint?.gain ?? previousPoint?.volume ?? 1) || 1;
+    const nextGain = Number(nextPoint?.gain ?? nextPoint?.volume ?? 1) || 1;
+    const segmentDuration = Number(nextPoint.time) - Number(previousPoint.time);
+
+    if (segmentDuration <= AUDIO_TIME_EPSILON) {
+      return nextGain;
+    }
+
+    const progress = clampAudioValue((time - Number(previousPoint.time)) / segmentDuration);
+    return previousGain + ((nextGain - previousGain) * progress);
+  }
+
+  return Number(sortedPoints[sortedPoints.length - 1].gain ?? sortedPoints[sortedPoints.length - 1].volume ?? 1) || 1;
+}
+
+export function resolvePreviewLayerBaseVolume(audioLayer = {}) {
+  return resolvePreviewVolumeGainFromVolumeValue(audioLayer?.volume, audioLayer?.generationType);
 }
 
 export function isRenderablePreviewAudioLayer(layer = {}) {

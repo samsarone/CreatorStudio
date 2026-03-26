@@ -34,7 +34,9 @@
   border-radius: 0; /* Square corners */
   box-shadow: none;
   cursor: pointer;
-  position: relative;
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
   z-index: 2;
 }
 
