@@ -8,6 +8,7 @@ import {
   applyGlitchEffect
 } from '../../../utils/frame_animation/GlitchUtils.jsx';
 import { applyBloomEffect } from '../../../utils/frame_animation/BloomUtils.jsx';
+import { createLayerBoundImageItem } from '../util/layerBoundImageItem.js';
 
 
 
@@ -213,6 +214,8 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const [eraserToolbarPosition, setEraserToolbarPosition] = useState({ x: 0, y: 0 });
 
   const [tempTopNode, setTempTopNode] = useState(null);
+  const createCurrentLayerImageItem = (imagePayload) =>
+    createLayerBoundImageItem({ layer: currentLayer, ...imagePayload });
 
 
   useEffect(() => {
@@ -368,15 +371,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         const imageObj = new window.Image();
         imageObj.onload = () => {
           const groupClientRect = pencilGroup.getClientRect();
-          const newItem = {
+          const newItem = createCurrentLayerImageItem({
             id: `item_${activeItemList.length}`,
-            type: 'image',
             src: dataURL,
             x: groupClientRect.x,
             y: groupClientRect.y,
             width: groupClientRect.width,
             height: groupClientRect.height,
-          };
+          });
           const newItemList = [...activeItemList, newItem];
 
 
@@ -597,15 +599,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const dataURL = offscreenCanvas.toDataURL();
       const imageObj = new window.Image();
       imageObj.onload = () => {
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length - 1}`,
-          type: 'image',
           src: dataURL,
           width: imageObj.width / stageZoomScale,
           height: imageObj.height / stageZoomScale,
           x: boundingBox.x / stageZoomScale,
           y: boundingBox.y / stageZoomScale,
-        };
+        });
         const newActiveItemList = activeItemList.slice(0, -1).concat(newItem);
         setActiveItemList(newActiveItemList);
         eraserLayer.off();
@@ -648,15 +649,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const dataURL = offscreenCanvas.toDataURL();
       const imageObj = new window.Image();
       imageObj.onload = () => {
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length}`,
-          type: 'image',
           src: dataURL,
           width: imageObj.width,
           height: imageObj.height,
           x: boundingBox.x,
           y: boundingBox.y,
-        };
+        });
         const newActiveItemList = [...activeItemList, newItem];
         setActiveItemList(newActiveItemList);
         updateSessionActiveItemList(newActiveItemList);
@@ -781,15 +781,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const dataURL = offscreenCanvas.toDataURL();
       const imageObj = new window.Image();
       imageObj.onload = () => {
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length}`,
-          type: 'image',
           src: dataURL,
           width: imageObj.width / stageZoomScale,
           height: imageObj.height / stageZoomScale,
           x: boundingBox.x / stageZoomScale,
           y: boundingBox.y / stageZoomScale,
-        };
+        });
 
         const newActiveItemList = [...activeItemList, newItem];
 
@@ -854,15 +853,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const dataURL = offscreenCanvas.toDataURL();
       const imageObj = new window.Image();
       imageObj.onload = () => {
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length - 1}`,
-          type: 'image',
           src: dataURL,
           width: imageObj.width / stageZoomScale,
           height: imageObj.height / stageZoomScale,
           x: boundingBox.x / stageZoomScale,
           y: boundingBox.y / stageZoomScale,
-        };
+        });
 
         let prevActiveList = [...activeItemList];
         prevActiveList[prevActiveList.length - 1] = newItem;
@@ -1122,15 +1120,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const imageObj = new window.Image();
       imageObj.onload = () => {
         const groupClientRect = pencilGroup.getClientRect();
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length}`,
-          type: 'image',
           src: dataURL,
-        x: groupClientRect.x / stageZoomScale,
-        y: groupClientRect.y / stageZoomScale,
-        width: groupClientRect.width / stageZoomScale,
-        height: groupClientRect.height / stageZoomScale,
-        };
+          x: groupClientRect.x / stageZoomScale,
+          y: groupClientRect.y / stageZoomScale,
+          width: groupClientRect.width / stageZoomScale,
+          height: groupClientRect.height / stageZoomScale,
+        });
         const newItemList = [...activeItemList, newItem];
         setActiveItemList(newItemList);
         pencilGroup.off();

@@ -20,6 +20,7 @@ import MinimalTaskSkeleton from '../../common/MinimalTaskSkeleton.jsx';
 
 import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.jsx';
 import VideoCanvasGridOverlay from './overlay/VideoCanvasGridOverlay.jsx'; // Make sure the path is correct
+import { createLayerBoundImageItem } from '../util/layerBoundImageItem.js';
 
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 import './videoCanvas.css';
@@ -375,8 +376,11 @@ const VideoCanvas = forwardRef((props, ref) => {
   }
 
   const addNewItem = (newItem) => {
-
-    const newActiveItemList = [...activeItemList, newItem];
+    const normalizedItem =
+      newItem?.type === 'image'
+        ? createLayerBoundImageItem({ layer: currentLayer, ...newItem })
+        : newItem;
+    const newActiveItemList = [...activeItemList, normalizedItem];
     setActiveItemList(newActiveItemList);
     updateSessionActiveItemList(newActiveItemList);
     //  setSelectedId(newItem.id); // Ensure the new item is selected
@@ -573,15 +577,20 @@ const VideoCanvas = forwardRef((props, ref) => {
 
     const imageObj = new Image();
     imageObj.onload = () => {
-      const newItem = {
+      const newItem = createLayerBoundImageItem({
+        layer: currentLayer,
         id: maskBaseImageId, // Keep the same ID
-        type: 'image',
         src: imageObj.src,
         x: topItem.x,
         y: topItem.y,
         width: topItem.width,
         height: topItem.height,
-      };
+        config: topItem?.config,
+        startFrame: topItem?.startFrame,
+        endFrame: topItem?.endFrame,
+        startTime: topItem?.startTime,
+        endTime: topItem?.endTime,
+      });
 
       const newActiveItemList = activeItemList.map(item => item.id === maskBaseImageId ? newItem : item);
       setActiveItemList(newActiveItemList);
@@ -626,15 +635,15 @@ const VideoCanvas = forwardRef((props, ref) => {
 
     const imageObj = new Image();
     imageObj.onload = () => {
-      const newItem = {
+      const newItem = createLayerBoundImageItem({
+        layer: currentLayer,
         id: `item_${activeItemList.length}`,
-        type: 'image',
         src: imageObj.src,
         x: x,
         y: y,
         width: width,
         height: height,
-      };
+      });
 
       addNewItem(newItem);
       if (callback) callback(newItem); // Call the callback with the new item

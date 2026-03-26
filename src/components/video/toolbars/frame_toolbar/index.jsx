@@ -46,8 +46,13 @@ import _ from 'lodash';
 import {
   buildAudioLayerVolumeAutomationPoints,
   clampAudioVolumeValue,
+  normalizeAudioLayerType,
 } from '../../util/audioPreviewDucking.js';
-import { getViewportGeometryFrameRange } from '../../util/viewportGeometry.js';
+import {
+  frameToViewportValue,
+  getViewportGeometryFrameRange,
+  viewportValueToFrame,
+} from '../../util/viewportGeometry.js';
 const MAX_VISIBLE_LAYERS = 10;
 const MIN_LAYER_HEIGHT = 20; // in pixels
 const VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND = 30;
@@ -83,6 +88,69 @@ const SCENE_TRANSITION_PRESET_OPTIONS = [
 
 function resolveAudioTrackId(audioTrack) {
   return audioTrack?._id?.toString?.() || audioTrack?._id || audioTrack?.id || null;
+}
+
+function sanitizeAudioTrackText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function formatAudioTrackTypeLabel(value) {
+  const normalizedType = normalizeAudioLayerType(value);
+
+  switch (normalizedType) {
+    case 'music':
+      return 'Music';
+    case 'speech':
+      return 'Speech';
+    case 'sound_effect':
+      return 'Sound Effect';
+    case 'lip_sync':
+      return 'Lip Sync';
+    case 'background_music':
+      return 'Background Music';
+    case 'user_video':
+      return 'User Video';
+    default:
+      if (!normalizedType) {
+        return 'Audio';
+      }
+
+      return normalizedType
+        .split(/[_\s-]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+  }
+}
+
+function getAudioTrackPromptText(audioTrack = {}) {
+  const prompt = sanitizeAudioTrackText(audioTrack?.prompt);
+  if (prompt) {
+    return prompt;
+  }
+
+  return sanitizeAudioTrackText(audioTrack?.description);
+}
+
+function getAudioTrackDisplayTitle(audioTrack = {}) {
+  const title = sanitizeAudioTrackText(audioTrack?.title);
+  const promptText = getAudioTrackPromptText(audioTrack);
+  const speakerName = sanitizeAudioTrackText(audioTrack?.speakerCharacterName)
+    || sanitizeAudioTrackText(audioTrack?.speaker);
+  const typeLabel = formatAudioTrackTypeLabel(audioTrack?.generationType);
+  const hasDistinctTitle = title
+    && (!promptText || title.toLowerCase() !== promptText.toLowerCase());
+  const normalizedType = normalizeAudioLayerType(audioTrack?.generationType);
+
+  if (normalizedType === 'speech' || normalizedType === 'lip_sync') {
+    return (hasDistinctTitle ? title : '') || speakerName || typeLabel;
+  }
+
+  if (normalizedType === 'music') {
+    return (hasDistinctTitle ? title : '') || 'Music';
+  }
+
+  return (hasDistinctTitle ? title : '') || typeLabel;
 }
 
 function clampPercent(value) {
@@ -242,6 +310,31 @@ function buildGridLineOffsets(rangeStartFrame, rangeEndFrame, stepFrames) {
   }
 
   return offsets;
+}
+
+function buildGridLineFrames(rangeStartFrame, rangeEndFrame, stepFrames) {
+  if (
+    !Number.isFinite(rangeStartFrame)
+    || !Number.isFinite(rangeEndFrame)
+    || !Number.isFinite(stepFrames)
+    || stepFrames <= 0
+    || rangeEndFrame <= rangeStartFrame
+  ) {
+    return [];
+  }
+
+  const firstAlignedFrame = Math.ceil(rangeStartFrame / stepFrames) * stepFrames;
+  const frames = [];
+
+  for (let frame = firstAlignedFrame; frame < rangeEndFrame; frame += stepFrames) {
+    if (frame <= rangeStartFrame || frame >= rangeEndFrame) {
+      continue;
+    }
+
+    frames.push(frame);
+  }
+
+  return frames;
 }
 
 function isVisualLayerItem(item) {
@@ -1118,6 +1211,44 @@ export default function FrameToolbar(props) {
     () => resolveAudioTrackId(selectedAudioTrack),
     [selectedAudioTrack]
   );
+  const selectedAudioTrackPrompt = useMemo(
+    () => getAudioTrackPromptText(selectedAudioTrack),
+    [selectedAudioTrack]
+  );
+  const selectedAudioTrackDisplayTitle = useMemo(
+    () => getAudioTrackDisplayTitle(selectedAudioTrack),
+    [selectedAudioTrack]
+  );
+  const selectedAudioTrackTypeLabel = useMemo(
+    () => formatAudioTrackTypeLabel(selectedAudioTrack?.generationType),
+    [selectedAudioTrack]
+  );
+  const shouldShowSelectedAudioTrackTypeLabel = useMemo(() => {
+    const normalizedDisplayTitle = sanitizeAudioTrackText(selectedAudioTrackDisplayTitle).toLowerCase();
+    const normalizedTypeLabel = sanitizeAudioTrackText(selectedAudioTrackTypeLabel).toLowerCase();
+
+    return Boolean(normalizedTypeLabel && normalizedTypeLabel !== normalizedDisplayTitle);
+  }, [selectedAudioTrackDisplayTitle, selectedAudioTrackTypeLabel]);
+  const selectedAudioTrackMetadata = useMemo(() => {
+    if (!selectedAudioTrack) {
+      return [];
+    }
+
+    const metadataItems = [];
+    const speakerName = sanitizeAudioTrackText(selectedAudioTrack?.speakerCharacterName)
+      || sanitizeAudioTrackText(selectedAudioTrack?.speaker);
+    const ttsProvider = sanitizeAudioTrackText(selectedAudioTrack?.ttsProvider);
+
+    if (speakerName) {
+      metadataItems.push({ label: 'Voice', value: speakerName });
+    }
+
+    if (ttsProvider) {
+      metadataItems.push({ label: 'Provider', value: ttsProvider });
+    }
+
+    return metadataItems;
+  }, [selectedAudioTrack]);
   const audioTrackById = useMemo(
     () => audioTrackListDisplay.reduce((trackMap, audioTrack) => {
       const trackId = resolveAudioTrackId(audioTrack);
@@ -1345,7 +1476,7 @@ export default function FrameToolbar(props) {
   };
 
   const copyPromptToClipboard = async () => {
-    if (!selectedAudioTrack?.prompt) {
+    if (!selectedAudioTrackPrompt) {
       return;
     }
 
@@ -1353,11 +1484,11 @@ export default function FrameToolbar(props) {
 
     try {
       if (window.isSecureContext && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(selectedAudioTrack.prompt);
+        await navigator.clipboard.writeText(selectedAudioTrackPrompt);
         copied = true;
       } else {
         const textArea = document.createElement('textarea');
-        textArea.value = selectedAudioTrack.prompt;
+        textArea.value = selectedAudioTrackPrompt;
         textArea.style.position = 'fixed';
         textArea.style.top = '-9999px';
         textArea.style.left = '-9999px';
@@ -1422,10 +1553,10 @@ export default function FrameToolbar(props) {
   }, [isPromptDropdownOpen]);
 
   useEffect(() => {
-    if ((!selectedAudioTrack || !selectedAudioTrack.prompt) && isPromptDropdownOpen) {
+    if ((!selectedAudioTrack || !selectedAudioTrackPrompt) && isPromptDropdownOpen) {
       closePromptDropdown();
     }
-  }, [selectedAudioTrack, isPromptDropdownOpen]);
+  }, [selectedAudioTrack, selectedAudioTrackPrompt, isPromptDropdownOpen]);
 
   useEffect(() => {
     if (frameToolbarView !== FRAME_TOOLBAR_VIEW.EXPANDED) {
@@ -2517,18 +2648,46 @@ export default function FrameToolbar(props) {
     const audioStatusTitle = dirtyCount > 0
       ? `${dirtyCount} audio update${dirtyCount === 1 ? '' : 's'} pending`
       : 'Audio workspace';
+    const metadataLabelClassName =
+      colorMode === 'light'
+        ? 'text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500'
+        : 'text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400';
+    const metadataValueClassName =
+      colorMode === 'light'
+        ? 'text-xs text-slate-700'
+        : 'text-xs text-slate-200';
+    const promptPreviewClassName =
+      colorMode === 'light'
+        ? 'border border-slate-200 bg-white/90 hover:bg-slate-50'
+        : 'border border-[#2a3953] bg-[#111a2f]/82 hover:bg-[#17223a]';
+    const promptCopyButtonClassName =
+      colorMode === 'light'
+        ? 'border border-slate-200 bg-white/90 text-slate-700 hover:bg-slate-100'
+        : 'border border-[#2a3953] bg-[#111a2f]/82 text-slate-100 hover:bg-[#17223a]';
+    const toolbarDividerClassName =
+      colorMode === 'light' ? 'bg-slate-200' : 'bg-[#253248]';
+    const inlineInputClassName =
+      colorMode === 'light'
+        ? 'h-7 w-[54px] bg-transparent px-0 text-right text-[11px] font-semibold text-slate-700 outline-none'
+        : 'h-7 w-[54px] bg-transparent px-0 text-right text-[11px] font-semibold text-slate-100 outline-none';
+    const compactPromptCopyButtonClassName =
+      promptCopyState === 'copied'
+        ? activePillClassName
+        : promptCopyState === 'failed'
+          ? removeButtonClassName
+          : promptCopyButtonClassName;
 
     return (
-      <div className={`flex w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${audioToolbarSurface}`}>
-        <div
-          className={`h-2.5 w-2.5 shrink-0 rounded-full ${audioStatusDotClass}`}
-          title={audioStatusTitle}
-          aria-label={audioStatusTitle}
-        />
+      <div className={`flex w-full max-w-full flex-col gap-1.5 overflow-hidden rounded-2xl px-2 py-1.5 ${audioToolbarSurface}`}>
+        <div className='flex min-w-0 justify-center overflow-x-auto pb-[2px]'>
+          <div className='flex min-w-max items-center gap-1.5'>
+            <div
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${audioStatusDotClass}`}
+              title={audioStatusTitle}
+              aria-label={audioStatusTitle}
+            />
 
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-[2px]">
-          {selectedAudioTrack ? (
-            <>
+            {selectedAudioTrack ? (
               <button
                 type="button"
                 onClick={duplicateSelectedAudioTrack}
@@ -2539,70 +2698,153 @@ export default function FrameToolbar(props) {
               >
                 <FaCopy />
               </button>
-              <input
-                type="number"
-                value={selectedAudioTrack.startTime}
-                className={compactInputClassName}
-                onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
-                title="Start time"
-                aria-label="Start time"
-              />
-              <input
-                type="number"
-                value={selectedAudioTrack.endTime}
-                className={compactInputClassName}
-                onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
-                title="End time"
-                aria-label="End time"
-              />
-              <input
-                type="number"
-                value={selectedAudioTrack.volume}
-                className={compactInputClassName}
-                onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
-                title="Layer volume"
-                aria-label="Layer volume"
-              />
-            </>
-          ) : null}
+            ) : null}
 
-          <button
-            type="button"
-            onClick={toggleSelectedAudioAdvancedOptions}
-            title="Audio tools"
-            aria-label="Audio tools"
-            disabled={!hasAudioLayers}
-            className={`inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:opacity-50 ${advancedButtonClassName}`}
-          >
-            Audio Tools
-          </button>
-
-          <button
-            type="button"
-            onClick={onUpdateAllAudioLayers}
-            disabled={dirtyCount === 0}
-            title="Update all audio layers"
-            aria-label="Update all audio layers"
-            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${updateButtonClassName}`}
-          >
-            <FaCheck />
-          </button>
-
-          {selectedAudioTrack ? (
             <button
               type="button"
-              title="Remove audio layer"
-              aria-label="Remove audio layer"
-              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition ${removeButtonClassName}`}
-              onClick={() => removeAudioLayer(selectedAudioTrack)}
+              onClick={toggleSelectedAudioAdvancedOptions}
+              title="Audio tools"
+              aria-label="Audio tools"
+              disabled={!hasAudioLayers}
+              className={`inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:opacity-50 ${advancedButtonClassName}`}
             >
-              <FaTimes />
+              Tools
             </button>
-          ) : null}
 
-          {showSelectedAudioExtraOptionsToolbar ? (
-            <>
-              <div className={`h-6 w-px shrink-0 ${colorMode === 'light' ? 'bg-slate-200' : 'bg-[#253248]'}`} />
+            <button
+              type="button"
+              onClick={onUpdateAllAudioLayers}
+              disabled={dirtyCount === 0}
+              title="Update all audio layers"
+              aria-label="Update all audio layers"
+              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${updateButtonClassName}`}
+            >
+              <FaCheck />
+            </button>
+
+            {selectedAudioTrack ? (
+              <button
+                type="button"
+                title="Remove audio layer"
+                aria-label="Remove audio layer"
+                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition ${removeButtonClassName}`}
+                onClick={() => removeAudioLayer(selectedAudioTrack)}
+              >
+                <FaTimes />
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {selectedAudioTrack ? (
+          <div className='overflow-x-auto pb-[2px]'>
+            <div className='flex min-w-max items-center gap-1.5'>
+              <div
+                className={`inline-flex h-8 max-w-[220px] shrink-0 items-center rounded-lg px-2.5 text-xs font-semibold ${secondarySurfaceClassName}`}
+                title={selectedAudioTrackDisplayTitle}
+              >
+                <span className='min-w-0 truncate'>{selectedAudioTrackDisplayTitle}</span>
+              </div>
+
+              <div className={`inline-flex h-8 shrink-0 items-center overflow-hidden rounded-lg ${secondarySurfaceClassName}`}>
+                <label className='inline-flex h-full items-center gap-1.5 px-2' title="Start time">
+                  <span className={metadataLabelClassName}>In</span>
+                  <input
+                    type="number"
+                    value={selectedAudioTrack.startTime}
+                    className={inlineInputClassName}
+                    onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
+                    aria-label="Start time"
+                  />
+                </label>
+                <div className={`h-4 w-px shrink-0 ${toolbarDividerClassName}`} />
+                <label className='inline-flex h-full items-center gap-1.5 px-2' title="End time">
+                  <span className={metadataLabelClassName}>Out</span>
+                  <input
+                    type="number"
+                    value={selectedAudioTrack.endTime}
+                    className={inlineInputClassName}
+                    onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
+                    aria-label="End time"
+                  />
+                </label>
+                <div className={`h-4 w-px shrink-0 ${toolbarDividerClassName}`} />
+                <label className='inline-flex h-full items-center gap-1.5 px-2' title="Layer volume">
+                  <span className={metadataLabelClassName}>Vol</span>
+                  <input
+                    type="number"
+                    value={selectedAudioTrack.volume}
+                    className={inlineInputClassName}
+                    onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
+                    aria-label="Layer volume"
+                  />
+                </label>
+              </div>
+
+              {shouldShowSelectedAudioTrackTypeLabel ? (
+                <div
+                  className={`inline-flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${secondarySurfaceClassName}`}
+                  title={selectedAudioTrackTypeLabel}
+                >
+                  {selectedAudioTrackTypeLabel}
+                </div>
+              ) : null}
+
+              {selectedAudioTrackMetadata.map((item) => (
+                <div
+                  key={item.label}
+                  className={`inline-flex h-8 max-w-[180px] shrink-0 items-center gap-1.5 rounded-lg px-2 ${secondarySurfaceClassName}`}
+                  title={`${item.label}: ${item.value}`}
+                >
+                  <span className={metadataLabelClassName}>{item.label}</span>
+                  <span className={`${metadataValueClassName} min-w-0 truncate`}>{item.value}</span>
+                </div>
+              ))}
+
+              {selectedAudioTrackPrompt ? (
+                <>
+                  <button
+                    ref={promptDropdownButtonRef}
+                    type="button"
+                    onClick={togglePromptDropdown}
+                    className={`inline-flex h-8 min-w-[220px] max-w-[360px] shrink-0 items-center gap-2 overflow-hidden rounded-lg px-2.5 text-left transition ${promptPreviewClassName}`}
+                    title={selectedAudioTrackPrompt}
+                  >
+                    <span className={`${metadataLabelClassName} shrink-0`}>Prompt</span>
+                    <span className='min-w-0 flex-1 truncate text-xs'>
+                      {selectedAudioTrackPrompt}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyPromptToClipboard}
+                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition ${compactPromptCopyButtonClassName}`}
+                    title={
+                      promptCopyState === 'copied'
+                        ? 'Prompt copied'
+                        : promptCopyState === 'failed'
+                          ? 'Copy failed'
+                          : 'Copy prompt'
+                    }
+                    aria-label="Copy prompt"
+                  >
+                    {promptCopyState === 'copied' ? (
+                      <FaCheck />
+                    ) : promptCopyState === 'failed' ? (
+                      <FaTimes />
+                    ) : (
+                      <FaCopy />
+                    )}
+                  </button>
+                </>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {showSelectedAudioExtraOptionsToolbar ? (
+          <div className='overflow-x-auto pb-[2px]'>
+            <div className='flex min-w-max items-center gap-1.5'>
               <label
                 className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em] ${
                   showVerticalWaveform ? activePillClassName : secondarySurfaceClassName
@@ -2614,7 +2856,7 @@ export default function FrameToolbar(props) {
                   checked={showVerticalWaveform}
                   onChange={handleSelectedAudioVisualizerToggle}
                 />
-                Waveforms
+                Wave
               </label>
 
               {showVerticalWaveform ? (
@@ -2624,14 +2866,14 @@ export default function FrameToolbar(props) {
                     className={`${pillBaseClassName} ${selectedAudioVisualizationMode === 'waveform' ? activePillClassName : secondarySurfaceClassName}`}
                     onClick={() => setSelectedAudioVisualizationMode('waveform')}
                   >
-                    Waveform
+                    Wave
                   </button>
                   <button
                     type="button"
                     className={`${pillBaseClassName} ${selectedAudioVisualizationMode === 'spectrogram' ? activePillClassName : secondarySurfaceClassName}`}
                     onClick={() => setSelectedAudioVisualizationMode('spectrogram')}
                   >
-                    Spectral
+                    Spec
                   </button>
                   {audioTrackListDisplay.map((audioTrack, index) => {
                     const trackId = resolveAudioTrackId(audioTrack);
@@ -2655,7 +2897,7 @@ export default function FrameToolbar(props) {
                           checked={isVisible}
                           onChange={(event) => setAudioWaveformVisibilityForTrack(trackId, event.target.checked)}
                         />
-                        {`Layer ${index + 1}`}
+                        {`L${index + 1}`}
                       </label>
                     );
                   })}
@@ -2674,7 +2916,7 @@ export default function FrameToolbar(props) {
                     checked={manualVolumeAdjustmentEnabled}
                     onChange={handleSelectedAudioManualVolumeToggle}
                   />
-                  Volume Points
+                  Points
                 </label>
               ) : null}
 
@@ -2709,9 +2951,9 @@ export default function FrameToolbar(props) {
                   ) : null}
                 </>
               ) : null}
-            </>
-          ) : null}
-        </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -2919,6 +3161,29 @@ export default function FrameToolbar(props) {
   );
   const hasUsableFrameRange = hasValidViewRange && totalDurationInFrames > 0;
   const viewFrameSpan = Math.max(1, safeViewRange[1] - safeViewRange[0]);
+  const hasDisplayedLayerViewportGeometry = Array.isArray(displayedLayerViewportGeometry?.segments)
+    && displayedLayerViewportGeometry.segments.length > 0;
+  const displayedLayerViewportTotalPixels = hasDisplayedLayerViewportGeometry
+    ? Math.max(1, Number(displayedLayerViewportGeometry?.totalPixels) || 1)
+    : 1;
+  const frameToSeekSliderValue = (frame) => (
+    hasDisplayedLayerViewportGeometry
+      ? frameToViewportValue(frame, displayedLayerViewportGeometry)
+      : Number(frame) || 0
+  );
+  const seekSliderValueToFrame = (value) => (
+    hasDisplayedLayerViewportGeometry
+      ? viewportValueToFrame(value, displayedLayerViewportGeometry)
+      : Number(value) || 0
+  );
+  const seekSliderMin = hasDisplayedLayerViewportGeometry ? 0 : safeViewRange[0];
+  const seekSliderMax = hasDisplayedLayerViewportGeometry
+    ? displayedLayerViewportTotalPixels
+    : safeViewRange[1];
+  const currentSeekSliderValue = Math.max(
+    seekSliderMin,
+    Math.min(seekSliderMax, frameToSeekSliderValue(clampedLayerSeek)),
+  );
   const majorGridStepFrames = useMemo(
     () => pickGridStepFrames(viewFrameSpan, 10),
     [viewFrameSpan]
@@ -2927,9 +3192,9 @@ export default function FrameToolbar(props) {
     () => getMinorGridStepFrames(majorGridStepFrames),
     [majorGridStepFrames]
   );
-  const majorGridLineOffsets = useMemo(() => (
+  const majorGridLineFrames = useMemo(() => (
     hasUsableFrameRange
-      ? buildGridLineOffsets(viewRangeStart, viewRangeEnd, majorGridStepFrames)
+      ? buildGridLineFrames(viewRangeStart, viewRangeEnd, majorGridStepFrames)
       : []
   ), [hasUsableFrameRange, majorGridStepFrames, viewRangeEnd, viewRangeStart]);
   const minorGridLineOffsets = useMemo(() => {
@@ -2938,21 +3203,55 @@ export default function FrameToolbar(props) {
     }
 
     const majorOffsetSet = new Set(
-      buildGridLineOffsets(viewRangeStart, viewRangeEnd, majorGridStepFrames)
-        .map((offset) => offset.toFixed(4))
+      majorGridLineFrames.map((frame) => frame.toFixed(4))
     );
 
-    return buildGridLineOffsets(viewRangeStart, viewRangeEnd, minorGridStepFrames)
-      .filter((offset) => !majorOffsetSet.has(offset.toFixed(4)));
+    return buildGridLineFrames(viewRangeStart, viewRangeEnd, minorGridStepFrames)
+      .filter((frame) => !majorOffsetSet.has(frame.toFixed(4)))
+      .map((frame) => (
+        hasDisplayedLayerViewportGeometry
+          ? clampPercent(
+            (frameToViewportValue(frame, displayedLayerViewportGeometry)
+              / displayedLayerViewportTotalPixels) * 100
+          )
+          : clampPercent(((frame - safeViewRange[0]) / viewFrameSpan) * 100)
+      ));
   }, [
+    displayedLayerViewportGeometry,
+    displayedLayerViewportTotalPixels,
+    hasDisplayedLayerViewportGeometry,
     hasUsableFrameRange,
-    majorGridStepFrames,
+    majorGridLineFrames,
     minorGridStepFrames,
-    viewRangeEnd,
-    viewRangeStart,
+    safeViewRange,
+    viewFrameSpan,
+  ]);
+  const majorGridLineOffsets = useMemo(() => (
+    majorGridLineFrames.map((frame) => (
+      hasDisplayedLayerViewportGeometry
+        ? clampPercent(
+          (frameToViewportValue(frame, displayedLayerViewportGeometry)
+            / displayedLayerViewportTotalPixels) * 100
+        )
+        : clampPercent(((frame - safeViewRange[0]) / viewFrameSpan) * 100)
+    ))
+  ), [
+    displayedLayerViewportGeometry,
+    displayedLayerViewportTotalPixels,
+    hasDisplayedLayerViewportGeometry,
+    majorGridLineFrames,
+    safeViewRange,
+    viewFrameSpan,
   ]);
   const currentSeekGridOffset = hasUsableFrameRange
-    ? clampPercent(((clampedLayerSeek - safeViewRange[0]) / viewFrameSpan) * 100)
+    ? (
+      hasDisplayedLayerViewportGeometry
+        ? clampPercent(
+          (frameToViewportValue(clampedLayerSeek, displayedLayerViewportGeometry)
+            / displayedLayerViewportTotalPixels) * 100
+        )
+        : clampPercent(((clampedLayerSeek - safeViewRange[0]) / viewFrameSpan) * 100)
+    )
     : null;
   const gridOverlayThemeStyle = useMemo(() => (
     colorMode === 'dark'
@@ -2993,9 +3292,21 @@ export default function FrameToolbar(props) {
       ))
       .map((snapPoint) => ({
         ...snapPoint,
-        offset: clampPercent(((snapPoint.frame - safeViewRange[0]) / viewFrameSpan) * 100),
+        offset: hasDisplayedLayerViewportGeometry
+          ? clampPercent(
+            (frameToViewportValue(snapPoint.frame, displayedLayerViewportGeometry)
+              / displayedLayerViewportTotalPixels) * 100
+          )
+          : clampPercent(((snapPoint.frame - safeViewRange[0]) / viewFrameSpan) * 100),
       }))
-  ), [gridSnapPoints, safeViewRange, viewFrameSpan]);
+  ), [
+    displayedLayerViewportGeometry,
+    displayedLayerViewportTotalPixels,
+    gridSnapPoints,
+    hasDisplayedLayerViewportGeometry,
+    safeViewRange,
+    viewFrameSpan,
+  ]);
 
   let layerSelectOverlay = null;
 
@@ -3062,9 +3373,21 @@ export default function FrameToolbar(props) {
     const nextLayerId = layer?._id?.toString?.() || null;
     const currentSelectedLayerId = layers[selectedLayerIndex]?._id?.toString?.() || null;
     const isSameLayerSelection = nextLayerId && currentSelectedLayerId === nextLayerId;
+    const renderedLayerSegment = displayedLayerViewportGeometry.segments.find(
+      (segment) => segment.layerId === nextLayerId
+    );
+    const fallbackLayerStartFrame = layerFrameMetadata.find(
+      (layerMeta) => layerMeta.originalIndex === originalIndex
+    )?.startFrame;
+    const nextLayerSeekFrame = Number.isFinite(renderedLayerSegment?.frameStart)
+      ? renderedLayerSegment.frameStart
+      : fallbackLayerStartFrame;
 
     setSelectedLayerIndex(originalIndex);
     setSelectedLayer(layer);
+    if (Number.isFinite(nextLayerSeekFrame)) {
+      setCurrentLayerSeek(nextLayerSeekFrame);
+    }
     openPopupLayerIdRef.current = nextLayerId;
     setOpenPopupLayerIndex(originalIndex);
 
@@ -4562,6 +4885,9 @@ export default function FrameToolbar(props) {
     ? 'inline-flex items-center justify-center rounded-xl border border-[#2a3953] bg-[#111a2f]/82 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-[#17223a]'
     : 'inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100';
   const settingsSummaryCardClassName = `${panelSectionClassName} rounded-2xl p-3`;
+  const promptDropdownSurfaceClassName = colorMode === 'dark'
+    ? 'border border-[#24324a] bg-[#08111d]/95 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.45)]'
+    : 'border border-slate-200 bg-white/98 text-slate-800 shadow-[0_18px_45px_rgba(15,23,42,0.18)]';
   const selectedSceneLabel = selectedLayerIndex >= 0
     ? `Scene ${selectedLayerIndex + 1}`
     : 'No scene selected';
@@ -4866,9 +5192,10 @@ export default function FrameToolbar(props) {
   }
 
   const handleSeekBarChange = (value) => {
-    setCurrentLayerSeek(value);
+    const nextFrame = Math.max(0, Math.round(Number(value) || 0));
+    setCurrentLayerSeek(nextFrame);
     const selectedLayerMeta = layerFrameMetadata.find((layerMeta) => (
-      value >= layerMeta.startFrame && value < layerMeta.endFrame
+      nextFrame >= layerMeta.startFrame && nextFrame < layerMeta.endFrame
     )) || layerFrameMetadata[layerFrameMetadata.length - 1];
 
     if (!selectedLayerMeta) {
@@ -5122,17 +5449,21 @@ export default function FrameToolbar(props) {
                     thumbClassName="thumb"
                     trackClassName="track"
                     orientation="vertical"
-                    min={safeViewRange[0]}
-                    max={safeViewRange[1]}
-                    value={clampedLayerSeek}
+                    min={seekSliderMin}
+                    max={seekSliderMax}
+                    value={currentSeekSliderValue}
                     onChange={(value) => {
-                      handleSeekBarChange(value);
+                      handleSeekBarChange(seekSliderValueToFrame(value));
                     }}
                     onBeforeChange={() => setIsLayerSeeking(true)}
                     onAfterChange={(value) => {
+                      const resolvedFrame = Math.max(
+                        0,
+                        Math.round(seekSliderValueToFrame(value)),
+                      );
                       setIsLayerSeeking(false);
                       if (isGridVisible) {
-                        rememberGridSnapPoint(value);
+                        rememberGridSnapPoint(resolvedFrame);
                       }
                     }}
                   />
@@ -5239,6 +5570,47 @@ export default function FrameToolbar(props) {
           </div>,
           document.body
         )}
+
+      {isPromptDropdownOpen && selectedAudioTrackPrompt
+        ? createPortal(
+          <div
+            ref={promptDropdownRef}
+            className={`fixed z-[260] rounded-2xl p-3 ${promptDropdownSurfaceClassName}`}
+            style={{
+              top: promptDropdownPosition.top,
+              left: promptDropdownPosition.left,
+              width: promptDropdownPosition.width,
+              maxWidth: 'calc(100vw - 24px)',
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className='flex items-start justify-between gap-3'>
+              <div className='min-w-0 flex-1'>
+                <div className={settingsStatLabelClassName}>Prompt</div>
+                <div className='mt-1 truncate text-sm font-semibold' title={selectedAudioTrackDisplayTitle}>
+                  {selectedAudioTrackDisplayTitle}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={copyPromptToClipboard}
+                className={settingsActionButtonClasses}
+              >
+                <FaCopy className='mr-1 text-[11px]' />
+                {promptCopyState === 'copied'
+                  ? 'Copied'
+                  : promptCopyState === 'failed'
+                    ? 'Retry'
+                    : 'Copy prompt'}
+              </button>
+            </div>
+            <div className='mt-3 max-h-[260px] overflow-y-auto whitespace-pre-wrap break-words text-sm leading-6'>
+              {selectedAudioTrackPrompt}
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
     </div>
   );
 }

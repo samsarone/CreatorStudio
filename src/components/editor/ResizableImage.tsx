@@ -4,6 +4,25 @@ import { useImage } from 'react-konva-utils';
 import { getStageDimensions} from '../../constants/Image.jsx';
 
 const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
+const MIN_IMAGE_EDGE = 16;
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getAxisBounds(contentSize, containerSize) {
+  if (contentSize <= containerSize) {
+    return {
+      min: 0,
+      max: Math.max(0, containerSize - contentSize),
+    };
+  }
+
+  return {
+    min: containerSize - contentSize,
+    max: 0,
+  };
+}
 
 export default function ResizableImage({
   image,
@@ -19,13 +38,11 @@ export default function ResizableImage({
 }) {
   const { isDraggable, x, y } = props;
   let imageSrc;
-  const [stageDimensions, setStageDimensions ] = useState({ width: 0, height: 0 });
-
-
-  
-  useEffect(() => {
-    setStageDimensions(getStageDimensions(aspectRatio));
-  }, [aspectRatio]);
+  const baseStageDimensions = getStageDimensions(aspectRatio);
+  const stageDimensions = {
+    width: baseStageDimensions.width * (stageZoomScale || 1),
+    height: baseStageDimensions.height * (stageZoomScale || 1),
+  };
 
   if (image.src) {
     if (image.src.startsWith('data:image')) {
@@ -41,6 +58,20 @@ export default function ResizableImage({
   const trRef = useRef();
   const { showMask, id } = props;
 
+  const clampRectToStage = (rect) => {
+    const width = Math.max(MIN_IMAGE_EDGE, Number(rect?.width) || MIN_IMAGE_EDGE);
+    const height = Math.max(MIN_IMAGE_EDGE, Number(rect?.height) || MIN_IMAGE_EDGE);
+    const xBounds = getAxisBounds(width, stageDimensions.width);
+    const yBounds = getAxisBounds(height, stageDimensions.height);
+
+    return {
+      x: clamp(Number(rect?.x) || 0, xBounds.min, xBounds.max),
+      y: clamp(Number(rect?.y) || 0, yBounds.min, yBounds.max),
+      width,
+      height,
+    };
+  };
+
   useEffect(() => {
     if (status !== 'loaded' || !shapeRef.current) {
       return;
@@ -53,10 +84,19 @@ export default function ResizableImage({
     const scalingFactor = 1;
 
     try {
-      // Set the initial position of the image based on props
-      shapeRef.current.setAttrs({
+      const initialRect = clampRectToStage({
         x: x !== undefined ? x : (stageDimensions.width - imageDimensions.width * scalingFactor) / 2,
         y: y !== undefined ? y : (stageDimensions.height - imageDimensions.height * scalingFactor) / 2,
+        width: props.width ?? imageDimensions.width * scalingFactor,
+        height: props.height ?? imageDimensions.height * scalingFactor,
+      });
+
+      // Set the initial position of the image based on props
+      shapeRef.current.setAttrs({
+        x: initialRect.x,
+        y: initialRect.y,
+        width: initialRect.width,
+        height: initialRect.height,
         scaleX: scalingFactor,
         scaleY: scalingFactor,
       });
@@ -68,7 +108,7 @@ export default function ResizableImage({
     } catch (e) {
       // Ignore positioning errors so the editor can continue rendering.
     }
-  }, [img, status]);
+  }, [img, status, props.height, props.width, stageDimensions.height, stageDimensions.width, x, y]);
 
   useEffect(() => {
     if (!animations || animations.length === 0 || !isLayerSeeking || status !== 'loaded') {
@@ -108,20 +148,26 @@ export default function ResizableImage({
     const node = shapeRef.current;
     const scaleX = node.scaleX();
     const scaleY = node.scaleY();
-    const x = node.x();
-    const y = node.y();
-    const width = node.width() * scaleX;
-    const height = node.height() * scaleY;
-
+    const rect = clampRectToStage({
+      x: node.x(),
+      y: node.y(),
+      width: node.width() * Math.abs(scaleX),
+      height: node.height() * Math.abs(scaleY),
+    });
     node.scaleX(1);
     node.scaleY(1);
+    node.width(rect.width);
+    node.height(rect.height);
+    node.x(rect.x);
+    node.y(rect.y);
 
     const newConfig = {
-      x: x,
-      y: y,
-      width: width,
-      height: height,
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
     };
+    updateToolbarButtonPosition(id, rect.x, rect.y);
     updateTargetActiveLayerConfig(id, newConfig);
 
     setTimeout(() => setTransformEndCalled(false), 0);
@@ -129,12 +175,20 @@ export default function ResizableImage({
 
   const handleDragEnd = (e) => {
     const node = e.target;
-
-    const newConfig = {
+    const rect = clampRectToStage({
       x: node.x(),
       y: node.y(),
-      width: node.width() * node.scaleX(),
-      height: node.height() * node.scaleY(),
+      width: node.width() * Math.abs(node.scaleX()),
+      height: node.height() * Math.abs(node.scaleY()),
+    });
+    node.x(rect.x);
+    node.y(rect.y);
+
+    const newConfig = {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
     };
     updateTargetActiveLayerConfig(id, newConfig);
   };
@@ -161,6 +215,21 @@ export default function ResizableImage({
             onSelect();
           }}
           draggable={showMask || !isDraggable ? false : true}
+          dragBoundFunc={(position) => {
+            if (!shapeRef.current) {
+              return position;
+            }
+            const rect = clampRectToStage({
+              x: position.x,
+              y: position.y,
+              width: shapeRef.current.width() * Math.abs(shapeRef.current.scaleX() || 1),
+              height: shapeRef.current.height() * Math.abs(shapeRef.current.scaleY() || 1),
+            });
+            return {
+              x: rect.x,
+              y: rect.y,
+            };
+          }}
           onDragMove={(e) => updateToolbarButtonPosition(id, e.target.x(), e.target.y())}
           onDragEnd={handleDragEnd}
           onTransformEnd={handleTransformEnd}
@@ -173,6 +242,22 @@ export default function ResizableImage({
           anchorStyleFunc={(config) => {
             config.attrs.cornerRadius = 20;
             config.attrs.anchorCornerRadius = 20;
+          }}
+          flipEnabled={false}
+          boundBoxFunc={(oldBox, newBox) => {
+            const clampedBox = clampRectToStage(newBox);
+
+            if (clampedBox.width < MIN_IMAGE_EDGE || clampedBox.height < MIN_IMAGE_EDGE) {
+              return oldBox;
+            }
+
+            return {
+              ...newBox,
+              x: clampedBox.x,
+              y: clampedBox.y,
+              width: clampedBox.width,
+              height: clampedBox.height,
+            };
           }}
           onTransformEnd={handleTransformEnd}
         />

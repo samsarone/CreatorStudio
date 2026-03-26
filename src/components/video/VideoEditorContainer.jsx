@@ -36,6 +36,7 @@ import {
   resolvePreviewLayerBaseVolume,
   shouldDuckMusicAgainstAudioType,
 } from './util/audioPreviewDucking.js';
+import { createLayerBoundImageItem } from './util/layerBoundImageItem.js';
 
 
 import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
@@ -811,6 +812,11 @@ export default function VideoEditorContainer(props) {
 
 
   // Example showing usage for uploading images
+  const createCurrentLayerImageItem = useCallback(
+    (imagePayload) => createLayerBoundImageItem({ layer: currentLayer, ...imagePayload }),
+    [currentLayer]
+  );
+
   const setUploadURL = useCallback(
     (data) => {
       if (!data) return;
@@ -823,16 +829,15 @@ export default function VideoEditorContainer(props) {
         if (!entry?.url) return;
         const newItemId = `item_${nextIndex}`;
         nextIndex += 1;
-        newItemList.push({
+        newItemList.push(createCurrentLayerImageItem({
           src: entry.url,
           id: newItemId,
-          type: 'image',
           x: entry.x,
           y: entry.y,
           width: entry.width,
           height: entry.height,
           source: 'upload',
-        });
+        }));
       });
 
       if (newItemList.length === activeItemList.length) {
@@ -852,7 +857,7 @@ export default function VideoEditorContainer(props) {
         }
       );
     },
-    [activeItemList]
+    [activeItemList, createCurrentLayerImageItem, closeAlertDialog, t, updateSessionLayerActiveItemList]
   );
 
   const setUploadVideo = useCallback(
@@ -1489,15 +1494,14 @@ export default function VideoEditorContainer(props) {
       const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
       const nImageList = [
         ...activeItemList,
-        {
+        createCurrentLayerImageItem({
           src: generatedURL,
           id: item_id,
-          type: 'image',
           x: 0,
           y: 0,
           width: stageDimensions.width,
           height: stageDimensions.height,
-        },
+        }),
       ];
 
 
@@ -1574,15 +1578,14 @@ export default function VideoEditorContainer(props) {
       const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
       const nImageList = [
         ...activeItemList,
-        {
+        createCurrentLayerImageItem({
           src: generatedURL,
           id: item_id,
-          type: 'image',
           x: 0,
           y: 0,
           width: stageDimensions.width,
           height: stageDimensions.height,
-        },
+        }),
       ];
 
       const generationImages = pollStatusDataResponse.generationImages;
@@ -1768,15 +1771,14 @@ export default function VideoEditorContainer(props) {
       }
       if (activeItemList.length > 1) {
         const newItemId = `item_${activeItemList.length}`;
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           src: dataURL,
           id: newItemId,
-          type: 'image',
           x: 0,
           y: 0,
           width: STAGE_DIMENSIONS.width,
           height: STAGE_DIMENSIONS.height,
-        };
+        });
         const newItemList = [...activeItemList, newItem];
         setActiveItemList(newItemList);
         updateSessionLayerActiveItemList(newItemList);
@@ -1934,7 +1936,7 @@ export default function VideoEditorContainer(props) {
     const newId = `item_${activeItemList.length}`;
     const nImageList = [
       ...activeItemList,
-      { src: templateURL, id: newId, type: 'image' },
+      createCurrentLayerImageItem({ src: templateURL, id: newId }),
     ];
     setActiveItemList(nImageList);
     setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
@@ -2128,13 +2130,12 @@ export default function VideoEditorContainer(props) {
     const combinedItem = {
       src: combinedImageDataUrl,
       id: `item_0`,
-      type: 'image',
       x: 0,
       y: 0,
       width: canvasDimensions.width,
       height: canvasDimensions.height,
     };
-    const updatedItemList = [combinedItem];
+    const updatedItemList = [createCurrentLayerImageItem(combinedItem)];
     setActiveItemList(updatedItemList);
     updateSessionLayerActiveItemList(updatedItemList);
     setSelectedId('item_0');
@@ -2339,15 +2340,14 @@ export default function VideoEditorContainer(props) {
   const selectImageFromLibrary = (imageItem) => {
     const newItemId = `item_${activeItemList.length}`;
     const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
-    const newItem = {
+    const newItem = createCurrentLayerImageItem({
       src: imageItem,
       id: newItemId,
-      type: 'image',
       x: 0,
       y: 0,
       width: canvasDimensions.width,
       height: canvasDimensions.height,
-    };
+    });
     const newItemList = [...activeItemList, newItem];
     setActiveItemList(newItemList);
     updateSessionLayerActiveItemList(newItemList);

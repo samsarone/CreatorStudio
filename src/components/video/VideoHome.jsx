@@ -29,6 +29,7 @@ import 'react-toastify/dist/ReactToastify.css';
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DEFAULT_SCENE_TRANSITION_PRESET = 'none';
 const VALID_SCENE_TRANSITION_PRESETS = new Set(['none', 'fade', 'dissolve']);
+const DISPLAY_FRAMES_PER_SECOND = 30;
 
 function normalizeSceneTransitionPreset(value) {
   if (typeof value !== 'string') {
@@ -48,6 +49,23 @@ function normalizeSceneTransitionPreset(value) {
 
 function isActiveUserVideoUploadTask(task) {
   return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
+}
+
+function secondsToDisplayFrames(value) {
+  return Math.max(
+    0,
+    Math.round((Number(value) || 0) * DISPLAY_FRAMES_PER_SECOND),
+  );
+}
+
+function getLayerDisplayFrameRange(layer) {
+  const startFrame = secondsToDisplayFrames(layer?.durationOffset);
+  const durationFrames = Math.max(1, secondsToDisplayFrames(layer?.duration));
+
+  return {
+    startFrame,
+    endFrame: startFrame + durationFrames,
+  };
 }
 
 export default function VideoHome(props) {
@@ -556,17 +574,28 @@ export default function VideoHome(props) {
     const index = layers.findIndex(l => l._id === layer._id);
     setSelectedLayerIndex(index);
     setCurrentLayer(layer);
-    const newLayerSeek = Math.floor(layer.durationOffset * 30);
+    const { startFrame: newLayerSeek } = getLayerDisplayFrameRange(layer);
     // setCurrentLayerSeek(newLayerSeek);
   }
 
   useEffect(() => {
-    if (!isLayerSeeking && currentLayer) {
-      const newLayerSeek = Math.floor(currentLayer.durationOffset * 30);
-      setCurrentLayerSeek(newLayerSeek);
+    if (isLayerSeeking || !currentLayer) {
+      return;
     }
 
-  }, [currentLayer]);
+    const {
+      startFrame: newLayerSeek,
+      endFrame: currentLayerEndFrame,
+    } = getLayerDisplayFrameRange(currentLayer);
+    const resolvedCurrentLayerSeek = Number(currentLayerSeek);
+    const isSeekWithinCurrentLayer = Number.isFinite(resolvedCurrentLayerSeek)
+      && resolvedCurrentLayerSeek >= newLayerSeek
+      && resolvedCurrentLayerSeek < currentLayerEndFrame;
+
+    if (!isSeekWithinCurrentLayer) {
+      setCurrentLayerSeek(newLayerSeek);
+    }
+  }, [currentLayer, currentLayerSeek, isLayerSeeking]);
 
 
 
@@ -715,11 +744,10 @@ export default function VideoHome(props) {
     if (!currentLayer) {
       return;
     }
-    const fps = 30;
-    const currentLayerDuration = currentLayer.duration;
-    const currentLayerDurationOffset = currentLayer.durationOffset;
-    const currentLayerStartFrame = Math.floor(currentLayerDurationOffset * fps);
-    const currentLayerEndFrame = Math.floor((currentLayerDuration + currentLayerDurationOffset) * fps);
+    const {
+      startFrame: currentLayerStartFrame,
+      endFrame: currentLayerEndFrame,
+    } = getLayerDisplayFrameRange(currentLayer);
 
     if (currentLayerStartFrame > currentLayerEndFrame) {
       return;
@@ -2175,7 +2203,7 @@ export default function VideoHome(props) {
     setLayers(updatedLayers);
     setCurrentLayer(layerData);
 
-    const newLayerSeek = Math.floor(layerData.durationOffset * 30);
+    const { startFrame: newLayerSeek } = getLayerDisplayFrameRange(layerData);
     if (!isLayerSeeking) {
       setCurrentLayerSeek(newLayerSeek);
     }
