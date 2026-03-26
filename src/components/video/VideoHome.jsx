@@ -27,6 +27,24 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+const DEFAULT_SCENE_TRANSITION_PRESET = 'none';
+const VALID_SCENE_TRANSITION_PRESETS = new Set(['none', 'fade', 'dissolve']);
+
+function normalizeSceneTransitionPreset(value) {
+  if (typeof value !== 'string') {
+    return DEFAULT_SCENE_TRANSITION_PRESET;
+  }
+
+  const normalizedValue = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+
+  if (normalizedValue === 'crossfade' || normalizedValue === 'cross_fade') {
+    return 'dissolve';
+  }
+
+  return VALID_SCENE_TRANSITION_PRESETS.has(normalizedValue)
+    ? normalizedValue
+    : DEFAULT_SCENE_TRANSITION_PRESET;
+}
 
 function isActiveUserVideoUploadTask(task) {
   return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
@@ -67,6 +85,7 @@ export default function VideoHome(props) {
   const [aspectRatio, setAspectRatio] = useState(null);
 
   const [applyAudioDucking, setApplyAudioDucking] = useState(true);
+  const [sceneTransitionPreset, setSceneTransitionPreset] = useState(DEFAULT_SCENE_TRANSITION_PRESET);
 
   const [isGuestSession, setIsGuestSession] = useState(false);
 
@@ -183,6 +202,7 @@ export default function VideoHome(props) {
     setMinimalToolbarDisplay(true);
     setAspectRatio(null);
     setApplyAudioDucking(true);
+    setSceneTransitionPreset(DEFAULT_SCENE_TRANSITION_PRESET);
     setToggleUpdateCurrentLayer(false);
     setCurrentLayerToBeUpdated(-1);
     setRenderCompletedThisSession(false);
@@ -206,6 +226,7 @@ export default function VideoHome(props) {
       defaultModel: defaultModel,
       defaultSceneDuration: defaultSceneDuration,
       applyAudioDucking: defaultApplyAudioDucking,
+      sceneTransitionPreset: DEFAULT_SCENE_TRANSITION_PRESET,
     }));
   }, [id]);
 
@@ -556,6 +577,9 @@ export default function VideoHome(props) {
         ? videoSessionDetails.applyAudioDucking
         : defaultApplyAudioDucking;
       setApplyAudioDucking(resolvedApplyAudioDucking);
+      setSceneTransitionPreset(
+        normalizeSceneTransitionPreset(videoSessionDetails.sceneTransitionPreset)
+      );
     }
   }, [videoSessionDetails]);
 
@@ -588,6 +612,38 @@ export default function VideoHome(props) {
       sessionId: id,
       defaults: {
         applyAudioDucking: resolvedValue,
+      },
+    }, headers).catch(() => {});
+  };
+
+  const handleSceneTransitionPresetChange = (nextValue) => {
+    const resolvedPreset = normalizeSceneTransitionPreset(nextValue);
+    setSceneTransitionPreset(resolvedPreset);
+    setIsCanvasDirty(true);
+    setVideoSessionDetails((prevDetails) => {
+      if (!prevDetails) {
+        return prevDetails;
+      }
+
+      return {
+        ...prevDetails,
+        sceneTransitionPreset: resolvedPreset,
+      };
+    });
+
+    if (isGuestSession) {
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      return;
+    }
+
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_defaults`, {
+      sessionId: id,
+      defaults: {
+        sceneTransitionPreset: resolvedPreset,
       },
     }, headers).catch(() => {});
   };
@@ -1082,6 +1138,7 @@ export default function VideoHome(props) {
     const renderPayload = {
       id,
       applyAudioDucking,
+      sceneTransitionPreset,
     };
 
     if (isGuestSession) {
@@ -2478,6 +2535,8 @@ export default function VideoHome(props) {
           submitRegenerateFrames={submitRegenerateFrames}
           applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
           applyAudioDucking={applyAudioDucking}
+          sceneTransitionPreset={sceneTransitionPreset}
+          onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
           onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
           applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
           applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
@@ -2584,6 +2643,8 @@ export default function VideoHome(props) {
               submitRegenerateFrames={submitRegenerateFrames}
               applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
               applyAudioDucking={applyAudioDucking}
+              sceneTransitionPreset={sceneTransitionPreset}
+              onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
               onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
               applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
               applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}

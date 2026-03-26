@@ -75,6 +75,11 @@ const GRID_STEP_FRAMES = [
   5400,
   7200,
 ];
+const SCENE_TRANSITION_PRESET_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'fade', label: 'Fade' },
+  { value: 'dissolve', label: 'Dissolve' },
+];
 
 function resolveAudioTrackId(audioTrack) {
   return audioTrack?._id?.toString?.() || audioTrack?._id || audioTrack?.id || null;
@@ -559,6 +564,8 @@ export default function FrameToolbar(props) {
     downloadLink,
     submitRegenerateFrames,
     applyAudioDucking,
+    sceneTransitionPreset = 'none',
+    onSceneTransitionPresetChange,
     onApplyAudioDuckingChange,
     selectedLayerIndex,
     setSelectedLayerIndex,
@@ -2562,12 +2569,12 @@ export default function FrameToolbar(props) {
           <button
             type="button"
             onClick={toggleSelectedAudioAdvancedOptions}
-            title="Audio advanced"
-            aria-label="Audio advanced"
+            title="Audio tools"
+            aria-label="Audio tools"
             disabled={!hasAudioLayers}
             className={`inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:opacity-50 ${advancedButtonClassName}`}
           >
-            Advanced
+            Audio Tools
           </button>
 
           <button
@@ -2596,13 +2603,18 @@ export default function FrameToolbar(props) {
           {showSelectedAudioExtraOptionsToolbar ? (
             <>
               <div className={`h-6 w-px shrink-0 ${colorMode === 'light' ? 'bg-slate-200' : 'bg-[#253248]'}`} />
-              <label className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em]">
+              <label
+                className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+                  showVerticalWaveform ? activePillClassName : secondarySurfaceClassName
+                }`}
+                title="Show waveform lanes beside enabled audio layers"
+              >
                 <input
                   type="checkbox"
                   checked={showVerticalWaveform}
                   onChange={handleSelectedAudioVisualizerToggle}
                 />
-                WF
+                Waveforms
               </label>
 
               {showVerticalWaveform ? (
@@ -2612,14 +2624,14 @@ export default function FrameToolbar(props) {
                     className={`${pillBaseClassName} ${selectedAudioVisualizationMode === 'waveform' ? activePillClassName : secondarySurfaceClassName}`}
                     onClick={() => setSelectedAudioVisualizationMode('waveform')}
                   >
-                    Wave
+                    Waveform
                   </button>
                   <button
                     type="button"
                     className={`${pillBaseClassName} ${selectedAudioVisualizationMode === 'spectrogram' ? activePillClassName : secondarySurfaceClassName}`}
                     onClick={() => setSelectedAudioVisualizationMode('spectrogram')}
                   >
-                    Spec
+                    Spectral
                   </button>
                   {audioTrackListDisplay.map((audioTrack, index) => {
                     const trackId = resolveAudioTrackId(audioTrack);
@@ -2636,13 +2648,14 @@ export default function FrameToolbar(props) {
                         className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em] ${
                           isActive ? activePillClassName : secondarySurfaceClassName
                         }`}
+                        title={`Show waveform for layer ${index + 1}`}
                       >
                         <input
                           type="checkbox"
                           checked={isVisible}
                           onChange={(event) => setAudioWaveformVisibilityForTrack(trackId, event.target.checked)}
                         />
-                        {index + 1}
+                        {`Layer ${index + 1}`}
                       </label>
                     );
                   })}
@@ -2650,13 +2663,18 @@ export default function FrameToolbar(props) {
               ) : null}
 
               {selectedAudioTrack ? (
-                <label className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em]">
+                <label
+                  className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em] ${
+                    manualVolumeAdjustmentEnabled ? activePillClassName : secondarySurfaceClassName
+                  }`}
+                  title="Edit per-point volume automation for the selected audio layer"
+                >
                   <input
                     type="checkbox"
                     checked={manualVolumeAdjustmentEnabled}
                     onChange={handleSelectedAudioManualVolumeToggle}
                   />
-                  Fade
+                  Volume Points
                 </label>
               ) : null}
 
@@ -4492,7 +4510,7 @@ export default function FrameToolbar(props) {
 
   const additionalOptionsDropdownItems = [
     {
-      label: showVerticalWaveform ? 'Hide Audio Visualizer' : 'Show Audio Visualizer',
+      label: showVerticalWaveform ? 'Hide Layer Waveforms' : 'Show Layer Waveforms',
       onClick: () => setShowVerticalWaveform(!showVerticalWaveform),
     },
   ];
@@ -4547,6 +4565,11 @@ export default function FrameToolbar(props) {
   const selectedSceneLabel = selectedLayerIndex >= 0
     ? `Scene ${selectedLayerIndex + 1}`
     : 'No scene selected';
+  const activeSceneTransitionPreset = SCENE_TRANSITION_PRESET_OPTIONS.some(
+    (option) => option.value === sceneTransitionPreset
+  )
+    ? sceneTransitionPreset
+    : 'none';
   const settingsViewRangeLabel = hasUsableFrameRange
     ? `${displayFramesToSeconds(safeViewRange[0]).toFixed(1)}s - ${displayFramesToSeconds(safeViewRange[1]).toFixed(1)}s`
     : 'Unavailable';
@@ -4592,8 +4615,30 @@ export default function FrameToolbar(props) {
             </div>
 
             <div className='mt-3 grid min-w-0 gap-2'>
+              <div className={settingsToggleRowClassName}>
+                <div>
+                  <div>Scene transitions</div>
+                  <div className={settingsHintClassName}>Centered across each scene cut during render.</div>
+                </div>
+                <div className='flex flex-wrap items-center justify-end gap-2'>
+                  {SCENE_TRANSITION_PRESET_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`${settingsPillBaseClassName} ${activeSceneTransitionPreset === option.value ? settingsPillActiveClassName : settingsPillIdleClassName}`}
+                      onClick={() => onSceneTransitionPresetChange?.(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <label className={settingsToggleRowClassName}>
-                <span>Show grid overlay</span>
+                <div>
+                  <div>Timeline grid</div>
+                  <div className={settingsHintClassName}>Add timing guides behind the layer lanes.</div>
+                </div>
                 <input
                   type="checkbox"
                   className={gridToggleInputClassName}
@@ -4603,7 +4648,10 @@ export default function FrameToolbar(props) {
               </label>
 
               <label className={settingsToggleRowClassName}>
-                <span>Show scene portal</span>
+                <div>
+                  <div>Scene quick editor</div>
+                  <div className={settingsHintClassName}>Open inline scene controls beside the selected scene.</div>
+                </div>
                 <input
                   type="checkbox"
                   className={gridToggleInputClassName}
@@ -4614,8 +4662,8 @@ export default function FrameToolbar(props) {
 
               <label className={settingsToggleRowClassName}>
                 <div>
-                  <div>Show audio visualizer</div>
-                  <div className={settingsHintClassName}>Waveform or spectrogram for the selected audio layer.</div>
+                  <div>Show layer waveforms</div>
+                  <div className={settingsHintClassName}>Display a waveform or spectral strip beside each enabled audio layer.</div>
                 </div>
                 <input
                   type="checkbox"
@@ -4633,8 +4681,8 @@ export default function FrameToolbar(props) {
 
               <label className={settingsToggleRowClassName}>
                 <div>
-                  <div>Apply audio ducking</div>
-                  <div className={settingsHintClassName}>Lower background audio under speech and narration.</div>
+                  <div>Enable audio ducking</div>
+                  <div className={settingsHintClassName}>Lower music and background layers under speech or narration.</div>
                 </div>
                 <input
                   type="checkbox"
@@ -4647,7 +4695,7 @@ export default function FrameToolbar(props) {
 
             {showVerticalWaveform ? (
               <div className='mt-3 flex flex-wrap items-center gap-2'>
-                <span className={settingsHintClassName}>Visualizer mode</span>
+                <span className={settingsHintClassName}>Waveform style</span>
                 <button
                   type="button"
                   className={`${settingsPillBaseClassName} ${selectedAudioVisualizationMode === 'waveform' ? settingsPillActiveClassName : settingsPillIdleClassName}`}
@@ -4667,7 +4715,7 @@ export default function FrameToolbar(props) {
 
             {showVerticalWaveform && !selectedAudioTrack ? (
               <div className='mt-3 rounded-xl border border-dashed border-slate-400/30 px-3 py-2 text-[11px] text-slate-400'>
-                Select an audio layer in the Audio tab to inspect the visualizer here.
+                Waveform lanes appear beside each enabled audio layer in the Audio tab.
               </div>
             ) : null}
           </div>
@@ -4706,6 +4754,12 @@ export default function FrameToolbar(props) {
               <div className={settingsToggleRowClassName}>
                 <span>Default scene duration</span>
                 <span className='font-semibold'>{defaultSceneDuration || 0}s</span>
+              </div>
+              <div className={settingsToggleRowClassName}>
+                <span>Scene transition</span>
+                <span className='font-semibold'>
+                  {SCENE_TRANSITION_PRESET_OPTIONS.find((option) => option.value === activeSceneTransitionPreset)?.label || 'None'}
+                </span>
               </div>
               <div className={settingsToggleRowClassName}>
                 <span>Timeline FPS</span>

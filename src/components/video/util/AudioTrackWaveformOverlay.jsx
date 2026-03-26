@@ -142,31 +142,94 @@ function drawWaveform({
     Math.max(startSample + 1, Math.ceil((sourceWindowStartSeconds + sourceWindowDurationSeconds) * audioBuffer.sampleRate)),
   );
   const sliceLength = Math.max(1, endSample - startSample);
-  const rowCount = Math.max(18, Math.min(220, Math.floor(height)));
-  const samplesPerRow = Math.max(32, Math.floor(sliceLength / rowCount));
+  const rowCount = Math.max(24, Math.min(260, Math.floor(height / 1.6)));
+  const samplesPerRow = Math.max(24, Math.floor(sliceLength / rowCount));
   const centerX = width / 2;
-  const maxHalfWidth = Math.max(3, (width / 2) - 1.5);
+  const maxHalfWidth = Math.max(4, (width / 2) - 3);
+  const rowStep = height / rowCount;
+  const waveformRows = [];
 
-  ctx.strokeStyle = colorMode === 'light' ? 'rgba(37,99,235,0.16)' : 'rgba(103,232,249,0.12)';
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    const windowStartIndex = startSample + Math.floor((rowIndex / rowCount) * sliceLength);
+    const windowEndIndex = Math.min(endSample, windowStartIndex + samplesPerRow);
+    const { peak, rms } = getWindowMetrics(channelData, windowStartIndex, windowEndIndex);
+    const normalizedWidth = clamp(Math.pow(Math.max(peak, rms * 1.85), 0.76) * maxHalfWidth, 2.5, maxHalfWidth);
+    const energy = clamp((peak * 0.58) + (rms * 1.2), 0, 1);
+    waveformRows.push({
+      y: rowIndex * rowStep,
+      width: normalizedWidth,
+      energy,
+    });
+  }
+
+  ctx.strokeStyle = colorMode === 'light' ? 'rgba(37,99,235,0.12)' : 'rgba(103,232,249,0.14)';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(centerX, 0);
   ctx.lineTo(centerX, height);
   ctx.stroke();
 
-  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
-    const windowStartIndex = startSample + Math.floor((rowIndex / rowCount) * sliceLength);
-    const windowEndIndex = Math.min(endSample, windowStartIndex + samplesPerRow);
-    const { peak, rms } = getWindowMetrics(channelData, windowStartIndex, windowEndIndex);
-    const barWidth = clamp(Math.max(peak, rms * 1.45) * maxHalfWidth, 1.5, maxHalfWidth);
-    const barHeight = Math.max(1.2, height / rowCount);
-    const y = rowIndex * barHeight;
-
-    ctx.fillStyle = colorMode === 'light'
-      ? `rgba(37,99,235,${clamp(0.22 + (rms * 0.64), 0.22, 0.88)})`
-      : `rgba(56,189,248,${clamp(0.26 + (rms * 0.7), 0.26, 0.94)})`;
-    ctx.fillRect(centerX - barWidth, y, barWidth * 2, Math.max(1.4, barHeight - 0.35));
+  const fillGradient = ctx.createLinearGradient(0, 0, width, height);
+  if (colorMode === 'light') {
+    fillGradient.addColorStop(0, 'rgba(56,189,248,0.34)');
+    fillGradient.addColorStop(0.5, 'rgba(37,99,235,0.72)');
+    fillGradient.addColorStop(1, 'rgba(29,78,216,0.4)');
+  } else {
+    fillGradient.addColorStop(0, 'rgba(34,211,238,0.28)');
+    fillGradient.addColorStop(0.5, 'rgba(56,189,248,0.78)');
+    fillGradient.addColorStop(1, 'rgba(14,165,233,0.32)');
   }
+
+  ctx.save();
+  ctx.fillStyle = fillGradient;
+  ctx.beginPath();
+  ctx.moveTo(centerX, 0);
+  waveformRows.forEach((row) => {
+    ctx.lineTo(centerX + row.width, row.y + (rowStep / 2));
+  });
+  ctx.lineTo(centerX, height);
+  for (let rowIndex = waveformRows.length - 1; rowIndex >= 0; rowIndex -= 1) {
+    const row = waveformRows[rowIndex];
+    ctx.lineTo(centerX - row.width, row.y + (rowStep / 2));
+  }
+  ctx.closePath();
+  ctx.shadowBlur = colorMode === 'light' ? 0 : 12;
+  ctx.shadowColor = colorMode === 'light' ? 'transparent' : 'rgba(56,189,248,0.24)';
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = colorMode === 'light' ? 'rgba(255,255,255,0.45)' : 'rgba(224,242,254,0.52)';
+  ctx.lineWidth = 1.15;
+  ctx.beginPath();
+  waveformRows.forEach((row, index) => {
+    const x = centerX + row.width;
+    const y = row.y + (rowStep / 2);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+      return;
+    }
+    ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  ctx.beginPath();
+  waveformRows.forEach((row, index) => {
+    const x = centerX - row.width;
+    const y = row.y + (rowStep / 2);
+    if (index === 0) {
+      ctx.moveTo(x, y);
+      return;
+    }
+    ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  waveformRows.forEach((row) => {
+    ctx.fillStyle = colorMode === 'light'
+      ? `rgba(255,255,255,${clamp(0.08 + (row.energy * 0.12), 0.08, 0.22)})`
+      : `rgba(224,242,254,${clamp(0.08 + (row.energy * 0.18), 0.08, 0.26)})`;
+    ctx.fillRect(centerX - (row.width * 0.72), row.y + (rowStep * 0.22), row.width * 1.44, Math.max(1, rowStep * 0.28));
+  });
 }
 
 function drawSpectrogram({
@@ -185,8 +248,8 @@ function drawSpectrogram({
     Math.max(startSample + 1, Math.ceil((sourceWindowStartSeconds + sourceWindowDurationSeconds) * audioBuffer.sampleRate)),
   );
   const sliceLength = Math.max(1, endSample - startSample);
-  const sliceCount = Math.max(18, Math.min(220, Math.floor(height)));
-  const binCount = Math.max(5, Math.min(12, Math.floor(width / 2)));
+  const sliceCount = Math.max(24, Math.min(240, Math.floor(height / 1.4)));
+  const binCount = Math.max(8, Math.min(18, Math.floor(width / 4.5)));
   const rowHeight = height / sliceCount;
   const binWidth = width / binCount;
   const windowSize = 96;
@@ -207,6 +270,13 @@ function drawSpectrogram({
       );
     });
   }
+
+  ctx.strokeStyle = colorMode === 'light' ? 'rgba(255,255,255,0.18)' : 'rgba(224,242,254,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(width * 0.5, 0);
+  ctx.lineTo(width * 0.5, height);
+  ctx.stroke();
 }
 
 function drawAutomation(ctx, pointMetrics, selectedPointId, colorMode) {
@@ -320,14 +390,32 @@ export default function AudioTrackWaveformOverlay({
 
       const overlayBackground = ctx.createLinearGradient(0, 0, width, height);
       if (colorMode === 'light') {
-        overlayBackground.addColorStop(0, isSelected ? 'rgba(224,231,255,0.84)' : 'rgba(255,255,255,0.72)');
-        overlayBackground.addColorStop(1, isSelected ? 'rgba(191,219,254,0.76)' : 'rgba(226,232,240,0.62)');
+        overlayBackground.addColorStop(0, isSelected ? 'rgba(239,246,255,0.98)' : 'rgba(255,255,255,0.95)');
+        overlayBackground.addColorStop(1, isSelected ? 'rgba(219,234,254,0.94)' : 'rgba(241,245,249,0.92)');
       } else {
-        overlayBackground.addColorStop(0, isSelected ? 'rgba(30,41,59,0.88)' : 'rgba(15,23,42,0.74)');
-        overlayBackground.addColorStop(1, isSelected ? 'rgba(15,23,42,0.96)' : 'rgba(15,23,42,0.82)');
+        overlayBackground.addColorStop(0, isSelected ? 'rgba(10,28,45,0.98)' : 'rgba(8,18,31,0.96)');
+        overlayBackground.addColorStop(1, isSelected ? 'rgba(7,18,31,0.98)' : 'rgba(6,14,25,0.94)');
       }
       ctx.fillStyle = overlayBackground;
       ctx.fillRect(0, 0, width, height);
+
+      const overlaySheen = ctx.createLinearGradient(0, 0, width, 0);
+      if (colorMode === 'light') {
+        overlaySheen.addColorStop(0, 'rgba(255,255,255,0.28)');
+        overlaySheen.addColorStop(0.5, 'rgba(191,219,254,0.08)');
+        overlaySheen.addColorStop(1, 'rgba(255,255,255,0.2)');
+      } else {
+        overlaySheen.addColorStop(0, 'rgba(34,211,238,0.08)');
+        overlaySheen.addColorStop(0.5, 'rgba(15,23,42,0)');
+        overlaySheen.addColorStop(1, 'rgba(125,211,252,0.08)');
+      }
+      ctx.fillStyle = overlaySheen;
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.fillStyle = colorMode === 'light' ? 'rgba(255,255,255,0.46)' : 'rgba(148,163,184,0.08)';
+      ctx.fillRect(0, 0, width, 1);
+      ctx.fillStyle = colorMode === 'light' ? 'rgba(148,163,184,0.18)' : 'rgba(15,23,42,0.32)';
+      ctx.fillRect(0, height - 1, width, 1);
 
       if (audioBuffer && sourceWindowDurationSeconds > 0.0001) {
         if (visualizationMode === 'spectrogram') {
@@ -436,7 +524,7 @@ export default function AudioTrackWaveformOverlay({
   };
 
   return (
-    <div ref={hostRef} className="absolute inset-0 overflow-hidden rounded-full">
+    <div ref={hostRef} className="relative h-full w-full overflow-hidden rounded-[18px]">
       <canvas
         ref={canvasRef}
         className={`h-full w-full ${manualVolumeAdjustmentEnabled ? 'cursor-crosshair' : 'cursor-pointer'}`}

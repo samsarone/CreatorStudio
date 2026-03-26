@@ -130,18 +130,25 @@ const AudioTrackSlider = (props) => {
   const railSurfaceClassName = colorMode === 'dark'
     ? 'bg-[#0b1220] border border-[#273449]'
     : 'bg-slate-100 border border-slate-300';
-  const selectedRingClassName = audioTrack.isDisplaySelected
-    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
-    : '';
+  const waveformSurfaceClassName = colorMode === 'dark'
+    ? (audioTrack.isDisplaySelected
+      ? 'border-cyan-500/30 bg-[#081524]'
+      : 'border-[#1d2d43] bg-[#08111d]')
+    : (audioTrack.isDisplaySelected
+      ? 'border-sky-200 bg-[#f7fbff]'
+      : 'border-slate-200 bg-white/95');
   const activeTrackStyle = {
-    backgroundColor: canShowWaveformOverlay
-      ? 'transparent'
-      : (audioTrack.isDisplaySelected
-        ? (colorMode === 'dark' ? '#123046' : '#dbeafe')
-        : (colorMode === 'dark' ? '#182234' : '#e2e8f0')),
+    backgroundColor: audioTrack.isDisplaySelected
+      ? (colorMode === 'dark' ? '#123046' : '#dbeafe')
+      : (colorMode === 'dark' ? '#182234' : '#e2e8f0'),
     border: `1px solid ${audioTrack.isDisplaySelected
       ? (colorMode === 'dark' ? 'rgba(103,232,249,0.55)' : 'rgba(14,165,233,0.6)')
       : (colorMode === 'dark' ? 'rgba(100,116,139,0.7)' : 'rgba(148,163,184,0.8)')}`,
+    boxShadow: audioTrack.isDisplaySelected
+      ? (colorMode === 'dark'
+        ? '0 0 0 1px rgba(103,232,249,0.24), 0 0 14px rgba(34,211,238,0.18)'
+        : '0 0 0 1px rgba(14,165,233,0.18), 0 0 12px rgba(14,165,233,0.16)')
+      : 'none',
   };
 
 
@@ -294,12 +301,7 @@ const AudioTrackSlider = (props) => {
           key={key}
           {...trackProps}
           ref={trackRef}
-          onMouseDown={(event) => {
-            if (canShowWaveformOverlay && manualVolumeAdjustmentEnabled) {
-              return;
-            }
-            handleRangeMouseDown(event);
-          }}
+          onMouseDown={handleRangeMouseDown}
 
           onClick={(e) => {
             // Your custom click handling logic
@@ -328,25 +330,6 @@ const AudioTrackSlider = (props) => {
                 : (colorMode === 'dark' ? 'bg-[#6b7d95]' : 'bg-slate-500/70')
             }`}
           />
-          {canShowWaveformOverlay ? (
-            <AudioTrackWaveformOverlay
-              audioUrl={resolvedAudioUrl}
-              visualizationMode={visualizationMode}
-              manualVolumeAdjustmentEnabled={manualVolumeAdjustmentEnabled}
-              volumeAutomationPoints={volumeAutomationPoints}
-              selectedVolumePointId={selectedVolumePointId}
-              onSelectVolumePoint={onSelectVolumePoint}
-              onCreateVolumePoint={onCreateVolumePoint}
-              onActivate={() => setAudioRangeSliderDisplayAsSelected(audioTrackId)}
-              trackDurationSeconds={resolvedTrackDuration}
-              visibleLayerStartSeconds={visibleLayerStartSeconds}
-              visibleLayerDurationSeconds={visibleLayerDurationSeconds}
-              sourceWindowStartSeconds={sourceWindowStartSeconds}
-              sourceWindowDurationSeconds={visibleLayerDurationSeconds}
-              volumeScaleMax={volumeScaleMax}
-              isSelected={Boolean(audioTrack.isDisplaySelected)}
-            />
-          ) : null}
         </div>
       );
     } else {
@@ -378,52 +361,78 @@ const AudioTrackSlider = (props) => {
   return (
 <>
     <div
-      ref={sliderContainerRef}
-      className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2 ${selectedRingClassName}`}
+      className={`relative mr-2 inline-flex h-full min-h-0 items-stretch gap-2 ${canShowWaveformOverlay ? 'w-[126px] min-w-[126px]' : 'w-[42px] min-w-[42px]'}`}
     >
-      <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}>
-        <ReactSlider
-          className="vertical-slider w-full relative"
-          orientation="vertical"
-          min={min}
-          max={max}
-          value={sliderValues}
-          onChange={handleChange}
-          onClick={audioRangeSliderClicked}
-          pearling
-          style={{ height: `calc(100% + ${AUDIO_TRACK_THUMB_HEIGHT}px)` }}
-          renderThumb={(props, state) => {
-            const { index } = state;
-            const shouldRenderThumb =
-              (index === 0 && isStartVisible) || (index === 1 && isEndVisible);
+      <div
+        ref={sliderContainerRef}
+        className='relative inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2'
+      >
+        <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}>
+          <ReactSlider
+            className="vertical-slider w-full relative"
+            orientation="vertical"
+            min={min}
+            max={max}
+            value={sliderValues}
+            onChange={handleChange}
+            onClick={audioRangeSliderClicked}
+            pearling
+            style={{ height: `calc(100% + ${AUDIO_TRACK_THUMB_HEIGHT}px)` }}
+            renderThumb={(props, state) => {
+              const { index } = state;
+              const shouldRenderThumb =
+                (index === 0 && isStartVisible) || (index === 1 && isEndVisible);
 
-            if (shouldRenderThumb) {
-              const { key, className, style, ...thumbProps } = props;
-              return (
-                <div
-                  key={key}
-                  {...thumbProps}
-                  className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
-                    colorMode === 'dark'
-                      ? 'bg-white border-white/40 text-slate-800'
-                      : 'bg-slate-100 border-slate-300 text-slate-700'
-                  } ${className ?? ''}`}
-                  style={{
-                    ...style,
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                >
-                  <FaGripLines />
-                </div>
-              );
-            }
+              if (shouldRenderThumb) {
+                const { key, className, style, ...thumbProps } = props;
+                return (
+                  <div
+                    key={key}
+                    {...thumbProps}
+                    className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
+                      colorMode === 'dark'
+                        ? 'bg-white border-white/40 text-slate-800'
+                        : 'bg-slate-100 border-slate-300 text-slate-700'
+                    } ${className ?? ''}`}
+                    style={{
+                      ...style,
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  >
+                    <FaGripLines />
+                  </div>
+                );
+              }
 
-            return null;
-          }}
-          renderTrack={renderTrack}
-        />
+              return null;
+            }}
+            renderTrack={renderTrack}
+          />
+        </div>
       </div>
+
+      {canShowWaveformOverlay ? (
+        <div className={`relative flex h-full min-h-0 flex-1 overflow-hidden rounded-[20px] border ${waveformSurfaceClassName}`}>
+          <AudioTrackWaveformOverlay
+            audioUrl={resolvedAudioUrl}
+            visualizationMode={visualizationMode}
+            manualVolumeAdjustmentEnabled={manualVolumeAdjustmentEnabled}
+            volumeAutomationPoints={volumeAutomationPoints}
+            selectedVolumePointId={selectedVolumePointId}
+            onSelectVolumePoint={onSelectVolumePoint}
+            onCreateVolumePoint={onCreateVolumePoint}
+            onActivate={() => setAudioRangeSliderDisplayAsSelected(audioTrackId)}
+            trackDurationSeconds={resolvedTrackDuration}
+            visibleLayerStartSeconds={visibleLayerStartSeconds}
+            visibleLayerDurationSeconds={visibleLayerDurationSeconds}
+            sourceWindowStartSeconds={sourceWindowStartSeconds}
+            sourceWindowDurationSeconds={visibleLayerDurationSeconds}
+            volumeScaleMax={volumeScaleMax}
+            isSelected={Boolean(audioTrack.isDisplaySelected)}
+          />
+        </div>
+      ) : null}
     </div>
 
 
