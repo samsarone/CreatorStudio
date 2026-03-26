@@ -58,7 +58,7 @@ export default function CommonDropdownButton({
     : "min-h-[42px] px-2";
 
   return (
-    <Menu as="div" className="relative inline-block text-left">
+    <Menu as="div" className="relative z-[260] inline-block text-left">
       <div className="flex shadow-lg">
         {/* Main (left) portion of the split-button */}
         <button
@@ -117,7 +117,7 @@ export default function CommonDropdownButton({
           className={`
             origin-top-right absolute right-0 mt-2
             w-36 rounded bg-neutral-900/95 ring-1 ring-white/10
-            shadow-[0_16px_30px_rgba(0,0,0,0.42)] z-50
+            shadow-[0_16px_30px_rgba(0,0,0,0.42)] z-[320]
           `}
         >
           {dropdownItems.map((item, idx) => (

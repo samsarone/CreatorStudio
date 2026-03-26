@@ -110,26 +110,41 @@
 }
 
 .time-ruler {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
+  display: block;
   height: 100%;
   min-height: 0;
-  padding:  0;
+  padding: 0 2px 0 2px;
   color: #fff; /* Adjust color based on your theme */
-  width: 15px; /* Reduced width */
+  width: 54px;
   overflow: hidden;
   box-sizing: border-box;
 }
 
 .time-ruler-tick {
-  position: relative;
-  font-size: 10px; /* Adjust font size as needed */
-  font-weight: bold; /* Make the text bold */
-  text-align: right;
-  width: 100%; /* Ensure the tick spans the full width of the time ruler */
-  border-bottom: 1px solid #fff; /* Adjust color based on your theme */
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   box-sizing: border-box;
+}
+
+.time-ruler-tick-mark {
+  flex: 0 0 8px;
+  height: 1px;
+  background-color: currentColor;
+  opacity: 0.7;
+}
+
+.time-ruler-tick-label {
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 
@@ -210,6 +225,70 @@
 /* toolbar.css */
 .toolbar-container {
   transition: width 0.3s ease, opacity 0.3s ease;
+}
+
+.action-view-grid-overlay {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      180deg,
+      var(--action-grid-surface-top, transparent) 0%,
+      var(--action-grid-surface-bottom, transparent) 100%
+    );
+}
+
+.action-view-grid-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.02) 0%,
+      transparent 12%,
+      transparent 88%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  pointer-events: none;
+}
+
+.action-view-grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  transform: translateY(-0.5px);
+  pointer-events: none;
+}
+
+.action-view-grid-line::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  border-top: 1px solid transparent;
+}
+
+.action-view-grid-line--minor::after {
+  border-top-color: var(--action-grid-line-minor, rgba(148, 163, 184, 0.12));
+}
+
+.action-view-grid-line--major::after {
+  border-top-color: var(--action-grid-line-major, rgba(125, 211, 252, 0.24));
+  box-shadow: 0 0 18px var(--action-grid-line-major-glow, transparent);
+}
+
+.action-view-grid-line--focus {
+  transform: translateY(-1px);
+}
+
+.action-view-grid-line--focus::after {
+  border-top-width: 2px;
+  border-top-color: var(--action-grid-line-focus, rgba(56, 189, 248, 0.8));
+  box-shadow: 0 0 24px var(--action-grid-line-focus-glow, transparent);
 }
 
 .layers-container {

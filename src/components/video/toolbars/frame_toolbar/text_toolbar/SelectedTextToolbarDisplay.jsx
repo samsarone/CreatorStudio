@@ -60,7 +60,7 @@ export default function SelectedTextToolbarDisplay(props) {
   };
 
   return (
-    <div className="flex flex-nowrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {mode === 'view' ? (
         selectedAnimation ? (
           // If an animation is selected, show only Start/End time, Save, Remove, and Back button
@@ -69,7 +69,7 @@ export default function SelectedTextToolbarDisplay(props) {
               e.preventDefault();
               handleSaveChanges();
             }}
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
           >
             <button
               type="button"
@@ -131,7 +131,7 @@ export default function SelectedTextToolbarDisplay(props) {
               e.preventDefault();
               handleSaveChanges();
             }}
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
           >
             {/* Start Time Input */}
             <div className="flex items-center gap-1">

@@ -47,8 +47,8 @@ export default function SelectedVisualTrackDisplay(props) {
     : 'bg-emerald-600 hover:bg-emerald-500';
 
   return (
-    <div className="flex flex-nowrap items-center w-full gap-3 text-xs">
-      <div className="flex flex-col justify-center min-w-[150px]">
+    <div className="flex w-full flex-wrap items-center gap-2 text-xs">
+      <div className="flex min-w-[132px] flex-col justify-center">
         <span className="uppercase font-bold tracking-[0.12em] text-emerald-300 text-[10px]">
           {selectedVisualTrack.assetLabel}
         </span>
@@ -60,22 +60,22 @@ export default function SelectedVisualTrackDisplay(props) {
         </span>
       </div>
 
-      <div className="flex flex-row items-center gap-2">
-        <div className={`flex flex-col min-w-[62px] rounded-md px-2 py-1 ${metaChipClassName}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className={`flex min-w-[58px] flex-col rounded-md px-2 py-1 ${metaChipClassName}`}>
           <span className="font-semibold uppercase text-[10px] tracking-[0.08em]">Start</span>
           <span>{startTime}s</span>
         </div>
-        <div className={`flex flex-col min-w-[62px] rounded-md px-2 py-1 ${metaChipClassName}`}>
+        <div className={`flex min-w-[58px] flex-col rounded-md px-2 py-1 ${metaChipClassName}`}>
           <span className="font-semibold uppercase text-[10px] tracking-[0.08em]">End</span>
           <span>{endTime}s</span>
         </div>
-        <div className={`flex flex-col min-w-[74px] rounded-md px-2 py-1 ${metaChipClassName}`}>
+        <div className={`flex min-w-[68px] flex-col rounded-md px-2 py-1 ${metaChipClassName}`}>
           <span className="font-semibold uppercase text-[10px] tracking-[0.08em]">Duration</span>
           <span>{durationTime}s</span>
         </div>
       </div>
 
-      <div className="ml-auto flex items-center gap-3">
+      <div className="ml-auto flex flex-wrap items-center gap-2">
         {statusLabel && (
           <span className={`font-semibold ${statusClassName}`}>
             {statusLabel}

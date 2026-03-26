@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FaBolt, FaCheck, FaCut, FaPlay, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaBolt, FaCheck, FaCut, FaPlus, FaTimes } from 'react-icons/fa';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
 
 const DEFAULT_SPEED_MULTIPLIER = 1.5;
@@ -14,7 +14,7 @@ function getToolLabel(activeTool) {
   }
 
   if (activeTool.type === 'REMOVE') {
-    return 'Cut';
+    return 'Clip';
   }
 
   return `${activeTool.speedMultiplier || DEFAULT_SPEED_MULTIPLIER}x`;
@@ -33,7 +33,7 @@ function formatFrameRange(rangeFrames = [], framesPerSecond = DISPLAY_FRAMES_PER
 
 function getOperationSummaryLabel(operation, framesPerSecond = DISPLAY_FRAMES_PER_SECOND) {
   const operationLabel = operation?.type === 'REMOVE'
-    ? 'Cut'
+    ? 'Clip'
     : `Speed ${Number(operation?.speedMultiplier || DEFAULT_SPEED_MULTIPLIER).toFixed(2).replace(/\.00$/, '')}x`;
   const rangeLabel = formatFrameRange([
     Math.round((Number(operation?.startTime) || 0) * framesPerSecond),
@@ -161,6 +161,11 @@ export default function SelectedVideoTrackDisplay(props) {
   const primaryButtonClassName = colorMode === 'dark'
     ? 'bg-cyan-400 text-[#041420] hover:bg-cyan-300'
     : 'bg-sky-600 text-white hover:bg-sky-500';
+  const showClearDrafts = draftOperations.length > 0;
+  const applyButtonLabel = showClearDrafts ? 'Apply edits' : 'Apply edit';
+  const applyButtonTitle = showClearDrafts ? 'Apply staged edits' : 'Apply current edit';
+  const canApplyCurrentSelection = Boolean(activeTool);
+  const canApplyAnyEdit = showClearDrafts || canApplyCurrentSelection;
 
   const handleAddDraftClick = async () => {
     const response = await onAddDraft?.();
@@ -168,29 +173,23 @@ export default function SelectedVideoTrackDisplay(props) {
       setFeedbackMessage(response.error || 'Unable to stage this selection.');
       return;
     }
-    setFeedbackMessage('Selection staged. Click Update when ready.');
+    setFeedbackMessage('Selection staged. Click Apply when ready.');
   };
 
-  const handleApplySelectionClick = async () => {
-    const response = await onApplySelection?.();
-    if (response?.success === false) {
-      setFeedbackMessage(response.error || 'Unable to apply this selection.');
-      return;
-    }
-    setFeedbackMessage('');
-  };
+  const handleApplyClick = async () => {
+    const response = showClearDrafts
+      ? await onApplyDrafts?.()
+      : await onApplySelection?.();
 
-  const handleApplyDraftsClick = async () => {
-    const response = await onApplyDrafts?.();
     if (response?.success === false) {
-      setFeedbackMessage(response.error || 'Unable to apply staged changes.');
+      setFeedbackMessage(response.error || 'Unable to apply this edit.');
       return;
     }
     setFeedbackMessage('');
   };
 
   return (
-    <div className={`ml-2 flex min-h-[44px] w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${toolbarSurfaceClassName}`}>
+    <div className={`flex min-h-[44px] w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${toolbarSurfaceClassName}`}>
       <div
         className={`h-2.5 w-2.5 shrink-0 rounded-full ${statusDotClassName}`}
         title={statusTitle}
@@ -206,7 +205,7 @@ export default function SelectedVideoTrackDisplay(props) {
             type: 'SPEED',
             speedMultiplier: resolvedSpeedMultiplier,
           })}
-          title="Speed up selection"
+          title="Fast edit"
         >
           <FaBolt />
         </ActionButton>
@@ -219,7 +218,7 @@ export default function SelectedVideoTrackDisplay(props) {
             type: 'REMOVE',
             speedMultiplier: 1,
           })}
-          title="Cut selection"
+          title="Clip edit"
         >
           <FaCut />
         </ActionButton>
@@ -253,19 +252,8 @@ export default function SelectedVideoTrackDisplay(props) {
 
         <button
           type="button"
-          title="Apply selection now"
-          aria-label="Apply selection now"
-          disabled={isBusy || !activeTool}
-          onClick={handleApplySelectionClick}
-          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${primaryButtonClassName}`}
-        >
-          <FaPlay />
-        </button>
-
-        <button
-          type="button"
-          title="Add selection to batch"
-          aria-label="Add selection to batch"
+          title="Stage edit"
+          aria-label="Stage edit"
           disabled={isBusy || !activeTool}
           onClick={handleAddDraftClick}
           className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${secondaryButtonClassName}`}
@@ -275,25 +263,27 @@ export default function SelectedVideoTrackDisplay(props) {
 
         <button
           type="button"
-          title="Clear staged changes"
-          aria-label="Clear staged changes"
-          disabled={isBusy || draftOperations.length === 0}
-          onClick={onClearDrafts}
-          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${destructiveButtonClassName}`}
-        >
-          <FaTimes />
-        </button>
-
-        <button
-          type="button"
-          title="Apply staged changes"
-          aria-label="Apply staged changes"
-          disabled={isBusy || draftOperations.length === 0}
-          onClick={handleApplyDraftsClick}
+          title={applyButtonTitle}
+          aria-label={applyButtonTitle}
+          disabled={isBusy || !canApplyAnyEdit}
+          onClick={handleApplyClick}
           className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${primaryButtonClassName}`}
         >
           <FaCheck />
         </button>
+
+        {showClearDrafts ? (
+          <button
+            type="button"
+            title="Clear staged edits"
+            aria-label="Clear staged edits"
+            disabled={isBusy}
+            onClick={onClearDrafts}
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${destructiveButtonClassName}`}
+          >
+            <FaTimes />
+          </button>
+        ) : null}
       </div>
     </div>
   );

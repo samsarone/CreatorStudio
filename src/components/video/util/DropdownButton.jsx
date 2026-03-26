@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FaPlus, FaChevronRight } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaPlus } from 'react-icons/fa';
 import { useColorMode } from '../../../contexts/ColorMode';
 
 function DropdownButton(props) {
@@ -8,27 +8,65 @@ function DropdownButton(props) {
     copyCurrentLayerBelow,
     showBatchLayerDialog,
     compact = false,
+    iconOnly = false,
+    buttonLabel = 'Add',
+    menuAlign = 'right',
+    fullWidth = false,
+    fitMenuToTrigger = false,
   } = props;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isSubMenuOpen, setIsSubMenuOpen] = useState(false);
   const [defaultSubOption, setDefaultSubOption] = useState(null); // default sub-option
+  const rootRef = useRef(null);
 
   const { colorMode } = useColorMode();
 
   // Container & hover colors separated
-  const containerBg =
+  const triggerSurfaceClassName =
     colorMode === 'dark'
-      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
-      : 'bg-white text-slate-800 border border-slate-200 shadow-sm';
-  const itemHoverBg =
+      ? 'bg-[#10192e]/84 text-slate-100 border border-[#22314d]/90 shadow-[0_14px_36px_rgba(0,0,0,0.35)] backdrop-blur-md hover:bg-[#16213a]'
+      : 'bg-white/92 text-slate-800 border border-slate-200 shadow-sm backdrop-blur-md hover:bg-slate-50';
+  const menuSurfaceClassName =
     colorMode === 'dark'
-      ? 'hover:bg-[#111a2f]'
-      : 'hover:bg-slate-100';
-  const triggerSizeClassName = compact
-    ? 'px-3 py-1.5 text-[11px]'
-    : 'px-4 py-2 text-sm';
-  const iconClassName = compact ? 'mr-1.5 text-[11px]' : 'mr-2';
+      ? 'bg-[#091224]/96 border border-[#1f2a3d]/95 text-slate-100 shadow-[0_22px_52px_rgba(0,0,0,0.46)] backdrop-blur-xl'
+      : 'bg-white/96 border border-slate-200 text-slate-700 shadow-[0_18px_38px_rgba(15,23,42,0.16)] backdrop-blur-xl';
+  const sectionLabelClassName =
+    colorMode === 'dark'
+      ? 'text-slate-400'
+      : 'text-slate-500';
+  const actionItemClassName =
+    colorMode === 'dark'
+      ? 'text-slate-200 hover:bg-[#13203a]'
+      : 'text-slate-700 hover:bg-slate-100';
+  const addOptionClassName =
+    colorMode === 'dark'
+      ? 'border border-[#1f2a3d]/90 bg-[#0f172a]/75 text-slate-100 hover:bg-[#16213a]'
+      : 'border border-slate-200 bg-white/90 text-slate-700 hover:bg-slate-50';
+  const defaultOptionClassName =
+    colorMode === 'dark'
+      ? 'border-cyan-400/45 bg-cyan-500/12 text-cyan-100'
+      : 'border-sky-300 bg-sky-50 text-sky-700';
+  const defaultBadgeClassName =
+    colorMode === 'dark'
+      ? 'bg-cyan-400/18 text-cyan-100'
+      : 'bg-sky-100 text-sky-700';
+  const triggerSizeClassName = iconOnly
+    ? (compact ? 'h-[34px] w-[34px] px-0 text-[11px]' : 'h-10 w-10 px-0 text-sm')
+    : (compact ? 'h-[26px] px-2.5 text-[11px]' : 'px-4 py-2 text-sm');
+  const iconClassName = iconOnly
+    ? (compact ? 'text-[11px]' : 'text-sm')
+    : (compact ? 'shrink-0 text-[11px]' : 'shrink-0 text-sm');
+  const menuAlignmentClassName = menuAlign === 'left'
+    ? 'left-0 origin-top-left'
+    : 'right-0 origin-top-right';
+  const rootWidthClassName = fullWidth ? 'w-full' : '';
+  const menuWidthClassName = fitMenuToTrigger ? 'w-full min-w-0' : 'w-[220px]';
+
+  const addOptions = [
+    { value: 'below', label: 'Below current' },
+    { value: 'end', label: 'At end' },
+    { value: 'beginning', label: 'At beginning' },
+  ];
 
   useEffect(() => {
     const storedOption = localStorage.getItem('defaultAddLayerSubOption');
@@ -39,24 +77,40 @@ function DropdownButton(props) {
     }
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleClickOutside = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
   const toggleDropdown = () => {
     setIsOpen(!isOpen);
-    if (isOpen) {
-      setIsSubMenuOpen(false);
-    }
-  };
-
-  const toggleSubMenu = (e) => {
-    // Stop propagation so clicking on parent doesn't close the menu immediately
-    e.stopPropagation();
-    setIsSubMenuOpen(!isSubMenuOpen);
   };
 
   const handleAddLayerClick = (option) => {
     localStorage.setItem('defaultAddLayerSubOption', option);
     setDefaultSubOption(option);
     addLayerToComposition(option);
-    setIsSubMenuOpen(false);
     setIsOpen(false);
   };
 
@@ -66,78 +120,73 @@ function DropdownButton(props) {
   };
 
   return (
-    <div className="relative inline-block text-left">
+    <div ref={rootRef} className={`relative z-[260] inline-block text-left ${rootWidthClassName}`}>
       {/* MAIN "Add" BUTTON */}
       <button
         onClick={toggleDropdown}
-        className={`inline-flex justify-center w-full font-medium rounded-md focus:outline-none transition-colors duration-150 ${triggerSizeClassName} ${containerBg} ${itemHoverBg}`}
+        title={buttonLabel}
+        aria-label={buttonLabel}
+        className={`inline-flex w-full items-center justify-center gap-1.5 font-medium leading-none rounded-lg focus:outline-none transition-all duration-150 ${triggerSizeClassName} ${triggerSurfaceClassName}`}
       >
         <FaPlus className={iconClassName} />
-        <span className="text-xs">Add</span>
+        {!iconOnly ? <span className="inline-flex items-center leading-none text-xs">{buttonLabel}</span> : null}
       </button>
 
       {/* MAIN DROPDOWN MENU */}
       {isOpen && (
         <div
-          className={`absolute right-0 mt-2 w-36 origin-top-right rounded-lg shadow-xl shadow-slate-900/30 ring-1 ring-black/5 ${containerBg}`}
-          style={{ zIndex: 100 }}
+          className={`absolute ${menuAlignmentClassName} z-[320] mt-2 rounded-2xl p-1.5 ${menuWidthClassName} ${menuSurfaceClassName}`}
         >
-          <div className="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-            
-            {/* PARENT ITEM for "Add layer" */}
-            <div
-              className={`px-3 py-2 text-sm w-full text-left flex items-center justify-between cursor-pointer transition-colors duration-150 ${itemHoverBg}`}
-              onClick={toggleSubMenu}
-              role="menuitem"
-            >
-              <span>Add layer</span>
-              <FaChevronRight className="ml-2" />
+          <div className="space-y-2" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+            <div className="px-2 pt-0.5">
+              <div className={`text-[9px] font-semibold uppercase tracking-[0.16em] ${sectionLabelClassName}`}>
+                Add Layer
+              </div>
             </div>
 
-            {/* SUB-MENU OPTIONS */}
-            {isSubMenuOpen && (
-              <div className="ml-4 mt-1 space-y-1">
-                <button
-                  className={`block px-3 py-1.5 text-sm text-left w-full rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
-                  onClick={() => handleAddLayerClick('below')}
-                >
-                  Below current
-                </button>
-                <button
-                  className={`block px-3 py-1.5 text-sm text-left w-full rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
-                  onClick={() => handleAddLayerClick('end')}
-                >
-                  At end
-                </button>
-                <button
-                  className={`block px-3 py-1.5 text-sm text-left w-full rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
-                  onClick={() => handleAddLayerClick('beginning')}
-                >
-                  At beginning
-                </button>
-              </div>
-            )}
+            <div className="space-y-1">
+              {addOptions.map((option) => {
+                const isDefault = defaultSubOption === option.value;
 
-            {/* COPY CURRENT LAYER */}
-            <button
-              onClick={copyCurrentLayer}
-              className={`block px-3 py-2 text-sm w-full text-left rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
-              role="menuitem"
-            >
-              Copy current
-            </button>
+                return (
+                  <button
+                    key={option.value}
+                    className={`flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-left text-[11px] leading-tight transition ${addOptionClassName} ${isDefault ? defaultOptionClassName : ''}`}
+                    onClick={() => handleAddLayerClick(option.value)}
+                  >
+                    <span>{option.label}</span>
+                    {isDefault ? (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${defaultBadgeClassName}`}>
+                        Default
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* ADD BATCH */}
-            <button
-              onClick={() => {
-                showBatchLayerDialog();
-                setIsOpen(false);
-              }}
-              className={`block px-3 py-2 text-sm w-full text-left rounded-md focus:outline-none transition-colors duration-150 ${itemHoverBg}`}
-              role="menuitem"
-            >
-              Add Batch
-            </button>
+            <div className={colorMode === 'dark' ? 'h-px bg-white/8' : 'h-px bg-slate-200'} />
+
+            <div className="space-y-1">
+              <button
+                onClick={copyCurrentLayer}
+                className={`block w-full rounded-xl px-2.5 py-1.5 text-left text-[11px] transition ${actionItemClassName}`}
+                role="menuitem"
+              >
+                Copy current
+              </button>
+
+              <button
+                onClick={() => {
+                  showBatchLayerDialog();
+                  setIsOpen(false);
+                }}
+                className={`block w-full rounded-xl px-2.5 py-1.5 text-left text-[11px] transition ${actionItemClassName}`}
+                role="menuitem"
+              >
+                Add Batch
+              </button>
+            </div>
           </div>
         </div>
       )}

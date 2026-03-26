@@ -49,6 +49,88 @@ const VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND = 30;
 const VIDEO_EDIT_DEFAULT_SPEED_MULTIPLIER = 1.5;
 const VIDEO_EDIT_MIN_SPEED_MULTIPLIER = 1.25;
 const VIDEO_EDIT_MAX_SPEED_MULTIPLIER = 8;
+const GRID_STEP_FRAMES = [
+  1,
+  2,
+  5,
+  10,
+  15,
+  30,
+  60,
+  90,
+  150,
+  300,
+  450,
+  600,
+  900,
+  1800,
+  3600,
+  5400,
+  7200,
+];
+
+function clampPercent(value) {
+  return Math.max(0, Math.min(100, value));
+}
+
+function pickGridStepFrames(viewRangeFrames, targetLineCount = 10) {
+  const safeRange = Math.max(1, Math.round(viewRangeFrames) || 1);
+  const safeTargetCount = Math.max(4, Math.round(targetLineCount) || 10);
+  const minimumStepFrames = Math.max(1, safeRange / safeTargetCount);
+
+  return GRID_STEP_FRAMES.find((candidate) => candidate >= minimumStepFrames)
+    || Math.max(1, Math.ceil(minimumStepFrames));
+}
+
+function getMinorGridStepFrames(majorStepFrames) {
+  if (!Number.isFinite(majorStepFrames) || majorStepFrames <= 1) {
+    return null;
+  }
+
+  const smallerCandidates = GRID_STEP_FRAMES.filter(
+    (candidate) => candidate < majorStepFrames
+  );
+
+  if (smallerCandidates.length === 0) {
+    return Math.max(1, Math.round(majorStepFrames / 2));
+  }
+
+  const targetMinorStep = Math.max(1, majorStepFrames / 4);
+
+  return smallerCandidates.reduce((closestCandidate, candidate) => (
+    Math.abs(candidate - targetMinorStep) < Math.abs(closestCandidate - targetMinorStep)
+      ? candidate
+      : closestCandidate
+  ), smallerCandidates[smallerCandidates.length - 1]);
+}
+
+function buildGridLineOffsets(rangeStartFrame, rangeEndFrame, stepFrames) {
+  if (
+    !Number.isFinite(rangeStartFrame)
+    || !Number.isFinite(rangeEndFrame)
+    || !Number.isFinite(stepFrames)
+    || stepFrames <= 0
+    || rangeEndFrame <= rangeStartFrame
+  ) {
+    return [];
+  }
+
+  const visibleFrameRange = rangeEndFrame - rangeStartFrame;
+  const firstAlignedFrame = Math.ceil(rangeStartFrame / stepFrames) * stepFrames;
+  const offsets = [];
+
+  for (let frame = firstAlignedFrame; frame < rangeEndFrame; frame += stepFrames) {
+    if (frame <= rangeStartFrame || frame >= rangeEndFrame) {
+      continue;
+    }
+
+    offsets.push(
+      clampPercent(((frame - rangeStartFrame) / visibleFrameRange) * 100)
+    );
+  }
+
+  return offsets;
+}
 
 function isVisualLayerItem(item) {
   return item?.type === 'image' || item?.type === 'shape';
@@ -655,6 +737,7 @@ export default function FrameToolbar(props) {
   const [videoEditDraftOperationsByLayer, setVideoEditDraftOperationsByLayer] = useState({});
   const [videoEditRangeByLayer, setVideoEditRangeByLayer] = useState({});
   const [videoActiveToolByLayer, setVideoActiveToolByLayer] = useState({});
+  const previousVideoEditStateByLayerRef = useRef({});
 
   useEffect(() => {
     setAudioTrackListDisplay((previousAudioTracks) => {
@@ -781,6 +864,57 @@ export default function FrameToolbar(props) {
     });
   }, [videoTrackListDisplay]);
 
+  useEffect(() => {
+    const completedLayerIds = videoTrackListDisplay
+      .filter((track) => {
+        const previousTrackState = previousVideoEditStateByLayerRef.current[track.layerId];
+        return Boolean(
+          previousTrackState?.videoEditPending
+          && !track.videoEditPending
+          && track.videoEditStatus !== 'FAILED'
+        );
+      })
+      .map((track) => track.layerId);
+
+    if (completedLayerIds.length > 0) {
+      setVideoActiveToolByLayer((previousValue) => {
+        let hasChanges = false;
+        const nextValue = { ...previousValue };
+
+        completedLayerIds.forEach((layerId) => {
+          if (nextValue[layerId]) {
+            delete nextValue[layerId];
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? nextValue : previousValue;
+      });
+
+      setVideoEditRangeByLayer((previousValue) => {
+        let hasChanges = false;
+        const nextValue = { ...previousValue };
+
+        completedLayerIds.forEach((layerId) => {
+          if (nextValue[layerId]) {
+            delete nextValue[layerId];
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? nextValue : previousValue;
+      });
+    }
+
+    previousVideoEditStateByLayerRef.current = videoTrackListDisplay.reduce((accumulator, track) => {
+      accumulator[track.layerId] = {
+        videoEditPending: Boolean(track.videoEditPending),
+        videoEditStatus: track.videoEditStatus || 'INIT',
+      };
+      return accumulator;
+    }, {});
+  }, [videoTrackListDisplay]);
+
 
   const dirtyCount = useMemo(
     () => audioTrackListDisplay.filter((track) => track.isDirty).length,
@@ -832,18 +966,47 @@ export default function FrameToolbar(props) {
       typeof audioData?.audio_url === 'string' && audioData.audio_url.trim()
     ));
   }, [duplicateAudioLayer, selectedAudioTrack]);
-  const getDefaultVideoEditRangeForTrack = (track) => {
+  const getDefaultVideoEditRangeForTrack = (track, anchorFrame = null) => {
     const maximumPreviewRange = Math.max(
       1,
       Math.round(DISPLAY_FRAMES_PER_SECOND * 1.5)
     );
+    const trackDurationFrames = Math.max(1, track?.durationFrames || 1);
+    const trackStartFrame = Math.max(0, Math.round(Number(track?.startFrame) || 0));
+    const hasAnchorFrame = Number.isFinite(anchorFrame);
+    const anchoredStartFrame = hasAnchorFrame
+      ? Math.min(
+        Math.max(Math.round(Number(anchorFrame) || 0) - trackStartFrame, 0),
+        Math.max(0, trackDurationFrames - 1),
+      )
+      : 0;
+
     return [
-      0,
+      anchoredStartFrame,
       Math.min(
-        Math.max(1, track?.durationFrames || 1),
-        maximumPreviewRange,
+        trackDurationFrames,
+        anchoredStartFrame + maximumPreviewRange,
       ),
     ];
+  };
+  const ensureVideoEditRangeForTrack = (track, anchorFrame = currentLayerSeek) => {
+    if (!track?.layerId) {
+      return;
+    }
+
+    setVideoEditRangeByLayer((previousValue) => {
+      if (previousValue[track.layerId]) {
+        return previousValue;
+      }
+
+      return {
+        ...previousValue,
+        [track.layerId]: clampVideoEditRange(
+          getDefaultVideoEditRangeForTrack(track, anchorFrame),
+          track?.durationFrames,
+        ),
+      };
+    });
   };
   const selectedVideoRangeFrames = useMemo(() => {
     if (!selectedVideoTrack) {
@@ -852,10 +1015,10 @@ export default function FrameToolbar(props) {
 
     const savedRange = videoEditRangeByLayer[selectedVideoTrack.layerId];
     return clampVideoEditRange(
-      savedRange || getDefaultVideoEditRangeForTrack(selectedVideoTrack),
+      savedRange || getDefaultVideoEditRangeForTrack(selectedVideoTrack, currentLayerSeek),
       selectedVideoTrack.durationFrames,
     );
-  }, [selectedVideoTrack, videoEditRangeByLayer]);
+  }, [currentLayerSeek, selectedVideoTrack, videoEditRangeByLayer]);
   const selectedVideoDraftOperations = useMemo(() => {
     if (!selectedVideoTrack) {
       return [];
@@ -1107,9 +1270,6 @@ export default function FrameToolbar(props) {
 
   // State for grid visibility
   const [isGridVisible, setIsGridVisible] = useState(false);
-
-  // Compute grid line positions
-  const [gridLinePositionsInPixels, setGridLinePositionsInPixels] = useState([]);
   const openPopupLayerIdRef = useRef(null);
 
   const restoreSelectedLayerChrome = (preferredLayerId = null) => {
@@ -1319,32 +1479,6 @@ export default function FrameToolbar(props) {
     observer.observe(parent);
     return () => observer.disconnect();
   }, [parentRef, layers, selectedLayerIndex]);
-
-
-  useEffect(() => {
-    if (parentRef.current && visibleLayers && visibleLayers.length > 0) {
-      const parentHeight = parentRef.current.clientHeight;
-      const totalVisibleDuration = visibleLayers.reduce(
-        (acc, layer) => acc + layer.duration,
-        0
-      );
-
-      let cumulativeHeight = 0;
-      const positions = [];
-      const borderHeight = 2; // Adjust if your borders have different sizes
-
-      visibleLayers.forEach((layer) => {
-        const layerHeightPercentage = layer.duration / totalVisibleDuration;
-        const layerHeightInPixels = layerHeightPercentage * parentHeight - borderHeight;
-
-        positions.push(cumulativeHeight);
-        cumulativeHeight += layerHeightInPixels + borderHeight; // Include borders in cumulativeHeight
-      });
-
-      positions.push(cumulativeHeight);
-      setGridLinePositionsInPixels(positions);
-    }
-  }, [parentRef.current, visibleLayers, frameToolbarView]); // Add frameToolbarView
 
 
   useEffect(() => {
@@ -1806,7 +1940,7 @@ export default function FrameToolbar(props) {
       : 'Audio controls';
 
     return (
-      <div className={`ml-2 flex min-h-[44px] w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${audioToolbarSurface}`}>
+      <div className={`flex min-h-[44px] w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${audioToolbarSurface}`}>
         <div
           className={`h-2.5 w-2.5 shrink-0 rounded-full ${audioStatusDotClass}`}
           title={audioStatusTitle}
@@ -2076,6 +2210,63 @@ export default function FrameToolbar(props) {
     safeViewRange[1]
   );
   const hasUsableFrameRange = hasValidViewRange && totalDurationInFrames > 0;
+  const viewFrameSpan = Math.max(1, safeViewRange[1] - safeViewRange[0]);
+  const majorGridStepFrames = useMemo(
+    () => pickGridStepFrames(viewFrameSpan, 10),
+    [viewFrameSpan]
+  );
+  const minorGridStepFrames = useMemo(
+    () => getMinorGridStepFrames(majorGridStepFrames),
+    [majorGridStepFrames]
+  );
+  const majorGridLineOffsets = useMemo(() => (
+    hasUsableFrameRange
+      ? buildGridLineOffsets(viewRangeStart, viewRangeEnd, majorGridStepFrames)
+      : []
+  ), [hasUsableFrameRange, majorGridStepFrames, viewRangeEnd, viewRangeStart]);
+  const minorGridLineOffsets = useMemo(() => {
+    if (!hasUsableFrameRange || !minorGridStepFrames) {
+      return [];
+    }
+
+    const majorOffsetSet = new Set(
+      buildGridLineOffsets(viewRangeStart, viewRangeEnd, majorGridStepFrames)
+        .map((offset) => offset.toFixed(4))
+    );
+
+    return buildGridLineOffsets(viewRangeStart, viewRangeEnd, minorGridStepFrames)
+      .filter((offset) => !majorOffsetSet.has(offset.toFixed(4)));
+  }, [
+    hasUsableFrameRange,
+    majorGridStepFrames,
+    minorGridStepFrames,
+    viewRangeEnd,
+    viewRangeStart,
+  ]);
+  const currentSeekGridOffset = hasUsableFrameRange
+    ? clampPercent(((clampedLayerSeek - safeViewRange[0]) / viewFrameSpan) * 100)
+    : null;
+  const gridOverlayThemeStyle = useMemo(() => (
+    colorMode === 'dark'
+      ? {
+        '--action-grid-surface-top': 'rgba(15, 23, 42, 0.2)',
+        '--action-grid-surface-bottom': 'rgba(2, 6, 23, 0.3)',
+        '--action-grid-line-major': 'rgba(125, 211, 252, 0.26)',
+        '--action-grid-line-major-glow': 'rgba(34, 211, 238, 0.18)',
+        '--action-grid-line-minor': 'rgba(148, 163, 184, 0.11)',
+        '--action-grid-line-focus': 'rgba(56, 189, 248, 0.82)',
+        '--action-grid-line-focus-glow': 'rgba(34, 211, 238, 0.34)',
+      }
+      : {
+        '--action-grid-surface-top': 'rgba(255, 255, 255, 0.16)',
+        '--action-grid-surface-bottom': 'rgba(226, 232, 240, 0.22)',
+        '--action-grid-line-major': 'rgba(37, 99, 235, 0.18)',
+        '--action-grid-line-major-glow': 'rgba(14, 165, 233, 0.12)',
+        '--action-grid-line-minor': 'rgba(100, 116, 139, 0.1)',
+        '--action-grid-line-focus': 'rgba(14, 165, 233, 0.72)',
+        '--action-grid-line-focus-glow': 'rgba(56, 189, 248, 0.2)',
+      }
+  ), [colorMode]);
 
   let layerSelectOverlay = null;
 
@@ -2366,21 +2557,6 @@ export default function FrameToolbar(props) {
         isDisplaySelected: track.layerId === selectedLayerId,
       }))
     );
-
-    setVideoEditRangeByLayer((previousValue) => {
-      if (previousValue[selectedLayerId]) {
-        return previousValue;
-      }
-
-      return {
-        ...previousValue,
-        [selectedLayerId]: clampVideoEditRange(
-          getDefaultVideoEditRangeForTrack(selectedTrack),
-          selectedTrack?.durationFrames,
-        ),
-      };
-    });
-
   };
 
   const updateSelectedVideoEditRange = (nextRange) => {
@@ -2469,10 +2645,16 @@ export default function FrameToolbar(props) {
       return;
     }
 
-    setVideoActiveToolByLayer((previousValue) => {
-      const currentTool = previousValue[selectedVideoTrack.layerId] || null;
+    const currentTool = videoActiveToolByLayer[selectedVideoTrack.layerId] || null;
 
-      if (areVideoEditToolsEqual(currentTool, toolConfig)) {
+    if (!areVideoEditToolsEqual(currentTool, toolConfig)) {
+      ensureVideoEditRangeForTrack(selectedVideoTrack, currentLayerSeek);
+    }
+
+    setVideoActiveToolByLayer((previousValue) => {
+      const currentLayerTool = previousValue[selectedVideoTrack.layerId] || null;
+
+      if (areVideoEditToolsEqual(currentLayerTool, toolConfig)) {
         const nextValue = { ...previousValue };
         delete nextValue[selectedVideoTrack.layerId];
         return nextValue;
@@ -2623,7 +2805,7 @@ export default function FrameToolbar(props) {
     ) {
       return {
         success: false,
-        error: 'Add at least one staged video change before clicking Update.',
+        error: 'Add at least one staged video change before clicking Apply.',
       };
     }
 
@@ -2837,11 +3019,7 @@ export default function FrameToolbar(props) {
 
   const showSelectedVideoTrack = () => {
     if (!selectedVideoTrack) {
-      return (
-        <div className="flex items-center justify-start px-3 text-[11px] text-slate-400">
-          Select a video lane, choose an action above, add each selection, then click Update.
-        </div>
-      );
+      return <span />;
     }
 
     return (
@@ -3118,7 +3296,7 @@ export default function FrameToolbar(props) {
   const isExpandedToolbarView = frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED;
   let containerWdidth = 'w-[10%] z-1 opacity-100';
   if (isExpandedToolbarView) {
-    containerWdidth = 'min-w-[50%] max-w-[90%] overflow-x-auto z-[102]';
+    containerWdidth = 'min-w-[50%] max-w-[90%] z-[102]';
   }
 
   let trackViewDisplay = <span />;
@@ -3171,7 +3349,7 @@ export default function FrameToolbar(props) {
     <button
       type="button"
       onClick={toggleShowExpandedTrackView}
-      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition-colors duration-150 ${collapsedToggleSurface}`}
+      className={`inline-flex h-[42px] w-[26px] shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition-colors duration-150 ${collapsedToggleSurface}`}
       aria-label="Expand toolbar"
       title="Expand toolbar"
     >
@@ -3211,14 +3389,20 @@ export default function FrameToolbar(props) {
     ? 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-200 transition hover:bg-slate-800/80 disabled:opacity-50'
     : 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-600 transition hover:bg-slate-200/80 disabled:opacity-50';
   const gridToggleClassName = colorMode === 'dark'
-    ? 'inline-flex items-center gap-2 rounded-lg border border-[#1f2a3d]/90 bg-[#0f172a]/70 px-2 py-1 text-[10px] text-slate-300'
-    : 'inline-flex items-center gap-2 rounded-lg border border-slate-200/90 bg-white/70 px-2 py-1 text-[10px] text-slate-500';
+    ? 'inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200 shadow-[0_12px_28px_rgba(2,6,23,0.34)] backdrop-blur-md transition hover:border-cyan-400/30'
+    : 'inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 shadow-sm backdrop-blur-md transition hover:border-sky-300/70';
+  const gridToggleInputClassName = colorMode === 'dark'
+    ? 'h-4 w-4 rounded border-slate-600 bg-slate-900/90 text-cyan-400 focus:ring-2 focus:ring-cyan-400/35 focus:ring-offset-0'
+    : 'h-4 w-4 rounded border-slate-300 bg-white text-sky-500 focus:ring-2 focus:ring-sky-400/35 focus:ring-offset-0';
   const dropdownButtonDisplay = (
     <DropdownButton
       addLayerToComposition={addLayerToComposition}
       copyCurrentLayerBelow={copyCurrentLayerBelow}
       showBatchLayerDialog={showBatchLayerDialog}
-      compact={isExpandedToolbarView}
+      compact={true}
+      menuAlign={isExpandedToolbarView ? 'right' : 'left'}
+      fullWidth={!isExpandedToolbarView}
+      fitMenuToTrigger={!isExpandedToolbarView}
     />
   );
 
@@ -3230,7 +3414,7 @@ export default function FrameToolbar(props) {
       <label className={gridToggleClassName}>
         <input
           type="checkbox"
-          className='inline-flex'
+          className={gridToggleInputClassName}
           checked={isGridVisible}
           onChange={(e) => setIsGridVisible(e.target.checked)}
         />
@@ -3239,7 +3423,8 @@ export default function FrameToolbar(props) {
     );
   }
 
-  let expandedHeaderActionDisplay = <span />;
+  let expandedTopRowActionDisplay = <span />;
+  let expandedBottomRowActionDisplay = <span />;
 
   const isAnonymousGuest = !user?._id;
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
@@ -3383,7 +3568,7 @@ export default function FrameToolbar(props) {
     </div>
   );
 
-  let btnLeftMargin = 'ml-2';
+  let btnLeftMargin = 'ml-1';
 
   if (canCancelPendingRender) {
     const cancelButtonClasses = colorMode === 'light'
@@ -3496,74 +3681,86 @@ export default function FrameToolbar(props) {
   );
 
   if (isExpandedToolbarView) {
-    submitRenderFullActionDisplay = <div className='inline-flex'>{submitRenderDisplay}</div>;
+    submitRenderFullActionDisplay = (
+      <div className='inline-flex max-w-full flex-wrap items-center gap-2'>
+        <div className='inline-flex shrink-0'>
+          {submitRenderDisplay}
+        </div>
+        <div className={`inline-flex shrink-0 ${disabledMenuClass}`}>
+          {dropdownButtonDisplay}
+        </div>
+      </div>
+    );
     topSubToolbar = <span />;
     if (currentLayerActionSuperView === 'FRAME') {
-      expandedHeaderActionDisplay = (
-        <div className='inline-flex max-w-full flex-col items-end gap-1'>
-          <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
-            <div className={`inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold ${sceneCardClassName}`}>
-              <span>Scenes</span>
-              <button
-                type="button"
-                className={sceneButtonClassName}
-                onClick={canGoPrev ? handlePrevClick : undefined}
-                disabled={!canGoPrev}
-              >
-                <FaChevronUp />
-              </button>
-              <button
-                type="button"
-                className={sceneButtonClassName}
-                onClick={canGoNext ? handleNextClick : undefined}
-                disabled={!canGoNext}
-              >
-                <FaChevronDown />
-              </button>
-              <button
-                type="button"
-                className={`${sceneButtonClassName} ${textActiveColor}`}
-                onClick={toggleViewSceneUpdate}
-                aria-label="Toggle scene portal"
-              >
-                <FaEye />
-              </button>
-            </div>
-
-            {showGridsView}
+      expandedTopRowActionDisplay = (
+        <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
+          <div className={`inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold ${sceneCardClassName}`}>
+            <span>Scenes</span>
+            <button
+              type="button"
+              className={sceneButtonClassName}
+              onClick={canGoPrev ? handlePrevClick : undefined}
+              disabled={!canGoPrev}
+            >
+              <FaChevronUp />
+            </button>
+            <button
+              type="button"
+              className={sceneButtonClassName}
+              onClick={canGoNext ? handleNextClick : undefined}
+              disabled={!canGoNext}
+            >
+              <FaChevronDown />
+            </button>
+            <button
+              type="button"
+              className={`${sceneButtonClassName} ${textActiveColor}`}
+              onClick={toggleViewSceneUpdate}
+              aria-label="Toggle scene portal"
+            >
+              <FaEye />
+            </button>
           </div>
 
-          <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
-            {expandedTopSecondaryActionDisplay}
-
-            <div className={`shrink-0 ${disabledMenuClass}`}>
-              {dropdownButtonDisplay}
-            </div>
-          </div>
+          {showGridsView}
+        </div>
+      );
+      expandedBottomRowActionDisplay = (
+        <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
+          {expandedTopSecondaryActionDisplay}
         </div>
       );
     } else {
-      expandedHeaderActionDisplay = (
-        <div className='inline-flex max-w-full flex-col items-end gap-1'>
-          <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
-            {showGridsView}
-          </div>
-          <div className='min-w-0 max-w-full overflow-hidden'>
-            {selectedTrackViewDisplay}
-          </div>
+      expandedTopRowActionDisplay = (
+        <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
+          {showGridsView}
+        </div>
+      );
+      expandedBottomRowActionDisplay = (
+        <div className='min-w-0 max-w-full overflow-visible'>
+          {selectedTrackViewDisplay}
         </div>
       );
     }
   } else {
     submitRenderFullActionDisplay = (
-      <div className='flex w-full items-center justify-between gap-2'>
+      <div className='flex w-full flex-col items-stretch gap-1'>
+        <div className='flex w-full items-stretch justify-between gap-1.5'>
+          <div
+            className='inline-flex min-w-0'
+            onClick={(event) => event.stopPropagation()}
+          >
+            {submitRenderDisplay}
+          </div>
+          {!canCancelPendingRender ? expandButtonLabel : null}
+        </div>
         <div
-          className='inline-flex'
+          className={`w-full ${disabledMenuClass}`}
           onClick={(event) => event.stopPropagation()}
         >
-          {submitRenderDisplay}
+          {dropdownButtonDisplay}
         </div>
-        {expandButtonLabel}
       </div>
     );
   }
@@ -3612,30 +3809,21 @@ export default function FrameToolbar(props) {
 
   const panelVerticalBoundsClass = 'top-[56px] bottom-0';
 
-  let buttonGroupMT = 'mt-2';
+  let buttonGroupMT = 'mt-0.5';
   if (isExpandedToolbarView) {
     buttonGroupMT = 'mt-0';
   }
 
-  let trackSliderML = 'ml-[30px]';
+  let trackSliderML = 'ml-[20px]';
   if (isExpandedToolbarView) {
     trackSliderML = 'ml-[10px]';
   }
 
+  let rangeScaleML = 'ml-0.5';
+  if (isExpandedToolbarView) {
+    rangeScaleML = 'ml-1';
+  }
 
-  const gridLines = gridLinePositionsInPixels.map((position, index) => (
-    <div
-      key={index}
-      style={{
-        position: 'absolute',
-        top: `${position}px`,
-        left: '0.25rem', // Matches 'ml-1'
-        width: 'calc(100% - 0.5rem)',
-        borderTop: '1px solid gray',
-        pointerEvents: 'none',
-      }}
-    />
-  ));
 
   let layerActionCurrentView = <span />;
 
@@ -3702,60 +3890,90 @@ export default function FrameToolbar(props) {
   return (
     <div
       className={`shadow-lg m-auto fixed ${panelVerticalBoundsClass} ${containerWdidth} ${textColor} ${panelShellSurface}
-       text-left left-0 toolbar-container overflow-hidden`}
+       text-left left-0 toolbar-container overflow-visible`}
       aria-disabled={isRenderPending}
     >
       <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]'>
-        <div className={`w-full shrink-0 pb-1 border-r-2 ${bgColor} border-stone-600`}>
-          <div
-            className={!isExpandedToolbarView ? 'cursor-pointer px-2 pt-2' : ''}
-            onClick={!isExpandedToolbarView ? toggleShowExpandedTrackView : undefined}
-          >
-            {isExpandedToolbarView ? (
-              <div className='flex min-w-0 items-start gap-2 px-2 pt-2'>
+        <div className={`relative z-[240] w-full shrink-0 overflow-visible pb-1 border-r-2 ${bgColor} border-stone-600`}>
+          {isExpandedToolbarView ? (
+            <div className='flex min-w-0 flex-col gap-2 px-2 pt-2 pb-1'>
+              <div className='flex min-w-0 items-start gap-2'>
                 <div className={`min-w-0 shrink-0 ${disabledMenuClass}`}>
                   {layerActionCurrentView}
                 </div>
-                <div className='ml-auto min-w-0 overflow-hidden'>
-                  {expandedHeaderActionDisplay}
+                <div className='ml-auto min-w-0 flex-1 overflow-visible'>
+                  <div className='flex min-w-0 flex-wrap items-center justify-end gap-1.5'>
+                    {expandedTopRowActionDisplay}
+                  </div>
                 </div>
                 <div className='shrink-0'>
                   {expandButtonLabel}
                 </div>
               </div>
-            ) : null}
 
-            <div className={`btn-container flex w-full items-center ${isExpandedToolbarView ? btnLeftMargin : 'ml-0'} mb-1`}>
-              <div className={`inline-flex max-w-full flex-wrap ${buttonGroupMT}`}>
-                {submitRenderFullActionDisplay}
+              <div className='grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2'>
+                <div className='min-w-0 shrink-0'>
+                  {submitRenderFullActionDisplay}
+                </div>
+                <div className='min-w-0 overflow-visible'>
+                  <div className='flex min-w-0 flex-wrap items-center justify-end gap-1.5'>
+                    {expandedBottomRowActionDisplay}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div
+              className='cursor-pointer px-1.5 pt-0.5'
+              onClick={toggleShowExpandedTrackView}
+            >
+              <div className={`btn-container flex w-full items-start ${btnLeftMargin} pr-1.5 mb-1`}>
+                <div className={`flex w-full max-w-full flex-col items-start ${buttonGroupMT}`}>
+                  {submitRenderFullActionDisplay}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className={`min-h-0 h-full w-full flex flex-row pl-1 ${panelBodySurface}`}>
-          <div className='text-xs font-bold basis-1/4 min-h-0'>
+        <div className={`relative z-0 min-h-0 h-full w-full overflow-hidden flex flex-row pl-1 ${panelBodySurface}`}>
+          {isGridVisible && hasUsableFrameRange && (
+            <div className='pointer-events-none absolute inset-0 z-[3] overflow-hidden'>
+              <div className='action-view-grid-overlay h-full w-full' style={gridOverlayThemeStyle}>
+                {minorGridLineOffsets.map((offset) => (
+                  <div
+                    key={`minor-grid-${offset.toFixed(4)}`}
+                    className='action-view-grid-line action-view-grid-line--minor'
+                    style={{ top: `${offset}%` }}
+                  />
+                ))}
+                {majorGridLineOffsets.map((offset) => (
+                  <div
+                    key={`major-grid-${offset.toFixed(4)}`}
+                    className='action-view-grid-line action-view-grid-line--major'
+                    style={{ top: `${offset}%` }}
+                  />
+                ))}
+                {Number.isFinite(currentSeekGridOffset) && (
+                  <div
+                    className='action-view-grid-line action-view-grid-line--focus'
+                    style={{ top: `${currentSeekGridOffset}%` }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className='relative z-[2] text-xs font-bold basis-1/4 min-h-0'>
             <div className='relative h-full min-h-0'>
               {/* Previous and Next buttons */}
               <div className='relative h-full min-h-0 w-full overflow-y-clip' ref={parentRef}>
                 {layersList}
                 {layerSelectOverlay}
-
-
-                {isGridVisible && (
-                  <div
-                    className='grid-overlay absolute top-0 left-0 w-full h-full pointer-events-none'
-                    style={{ zIndex: 1 }}
-                  >
-                    {gridLines}
-                  </div>
-                )}
-
-
               </div>
             </div>
           </div>
-          <div className='basis-3/4 min-h-0'>
+          <div className='relative z-[2] basis-3/4 min-h-0'>
             <div className='flex flex-row h-full min-h-0'>
               {showVerticalWaveform && audioUrl && isExpandedToolbarView && (
                 <div className='inline-flex h-full min-h-0'>
@@ -3793,7 +4011,7 @@ export default function FrameToolbar(props) {
 
 
 
-              <div className='inline-flex dual-thumb-shell h-full min-h-0 w-[30px] ml-1'>
+              <div className={`inline-flex dual-thumb-shell h-full min-h-0 w-[30px] ${rangeScaleML}`}>
                 {hasUsableFrameRange ? (
                   <DualThumbSlider
                     min={0}
@@ -3807,7 +4025,7 @@ export default function FrameToolbar(props) {
                 )}
               </div>
 
-              <div className='inline-flex h-full min-h-0'>
+              <div className='relative z-[4] inline-flex h-full min-h-0'>
                 <TimeRuler
                   totalDuration={totalDuration}
                   visibleStartTime={viewRangeStart / 30}
