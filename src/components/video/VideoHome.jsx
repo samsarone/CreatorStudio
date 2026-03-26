@@ -122,6 +122,23 @@ export default function VideoHome(props) {
     ));
   };
 
+  const hasBlockingLayerGenerationForRender = (sessionData) => {
+    if (!sessionData) {
+      return false;
+    }
+
+    const sessionLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
+    return sessionLayers.some((layer) => (
+      layer?.imageSession?.generationStatus === 'PENDING'
+      || layer?.aiVideoGenerationPending
+      || layer?.lipSyncGenerationPending
+      || layer?.soundEffectGenerationPending
+      || layer?.userVideoGenerationPending
+      || layer?.videoEditPending
+      || isActiveUserVideoUploadTask(layer?.userVideoUploadTask)
+    ));
+  };
+
   const stopLayerPolling = () => {
     if (layerPollTimerRef.current) {
       clearInterval(layerPollTimerRef.current);
@@ -199,6 +216,14 @@ export default function VideoHome(props) {
   useEffect(() => {
     currentLayerRef.current = currentLayer;
   }, [currentLayer]);
+
+  useEffect(() => {
+    if (!isCanvasDirty || !renderCompletedThisSession) {
+      return;
+    }
+
+    setRenderCompletedThisSession(false);
+  }, [isCanvasDirty, renderCompletedThisSession]);
 
   useEffect(() => {
     if (layers && layers.length > 0) {
@@ -538,6 +563,7 @@ export default function VideoHome(props) {
     const resolvedValue = Boolean(nextValue);
     localStorage.setItem("applyAudioDucking", resolvedValue ? 'true' : 'false');
     setApplyAudioDucking(resolvedValue);
+    setIsCanvasDirty(true);
     setVideoSessionDetails((prevDetails) => {
       if (!prevDetails) {
         return prevDetails;
@@ -918,6 +944,13 @@ export default function VideoHome(props) {
           return;
         }
 
+        if (renderStatus === 'FAILED') {
+          toast.error(renderData.generationError || sessionData?.generationError || 'Video render failed.', {
+            position: "bottom-center",
+            className: "custom-toast",
+          });
+        }
+
         setVideoSessionDetails((prev) => {
           if (!prev) {
             return prev;
@@ -994,6 +1027,7 @@ export default function VideoHome(props) {
         setVideoSessionDetails(sessionData);
         setLayers(updatedLayers);
         setIsLayerGenerationPending(true);
+        setIsCanvasDirty(true);
         if (updatedLayer) {
           setCurrentLayer(updatedLayer);
         }
@@ -1036,7 +1070,7 @@ export default function VideoHome(props) {
       });
       return;
     }
-    if (isLayerGenerationPending) {
+    if (hasBlockingLayerGenerationForRender(videoSessionDetails)) {
       toast.error('Wait for the current layer processing to finish before rendering.', {
         position: "bottom-center",
         className: "custom-toast",
@@ -1137,12 +1171,55 @@ export default function VideoHome(props) {
       const { audioLayers: returnedLayers } = response.data;
       // Update local state with the “official” audioLayers from the server
       setAudioLayers(returnedLayers);
+      setIsCanvasDirty(true);
 
       // Let FrameToolbar know the server accepted changes 
       // so we can clear "isDirty" states on that side:
       return { success: true, serverLayers: returnedLayers };
     } catch (error) {
       
+      return { success: false, error };
+    }
+  };
+
+  const duplicateAudioLayer = async (audioLayer) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return { success: false };
+    }
+
+    try {
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/duplicate_audio_layer`,
+        {
+          sessionId: id,
+          audioLayerId: audioLayer?._id?.toString?.() || audioLayer?._id,
+        },
+        headers
+      );
+
+      const sessionDetails = response?.data?.sessionDetails;
+      const duplicatedAudioLayer = response?.data?.audioLayer;
+      if (sessionDetails) {
+        setVideoSessionDetails(sessionDetails);
+        setIsCanvasDirty(true);
+      }
+
+      toast.success('Audio layer duplicated', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+
+      return {
+        success: true,
+        duplicatedAudioLayerId: duplicatedAudioLayer?._id?.toString?.() || duplicatedAudioLayer?._id || null,
+      };
+    } catch (error) {
+      toast.error('Unable to duplicate audio layer', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
       return { success: false, error };
     }
   };
@@ -1198,6 +1275,7 @@ export default function VideoHome(props) {
         .then(response => {
           const sessionData = response.data;
           setVideoSessionDetails(sessionData);
+          setIsCanvasDirty(true);
           if (sessionData.audio) {
             const audioFileTrack = `${PROCESSOR_API_URL}/video/audio/${sessionData.audio}`;
             setAudioFileTrack(audioFileTrack);
@@ -2189,8 +2267,8 @@ export default function VideoHome(props) {
       toast.success(t("studio.notifications.framesRegenerationRequested"));
       setIsCanvasDirty(true);
       setIsVideoGenerating(false);
-      setIsLayerGenerationPending(true);
-      pollForLayersUpdate();
+      stopLayerPolling();
+      setIsLayerGenerationPending(false);
     }).catch((error) => {
       toast.error(error?.response?.data?.error || 'Failed to request frame regeneration');
     });
@@ -2228,6 +2306,7 @@ export default function VideoHome(props) {
     const headers = getHeaders();
     axios.post(`${PROCESSOR_API_URL}/video_sessions/apply_audio_track_visualizer`, { id: id }, headers).then((response) => {
       const resData = response.data;
+      setIsCanvasDirty(true);
 
     });
 
@@ -2323,6 +2402,7 @@ export default function VideoHome(props) {
         totalDuration={totalDuration}
         isUpdateLayerPending={isUpdateLayerPending}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
+        applyAudioDucking={applyAudioDucking}
         audioLayers={audioLayers}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         setAudioLayers={setAudioLayers}
@@ -2409,6 +2489,7 @@ export default function VideoHome(props) {
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
           updateLayerVisualItem={updateLayerVisualItem}
           deleteLayerVisualItem={deleteLayerVisualItem}
+          duplicateAudioLayer={duplicateAudioLayer}
           publishVideoSession={publishVideoSession}
           unpublishVideoSession={unpublishVideoSession}
           isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
@@ -2509,6 +2590,7 @@ export default function VideoHome(props) {
               onLayersOrderChange={updateSessionLayersOrder}
               updateSessionLayersOnServer={updateSessionLayersOnServer}
               regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+              duplicateAudioLayer={duplicateAudioLayer}
               publishVideoSession={publishVideoSession}
               unpublishVideoSession={unpublishVideoSession}
               isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FaBolt, FaCut, FaTimes } from 'react-icons/fa';
+import { FaBolt, FaCheck, FaCut, FaPlay, FaPlus, FaTimes } from 'react-icons/fa';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
 
 const DEFAULT_SPEED_MULTIPLIER = 1.5;
@@ -48,6 +48,7 @@ function ActionButton({
   isActive = false,
   onClick,
   title,
+  ariaLabel,
   colorMode,
   disabled = false,
 }) {
@@ -56,20 +57,19 @@ function ActionButton({
       ? 'bg-cyan-500/22 border-cyan-300/55 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.18)]'
       : 'bg-sky-100 border-sky-400/55 text-sky-700 shadow-[0_0_18px_rgba(14,165,233,0.12)]')
     : (colorMode === 'dark'
-      ? 'bg-[#111a2f] border-[#1f2a3d] text-slate-300 hover:bg-[#16213a]'
-      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100');
+      ? 'bg-[#111a2f]/72 border-[#1f2a3d] text-slate-300 hover:bg-[#16213a]'
+      : 'bg-white/80 border-slate-200 text-slate-600 hover:bg-slate-100');
 
   return (
     <button
       type="button"
       title={title}
+      aria-label={ariaLabel || title}
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex min-h-[38px] items-center justify-center rounded-xl border px-3 py-2 text-[11px] font-semibold transition disabled:opacity-50 ${surfaceClassName}`}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] transition disabled:opacity-50 ${surfaceClassName}`}
     >
-      <span className="inline-flex items-center justify-center gap-1.5">
-        {children}
-      </span>
+      <span className="inline-flex items-center justify-center">{children}</span>
     </button>
   );
 }
@@ -83,6 +83,7 @@ export default function SelectedVideoTrackDisplay(props) {
     selectedRangeFrames = [0, 1],
     draftOperations = [],
     pendingOperations = [],
+    onApplySelection,
     onAddDraft,
     onRemoveDraft,
     onClearDrafts,
@@ -105,7 +106,10 @@ export default function SelectedVideoTrackDisplay(props) {
     )
     : DEFAULT_SPEED_MULTIPLIER;
 
-  const statusText = useMemo(() => {
+  const statusTitle = useMemo(() => {
+    if (feedbackMessage) {
+      return feedbackMessage;
+    }
     if (selectedVideoTrack?.videoEditPending) {
       return selectedVideoTrack.videoEditTaskMessage || 'Processing';
     }
@@ -113,15 +117,16 @@ export default function SelectedVideoTrackDisplay(props) {
       return selectedVideoTrack.videoEditError || 'Edit failed';
     }
     if (draftOperations.length > 0) {
-      return `${draftOperations.length} staged change${draftOperations.length === 1 ? '' : 's'}. Click Update to apply them.`;
+      return `${draftOperations.length} staged change${draftOperations.length === 1 ? '' : 's'} ready to apply.`;
     }
     if (!activeTool) {
-      return 'Choose an action, drag the lane range, then add it to the update list.';
+      return 'Choose an action.';
     }
     return `Selection ready for ${getToolLabel(activeTool)} on ${formatFrameRange(selectedRangeFrames)}.`;
   }, [
     activeTool,
     draftOperations.length,
+    feedbackMessage,
     selectedRangeFrames,
     selectedVideoTrack?.videoEditError,
     selectedVideoTrack?.videoEditPending,
@@ -129,27 +134,33 @@ export default function SelectedVideoTrackDisplay(props) {
     selectedVideoTrack?.videoEditTaskMessage,
   ]);
 
-  const statusClassName = selectedVideoTrack?.videoEditPending
-    ? 'text-cyan-300'
-    : selectedVideoTrack?.videoEditStatus === 'FAILED'
-      ? 'text-rose-400'
-      : colorMode === 'dark'
-        ? 'text-slate-300'
-        : 'text-slate-500';
+  const statusDotClassName = feedbackMessage
+    ? (colorMode === 'dark' ? 'bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.6)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.45)]')
+    : selectedVideoTrack?.videoEditPending
+      ? 'bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.65)]'
+      : selectedVideoTrack?.videoEditStatus === 'FAILED'
+        ? 'bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.55)]'
+        : draftOperations.length > 0
+          ? (colorMode === 'dark' ? 'bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.45)]' : 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]')
+          : activeTool
+            ? (colorMode === 'dark' ? 'bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.45)]' : 'bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.35)]')
+            : (colorMode === 'dark' ? 'bg-slate-600' : 'bg-slate-300');
 
   const toolbarSurfaceClassName = colorMode === 'dark'
-    ? 'bg-[#0b1224]/80 border border-[#1f2a3d]'
-    : 'bg-white/80 border border-slate-200 shadow-sm';
-  const subLabelClassName = colorMode === 'dark' ? 'text-slate-500' : 'text-slate-400';
+    ? 'bg-[#0b1224]/68 border border-[#1f2a3d] backdrop-blur-md'
+    : 'bg-white/72 border border-slate-200 shadow-sm backdrop-blur-md';
   const inputSurfaceClassName = colorMode === 'dark'
-    ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100'
-    : 'bg-white border border-slate-200 text-slate-700';
+    ? 'bg-[#111a2f]/82 border border-[#1f2a3d] text-slate-100'
+    : 'bg-white/88 border border-slate-200 text-slate-700';
   const secondaryButtonClassName = colorMode === 'dark'
-    ? 'border border-[#31405e] bg-[#111a2f] text-slate-200 hover:bg-[#16213a]'
-    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100';
+    ? 'border border-[#31405e] bg-[#111a2f]/78 text-slate-200 hover:bg-[#16213a]'
+    : 'border border-slate-200 bg-white/85 text-slate-700 hover:bg-slate-100';
   const destructiveButtonClassName = colorMode === 'dark'
     ? 'border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/18'
     : 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100';
+  const primaryButtonClassName = colorMode === 'dark'
+    ? 'bg-cyan-400 text-[#041420] hover:bg-cyan-300'
+    : 'bg-sky-600 text-white hover:bg-sky-500';
 
   const handleAddDraftClick = async () => {
     const response = await onAddDraft?.();
@@ -158,6 +169,15 @@ export default function SelectedVideoTrackDisplay(props) {
       return;
     }
     setFeedbackMessage('Selection staged. Click Update when ready.');
+  };
+
+  const handleApplySelectionClick = async () => {
+    const response = await onApplySelection?.();
+    if (response?.success === false) {
+      setFeedbackMessage(response.error || 'Unable to apply this selection.');
+      return;
+    }
+    setFeedbackMessage('');
   };
 
   const handleApplyDraftsClick = async () => {
@@ -170,61 +190,42 @@ export default function SelectedVideoTrackDisplay(props) {
   };
 
   return (
-    <div className={`ml-2 flex min-h-[64px] w-full flex-wrap items-start justify-between gap-3 rounded-2xl px-3 py-3 ${toolbarSurfaceClassName}`}>
-      <div className="min-w-0 flex-1">
-        <div className={`mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${subLabelClassName}`}>
-          {selectedVideoTrack?.assetLabel || 'Video layer'}
-        </div>
-        <div className={`text-[11px] ${statusClassName}`}>
-          {statusText}
-        </div>
-        {feedbackMessage ? (
-          <div className={`mt-1 text-[10px] ${colorMode === 'dark' ? 'text-amber-200' : 'text-amber-700'}`}>
-            {feedbackMessage}
-          </div>
-        ) : null}
-      </div>
+    <div className={`ml-2 flex min-h-[44px] w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${toolbarSurfaceClassName}`}>
+      <div
+        className={`h-2.5 w-2.5 shrink-0 rounded-full ${statusDotClassName}`}
+        title={statusTitle}
+        aria-label={statusTitle}
+      />
 
-      <div className="flex min-w-[320px] flex-1 flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <ActionButton
-            colorMode={colorMode}
-            isActive={isSpeedToolActive}
-            disabled={isBusy}
-            onClick={() => onSelectTool?.({
-              type: 'SPEED',
-              speedMultiplier: resolvedSpeedMultiplier,
-            })}
-            title="Speed up the selected range"
-          >
-            <FaBolt className="text-[10px]" />
-            Speed Up
-          </ActionButton>
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        <ActionButton
+          colorMode={colorMode}
+          isActive={isSpeedToolActive}
+          disabled={isBusy}
+          onClick={() => onSelectTool?.({
+            type: 'SPEED',
+            speedMultiplier: resolvedSpeedMultiplier,
+          })}
+          title="Speed up selection"
+        >
+          <FaBolt />
+        </ActionButton>
 
-          <ActionButton
-            colorMode={colorMode}
-            isActive={isCutToolActive}
-            disabled={isBusy}
-            onClick={() => onSelectTool?.({
-              type: 'REMOVE',
-              speedMultiplier: 1,
-            })}
-            title="Remove the selected range"
-          >
-            <FaCut className="text-[10px]" />
-            Cut Out
-          </ActionButton>
-
-          <div className={`text-[10px] font-medium ${subLabelClassName}`}>
-            Selection: {formatFrameRange(selectedRangeFrames)}
-          </div>
-        </div>
+        <ActionButton
+          colorMode={colorMode}
+          isActive={isCutToolActive}
+          disabled={isBusy}
+          onClick={() => onSelectTool?.({
+            type: 'REMOVE',
+            speedMultiplier: 1,
+          })}
+          title="Cut selection"
+        >
+          <FaCut />
+        </ActionButton>
 
         {isSpeedToolActive && (
-          <div className="flex flex-wrap items-center gap-3">
-            <label className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${subLabelClassName}`}>
-              Speed
-            </label>
+          <>
             <input
               type="range"
               min={MIN_SPEED_MULTIPLIER}
@@ -233,7 +234,8 @@ export default function SelectedVideoTrackDisplay(props) {
               value={resolvedSpeedMultiplier}
               disabled={isBusy}
               onChange={(event) => onSpeedMultiplierChange?.(Number(event.target.value))}
-              className="h-2 w-[180px] cursor-pointer accent-cyan-400"
+              className="h-1.5 w-[108px] cursor-pointer accent-cyan-400"
+              title="Speed multiplier"
             />
             <input
               type="number"
@@ -243,76 +245,55 @@ export default function SelectedVideoTrackDisplay(props) {
               value={resolvedSpeedMultiplier}
               disabled={isBusy}
               onChange={(event) => onSpeedMultiplierChange?.(Number(event.target.value))}
-              className={`w-[78px] rounded-lg px-2 py-1 text-[11px] ${inputSurfaceClassName}`}
+              className={`h-8 w-[68px] rounded-lg px-2 py-1 text-[11px] ${inputSurfaceClassName}`}
+              title="Speed multiplier"
             />
-            <div className={`text-[11px] font-semibold ${statusClassName}`}>
-              {resolvedSpeedMultiplier.toFixed(2).replace(/\.00$/, '')}x
-            </div>
-          </div>
+          </>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={isBusy || !activeTool}
-            onClick={handleAddDraftClick}
-            className={`inline-flex min-h-[36px] items-center justify-center rounded-lg px-3 py-2 text-[11px] font-semibold transition disabled:opacity-50 ${secondaryButtonClassName}`}
-          >
-            Add Selection
-          </button>
-          <button
-            type="button"
-            disabled={isBusy || draftOperations.length === 0}
-            onClick={onClearDrafts}
-            className={`inline-flex min-h-[36px] items-center justify-center rounded-lg px-3 py-2 text-[11px] font-semibold transition disabled:opacity-50 ${destructiveButtonClassName}`}
-          >
-            Clear
-          </button>
-          <button
-            type="button"
-            disabled={isBusy || draftOperations.length === 0}
-            onClick={handleApplyDraftsClick}
-            className={`inline-flex min-h-[36px] items-center justify-center rounded-lg px-3 py-2 text-[11px] font-semibold transition disabled:opacity-50 ${
-              colorMode === 'dark'
-                ? 'bg-cyan-400 text-[#041420] hover:bg-cyan-300'
-                : 'bg-sky-600 text-white hover:bg-sky-500'
-            }`}
-          >
-            Update
-          </button>
+        <button
+          type="button"
+          title="Apply selection now"
+          aria-label="Apply selection now"
+          disabled={isBusy || !activeTool}
+          onClick={handleApplySelectionClick}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${primaryButtonClassName}`}
+        >
+          <FaPlay />
+        </button>
 
-          {pendingOperations.length > 0 && (
-            <div className={`text-[10px] font-medium ${subLabelClassName}`}>
-              {pendingOperations.length} pending
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          title="Add selection to batch"
+          aria-label="Add selection to batch"
+          disabled={isBusy || !activeTool}
+          onClick={handleAddDraftClick}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${secondaryButtonClassName}`}
+        >
+          <FaPlus />
+        </button>
 
-        {draftOperations.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2">
-            {draftOperations.map((operation) => (
-              <div
-                key={operation.id}
-                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-medium ${
-                  colorMode === 'dark'
-                    ? 'bg-[#111a2f] text-slate-200 border border-[#1f2a3d]'
-                    : 'bg-slate-100 text-slate-700 border border-slate-200'
-                }`}
-              >
-                <span>{getOperationSummaryLabel(operation)}</span>
-                <button
-                  type="button"
-                  disabled={isBusy}
-                  onClick={() => onRemoveDraft?.(operation.id)}
-                  className="inline-flex items-center justify-center rounded-full opacity-70 transition hover:opacity-100 disabled:opacity-40"
-                  title="Remove staged change"
-                >
-                  <FaTimes className="text-[9px]" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+        <button
+          type="button"
+          title="Clear staged changes"
+          aria-label="Clear staged changes"
+          disabled={isBusy || draftOperations.length === 0}
+          onClick={onClearDrafts}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${destructiveButtonClassName}`}
+        >
+          <FaTimes />
+        </button>
+
+        <button
+          type="button"
+          title="Apply staged changes"
+          aria-label="Apply staged changes"
+          disabled={isBusy || draftOperations.length === 0}
+          onClick={handleApplyDraftsClick}
+          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${primaryButtonClassName}`}
+        >
+          <FaCheck />
+        </button>
       </div>
     </div>
   );

@@ -22,6 +22,17 @@ import VideoCanvasContainer from './editor/VideoCanvasContainer.jsx';
 import VideoEditorToolbar from './toolbars/VideoEditorToolbar.jsx'
 import LoadingImage from './util/LoadingImage.jsx';
 import LoadingImageBase from './util/LoadingImageBase.jsx';
+import {
+  buildMusicDuckingWindows,
+  clampAudioValue,
+  getMusicDuckingVolumeAtTime,
+  isMusicLikeAudioType,
+  isRenderablePreviewAudioLayer,
+  normalizeAudioLayerType,
+  resolvePreviewAudioUrl,
+  resolvePreviewLayerBaseVolume,
+  shouldDuckMusicAgainstAudioType,
+} from './util/audioPreviewDucking.js';
 
 
 import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
@@ -84,6 +95,7 @@ export default function VideoEditorContainer(props) {
   const {
     selectedLayerId,
     currentLayerSeek,
+    setCurrentLayerSeek,
     currentLayer,
     updateSessionLayerActiveItemList,
     updateSessionLayerActiveItemListAnimations,
@@ -112,6 +124,7 @@ export default function VideoEditorContainer(props) {
     isUpdateLayerPending,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    applyAudioDucking = true,
     isRenderPending,
     audioLayers,
     setAudioLayers,
@@ -323,45 +336,191 @@ export default function VideoEditorContainer(props) {
 
 
   const audioRefs = useRef([]);  // Each element: { audio: HTMLAudioElement, startTime, endTime, ... }
+  const audioContextRef = useRef(null);
 
-  function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-  }
+  const setPreviewMusicGain = useCallback((audioEntry, duckGain = 1) => {
+    if (!audioEntry) {
+      return;
+    }
+
+    const resolvedDuckGain = clampAudioValue(duckGain);
+    if (audioEntry.duckGainNode) {
+      audioEntry.duckGainNode.gain.value = resolvedDuckGain;
+      return;
+    }
+
+    audioEntry.audio.volume = clampAudioValue(audioEntry.baseVolume * resolvedDuckGain);
+  }, []);
+
+  const resetPreviewAudioDucking = useCallback(() => {
+    audioRefs.current.forEach((audioEntry) => {
+      if (isMusicLikeAudioType(audioEntry?.type)) {
+        setPreviewMusicGain(audioEntry, 1);
+      }
+    });
+  }, [setPreviewMusicGain]);
+
+  const syncPreviewAudioDucking = useCallback((previewTime) => {
+    if (!applyAudioDucking) {
+      resetPreviewAudioDucking();
+      return;
+    }
+
+    const musicEntries = audioRefs.current.filter((audioEntry) => isMusicLikeAudioType(audioEntry?.type));
+    if (musicEntries.length === 0) {
+      return;
+    }
+
+    const duckingEntries = audioRefs.current.filter((audioEntry) => shouldDuckMusicAgainstAudioType(audioEntry?.type));
+    if (duckingEntries.length === 0) {
+      resetPreviewAudioDucking();
+      return;
+    }
+
+    musicEntries.forEach((audioEntry) => {
+      const nextGain = getMusicDuckingVolumeAtTime(previewTime, audioEntry.duckingWindows);
+      setPreviewMusicGain(audioEntry, nextGain);
+    });
+  }, [
+    applyAudioDucking,
+    resetPreviewAudioDucking,
+    setPreviewMusicGain,
+  ]);
 
   useEffect(() => {
+    const renderableAudioLayers = Array.isArray(audioLayers)
+      ? audioLayers.filter(isRenderablePreviewAudioLayer)
+      : [];
+    const shouldBuildPreviewAudioGraph = Boolean(
+      applyAudioDucking &&
+      renderableAudioLayers.length > 0
+    );
+    const AudioContextCtor = typeof window !== 'undefined'
+      ? (window.AudioContext || window.webkitAudioContext)
+      : null;
+    const audioContext = shouldBuildPreviewAudioGraph && AudioContextCtor
+      ? new AudioContextCtor()
+      : null;
+    const createdAudioRefs = renderableAudioLayers
+      .map((layer) => {
+        const resolvedAudioUrl = resolvePreviewAudioUrl(layer, PROCESSOR_API_URL);
+        if (!resolvedAudioUrl) {
+          return null;
+        }
 
-    audioRefs.current = audioLayers.map((layer) => {
+        const baseVolume = resolvePreviewLayerBaseVolume(layer);
+        const mediaElementVolume = clampAudioValue(baseVolume);
+        const startTime = Number.isFinite(Number(layer.startTime))
+          ? Math.max(0, Number(layer.startTime))
+          : 0;
+        const endTime = Number.isFinite(Number(layer.endTime))
+          ? Math.max(startTime, Number(layer.endTime))
+          : startTime;
+        const audioEl = new Audio(resolvedAudioUrl);
+        audioEl.preload = 'auto';
+        audioEl.crossOrigin = 'anonymous';
+        audioEl.volume = mediaElementVolume;
 
+        const audioEntry = {
+          audio: audioEl,
+          baseVolume,
+          startTime,
+          endTime,
+          type: normalizeAudioLayerType(layer.generationType),
+          sourceTrimStartTime: Number.isFinite(Number(layer.sourceTrimStartTime))
+            ? Math.max(0, Number(layer.sourceTrimStartTime))
+            : 0,
+          duckingWindows: [],
+          sourceNode: null,
+          baseGainNode: null,
+          duckGainNode: null,
+        };
 
-      const rawVolume = (layer.volume ?? 100) / 100;
-      const clampedVolume = clamp(rawVolume, 0, 1);     // ensures 0 <= volume <= 1
+        if (audioContext) {
+          try {
+            const sourceNode = audioContext.createMediaElementSource(audioEl);
+            const baseGainNode = audioContext.createGain();
+            baseGainNode.gain.value = baseVolume;
 
-      const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+            audioEntry.sourceNode = sourceNode;
+            audioEntry.baseGainNode = baseGainNode;
+            audioEl.volume = 1;
 
-      const audioUrl = `${PROCESSOR_API_URL}/${layer.selectedLocalAudioLink}`;
+            sourceNode.connect(baseGainNode);
 
-      const audioEl = new Audio(audioUrl);
-      audioEl.preload = "auto";
-      audioEl.volume = clampedVolume;                  // assign the safe, clamped volume
+            if (isMusicLikeAudioType(audioEntry.type)) {
+              const duckGainNode = audioContext.createGain();
+              duckGainNode.gain.value = 1;
+              baseGainNode.connect(duckGainNode);
+              duckGainNode.connect(audioContext.destination);
+              audioEntry.duckGainNode = duckGainNode;
+            } else {
+              baseGainNode.connect(audioContext.destination);
+            }
+          } catch (err) {
+            audioEl.volume = mediaElementVolume;
+            audioEntry.sourceNode = null;
+            audioEntry.baseGainNode = null;
+            audioEntry.duckGainNode = null;
+          }
+        }
 
-      return {
-        audio: audioEl,
-        startTime: layer.startTime,
-        endTime: layer.endTime,
-        sourceTrimStartTime: Number.isFinite(Number(layer.sourceTrimStartTime))
-          ? Math.max(0, Number(layer.sourceTrimStartTime))
-          : 0,
-      };
+        return audioEntry;
+      })
+      .filter(Boolean);
+
+    const duckingLayers = createdAudioRefs.filter((audioEntry) => shouldDuckMusicAgainstAudioType(audioEntry.type));
+    createdAudioRefs.forEach((audioEntry) => {
+      if (!isMusicLikeAudioType(audioEntry.type)) {
+        return;
+      }
+
+      audioEntry.duckingWindows = buildMusicDuckingWindows({
+        musicStartTime: audioEntry.startTime,
+        musicEndTime: audioEntry.endTime,
+        duckingLayers,
+      });
     });
 
-    // On cleanup, make sure to stop and unload
+    audioContextRef.current = audioContext;
+    audioRefs.current = createdAudioRefs;
+    resetPreviewAudioDucking();
+
     return () => {
-      audioRefs.current.forEach(({ audio }) => {
-        audio.pause();
-        audio.src = "";
+      createdAudioRefs.forEach((audioEntry) => {
+        audioEntry.audio.pause();
+        audioEntry.audio.src = '';
+
+        [
+          audioEntry.duckGainNode,
+          audioEntry.baseGainNode,
+          audioEntry.sourceNode,
+        ].forEach((audioNode) => {
+          try {
+            audioNode?.disconnect();
+          } catch (err) {
+            // Ignore best-effort cleanup errors.
+          }
+        });
       });
+
+      if (audioRefs.current === createdAudioRefs) {
+        audioRefs.current = [];
+      }
+      if (audioContextRef.current === audioContext) {
+        audioContextRef.current = null;
+      }
+
+      if (audioContext && audioContext.state !== 'closed') {
+        audioContext.close().catch(() => {});
+      }
     };
-  }, [audioLayers]);
+  }, [
+    audioLayers,
+    applyAudioDucking,
+    isExpressGeneration,
+    resetPreviewAudioDucking,
+  ]);
 
 
   useEffect(() => {
@@ -372,7 +531,12 @@ export default function VideoEditorContainer(props) {
         // Optionally reset to 0
         // audio.currentTime = 0;
       });
+      resetPreviewAudioDucking();
       return;
+    }
+
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
     }
 
     // If we *start* playing:
@@ -392,7 +556,7 @@ export default function VideoEditorContainer(props) {
       // Update the current frame
       frame++;
       // Update your "global" preview time in frames
-      props.setCurrentLayerSeek(frame);
+      setCurrentLayerSeek(frame);
 
       // Convert frames -> seconds
       const previewTime = frame / fps;
@@ -408,10 +572,11 @@ export default function VideoEditorContainer(props) {
           }
           // If not playing, start playing
           if (audio.paused) {
-            try {
-              audio.play();
-            } catch (err) {
-              // Ignore play errors (e.g., autoplay restrictions).
+            const playPromise = audio.play();
+            if (playPromise?.catch) {
+              playPromise.catch(() => {
+                // Ignore play errors (e.g., autoplay restrictions).
+              });
             }
           }
         } else {
@@ -421,15 +586,20 @@ export default function VideoEditorContainer(props) {
           }
         }
       });
+
+      syncPreviewAudioDucking(previewTime);
     }, 1000 / fps);
 
     return () => clearInterval(intervalId);
   }, [
+    applyAudioDucking,
     isVideoPreviewPlaying,
     currentLayerSeek,
     totalDuration,
-    props,              // includes setCurrentLayerSeek
+    resetPreviewAudioDucking,
+    setCurrentLayerSeek,
     setIsVideoPreviewPlaying,
+    syncPreviewAudioDucking,
   ]);
 
 

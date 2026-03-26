@@ -10,6 +10,7 @@ import {
   FaTimes,
   FaChevronUp,
   FaChevronDown,
+  FaCopy,
   FaDownload,
 } from 'react-icons/fa';
 import AudioOptionsDialog from '../audio/AudioOptionsDialog.jsx';
@@ -340,6 +341,7 @@ export default function FrameToolbar(props) {
     unpublishVideoSession,
     updateLayerVisualItem,
     deleteLayerVisualItem,
+    duplicateAudioLayer,
     isGuestSession,
     updateAllAudioLayersOneShot,
     requestVideoLayerEdit,
@@ -376,24 +378,24 @@ export default function FrameToolbar(props) {
 
   const bgColor =
     colorMode === 'light'
-      ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
-      : 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]';
+      ? 'bg-white/72 text-slate-900 border border-slate-200/90 shadow-sm backdrop-blur-md'
+      : 'bg-[#0f1629]/72 text-slate-100 border border-[#1f2a3d]/90 shadow-[0_10px_28px_rgba(0,0,0,0.35)] backdrop-blur-md';
   const bg2Color =
     colorMode === 'light'
-      ? 'bg-slate-100 border border-slate-200'
-      : 'bg-[#111a2f] border border-[#1f2a3d]';
+      ? 'bg-white/60 border border-slate-200/90 backdrop-blur-md'
+      : 'bg-[#111a2f]/60 border border-[#1f2a3d]/90 backdrop-blur-md';
   let bg3Color =
     colorMode === 'light'
       ? 'bg-slate-50 border border-slate-200'
       : 'bg-[#0f172a] border border-[#1f2a3d]';
   const panelShellSurface =
     colorMode === 'light'
-      ? 'bg-white/80 backdrop-blur-sm'
-      : 'bg-[#0b1224]/80 backdrop-blur-sm';
+      ? 'bg-white/68 backdrop-blur-md'
+      : 'bg-[#0b1224]/68 backdrop-blur-md';
   const panelBodySurface =
     colorMode === 'light'
-      ? 'bg-white/80'
-      : 'bg-[#0b1224]/80';
+      ? 'bg-white/62 backdrop-blur-sm'
+      : 'bg-[#0b1224]/62 backdrop-blur-sm';
   const bgSelectedColor =
     colorMode === 'light'
       ? 'bg-indigo-50 border border-indigo-200 shadow-lg'
@@ -433,6 +435,7 @@ export default function FrameToolbar(props) {
 
   const [showTextTrackAnimations, setShowTextTrackAnimations] = useState(false);
   const [showVerticalWaveform, setShowVerticalWaveform] = useState(false);
+  const [isDuplicatingAudioTrack, setIsDuplicatingAudioTrack] = useState(false);
 
   const [selectedAudioTrackDisplay, setSelectedAudioTrackDisplay] = useState(null);
   const [isPromptDropdownOpen, setIsPromptDropdownOpen] = useState(false);
@@ -607,6 +610,12 @@ export default function FrameToolbar(props) {
     }
   }, [frameToolbarView]);
 
+  useEffect(() => {
+    if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+      setCurrentLayerActionSuperView('AUDIO');
+    }
+  }, [frameToolbarView]);
+
 
   useEffect(() => {
     // Create the portal container when the component mounts
@@ -640,6 +649,7 @@ export default function FrameToolbar(props) {
   };
 
   const [audioTrackListDisplay, setAudioTrackListDisplay] = useState([]);
+  const pendingSelectedAudioLayerIdRef = useRef(null);
   const [visualTrackListDisplay, setVisualTrackListDisplay] = useState([]);
   const [videoTrackListDisplay, setVideoTrackListDisplay] = useState([]);
   const [videoEditDraftOperationsByLayer, setVideoEditDraftOperationsByLayer] = useState({});
@@ -647,20 +657,32 @@ export default function FrameToolbar(props) {
   const [videoActiveToolByLayer, setVideoActiveToolByLayer] = useState({});
 
   useEffect(() => {
+    setAudioTrackListDisplay((previousAudioTracks) => {
+      const selectedTrackId = pendingSelectedAudioLayerIdRef.current
+        || previousAudioTracks.find((audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected)?._id?.toString?.()
+        || null;
 
-    if (audioLayers && audioLayers.length > 0) {
+      const visibleAudioDisplay = Array.isArray(audioLayers)
+        ? audioLayers.map((audioTrack) => {
+          const audioTrackId = audioTrack?._id?.toString?.() || audioTrack?._id || null;
+          return {
+            ...audioTrack,
+            isDisplaySelected: Boolean(
+              selectedTrackId
+              && audioTrackId
+              && audioTrackId.toString() === selectedTrackId.toString()
+            ),
+            isDirty: false,
+          };
+        })
+        : [];
 
+      if (selectedTrackId && visibleAudioDisplay.some((audioTrack) => audioTrack.isDisplaySelected)) {
+        pendingSelectedAudioLayerIdRef.current = null;
+      }
 
-      const visibleAudioDisplay = audioLayers.map((audioTrack, index) => {
-        return {
-          ...audioTrack,
-          isDisplaySelected: false,
-          isDirty: false,
-        }
-      });
-      setAudioTrackListDisplay(visibleAudioDisplay);
-
-    }
+      return visibleAudioDisplay;
+    });
   }, [audioLayers]);
 
   useEffect(() => {
@@ -785,6 +807,31 @@ export default function FrameToolbar(props) {
       ),
     [videoTrackListDisplay]
   );
+  const canDuplicateSelectedAudioTrack = useMemo(() => {
+    if (!selectedAudioTrack || typeof duplicateAudioLayer !== 'function') {
+      return false;
+    }
+
+    if (typeof selectedAudioTrack.selectedLocalAudioLink === 'string' && selectedAudioTrack.selectedLocalAudioLink.trim()) {
+      return true;
+    }
+
+    if (typeof selectedAudioTrack.selectedRemoteAudioLink === 'string' && selectedAudioTrack.selectedRemoteAudioLink.trim()) {
+      return true;
+    }
+
+    if (Array.isArray(selectedAudioTrack.localAudioLinks) && selectedAudioTrack.localAudioLinks.some((link) => typeof link === 'string' && link.trim())) {
+      return true;
+    }
+
+    if (Array.isArray(selectedAudioTrack.remoteAudioLinks) && selectedAudioTrack.remoteAudioLinks.some((link) => typeof link === 'string' && link.trim())) {
+      return true;
+    }
+
+    return Array.isArray(selectedAudioTrack.remoteAudioData) && selectedAudioTrack.remoteAudioData.some((audioData) => (
+      typeof audioData?.audio_url === 'string' && audioData.audio_url.trim()
+    ));
+  }, [duplicateAudioLayer, selectedAudioTrack]);
   const getDefaultVideoEditRangeForTrack = (track) => {
     const maximumPreviewRange = Math.max(
       1,
@@ -1705,158 +1752,125 @@ export default function FrameToolbar(props) {
     }
   };
 
+  const duplicateSelectedAudioTrack = async () => {
+    if (!selectedAudioTrack || !canDuplicateSelectedAudioTrack || isDuplicatingAudioTrack) {
+      return;
+    }
+
+    setIsDuplicatingAudioTrack(true);
+    try {
+      const response = await duplicateAudioLayer(selectedAudioTrack);
+      const duplicatedAudioLayerId = response?.duplicatedAudioLayerId;
+      if (response?.success && duplicatedAudioLayerId) {
+        pendingSelectedAudioLayerIdRef.current = duplicatedAudioLayerId.toString();
+        setSelectedAudioTrackDisplay(duplicatedAudioLayerId.toString());
+      }
+    } finally {
+      setIsDuplicatingAudioTrack(false);
+    }
+  };
+
 
 
   const showSelectedAudioTrack = () => {
     if (!selectedAudioTrack) {
       return <span />;
     }
-    const fullPrompt = selectedAudioTrack.prompt ? selectedAudioTrack.prompt.trim() : '';
-    const promptWords = fullPrompt.length > 0 ? fullPrompt.split(/\s+/) : [];
-    const shortPrompt = promptWords.length > 0
-      ? `${promptWords.slice(0, 4).join(' ')}${promptWords.length > 4 ? '...' : ''}`
-      : '';
-    const showPromptDropdown = isPromptDropdownOpen && fullPrompt.length > 0;
-    const promptDropdownSurface =
+    const audioToolbarSurface =
       colorMode === 'light'
-        ? 'bg-white text-slate-900 border border-slate-300'
-        : 'bg-[#0b1225] text-slate-100 border border-[#2a3a5c]';
-    let copyButtonLabel = 'Copy prompt';
-    if (promptCopyState === 'copied') {
-      copyButtonLabel = 'Copied';
-    }
-    if (promptCopyState === 'failed') {
-      copyButtonLabel = 'Copy failed';
-    }
+        ? 'bg-white/72 border border-slate-200 shadow-sm backdrop-blur-md'
+        : 'bg-[#0b1224]/68 border border-[#1f2a3d] backdrop-blur-md';
+    const compactInputClassName =
+      colorMode === 'light'
+        ? 'h-8 w-[56px] rounded-lg border border-slate-200 bg-white/88 px-2 py-1 text-[11px] text-slate-700'
+        : 'h-8 w-[56px] rounded-lg border border-[#1f2a3d] bg-[#111a2f]/82 px-2 py-1 text-[11px] text-slate-100';
+    const updateButtonClassName =
+      colorMode === 'light'
+        ? 'bg-sky-600 text-white hover:bg-sky-500'
+        : 'bg-cyan-400 text-[#041420] hover:bg-cyan-300';
+    const removeButtonClassName =
+      colorMode === 'light'
+        ? 'border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'
+        : 'border border-rose-500/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/18';
+    const duplicateButtonClassName =
+      colorMode === 'light'
+        ? 'border border-slate-200 bg-white/90 text-slate-700 hover:bg-slate-100'
+        : 'border border-[#2a3953] bg-[#111a2f]/82 text-slate-100 hover:bg-[#17223a]';
+    const audioStatusDotClass = dirtyCount > 0
+      ? (colorMode === 'light'
+        ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+        : 'bg-amber-300 shadow-[0_0_10px_rgba(252,211,77,0.45)]')
+      : (colorMode === 'light' ? 'bg-slate-300' : 'bg-slate-600');
+    const audioStatusTitle = dirtyCount > 0
+      ? `${dirtyCount} audio update${dirtyCount === 1 ? '' : 's'} pending`
+      : 'Audio controls';
 
     return (
-      <>
-        <div className="flex flex-nowrap flex-row items-center w-full gap-4 text-xs">
-          {/* Left column: Audio type, speaker, short prompt */}
-          <div className="flex flex-col justify-center">
-            <span className="uppercase font-bold text-blue-300 text-xs">
-              {selectedAudioTrack.generationType}
-            </span>
-            {selectedAudioTrack.speakerCharacterName && (
-              <span className="italic text-neutral-400">
-                {selectedAudioTrack.speakerCharacterName}
-              </span>
-            )}
-            {shortPrompt && (
-              <div className="inline-flex items-center gap-2">
-                <span className="text-neutral-200 text-xs">
-                  "{shortPrompt}"
-                </span>
-                <button
-                  ref={promptDropdownButtonRef}
-                  type="button"
-                  className={`text-[11px] underline decoration-dotted underline-offset-2 ${colorMode === 'light' ? 'text-blue-700' : 'text-blue-300'}`}
-                  onClick={togglePromptDropdown}
-                >
-                  View more
-                </button>
-              </div>
-            )}
-          </div>
+      <div className={`ml-2 flex min-h-[44px] w-full max-w-full items-center gap-2 overflow-hidden rounded-2xl px-2 py-2 ${audioToolbarSurface}`}>
+        <div
+          className={`h-2.5 w-2.5 shrink-0 rounded-full ${audioStatusDotClass}`}
+          title={audioStatusTitle}
+          aria-label={audioStatusTitle}
+        />
 
-          {/* Middle column: Start/End/Volume inputs in a single row */}
-          <div className="flex flex-row items-center gap-2">
-            {/* Start Time */}
-            <label className="font-semibold">S:</label>
-            <input
-              type="number"
-              value={selectedAudioTrack.startTime}
-              className={`${bgColor} rounded-sm p-1 w-[50px]`}
-              onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
-            />
-            {/* End Time */}
-            <label className="font-semibold">E:</label>
-            <input
-              type="number"
-              value={selectedAudioTrack.endTime}
-              className={`${bgColor} rounded-sm p-1 w-[50px]`}
-              onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
-            />
-            {/* Volume */}
-            <label className="font-semibold">V:</label>
-            <input
-              type="number"
-              value={selectedAudioTrack.volume}
-              className={`${bgColor} rounded-sm p-1 w-[50px]`}
-              onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
-            />
-          </div>
-
-          {/* Next column: Update button + updated/not-updated message below */}
-          <div className="flex flex-col items-center">
-            <button
-              onClick={onUpdateAllAudioLayers}
-              disabled={dirtyCount === 0}
-              className="bg-blue-700 text-white px-2 py-1 rounded-sm disabled:opacity-60 cursor-pointer"
-            >
-              Update All
-            </button>
-            {dirtyCount > 0 ? (
-              <div className="text-yellow-300 font-bold mt-1 text-center m-auto">
-                {dirtyCount} update pending,
-              </div>
-            ) : (
-              <div className="text-neutral-400 mt-1">No pending changes</div>
-            )}
-          </div>
-
-          {/* Rightmost column: Remove button (far right) */}
-          <div className="ml-auto">
-            <button
-              type="button"
-              className="bg-red-800 text-white px-2 py-1 rounded-sm inline-flex items-center gap-1"
-              onClick={() => removeAudioLayer(selectedAudioTrack)}
-            >
-              <FaTimes />
-              Remove
-            </button>
-          </div>
-        </div>
-        {showPromptDropdown && createPortal(
-          <div
-            ref={promptDropdownRef}
-            className={`fixed z-[260] rounded-md shadow-2xl ${promptDropdownSurface}`}
-            style={{
-              top: promptDropdownPosition.top,
-              left: promptDropdownPosition.left,
-              width: `${promptDropdownPosition.width}px`,
-              maxHeight: '280px',
-            }}
-            onClick={(event) => event.stopPropagation()}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={duplicateSelectedAudioTrack}
+            disabled={!canDuplicateSelectedAudioTrack || isDuplicatingAudioTrack}
+            title="Duplicate audio layer"
+            aria-label="Duplicate audio layer"
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${duplicateButtonClassName}`}
           >
-            <div className="flex items-center justify-between px-3 py-2 border-b border-inherit">
-              <span className="text-xs font-semibold uppercase tracking-wide">
-                Full Prompt
-              </span>
-              <div className="inline-flex items-center gap-2">
-                <button
-                  type="button"
-                  className="text-[11px] px-2 py-1 rounded-sm border border-current/30 hover:opacity-90"
-                  onClick={copyPromptToClipboard}
-                >
-                  {copyButtonLabel}
-                </button>
-                <button
-                  type="button"
-                  className="text-[11px] px-2 py-1 rounded-sm border border-current/30 hover:opacity-90"
-                  onClick={closePromptDropdown}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div className="px-3 py-2 max-h-[220px] overflow-y-auto text-xs leading-5 whitespace-pre-wrap break-words">
-              {fullPrompt}
-            </div>
-          </div>,
-          document.body
-        )}
-      </>
+            <FaCopy />
+          </button>
+          <input
+            type="number"
+            value={selectedAudioTrack.startTime}
+            className={compactInputClassName}
+            onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
+            title="Start time"
+            aria-label="Start time"
+          />
+          <input
+            type="number"
+            value={selectedAudioTrack.endTime}
+            className={compactInputClassName}
+            onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
+            title="End time"
+            aria-label="End time"
+          />
+          <input
+            type="number"
+            value={selectedAudioTrack.volume}
+            className={compactInputClassName}
+            onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
+            title="Volume"
+            aria-label="Volume"
+          />
+
+          <button
+            type="button"
+            onClick={onUpdateAllAudioLayers}
+            disabled={dirtyCount === 0}
+            title="Update all audio layers"
+            aria-label="Update all audio layers"
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${updateButtonClassName}`}
+          >
+            <FaCheck />
+          </button>
+
+          <button
+            type="button"
+            title="Remove audio layer"
+            aria-label="Remove audio layer"
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition ${removeButtonClassName}`}
+            onClick={() => removeAudioLayer(selectedAudioTrack)}
+          >
+            <FaTimes />
+          </button>
+        </div>
+      </div>
     );
   };
 
@@ -2344,7 +2358,6 @@ export default function FrameToolbar(props) {
     if (selectedTrack && Number.isInteger(selectedTrack.layerIndex)) {
       setSelectedLayerIndex(selectedTrack.layerIndex);
       setSelectedLayer(layers[selectedTrack.layerIndex]);
-      setCurrentLayerSeek(selectedTrack.startFrame);
     }
 
     setVideoTrackListDisplay((previousVideoTracks) =>
@@ -2393,7 +2406,10 @@ export default function FrameToolbar(props) {
       || typeof requestVideoLayerEdit !== 'function'
       || !toolConfig
     ) {
-      return;
+      return {
+        success: false,
+        error: 'Choose a video action first.',
+      };
     }
 
     const [startFrame, endFrame] = clampVideoEditRange(
@@ -2411,10 +2427,41 @@ export default function FrameToolbar(props) {
         : 1,
     };
 
-    await requestVideoLayerEdit({
+    return requestVideoLayerEdit({
       layerId: track.layerId,
       operations: [nextOperation],
     });
+  };
+
+  const applySelectedVideoEditSelection = async () => {
+    if (!selectedVideoTrack || selectedVideoTrack.videoEditPending) {
+      return {
+        success: false,
+        error: 'Wait for the current video update to finish before applying another change.',
+      };
+    }
+
+    if (!selectedVideoActiveTool) {
+      return {
+        success: false,
+        error: 'Choose a video action first.',
+      };
+    }
+
+    const response = await applyVideoEditForTrack(
+      selectedVideoTrack,
+      selectedVideoActiveTool,
+      selectedVideoRangeFrames,
+    );
+
+    if (response?.success) {
+      setVideoEditDraftOperationsByLayer((previousValue) => ({
+        ...previousValue,
+        [selectedVideoTrack.layerId]: [],
+      }));
+    }
+
+    return response;
   };
 
   const handleSelectedVideoToolChange = (toolConfig) => {
@@ -2806,6 +2853,7 @@ export default function FrameToolbar(props) {
         selectedRangeFrames={selectedVideoRangeFrames}
         draftOperations={selectedVideoDraftOperations}
         pendingOperations={selectedVideoPendingOperations}
+        onApplySelection={applySelectedVideoEditSelection}
         onAddDraft={queueSelectedVideoOperation}
         onRemoveDraft={removeSelectedVideoDraftOperation}
         onClearDrafts={clearSelectedVideoDraftOperations}
@@ -2818,6 +2866,15 @@ export default function FrameToolbar(props) {
       />
     );
   };
+
+  const visibleVideoTracks = useMemo(() => {
+    const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
+
+    return videoTrackListDisplay.filter((videoTrack) => (
+      videoTrack.endFrame >= visibleStartFrame
+      && videoTrack.startFrame <= visibleEndFrame
+    ));
+  }, [selectedFrameRange, videoTrackListDisplay]);
 
   const showAddedVisualTracks = () => {
     const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
@@ -2857,13 +2914,6 @@ export default function FrameToolbar(props) {
   };
 
   const showAddedVideoTracks = () => {
-    const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
-
-    const visibleVideoTracks = videoTrackListDisplay.filter((videoTrack) => (
-      videoTrack.endFrame >= visibleStartFrame
-      && videoTrack.startFrame <= visibleEndFrame
-    ));
-
     if (visibleVideoTracks.length === 0) {
       return (
         <div className="flex items-start px-3 py-4 text-[11px] text-slate-400">
@@ -3065,164 +3115,131 @@ export default function FrameToolbar(props) {
     closeAlertDialog();
   };
 
+  const isExpandedToolbarView = frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED;
   let containerWdidth = 'w-[10%] z-1 opacity-100';
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (isExpandedToolbarView) {
     containerWdidth = 'min-w-[50%] max-w-[90%] overflow-x-auto z-[102]';
   }
 
   let trackViewDisplay = <span />;
   let selectedTrackViewDisplay = <span />;
 
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (isExpandedToolbarView) {
+    if (currentLayerActionSuperView === 'FRAME') {
+      trackViewDisplay = <span />;
+      selectedTrackViewDisplay = <span />;
+    }
     if (currentLayerActionSuperView === 'AUDIO') {
       trackViewDisplay = showAddedAudioTracks();
       selectedTrackViewDisplay = showSelectedAudioTrack();
     }
     if (currentLayerActionSuperView === 'VIDEO') {
-      trackViewDisplay =
+      trackViewDisplay = (
         <div className='text-track-container'>
           {showAddedVideoTracks()}
-        </div>;
+        </div>
+      );
       selectedTrackViewDisplay = showSelectedVideoTrack();
     }
     if (currentLayerActionSuperView === 'IMAGE') {
-      trackViewDisplay =
+      trackViewDisplay = (
         <div className='text-track-container'>
           {showAddedVisualTracks()}
-        </div>;
+        </div>
+      );
       selectedTrackViewDisplay = showSelectedVisualTrack();
     }
     if (currentLayerActionSuperView === 'TEXT') {
-      trackViewDisplay =
+      trackViewDisplay = (
         <div className='text-track-container'>
           {showAddedTextTracks()}
         </div>
-
-
+      );
       selectedTrackViewDisplay = showSelectedTextTrack();
     }
   }
 
-  let mtop = 'mt-[52px]';
   const collapsedToggleSurface =
     colorMode === 'dark'
-      ? 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
-      : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
+      ? 'bg-[#111a2f]/78 text-slate-100 border border-[#1f2a3d]/90 shadow-[0_10px_28px_rgba(0,0,0,0.35)] backdrop-blur-md'
+      : 'bg-white/80 text-slate-700 border border-slate-200 shadow-sm backdrop-blur-md';
   const expandedToggleSurface =
     colorMode === 'dark'
-      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.4)]'
-      : 'bg-white text-slate-700 border border-slate-200 shadow-sm';
+      ? 'bg-[#0f1629]/78 text-slate-100 border border-[#1f2a3d]/90 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-md'
+      : 'bg-white/80 text-slate-700 border border-slate-200 shadow-sm backdrop-blur-md';
   let expandButtonLabel = (
-    <div className={`relative w-full cursor-pointer pt-2 pb-1 px-3 rounded-lg transition-colors duration-150 ${collapsedToggleSurface}`}>
-      <div className='inline-block'>Expand</div>
-      <FaChevronRight className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
-    </div>
+    <button
+      type="button"
+      onClick={toggleShowExpandedTrackView}
+      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition-colors duration-150 ${collapsedToggleSurface}`}
+      aria-label="Expand toolbar"
+      title="Expand toolbar"
+    >
+      <FaChevronRight className='text-[11px]' />
+    </button>
   );
 
   const [showUpdateLayerPortal, setShowUpdateLayerPortal] = useState(true);
 
-
   const toggleViewSceneUpdate = () => {
     setShowUpdateLayerPortal(!showUpdateLayerPortal);
-  }
+  };
 
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (isExpandedToolbarView) {
     expandButtonLabel = (
-      <div className={`absolute right-0 top-0 w-32 cursor-pointer pt-2 pb-1 px-3 rounded-lg transition-colors duration-150 ${expandedToggleSurface}`}>
-        <FaChevronLeft className='inline-block ml-1 mr-1 text-xs font-bold mt-[-2px]' />
-        <div className='inline-block'>Collapse</div>
-      </div>
+      <button
+        type="button"
+        onClick={toggleShowExpandedTrackView}
+        className={`inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors duration-150 ${expandedToggleSurface}`}
+      >
+        <FaChevronLeft className='text-[11px]' />
+        <span>Collapse</span>
+      </button>
     );
   }
 
   const textActiveColor = showUpdateLayerPortal
     ? (colorMode === 'dark' ? 'text-slate-100' : 'text-indigo-600')
     : (colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500');
-
-
-
-  let topSubToolbar = (
-    <div className='flex flex-row w-full'>
-      <div className={`basis-3/4 font-bold ml-0 text-sm mt-1`}>
-        <div>Scenes</div>
-        <div>
-          <FaChevronUp
-            className={`inline-flex ${canGoPrev ? '' : 'opacity-50 cursor-not-allowed'}`}
-            onClick={canGoPrev ? handlePrevClick : null}
-          />
-          <FaChevronDown
-            className={`inline-flex ${canGoNext ? '' : 'opacity-50 cursor-not-allowed'}`}
-            onClick={canGoNext ? handleNextClick : null}
-          />
-          <FaEye className={`inline-flex ml-2 cursor-pointer ${textActiveColor}`} onClick={toggleViewSceneUpdate} />
-
-        </div>
-      </div>
-
-      <div className='basis-1/4'>
-        <DropdownButton
-          addLayerToComposition={addLayerToComposition}
-          copyCurrentLayerBelow={copyCurrentLayerBelow}
-          showBatchLayerDialog={showBatchLayerDialog}
-        />
-      </div>
-    </div>
+  const sceneCardClassName = colorMode === 'dark'
+    ? 'bg-[#0f172a]/70 border border-[#1f2a3d]/90 text-slate-100'
+    : 'bg-white/70 border border-slate-200/90 text-slate-700 shadow-sm';
+  const panelSectionClassName = colorMode === 'dark'
+    ? 'bg-[#111a2f]/58 border border-[#1f2a3d]/90'
+    : 'bg-white/58 border border-slate-200/90 shadow-sm';
+  const sceneButtonClassName = colorMode === 'dark'
+    ? 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-200 transition hover:bg-slate-800/80 disabled:opacity-50'
+    : 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-600 transition hover:bg-slate-200/80 disabled:opacity-50';
+  const gridToggleClassName = colorMode === 'dark'
+    ? 'inline-flex items-center gap-2 rounded-lg border border-[#1f2a3d]/90 bg-[#0f172a]/70 px-2 py-1 text-[10px] text-slate-300'
+    : 'inline-flex items-center gap-2 rounded-lg border border-slate-200/90 bg-white/70 px-2 py-1 text-[10px] text-slate-500';
+  const dropdownButtonDisplay = (
+    <DropdownButton
+      addLayerToComposition={addLayerToComposition}
+      copyCurrentLayerBelow={copyCurrentLayerBelow}
+      showBatchLayerDialog={showBatchLayerDialog}
+      compact={isExpandedToolbarView}
+    />
   );
 
+  let topSubToolbar = <span />;
 
   let showGridsView = <span />;
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (isExpandedToolbarView) {
     showGridsView = (
-      <div className='inline-block  ml-2 pt-1'>
+      <label className={gridToggleClassName}>
         <input
           type="checkbox"
           className='inline-flex'
           checked={isGridVisible}
           onChange={(e) => setIsGridVisible(e.target.checked)}
         />
-        <label className='text-xs inline-flex ml-2'>Grids</label>
-      </div>
+        <span>Grid</span>
+      </label>
     );
   }
 
-
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
-    topSubToolbar = (
-      <div className='flex flex-row w-full'>
-        <div className='basis-1/4 font-bold ml-0 text-sm mt-1'>
-          <div className="inline-flex">
-
-
-            <div>Scenes</div>
-            <div>
-              <FaChevronUp
-                className={`inline-flex ${canGoPrev ? '' : 'opacity-50 cursor-not-allowed'}`}
-                onClick={canGoPrev ? handlePrevClick : null}
-              />
-              <FaChevronDown
-                className={`inline-flex ${canGoNext ? '' : 'opacity-50 cursor-not-allowed'}`}
-                onClick={canGoNext ? handleNextClick : null}
-              />
-            </div>
-          </div>
-          {showGridsView}
-        </div>
-        <div className='basis-3/4'>
-          {selectedTrackViewDisplay}
-        </div>
-
-        <div className={`float-right ${disabledMenuClass}`}>
-          <DropdownButton
-            addLayerToComposition={addLayerToComposition}
-            copyCurrentLayerBelow={copyCurrentLayerBelow}
-            showBatchLayerDialog={showBatchLayerDialog}
-          />
-        </div>
-
-      </div>
-    )
-
-  }
+  let expandedHeaderActionDisplay = <span />;
 
   const isAnonymousGuest = !user?._id;
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
@@ -3243,11 +3260,11 @@ export default function FrameToolbar(props) {
   if (resolvedDownloadLink) {
     const dateNowStr = new Date().toISOString().replace(/:/g, '-');
     prevDownloadLink = (
-      <SecondaryButton>
+      <SecondaryButton extraClasses='!m-0'>
         <a
           href={resolvedDownloadLink}
           download={`Rendition_${dateNowStr}.mp4`}
-          className='text-xs underline mt-2 mb-1 ml-2'
+          className='text-xs underline'
         >
           <FaDownload className='inline-flex' /> Previous
         </a>
@@ -3447,31 +3464,106 @@ export default function FrameToolbar(props) {
     );
   };
 
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
-    submitRenderFullActionDisplay = (
-      <div className='flex'>
-        <div className='inline-flex'>{submitRenderDisplay}</div>
-        <div className='inline-flex'>
-          <div className='grid grid-cols-4'>
-            <SecondaryButton onClick={submitRegenerateFrames}>
-              <div>
-                {' '}
-                <FaRedo className='inline-flex' /> frames
-              </div>
-            </SecondaryButton>
+  const additionalOptionsDropdownItems = [
+    {
+      label: showVerticalWaveform ? 'Hide Waveform' : 'Show Waveform',
+      onClick: () => setShowVerticalWaveform(!showVerticalWaveform),
+    },
+  ];
 
-            {prevDownloadLink}
+  const expandedTopSecondaryActionDisplay = (
+    <div className='flex flex-wrap items-center gap-2'>
+      <SecondaryButton onClick={submitRegenerateFrames} extraClasses='!m-0 !px-2 !py-1 text-xs'>
+        <div>
+          {' '}
+          <FaRedo className='inline-flex' /> frames
+        </div>
+      </SecondaryButton>
 
-            <SecondaryButton onClick={() => setShowVerticalWaveform(!showVerticalWaveform)}>
-              {showVerticalWaveform ? 'Hide Waveform' : 'Show Waveform'}
-            </SecondaryButton>
+      {prevDownloadLink}
 
+      <CommonDropdownButton
+        mainLabel="Additional Options"
+        onMainClick={showAdditionOptionsDialog}
+        isPending={false}
+        isDisabled={false}
+        allowAnonymous={true}
+        compact={true}
+        dropdownItems={additionalOptionsDropdownItems}
+        extraClasses="!m-0"
+      />
+    </div>
+  );
 
-            <SecondaryButton onClick={showAdditionOptionsDialog}>
-              Additional Options
-            </SecondaryButton>
+  if (isExpandedToolbarView) {
+    submitRenderFullActionDisplay = <div className='inline-flex'>{submitRenderDisplay}</div>;
+    topSubToolbar = <span />;
+    if (currentLayerActionSuperView === 'FRAME') {
+      expandedHeaderActionDisplay = (
+        <div className='inline-flex max-w-full flex-col items-end gap-1'>
+          <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
+            <div className={`inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold ${sceneCardClassName}`}>
+              <span>Scenes</span>
+              <button
+                type="button"
+                className={sceneButtonClassName}
+                onClick={canGoPrev ? handlePrevClick : undefined}
+                disabled={!canGoPrev}
+              >
+                <FaChevronUp />
+              </button>
+              <button
+                type="button"
+                className={sceneButtonClassName}
+                onClick={canGoNext ? handleNextClick : undefined}
+                disabled={!canGoNext}
+              >
+                <FaChevronDown />
+              </button>
+              <button
+                type="button"
+                className={`${sceneButtonClassName} ${textActiveColor}`}
+                onClick={toggleViewSceneUpdate}
+                aria-label="Toggle scene portal"
+              >
+                <FaEye />
+              </button>
+            </div>
+
+            {showGridsView}
+          </div>
+
+          <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
+            {expandedTopSecondaryActionDisplay}
+
+            <div className={`shrink-0 ${disabledMenuClass}`}>
+              {dropdownButtonDisplay}
+            </div>
           </div>
         </div>
+      );
+    } else {
+      expandedHeaderActionDisplay = (
+        <div className='inline-flex max-w-full flex-col items-end gap-1'>
+          <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
+            {showGridsView}
+          </div>
+          <div className='min-w-0 max-w-full overflow-hidden'>
+            {selectedTrackViewDisplay}
+          </div>
+        </div>
+      );
+    }
+  } else {
+    submitRenderFullActionDisplay = (
+      <div className='flex w-full items-center justify-between gap-2'>
+        <div
+          className='inline-flex'
+          onClick={(event) => event.stopPropagation()}
+        >
+          {submitRenderDisplay}
+        </div>
+        {expandButtonLabel}
       </div>
     );
   }
@@ -3521,12 +3613,12 @@ export default function FrameToolbar(props) {
   const panelVerticalBoundsClass = 'top-[56px] bottom-0';
 
   let buttonGroupMT = 'mt-2';
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
-    buttonGroupMT = 'mt-2';
+  if (isExpandedToolbarView) {
+    buttonGroupMT = 'mt-0';
   }
 
   let trackSliderML = 'ml-[30px]';
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (isExpandedToolbarView) {
     trackSliderML = 'ml-[10px]';
   }
 
@@ -3538,7 +3630,7 @@ export default function FrameToolbar(props) {
         position: 'absolute',
         top: `${position}px`,
         left: '0.25rem', // Matches 'ml-1'
-        width: 'calc(50vw)', // Subtracts 'ml-1' and 'mr-1'
+        width: 'calc(100% - 0.5rem)',
         borderTop: '1px solid gray',
         pointerEvents: 'none',
       }}
@@ -3547,62 +3639,60 @@ export default function FrameToolbar(props) {
 
   let layerActionCurrentView = <span />;
 
-  if (frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED) {
+  if (isExpandedToolbarView) {
     // Define the base class name for the tab buttons
     const baseTabClassName =
-      'ml-2 mr-2 pt-2 rounded-b-lg cursor-pointer expanded-menu-item';
+      'inline-flex items-center justify-center rounded-lg px-2 py-1 text-[10px] font-semibold cursor-pointer expanded-menu-item transition-colors duration-150';
 
     // Conditional class for the "Audio" tab
     const audioTabClassName = `${currentLayerActionSuperView === 'AUDIO'
       ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
-      : 'bg-gray-700 text-gray-300'
+      : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
 
     const imageTabClassName = `${currentLayerActionSuperView === 'IMAGE'
       ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
-      : 'bg-gray-700 text-gray-300'
+      : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
     const videoTabClassName = `${currentLayerActionSuperView === 'VIDEO'
       ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
-      : 'bg-gray-700 text-gray-300'
+      : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
 
     // Conditional class for the "Text" tab
     const textTabClassName = `${currentLayerActionSuperView === 'TEXT'
       ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
-      : 'bg-gray-700 text-gray-300'
+      : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
 
     // Update the JSX to use the computed class names
     layerActionCurrentView = (
-      <div className="">
-        <div className="grid grid-cols-4 h-8">
-          {/* Audio Tab */}
-          <div
-            className={audioTabClassName}
-            onClick={() => setCurrentLayerActionSuperView('AUDIO')}
-          >
-            <div className="text-xs font-bold">Audio</div>
-          </div>
-          <div
-            className={videoTabClassName}
-            onClick={() => setCurrentLayerActionSuperView('VIDEO')}
-          >
-            <div className="text-xs font-bold">Video</div>
-          </div>
-          <div
-            className={imageTabClassName}
-            onClick={() => setCurrentLayerActionSuperView('IMAGE')}
-          >
-            <div className="text-xs font-bold">Image view</div>
-          </div>
-          {/* Text Tab */}
-          <div
-            className={textTabClassName}
-            onClick={() => setCurrentLayerActionSuperView('TEXT')}
-          >
-            <div className="text-xs font-bold">Text</div>
-          </div>
+      <div className="flex flex-wrap items-center justify-start gap-1.5">
+        {/* Audio Tab */}
+        <div
+          className={audioTabClassName}
+          onClick={() => setCurrentLayerActionSuperView('AUDIO')}
+        >
+          <div>Audio</div>
+        </div>
+        <div
+          className={videoTabClassName}
+          onClick={() => setCurrentLayerActionSuperView('VIDEO')}
+        >
+          <div>Video</div>
+        </div>
+        <div
+          className={imageTabClassName}
+          onClick={() => setCurrentLayerActionSuperView('IMAGE')}
+        >
+          <div>Image</div>
+        </div>
+        {/* Text Tab */}
+        <div
+          className={textTabClassName}
+          onClick={() => setCurrentLayerActionSuperView('TEXT')}
+        >
+          <div>Text</div>
         </div>
       </div>
     );
@@ -3617,27 +3707,27 @@ export default function FrameToolbar(props) {
     >
       <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]'>
         <div className={`w-full shrink-0 pb-1 border-r-2 ${bgColor} border-stone-600`}>
-          <div>
-            <div className='m-auto text-center'>
-              <div className={disabledMenuClass}>
-                {layerActionCurrentView}
-              </div>
-              <div onClick={toggleShowExpandedTrackView} className='m-auto mt-1'>
-                {expandButtonLabel}
-              </div>
-            </div>
-
-            <div className={`btn-container flex-w-full ${btnLeftMargin} mb-1`}>
-              <div className={`basis-1/2 inline-flex ${buttonGroupMT}`}>
-                {submitRenderFullActionDisplay}
-              </div>
-            </div>
-
-            <div>
-              <div className={`flex w-full ${bg2Color} p-1`}>
-                <div className='inline-flex w-full'>
-                  {topSubToolbar}
+          <div
+            className={!isExpandedToolbarView ? 'cursor-pointer px-2 pt-2' : ''}
+            onClick={!isExpandedToolbarView ? toggleShowExpandedTrackView : undefined}
+          >
+            {isExpandedToolbarView ? (
+              <div className='flex min-w-0 items-start gap-2 px-2 pt-2'>
+                <div className={`min-w-0 shrink-0 ${disabledMenuClass}`}>
+                  {layerActionCurrentView}
                 </div>
+                <div className='ml-auto min-w-0 overflow-hidden'>
+                  {expandedHeaderActionDisplay}
+                </div>
+                <div className='shrink-0'>
+                  {expandButtonLabel}
+                </div>
+              </div>
+            ) : null}
+
+            <div className={`btn-container flex w-full items-center ${isExpandedToolbarView ? btnLeftMargin : 'ml-0'} mb-1`}>
+              <div className={`inline-flex max-w-full flex-wrap ${buttonGroupMT}`}>
+                {submitRenderFullActionDisplay}
               </div>
             </div>
           </div>
@@ -3667,7 +3757,7 @@ export default function FrameToolbar(props) {
           </div>
           <div className='basis-3/4 min-h-0'>
             <div className='flex flex-row h-full min-h-0'>
-              {showVerticalWaveform && audioUrl && frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED && (
+              {showVerticalWaveform && audioUrl && isExpandedToolbarView && (
                 <div className='inline-flex h-full min-h-0'>
                   <VerticalWaveform
                     audioUrl={audioUrl}

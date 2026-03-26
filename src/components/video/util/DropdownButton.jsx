@@ -6,7 +6,8 @@ function DropdownButton(props) {
   const {
     addLayerToComposition, // function to add a layer with the chosen position
     copyCurrentLayerBelow,
-    showBatchLayerDialog
+    showBatchLayerDialog,
+    compact = false,
   } = props;
 
   const [isOpen, setIsOpen] = useState(false);
@@ -24,6 +25,10 @@ function DropdownButton(props) {
     colorMode === 'dark'
       ? 'hover:bg-[#111a2f]'
       : 'hover:bg-slate-100';
+  const triggerSizeClassName = compact
+    ? 'px-3 py-1.5 text-[11px]'
+    : 'px-4 py-2 text-sm';
+  const iconClassName = compact ? 'mr-1.5 text-[11px]' : 'mr-2';
 
   useEffect(() => {
     const storedOption = localStorage.getItem('defaultAddLayerSubOption');
@@ -65,9 +70,9 @@ function DropdownButton(props) {
       {/* MAIN "Add" BUTTON */}
       <button
         onClick={toggleDropdown}
-        className={`inline-flex justify-center w-full px-4 py-2 text-sm font-medium rounded-md focus:outline-none transition-colors duration-150 ${containerBg} ${itemHoverBg}`}
+        className={`inline-flex justify-center w-full font-medium rounded-md focus:outline-none transition-colors duration-150 ${triggerSizeClassName} ${containerBg} ${itemHoverBg}`}
       >
-        <FaPlus className="mr-2" />
+        <FaPlus className={iconClassName} />
         <span className="text-xs">Add</span>
       </button>
 

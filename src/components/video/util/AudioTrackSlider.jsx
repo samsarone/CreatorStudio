@@ -5,6 +5,29 @@ import './audioTrack/audioTrackSlider.css';
 import AudioLevelsTrackSlider from './AudioLevelsTrackSlider';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
+const DISPLAY_FRAMES_PER_SECOND = 30;
+
+function getAudioTrackFrameBounds(audioTrack) {
+  const parsedStartTime = Number(audioTrack?.startTime);
+  const parsedEndTime = Number(audioTrack?.endTime);
+  const parsedDuration = Number(audioTrack?.duration);
+
+  const startTime = Number.isFinite(parsedStartTime) ? parsedStartTime : 0;
+  const fallbackEndTime = startTime + (
+    Number.isFinite(parsedDuration) && parsedDuration > 0
+      ? parsedDuration
+      : 0
+  );
+  const endTime = Number.isFinite(parsedEndTime) && parsedEndTime >= startTime
+    ? parsedEndTime
+    : fallbackEndTime;
+
+  return {
+    startFrame: startTime * DISPLAY_FRAMES_PER_SECOND,
+    endFrame: endTime * DISPLAY_FRAMES_PER_SECOND,
+  };
+}
+
 const AudioTrackSlider = (props) => {
   const { audioTrack, onUpdate, selectedFrameRange, isStartVisible, isEndVisible,
     setAudioRangeSliderDisplayAsSelected, 
@@ -40,23 +63,13 @@ const AudioTrackSlider = (props) => {
   }, [audioTrack.url]);
 
   useEffect(() => {
-    // this is a bug which needs to be fixed
-    // the end time of speech track does not get set correctly
-    
-    const audioStartFrame = audioTrack.startTime * 30;
-    let audioEndFrame = (audioTrack.startTime +audioTrack.duration) * 30;
-
-
-    if (audioTrack.generationType === 'music') {
-      audioEndFrame = max;
-    }
-
-
-    const startFrame = Math.max(min, Math.min(max, audioStartFrame));
-    const endFrame = Math.max(min, Math.min(max, audioEndFrame));
+    const { startFrame: resolvedStartFrame, endFrame: resolvedEndFrame } =
+      getAudioTrackFrameBounds(audioTrack);
+    const startFrame = Math.max(min, Math.min(max, resolvedStartFrame));
+    const endFrame = Math.max(startFrame, Math.max(min, Math.min(max, resolvedEndFrame)));
 
     setSliderValues([startFrame, endFrame]);
-  }, [audioTrack.startTime, audioTrack.endTime, min, max]);
+  }, [audioTrack.startTime, audioTrack.endTime, audioTrack.duration, min, max]);
 
 
   const handleChange = (value) => {
@@ -68,20 +81,20 @@ const AudioTrackSlider = (props) => {
   
       if (newStartFrame !== prevStartFrame && newEndFrame === prevEndFrame) {
         // Start thumb moved
-        const newStartTime = newStartFrame / 30;
+        const newStartTime = newStartFrame / DISPLAY_FRAMES_PER_SECOND;
         const newEndTime = audioTrack.endTime; // Keep endTime the same
         const newDuration = newEndTime - newStartTime;
         onUpdate(trackId, newStartTime, newEndTime, newDuration);
       } else if (newEndFrame !== prevEndFrame && newStartFrame === prevStartFrame) {
         // End thumb moved
         const newStartTime = audioTrack.startTime; // Keep startTime the same
-        const newEndTime = newEndFrame / 30;
+        const newEndTime = newEndFrame / DISPLAY_FRAMES_PER_SECOND;
         const newDuration = newEndTime - newStartTime;
         onUpdate(trackId, newStartTime, newEndTime, newDuration);
       } else if (newStartFrame !== prevStartFrame && newEndFrame !== prevEndFrame) {
         // Both thumbs moved
-        const newStartTime = newStartFrame / 30;
-        const newEndTime = newEndFrame / 30;
+        const newStartTime = newStartFrame / DISPLAY_FRAMES_PER_SECOND;
+        const newEndTime = newEndFrame / DISPLAY_FRAMES_PER_SECOND;
         const newDuration = newEndTime - newStartTime;
         onUpdate(trackId, newStartTime, newEndTime, newDuration);
       }
@@ -125,8 +138,8 @@ const AudioTrackSlider = (props) => {
 
         setDragStartY(e.clientY);
 
-        const newStartTime = newStart / 30;
-        const newEndTime = newEnd / 30;
+        const newStartTime = newStart / DISPLAY_FRAMES_PER_SECOND;
+        const newEndTime = newEnd / DISPLAY_FRAMES_PER_SECOND;
         const newDuration = newEndTime - newStartTime;
         const trackId = audioTrack._id || audioTrack.id;
         onUpdate(trackId, newStartTime, newEndTime, newDuration);

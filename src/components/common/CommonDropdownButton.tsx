@@ -22,14 +22,16 @@ export default function CommonDropdownButton({
   isPending,
   isDisabled,
   extraClasses = "",
-  dropdownItems = []
+  dropdownItems = [],
+  allowAnonymous = false,
+  compact = false,
 }) {
   // Access user context & color mode to replicate CommonButton logic
   const { user } = useUser();
   const { colorMode } = useColorMode();
 
   // Determine if button should be disabled
-  const isBtnDisabled = !user?. _id || isPending || isDisabled;
+  const isBtnDisabled = ((!allowAnonymous && !user?._id) || isPending || isDisabled);
 
   // If isPending, show the spinner
   const pendingSpinner = isPending ? (
@@ -48,6 +50,13 @@ export default function CommonDropdownButton({
       ? "transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_12px_24px_rgba(70,191,255,0.22)] active:translate-y-0"
       : "transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_18px_rgba(15,23,42,0.14)] active:translate-y-0";
 
+  const mainButtonSizeClasses = compact
+    ? "min-h-[34px] px-3 py-1.5 text-sm"
+    : "min-h-[42px] px-3 py-2";
+  const menuButtonSizeClasses = compact
+    ? "min-h-[34px] px-2 text-[11px]"
+    : "min-h-[42px] px-2";
+
   return (
     <Menu as="div" className="relative inline-block text-left">
       <div className="flex shadow-lg">
@@ -56,13 +65,14 @@ export default function CommonDropdownButton({
           onClick={onMainClick}
           disabled={isBtnDisabled}
           className={`
-            relative m-auto inline-flex min-h-[42px] min-w-16 items-center justify-center text-center
+            relative m-auto inline-flex min-w-16 items-center justify-center text-center
             rounded-l-lg shadow-sm
             font-bold bg-gradient-to-r
-            px-3 py-2 whitespace-nowrap leading-none
+            whitespace-nowrap leading-none
             cursor-pointer
             disabled:opacity-50 disabled:cursor-not-allowed
             disabled:bg-gray-800 disabled:text-neutral-100
+            ${mainButtonSizeClasses}
             ${gradientBg}
             ${interactionClasses}
             ${extraClasses}
@@ -78,13 +88,13 @@ export default function CommonDropdownButton({
         <Menu.Button
           disabled={isBtnDisabled}
           className={`
-            inline-flex min-h-[42px] items-center justify-center
+            inline-flex items-center justify-center
             rounded-r-lg
-            px-2
             font-bold bg-gradient-to-r
             cursor-pointer
             disabled:opacity-50 disabled:cursor-not-allowed
             disabled:bg-gray-800 disabled:text-neutral-100
+            ${menuButtonSizeClasses}
             ${gradientBg}
             ${interactionClasses}
           `}
