@@ -10,10 +10,9 @@ export default function VideoCanvasOverlay(props) {
     activeItemList,
     onCloseOverlay,
     activeTab,
-    // Existing image-generation props
     promptText,
     setPromptText,
-    submitGenerateRequest,         // unused but kept for consistency
+    submitGenerateRequest,
     isGenerationPending,
     selectedGenerationModel,
     setSelectedGenerationModel,
@@ -23,27 +22,65 @@ export default function VideoCanvasOverlay(props) {
     aspectRatio,
     setAspectRatio,
     canvasDimensions,
-
-    // New video-generation props
     videoPromptText,
     setVideoPromptText,
     submitGenerateNewVideoRequest,
     aiVideoGenerationPending,
-    // We'll reuse the same generationError if you like, or keep a separate error prop
     selectedVideoGenerationModel,
     setSelectedVideoGenerationModel,
+    editorVariant = "videoStudio",
   } = props;
 
   const { colorMode } = useColorMode();
+  const canvasWidth = Number(canvasDimensions?.width) || 1024;
+  const canvasHeight = Number(canvasDimensions?.height) || 1024;
+  const isImageStudioOverlay = editorVariant === "imageStudio";
+  const isPortraitCanvas =
+    canvasHeight > canvasWidth || aspectRatio === "9:16";
+  const isLandscapeCanvas =
+    canvasWidth > canvasHeight || aspectRatio === "16:9";
+  const overlayLayout = isPortraitCanvas
+    ? "portrait"
+    : isLandscapeCanvas
+    ? "landscape"
+    : "square";
+  const overlayCardWidth = isImageStudioOverlay
+    ? isLandscapeCanvas
+      ? Math.min(640, Math.max(460, canvasWidth * 0.6))
+      : isPortraitCanvas
+      ? Math.min(500, Math.max(320, canvasWidth * 0.92))
+      : Math.min(560, Math.max(360, canvasWidth * 0.82))
+    : isLandscapeCanvas
+    ? Math.min(680, Math.max(460, canvasWidth * 0.62))
+    : isPortraitCanvas
+    ? Math.min(420, Math.max(300, canvasWidth * 0.82))
+    : Math.min(520, Math.max(360, canvasWidth * 0.72));
+  const imageStudioTopOffset = isPortraitCanvas
+    ? Math.min(140, Math.max(36, canvasHeight * 0.18))
+    : isLandscapeCanvas
+    ? Math.min(100, Math.max(24, canvasHeight * 0.13))
+    : Math.min(120, Math.max(30, canvasHeight * 0.16));
 
-  // Tab for toggling between "Generate Image" vs "Generate Video"
-  const [selectedTab, setSelectedTab] = useState(activeTab || "image"); // default is "image"
+  const [selectedTab, setSelectedTab] = useState(activeTab || "image");
 
   useEffect(() => {
-    if (activeTab) {
+    if (isImageStudioOverlay) {
+      setSelectedTab("image");
+    } else if (activeTab) {
       setSelectedTab(activeTab);
     }
-  }, [activeTab]);
+  }, [activeTab, isImageStudioOverlay]);
+
+  useEffect(() => {
+    const handleEscapeKey = (event) => {
+      if (event.key === "Escape" && onCloseOverlay) {
+        onCloseOverlay();
+      }
+    };
+
+    window.addEventListener("keydown", handleEscapeKey);
+    return () => window.removeEventListener("keydown", handleEscapeKey);
+  }, [onCloseOverlay]);
 
   const overlayVidPrompt = (
     <OverlayPromptGenerateVideo
@@ -58,97 +95,111 @@ export default function VideoCanvasOverlay(props) {
       aspectRatio={aspectRatio}
       onCloseOverlay={onCloseOverlay}
       activeItemList={activeItemList}
+      layoutMode={overlayLayout}
     />
   );
 
-  // If the activeItemList is empty, show our tabbed prompt overlay
   if (!activeItemList || activeItemList.length === 0) {
-    let topH = "top-[40vh]";
-    if ((canvasDimensions?.height || 0) > (canvasDimensions?.width || 0) || aspectRatio === "9:16") {
-      topH = "top-[60vh]";
-    }
-
     const overlaySurface =
       colorMode === "dark"
-        ? "bg-[#0f1629]/95 text-slate-100 border border-[#1f2a3d] shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
-        : "bg-white/90 text-slate-900 border border-slate-200 shadow-xl shadow-slate-200/60";
+        ? "bg-[#0f172a] text-slate-100 border border-slate-700 shadow-[0_28px_70px_rgba(2,6,23,0.6)]"
+        : "bg-white text-slate-900 border border-slate-200 shadow-[0_24px_60px_rgba(15,23,42,0.18)]";
     const tabBase =
       colorMode === "dark"
-        ? "bg-[#111a2f] text-slate-300 border border-[#1f2a3d] hover:text-white"
+        ? "bg-slate-950 text-slate-300 border border-slate-700 hover:text-white"
         : "bg-slate-100 text-slate-600 border border-slate-200 hover:text-slate-900";
     const tabActive =
       colorMode === "dark"
-        ? "bg-rose-500/20 text-rose-100 border border-rose-400/30 shadow-sm"
-        : "bg-indigo-500/10 text-indigo-600 border border-indigo-200 shadow-sm";
+        ? "bg-rose-500 text-white border border-rose-400 shadow-sm"
+        : "bg-indigo-600 text-white border border-indigo-600 shadow-sm";
     const closeButtonColor =
       colorMode === "dark"
-        ? "text-slate-300 hover:text-rose-200"
-        : "text-slate-500 hover:text-slate-800";
-
+        ? "bg-slate-950 text-slate-200 border border-slate-700 hover:bg-slate-900"
+        : "bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200";
+    const subText = colorMode === "dark" ? "text-slate-300" : "text-slate-600";
+    const overlayTitle = isImageStudioOverlay
+      ? "Start this canvas"
+      : "Start this frame";
+    const overlaySubtitle = isImageStudioOverlay
+      ? "Generate the first image directly on the Image Studio canvas."
+      : "Generate the first image or video directly on the Studio canvas.";
     return (
       <div
-        className={`
-          absolute ${topH} left-1/2 transform -translate-x-1/2 
-          z-10
-          ${overlaySurface} backdrop-blur
-          flex flex-col items-center
-          px-2 py-1.5
-          rounded-lg
-          w-[88vw] max-w-[420px]
-          opacity-50 hover:opacity-80 focus-within:opacity-100 transition-opacity duration-150
-        `}
+        className={`absolute inset-0 z-10 flex justify-center px-3 pb-4 pointer-events-none ${
+          isImageStudioOverlay ? "items-start" : "items-center"
+        }`}
+        style={isImageStudioOverlay ? { paddingTop: `${imageStudioTopOffset}px` } : undefined}
       >
-        {/* Close Button */}
-        <button
-          onClick={onCloseOverlay}
-          className={`absolute top-3 right-3 transition-colors duration-150 ${closeButtonColor}`}
+        <div
+          className={`pointer-events-auto ${overlaySurface} rounded-2xl px-4 py-4`}
+          style={{
+            width: `${overlayCardWidth}px`,
+            maxWidth: "calc(100% - 24px)",
+          }}
         >
-          <FaTimes size={16} />
-        </button>
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <div className="text-sm font-semibold">{overlayTitle}</div>
+              <div className={`text-xs ${subText}`}>
+                {overlaySubtitle}
+              </div>
+            </div>
 
-        {/* Tab Buttons */}
-        <div className="flex space-x-2 mb-1.5">
-          <button
-            className={`px-3 py-1 text-sm rounded-full transition-colors duration-150 ${selectedTab === "image" ? tabActive : tabBase}`}
-            onClick={() => setSelectedTab("image")}
-          >
-            Generate Image
-          </button>
-          <button
-            className={`px-3 py-1 text-sm rounded-full transition-colors duration-150 ${selectedTab === "video" ? tabActive : tabBase}`}
-            onClick={() => setSelectedTab("video")}
-          >
-            Generate Video
-          </button>
-        </div>
-
-        {/* Conditionally Render Image Prompt or Video Prompt */}
-        {selectedTab === "image" ? (
-          <OverlayPromptGenerator
-            promptText={promptText}
-            setPromptText={setPromptText}
-            // For images
-            submitGenerateRequest={submitGenerateRequest}
-            isGenerationPending={isGenerationPending}
-            selectedGenerationModel={selectedGenerationModel}
-            setSelectedGenerationModel={setSelectedGenerationModel}
-            generationError={generationError}
-            currentDefaultPrompt={currentDefaultPrompt}
-            submitGenerateNewRequest={submitGenerateNewRequest}
-            aspectRatio={aspectRatio}
-            setAspectRatio={setAspectRatio}
-            canvasDimensions={canvasDimensions}
-          />
-        ) : (
-          <div>
-
-            {overlayVidPrompt}
+            <button
+              type="button"
+              onClick={onCloseOverlay}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors duration-150 ${closeButtonColor}`}
+              aria-label="Close overlay"
+            >
+              <FaTimes size={12} />
+              <span>Close</span>
+            </button>
           </div>
-        )}
+
+          {!isImageStudioOverlay ? (
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={`w-full rounded-full px-3 py-2 text-sm font-semibold transition-colors duration-150 ${selectedTab === "image" ? tabActive : tabBase}`}
+                onClick={() => setSelectedTab("image")}
+              >
+                Generate Image
+              </button>
+              <button
+                type="button"
+                className={`w-full rounded-full px-3 py-2 text-sm font-semibold transition-colors duration-150 ${selectedTab === "video" ? tabActive : tabBase}`}
+                onClick={() => setSelectedTab("video")}
+              >
+                Generate Video
+              </button>
+            </div>
+          ) : null}
+
+          {selectedTab === "image" ? (
+            <OverlayPromptGenerator
+              promptText={promptText}
+              setPromptText={setPromptText}
+              submitGenerateRequest={submitGenerateRequest}
+              isGenerationPending={isGenerationPending}
+              selectedGenerationModel={selectedGenerationModel}
+              setSelectedGenerationModel={setSelectedGenerationModel}
+              generationError={generationError}
+              currentDefaultPrompt={currentDefaultPrompt}
+              submitGenerateNewRequest={submitGenerateNewRequest}
+              aspectRatio={aspectRatio}
+              setAspectRatio={setAspectRatio}
+              canvasDimensions={canvasDimensions}
+              layoutMode={overlayLayout}
+              showAspectRatioSelector={isImageStudioOverlay}
+              editorVariant={editorVariant}
+            />
+          ) : (
+            <div className="w-full">{overlayVidPrompt}</div>
+          )}
+        </div>
       </div>
     );
   }
 
-  // Otherwise, no overlay if we have active items
   return null;
 }

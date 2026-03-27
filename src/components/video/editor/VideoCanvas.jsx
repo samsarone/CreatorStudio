@@ -70,6 +70,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     rightPanelView,
     promptAspectRatio,
     setPromptAspectRatio,
+    editorVariant = "videoStudio",
   
 
   } = props;
@@ -713,6 +714,10 @@ const VideoCanvas = forwardRef((props, ref) => {
       return currentRelativeFrame >= frameOffset && currentRelativeFrame <= frameOffset + frameDuration;
     });
   })();
+  const overlayImageAspectRatio =
+    editorVariant === "imageStudio"
+      ? promptAspectRatio || aspectRatio
+      : aspectRatio;
 
   let canvasActionOverlay = <span />;
   if (!isEditImageView && activeItemList.length === 0 && !aiVideoLayer && showOverlayPromptGenerator) {
@@ -728,7 +733,7 @@ const VideoCanvas = forwardRef((props, ref) => {
       generationError={generationError}
       currentDefaultPrompt={currentDefaultPrompt}
       submitGenerateNewRequest={submitGenerateNewRequest}
-      aspectRatio={promptAspectRatio || aspectRatio}
+      aspectRatio={overlayImageAspectRatio}
       setAspectRatio={setPromptAspectRatio}
       canvasDimensions={canvasDimensions}
 
@@ -741,11 +746,12 @@ const VideoCanvas = forwardRef((props, ref) => {
 
       submitGenerateNewVideoRequest={submitGenerateNewVideoRequest}
 
- 
+
 
       onCloseOverlay={() => {
         setShowOverlayPromptGenerator(false);
       }}
+      editorVariant={editorVariant}
 
     />;
 
@@ -799,9 +805,13 @@ const VideoCanvas = forwardRef((props, ref) => {
     || (isUserVideoUploadActive
       ? 'The server is normalizing the uploaded video for this layer.'
       : 'This can take a few minutes.');
+  const canvasShellClassName =
+    editorVariant === "imageStudio"
+      ? "m-auto relative py-6 pl-0 pr-0"
+      : "m-auto relative pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0";
 
   return (
-    <div className={`m-auto relative  ${textColor} pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0`}
+    <div className={`${canvasShellClassName} ${textColor}`}
       style={{
         display: 'inline-block',
         boxSizing: 'border-box',

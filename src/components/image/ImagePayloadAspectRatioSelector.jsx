@@ -13,6 +13,7 @@ export default function ImagePayloadAspectRatioSelector(props) {
     onChange,
     options = [],
     canvasDimensions,
+    compactInline = false,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -47,12 +48,14 @@ export default function ImagePayloadAspectRatioSelector(props) {
 
   return (
     <div className={`rounded-lg px-3 py-2 ${cardSurface}`}>
-      <div className="grid grid-cols-[auto,1fr,auto] items-center gap-3">
-        <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowText}`}>
-          {label}
-        </div>
-        <div className={`min-w-0 truncate text-[11px] ${subtleText}`}>
-          {helperText}
+      <div className={compactInline ? 'flex flex-wrap items-center gap-3' : 'grid grid-cols-[auto,1fr,auto] items-center gap-3'}>
+        <div className={compactInline ? 'flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1' : ''}>
+          <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowText}`}>
+            {label}
+          </div>
+          <div className={`min-w-0 truncate text-[11px] ${subtleText}`}>
+            {helperText}
+          </div>
         </div>
         <select
           name={name}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useParams } from 'react-router-dom';
@@ -122,6 +122,7 @@ export default function VideoHome(props) {
   const layerPollTimerRef = useRef(null);
   const layersRef = useRef([]);
   const currentLayerRef = useRef({});
+  const assistantFrameCaptureRef = useRef(null);
 
   let { id } = useParams();
 
@@ -2234,6 +2235,18 @@ export default function VideoHome(props) {
     setCurrentLayerToBeUpdated(updatedLayerIndex);
   };
 
+  const setAssistantFrameCapture = useCallback((captureFn) => {
+    assistantFrameCaptureRef.current = typeof captureFn === 'function' ? captureFn : null;
+  }, []);
+
+  const getAssistantFrameImageData = useCallback(async () => {
+    if (typeof assistantFrameCaptureRef.current !== 'function') {
+      return null;
+    }
+
+    return await assistantFrameCaptureRef.current();
+  }, []);
+
 
 
   const startAssistantQueryPoll = () => {
@@ -2259,7 +2272,7 @@ export default function VideoHome(props) {
 
   }
 
-  const submitAssistantQuery = (query) => {
+  const submitAssistantQuery = (query, options = {}) => {
 
     const headers = getHeaders();
     if (!headers) {
@@ -2267,7 +2280,11 @@ export default function VideoHome(props) {
       return;
     }
     setIsAssistantQueryGenerating(true);
-    axios.post(`${PROCESSOR_API_URL}/assistants/submit_assistant_query`, { id: id, query: query }, headers).then((response) => {
+    axios.post(`${PROCESSOR_API_URL}/assistants/submit_assistant_query`, {
+      id: id,
+      query: query,
+      frameImage: options?.frameImage || null,
+    }, headers).then((response) => {
       const assistantResponse = response.data;
       startAssistantQueryPoll();
     }).catch(function (err) {
@@ -2497,6 +2514,7 @@ export default function VideoHome(props) {
 
         setSelectedLayerIndex={setSelectedLayerIndex}
         setSelectedLayer={setSelectedLayer}
+        onAssistantFrameCaptureChange={setAssistantFrameCapture}
 
 
 
@@ -2610,8 +2628,12 @@ export default function VideoHome(props) {
             </div>
             <AssistantHome
               submitAssistantQuery={submitAssistantQuery}
+              sessionId={id}
               sessionMessages={sessionMessages}
+              onSessionMessagesChange={setSessionMessages}
+              onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
               isAssistantQueryGenerating={isAssistantQueryGenerating}
+              getFrameImageData={getAssistantFrameImageData}
             />
           </div>
         </div>
@@ -2729,8 +2751,12 @@ export default function VideoHome(props) {
           </div>
           <AssistantHome
             submitAssistantQuery={submitAssistantQuery}
+            sessionId={id}
             sessionMessages={sessionMessages}
+            onSessionMessagesChange={setSessionMessages}
+            onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
             isAssistantQueryGenerating={isAssistantQueryGenerating}
+            getFrameImageData={getAssistantFrameImageData}
           />
         </div>
         <div id="hidden-video-container" style={{ 'display': 'none' }}></div>

@@ -2018,7 +2018,10 @@ export default function OneshotEditor() {
       }`}>
         <AssistantHome
           submitAssistantQuery={submitAssistantQuery}
+          sessionId={id}
           sessionMessages={sessionMessages}
+          onSessionMessagesChange={setSessionMessages}
+          onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
           isAssistantQueryGenerating={isAssistantQueryGenerating}
           getSessionImageLayers={getSessionImageLayers}
         />

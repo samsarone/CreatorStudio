@@ -49,6 +49,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
 
 
 
@@ -132,11 +133,8 @@ export default function VideoEditorContainer(props) {
     isRenderPending,
     audioLayers,
     setAudioLayers,
-
     layers,
-
-
-
+    onAssistantFrameCaptureChange,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -774,6 +772,33 @@ export default function VideoEditorContainer(props) {
 
   const canvasRef = useRef(null);
   const maskGroupRef = useRef(null);
+
+  const getAssistantFrameImageData = useCallback(async () => {
+    const dataUrl = await captureAssistantStageImageData(canvasRef, {
+      maxDimension: 1536,
+    });
+
+    if (!dataUrl) {
+      return null;
+    }
+
+    return {
+      dataUrl,
+      mimeType: 'image/png',
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof onAssistantFrameCaptureChange !== 'function') {
+      return undefined;
+    }
+
+    onAssistantFrameCaptureChange(getAssistantFrameImageData);
+
+    return () => {
+      onAssistantFrameCaptureChange(null);
+    };
+  }, [getAssistantFrameImageData, onAssistantFrameCaptureChange]);
 
   useEffect(() => {
     if (aspectRatio) {

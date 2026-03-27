@@ -1768,7 +1768,10 @@ export default function QuickEditor() {
 
       <AssistantHome
         submitAssistantQuery={submitAssistantQuery}
+        sessionId={id}
         sessionMessages={sessionMessages}
+        onSessionMessagesChange={setSessionMessages}
+        onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
         isAssistantQueryGenerating={isAssistantQueryGenerating}
         getSessionImageLayers={() => { }}
       />

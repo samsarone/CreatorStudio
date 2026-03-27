@@ -24,6 +24,7 @@ import {
   MIN_CANVAS_DIMENSION,
   normalizeCanvasDimensions,
 } from '../../utils/canvas.jsx';
+import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 
 import CommonContainer from '../common/CommonContainer.tsx';
@@ -33,6 +34,7 @@ import LoadingImageBase from '../video/util/LoadingImageBase.jsx';
 import VideoCanvasContainer from '../video/editor/VideoCanvasContainer.jsx';
 import ImageLibraryHome from '../library/image/ImageLibraryHome.jsx';
 import ImageEditorToolbar from './ImageEditorToolbar.jsx';
+import AssistantHome from '../assistant/AssistantHome.jsx';
 import ImageUploadDialog from './ImageUploadDialog.jsx';
 import ImageDownloadDialog from './ImageDownloadDialog.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
@@ -300,6 +302,7 @@ export default function ImageStudioHome() {
   const [currentLayer, setCurrentLayer] = useState(null);
   const [activeItemList, setActiveItemList] = useState([]);
   const [generationImages, setGenerationImages] = useState([]);
+  const [sessionMessages, setSessionMessages] = useState([]);
   const [globalLibraryImages, setGlobalLibraryImages] = useState([]);
   const [isGlobalLibraryLoading, setIsGlobalLibraryLoading] = useState(false);
   const [globalLibraryError, setGlobalLibraryError] = useState(null);
@@ -332,6 +335,7 @@ export default function ImageStudioHome() {
 
   const [isGenerationPending, setIsGenerationPending] = useState(false);
   const [isOutpaintPending, setIsOutpaintPending] = useState(false);
+  const [isAssistantQueryGenerating, setIsAssistantQueryGenerating] = useState(false);
   const [generationError, setGenerationError] = useState(null);
   const [outpaintError, setOutpaintError] = useState(null);
 
@@ -358,6 +362,8 @@ export default function ImageStudioHome() {
 
   const generationPollIntervalRef = useRef(null);
   const outpaintPollIntervalRef = useRef(null);
+  const assistantPollRef = useRef(null);
+  const assistantErrorCountRef = useRef(0);
 
   const resolvedCanvasDimensions = useMemo(
     () => normalizeCanvasDimensions(sessionDetails?.canvasDimensions, aspectRatio),
@@ -424,6 +430,7 @@ export default function ImageStudioHome() {
       .then((response) => {
         const session = response.data;
         setSessionDetails(session);
+        setSessionMessages(session?.sessionMessages || []);
         setAspectRatio(session?.aspectRatio || '1:1');
         setGenerationImages(session?.generations || []);
         const firstLayer = session?.layers?.[0] || null;
@@ -446,6 +453,94 @@ export default function ImageStudioHome() {
         );
       });
   }, [id]);
+
+  const stopAssistantQueryPoll = useCallback(() => {
+    if (assistantPollRef.current) {
+      clearInterval(assistantPollRef.current);
+      assistantPollRef.current = null;
+    }
+    assistantErrorCountRef.current = 0;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopAssistantQueryPoll();
+    };
+  }, [stopAssistantQueryPoll]);
+
+  const startAssistantQueryPoll = useCallback(() => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    stopAssistantQueryPoll();
+    assistantPollRef.current = setInterval(() => {
+      axios
+        .get(`${PROCESSOR_API_URL}/assistants/assistant_query_status?id=${id}`, headers)
+        .then((dataRes) => {
+          assistantErrorCountRef.current = 0;
+          const assistantQueryData = dataRes.data;
+          if (assistantQueryData.status === 'COMPLETED') {
+            stopAssistantQueryPoll();
+            setSessionMessages(assistantQueryData?.sessionDetails?.sessionMessages || []);
+            setIsAssistantQueryGenerating(false);
+          }
+        })
+        .catch(() => {
+          assistantErrorCountRef.current += 1;
+          if (assistantErrorCountRef.current >= 3) {
+            stopAssistantQueryPoll();
+            setIsAssistantQueryGenerating(false);
+          }
+        });
+    }, 1000);
+  }, [id, stopAssistantQueryPoll]);
+
+  const getAssistantFrameImageData = useCallback(async () => {
+    const dataUrl = await captureAssistantStageImageData(canvasRef, {
+      maxDimension: 1536,
+    });
+
+    if (!dataUrl) {
+      return null;
+    }
+
+    return {
+      dataUrl,
+      mimeType: 'image/png',
+    };
+  }, []);
+
+  const submitAssistantQuery = useCallback((query, options = {}) => {
+    const normalizedQuery = `${query || ''}`.trim();
+    if (!normalizedQuery) return;
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    setIsAssistantQueryGenerating(true);
+    axios
+      .post(
+        `${PROCESSOR_API_URL}/assistants/submit_assistant_query`,
+        {
+          id,
+          query: normalizedQuery,
+          frameImage: options?.frameImage || null,
+        },
+        headers
+      )
+      .then(() => {
+        startAssistantQueryPoll();
+      })
+      .catch(() => {
+        setIsAssistantQueryGenerating(false);
+      });
+  }, [id, startAssistantQueryPoll]);
 
   useEffect(() => {
     setGlobalLibraryImages([]);
@@ -1515,10 +1610,11 @@ export default function ImageStudioHome() {
 
     if (!viewportWidth || !viewportHeight || !surfaceWidth || !surfaceHeight) return;
 
-    const horizontalPadding = 24;
-    const verticalPadding = 24;
-    const availableWidth = Math.max(viewportWidth - horizontalPadding, 1);
-    const availableHeight = Math.max(viewportHeight - verticalPadding, 1);
+    const isDesktopViewport = viewportWidth >= 1024;
+    const horizontalMargin = isDesktopViewport ? 48 : 24;
+    const verticalMargin = isDesktopViewport ? 48 : 24;
+    const availableWidth = Math.max(viewportWidth - horizontalMargin * 2, 1);
+    const availableHeight = Math.max(viewportHeight - verticalMargin * 2, 1);
     const nextScale = Math.min(1, availableWidth / surfaceWidth, availableHeight / surfaceHeight);
     const safeScale = Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1;
 
@@ -1609,14 +1705,13 @@ export default function ImageStudioHome() {
     const canvasInternalLoading = isGenerationPending || isOutpaintPending;
     const canvasSurface =
       colorMode === 'dark'
-        ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_20px_50px_rgba(0,0,0,0.55)]'
-        : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_18px_40px_rgba(15,23,42,0.18)]';
+        ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_14px_34px_rgba(2,6,23,0.3)]'
+        : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_12px_28px_rgba(15,23,42,0.12)]';
     const canvasDropSurfaceHighlight = isCanvasDragActive
       ? colorMode === 'dark'
         ? 'ring-2 ring-[#46bfff] bg-[#13203a]'
         : 'ring-2 ring-rose-400 bg-rose-50'
       : '';
-    const canvasDropHintText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-600';
     const shouldScaleCanvas = canvasDisplayScale < 0.999;
     const scaledCanvasWrapperStyle =
       shouldScaleCanvas && canvasDisplaySize.width && canvasDisplaySize.height
@@ -1634,103 +1729,107 @@ export default function ImageStudioHome() {
       : undefined;
 
     viewDisplay = (
-      <div className="mt-8 inline-block relative" style={scaledCanvasWrapperStyle}>
-        <div className={`mb-2 text-xs ${canvasDropHintText}`}>Drag an drop an image to upload</div>
+      <div className="inline-block relative" style={scaledCanvasWrapperStyle}>
         <div
           ref={canvasSurfaceRef}
-          className={`relative ${canvasSurface} ${canvasDropSurfaceHighlight} rounded-xl p-4 pb-8 inline-block cursor-pointer transition-colors duration-150`}
+          className="inline-flex flex-col items-center gap-2"
           style={scaledCanvasSurfaceStyle}
-          onDragEnter={handleCanvasDragEnter}
-          onDragOver={handleCanvasDragOver}
-          onDragLeave={handleCanvasDragLeave}
-          onDrop={handleCanvasDrop}
         >
-          {(canvasInternalLoading || isCanvasDropProcessing) && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center">
-              <LoadingImageBase />
-            </div>
-          )}
-          {isCanvasDragActive && !isCanvasDropProcessing && (
-            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-rose-400/70 bg-rose-400/10 text-sm font-medium text-rose-500">
-              Drop image to upload
-            </div>
-          )}
-          <VideoCanvasContainer
-            ref={canvasRef}
-            sessionDetails={sessionDetails}
-            activeItemList={activeItemList}
-            setActiveItemList={setActiveItemList}
-            editBrushWidth={editBrushWidth}
-            currentView={currentView}
-            editMasklines={editMasklines}
-            setEditMaskLines={setEditMaskLines}
-            currentCanvasAction={currentCanvasAction}
-            setCurrentCanvasAction={setCurrentCanvasAction}
-            fillColor={fillColor}
-            strokeColor={strokeColor}
-            selectedId={selectedId}
-            setSelectedId={setSelectedId}
-            buttonPositions={buttonPositions}
-            setButtonPositions={setButtonPositions}
-            selectedLayerType={selectedLayerType}
-            setSelectedLayerType={setSelectedLayerType}
-            applyFilter={() => {}}
-            applyFinalFilter={() => {}}
-            onChange={() => {}}
-            pencilColor={pencilColor}
-            pencilWidth={pencilWidth}
-            eraserWidth={eraserWidth}
-            sessionId={id}
-            selectedLayerId={currentLayer?._id?.toString?.() || ''}
-            exportAnimationFrames={() => {}}
-            currentLayerSeek={0}
-            currentLayer={currentLayer}
-            updateSessionActiveItemList={updateSessionLayerActiveItemList}
-            selectedLayerSelectShape={selectedLayerSelectShape}
-            setCurrentView={setCurrentView}
-            isLayerSeeking={false}
-            setEnableSegmentationMask={() => {}}
-            enableSegmentationMask={false}
-            segmentationData={[]}
-            setSegmentationData={() => {}}
-            isExpressGeneration={false}
-            removeVideoLayer={() => {}}
-            aspectRatio={aspectRatio}
-            canvasDimensions={resolvedCanvasDimensions}
-            promptAspectRatio={generationAspectRatio}
-            setPromptAspectRatio={setGenerationAspectRatio}
-            isAIVideoGenerationPending={false}
-            toggleStageZoom={() => {}}
-            stageZoomScale={1}
-            requestRegenerateSubtitles={() => {}}
-            displayZoomType="normal"
-            aiVideoLayer={null}
-            aiVideoLayerType={null}
-            requestRegenerateAnimations={() => {}}
-            requestRealignLayers={() => {}}
-            totalDuration={0}
-            selectedEditModelValue={selectedEditModelValue}
-            createTextLayer={() => {}}
-            requestRealignToAiVideoAndLayers={() => {}}
-            requestLipSyncToSpeech={() => {}}
-            setPromptText={setPromptText}
-            promptText={promptText}
-            submitGenerateRequest={submitGenerateRequest}
-            isGenerationPending={isGenerationPending}
-            selectedGenerationModel={selectedGenerationModel}
-            setSelectedGenerationModel={setSelectedGenerationModel}
-            generationError={generationError}
-            submitGenerateNewRequest={submitGenerateNewRequest}
-            isUpdateLayerPending={false}
-            setSelectedVideoGenerationModel={() => {}}
-            selectedVideoGenerationModel={null}
-            submitGenerateNewVideoRequest={() => {}}
-            videoPromptText=""
-            setVideoPromptText={() => {}}
-            openUploadDialog={openUploadDialog}
-            rightPanelView={currentView}
-            downloadCurrentFrame={() => {}}
-          />
+          <div
+            className={`relative ${canvasSurface} ${canvasDropSurfaceHighlight} rounded-xl px-4 py-6 inline-block cursor-pointer transition-colors duration-150`}
+            onDragEnter={handleCanvasDragEnter}
+            onDragOver={handleCanvasDragOver}
+            onDragLeave={handleCanvasDragLeave}
+            onDrop={handleCanvasDrop}
+          >
+            {(canvasInternalLoading || isCanvasDropProcessing) && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <LoadingImageBase />
+              </div>
+            )}
+            {isCanvasDragActive && !isCanvasDropProcessing && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-rose-400/70 bg-rose-400/10 text-sm font-medium text-rose-500">
+                Drop image to upload
+              </div>
+            )}
+            <VideoCanvasContainer
+              ref={canvasRef}
+              sessionDetails={sessionDetails}
+              activeItemList={activeItemList}
+              setActiveItemList={setActiveItemList}
+              editBrushWidth={editBrushWidth}
+              currentView={currentView}
+              editMasklines={editMasklines}
+              setEditMaskLines={setEditMaskLines}
+              currentCanvasAction={currentCanvasAction}
+              setCurrentCanvasAction={setCurrentCanvasAction}
+              fillColor={fillColor}
+              strokeColor={strokeColor}
+              selectedId={selectedId}
+              setSelectedId={setSelectedId}
+              buttonPositions={buttonPositions}
+              setButtonPositions={setButtonPositions}
+              selectedLayerType={selectedLayerType}
+              setSelectedLayerType={setSelectedLayerType}
+              applyFilter={() => {}}
+              applyFinalFilter={() => {}}
+              onChange={() => {}}
+              pencilColor={pencilColor}
+              pencilWidth={pencilWidth}
+              eraserWidth={eraserWidth}
+              sessionId={id}
+              selectedLayerId={currentLayer?._id?.toString?.() || ''}
+              exportAnimationFrames={() => {}}
+              currentLayerSeek={0}
+              currentLayer={currentLayer}
+              updateSessionActiveItemList={updateSessionLayerActiveItemList}
+              selectedLayerSelectShape={selectedLayerSelectShape}
+              setCurrentView={setCurrentView}
+              isLayerSeeking={false}
+              setEnableSegmentationMask={() => {}}
+              enableSegmentationMask={false}
+              segmentationData={[]}
+              setSegmentationData={() => {}}
+              isExpressGeneration={false}
+              removeVideoLayer={() => {}}
+              aspectRatio={aspectRatio}
+              canvasDimensions={resolvedCanvasDimensions}
+              promptAspectRatio={generationAspectRatio}
+              setPromptAspectRatio={setGenerationAspectRatio}
+              isAIVideoGenerationPending={false}
+              toggleStageZoom={() => {}}
+              stageZoomScale={1}
+              requestRegenerateSubtitles={() => {}}
+              displayZoomType="normal"
+              aiVideoLayer={null}
+              aiVideoLayerType={null}
+              requestRegenerateAnimations={() => {}}
+              requestRealignLayers={() => {}}
+              totalDuration={0}
+              selectedEditModelValue={selectedEditModelValue}
+              createTextLayer={() => {}}
+              requestRealignToAiVideoAndLayers={() => {}}
+              requestLipSyncToSpeech={() => {}}
+              editorVariant="imageStudio"
+              setPromptText={setPromptText}
+              promptText={promptText}
+              submitGenerateRequest={submitGenerateRequest}
+              isGenerationPending={isGenerationPending}
+              selectedGenerationModel={selectedGenerationModel}
+              setSelectedGenerationModel={setSelectedGenerationModel}
+              generationError={generationError}
+              submitGenerateNewRequest={submitGenerateNewRequest}
+              isUpdateLayerPending={false}
+              setSelectedVideoGenerationModel={() => {}}
+              selectedVideoGenerationModel={null}
+              submitGenerateNewVideoRequest={() => {}}
+              videoPromptText=""
+              setVideoPromptText={() => {}}
+              openUploadDialog={openUploadDialog}
+              rightPanelView={currentView}
+              downloadCurrentFrame={() => {}}
+            />
+          </div>
         </div>
       </div>
     );
@@ -1744,14 +1843,16 @@ export default function ImageStudioHome() {
     colorMode === 'dark'
       ? 'bg-[#0f1629] border-l border-[#1f2a3d] shadow-[0_1px_0_rgba(255,255,255,0.04)]'
       : 'bg-white border-l border-slate-200 shadow-sm';
-  const canvasViewportOverflow = 'overflow-auto';
+  const canvasViewportLayout = isCanvasStudioDisplay
+    ? 'inline-flex items-center justify-center overflow-hidden'
+    : 'inline-block overflow-auto';
 
   return (
     <CommonContainer>
       <div className={`${mainWorkspaceShell} block min-h-screen`}>
         <div
           ref={canvasViewportRef}
-          className={`text-center w-[82%] inline-block h-[100vh] m-auto mb-8 align-top ${canvasViewportOverflow}`}
+          className={`text-center w-[82%] h-[100vh] m-auto align-top ${canvasViewportLayout}`}
         >
           {viewDisplay}
         </div>
@@ -1789,6 +1890,15 @@ export default function ImageStudioHome() {
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             hideItemInLayer={toggleHideItemInLayer}
+          />
+          <AssistantHome
+            submitAssistantQuery={submitAssistantQuery}
+            sessionId={id}
+            sessionMessages={sessionMessages}
+            onSessionMessagesChange={setSessionMessages}
+            onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
+            isAssistantQueryGenerating={isAssistantQueryGenerating}
+            getFrameImageData={getAssistantFrameImageData}
           />
           <ToastContainer
             position="bottom-center"
