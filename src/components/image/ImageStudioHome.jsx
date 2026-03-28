@@ -674,6 +674,11 @@ export default function ImageStudioHome() {
     [activeItemList, resolvedCanvasDimensions, textConfig, updateSessionLayerActiveItemList]
   );
 
+  const createImageStudioImageItem = useCallback((imagePayload) => ({
+    ...imagePayload,
+    type: 'image',
+  }), []);
+
   const setUploadURL = useCallback(
     (data, options = {}) => {
       const { closeDialog = true } = options;
@@ -904,32 +909,54 @@ export default function ImageStudioHome() {
     [processCanvasDropFiles]
   );
 
-  const selectImageFromLibrary = (imageItem) => {
-    const newItemId = `item_${activeItemList.length}`;
-    const newItem = {
-      src: imageItem,
-      id: newItemId,
-      type: 'image',
-      x: 0,
-      y: 0,
-      width: resolvedCanvasDimensions.width,
-      height: resolvedCanvasDimensions.height,
-    };
-    const newItemList = [...activeItemList, newItem];
-    setActiveItemList(newItemList);
-    updateSessionLayerActiveItemList(newItemList);
-    setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
-
-    toast.success(
-      <div>
-        <FaCheck className="inline-flex mr-2" /> Image added from library.
-      </div>,
-      {
-        position: 'bottom-center',
-        className: 'custom-toast',
+  const selectImageFromLibrary = useCallback(
+    async (imageItem) => {
+      if (!imageItem) {
+        return;
       }
-    );
-  };
+
+      try {
+        const placement = await resolveCanvasImagePlacement(imageItem);
+        const newItemId = `item_${activeItemList.length}`;
+        const newItem = {
+          src: placement.url,
+          id: newItemId,
+          type: 'image',
+          x: placement.x,
+          y: placement.y,
+          width: placement.width,
+          height: placement.height,
+          source: 'library',
+        };
+        const newItemList = [...activeItemList, newItem];
+        setActiveItemList(newItemList);
+        updateSessionLayerActiveItemList(newItemList);
+        setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
+
+        toast.success(
+          <div>
+            <FaCheck className="inline-flex mr-2" /> Image added from library.
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      } catch (_) {
+        toast.error(
+          <div>
+            <FaTimes /> Unable to add image from library.
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+        throw _;
+      }
+    },
+    [activeItemList, resolveCanvasImagePlacement, updateSessionLayerActiveItemList]
+  );
 
   const resetImageLibrary = () => {
     setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
@@ -1252,6 +1279,49 @@ export default function ImageStudioHome() {
       />
     );
   }, [aspectRatio, closeAlertDialog, downloadImageAdvanced, openAlertDialog, resolvedCanvasDimensions]);
+
+  const combineCurrentLayerItems = useCallback(() => {
+    const stage = canvasRef.current?.getStage?.();
+    if (!stage) {
+      return;
+    }
+
+    const transformers = stage.find('Transformer');
+    const overlays = stage.find('#maskGroup, #pencilGroup');
+    const transformerVisibility = transformers.map((transformer) => transformer.visible());
+    const overlayVisibility = overlays.map((overlay) => overlay.visible());
+
+    transformers.forEach((transformer) => transformer.visible(false));
+    overlays.forEach((overlay) => overlay.visible(false));
+    stage.batchDraw();
+
+    const combinedImageDataUrl = stage.toDataURL({ pixelRatio: 2 });
+
+    transformers.forEach((transformer, index) => transformer.visible(transformerVisibility[index]));
+    overlays.forEach((overlay, index) => overlay.visible(overlayVisibility[index]));
+    stage.batchDraw();
+
+    const combinedItem = createImageStudioImageItem({
+      src: combinedImageDataUrl,
+      id: 'item_0',
+      x: 0,
+      y: 0,
+      width: resolvedCanvasDimensions.width,
+      height: resolvedCanvasDimensions.height,
+    });
+
+    const updatedItemList = [combinedItem];
+    setActiveItemList(updatedItemList);
+    updateSessionLayerActiveItemList(updatedItemList);
+    setSelectedId(combinedItem.id);
+    setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
+    setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+  }, [
+    createImageStudioImageItem,
+    resolvedCanvasDimensions.height,
+    resolvedCanvasDimensions.width,
+    updateSessionLayerActiveItemList,
+  ]);
 
   const exportMaskedGroupAsBlackAndWhite = async () => {
     const baseStage = canvasRef.current?.getStage?.();
@@ -1756,8 +1826,8 @@ export default function ImageStudioHome() {
     const canvasInternalLoading = isGenerationPending || isOutpaintPending;
     const canvasSurface =
       colorMode === 'dark'
-        ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_14px_34px_rgba(2,6,23,0.3)]'
-        : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_12px_28px_rgba(15,23,42,0.12)]';
+        ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_16px_36px_rgba(57,217,129,0.12)]'
+        : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_16px_34px_rgba(57,217,129,0.14)]';
     const canvasDropSurfaceHighlight = isCanvasDragActive
       ? colorMode === 'dark'
         ? 'ring-2 ring-[#46bfff] bg-[#13203a]'
@@ -1896,25 +1966,27 @@ export default function ImageStudioHome() {
       : 'bg-white border-l border-slate-200 shadow-sm';
   const imageStudioRightPanelWidth = 'clamp(360px, 24vw, 460px)';
   const canvasViewportLayout = isCanvasStudioDisplay
-    ? 'flex items-center justify-center overflow-hidden'
+    ? 'flex items-start justify-center overflow-auto'
     : 'block overflow-auto';
 
   return (
     <CommonContainer>
-      <div className={`${mainWorkspaceShell} flex min-h-screen items-stretch`}>
+      <div className={`${mainWorkspaceShell} flex h-[100vh] items-stretch pt-[56px]`}>
         <div
           ref={canvasViewportRef}
-          className={`min-w-0 flex-1 h-[100vh] ${canvasViewportLayout} text-center`}
+          className={`min-w-0 flex-1 h-full ${canvasViewportLayout} px-6 pt-4 pb-6 text-center`}
         >
           {viewDisplay}
         </div>
         <div
-          className={`shrink-0 h-[100vh] overflow-y-auto pt-[60px] ${toolbarShell}`}
+          className={`shrink-0 h-full overflow-y-auto pt-4 ${toolbarShell}`}
           style={{ width: imageStudioRightPanelWidth }}
         >
           <ImageEditorToolbar
             currentViewDisplay={currentView}
             setCurrentViewDisplay={setCurrentView}
+            currentCanvasAction={currentCanvasAction}
+            setCurrentCanvasAction={setCurrentCanvasAction}
             promptText={promptText}
             setPromptText={setPromptText}
             submitGenerateNewRequest={submitGenerateNewRequest}
@@ -1950,6 +2022,13 @@ export default function ImageStudioHome() {
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             hideItemInLayer={toggleHideItemInLayer}
+            pencilWidth={pencilWidth}
+            setPencilWidth={setPencilWidth}
+            pencilColor={pencilColor}
+            setPencilColor={setPencilColor}
+            eraserWidth={eraserWidth}
+            setEraserWidth={setEraserWidth}
+            onCombineCurrentLayerItems={combineCurrentLayerItems}
           />
           <AssistantHome
             submitAssistantQuery={submitAssistantQuery}

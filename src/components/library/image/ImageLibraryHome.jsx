@@ -71,6 +71,7 @@ export default function ImageLibraryHome(props) {
     onBackToStudio,
   } = props;
   const [selectedImage, setSelectedImage] = useState(null);
+  const [isSelectingImage, setIsSelectingImage] = useState(false);
   const { colorMode } = useColorMode();
 
   const currentSessionAssets = useMemo(
@@ -86,12 +87,20 @@ export default function ImageLibraryHome(props) {
     setSelectedImage(imageLink);
   };
 
-  const handleSelect = (imageLink) => {
+  const handleSelect = async (imageLink) => {
     const imagePath = normalizeSelectionSource(imageLink);
-    if (typeof selectImageFromLibrary === 'function') {
-      selectImageFromLibrary(imagePath);
+    if (typeof selectImageFromLibrary !== 'function' || isSelectingImage) {
+      return;
     }
-    setSelectedImage(null);
+
+    setIsSelectingImage(true);
+    try {
+      await selectImageFromLibrary(imagePath);
+      setSelectedImage(null);
+    } catch (_) {
+    } finally {
+      setIsSelectingImage(false);
+    }
   };
 
   const panelSurface =
@@ -115,6 +124,10 @@ export default function ImageLibraryHome(props) {
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100 hover:bg-[#16213a]'
       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100';
+  const headerSurface =
+    colorMode === 'dark'
+      ? 'bg-[#0f1629]/95 border-b border-[#1f2a3d]'
+      : 'bg-white/95 border-b border-slate-200';
 
   const renderAssetsGrid = (assets, sectionKey, emptyMessage) => {
     const cards = assets
@@ -138,10 +151,13 @@ export default function ImageLibraryHome(props) {
             {selectedImage === previewLink && (
               <div className="p-2">
                 <SecondaryButton
-                  onClick={() => handleSelect(previewLink)}
+                  onClick={() => {
+                    void handleSelect(previewLink);
+                  }}
+                  disabled={isSelectingImage}
                   className="w-full justify-center text-xs"
                 >
-                  Select
+                  {isSelectingImage ? 'Adding...' : 'Select'}
                 </SecondaryButton>
               </div>
             )}
@@ -163,9 +179,9 @@ export default function ImageLibraryHome(props) {
   const hasNextPage = Boolean(globalPagination.hasNextPage);
 
   return (
-    <div className={`w-full h-full overflow-y-auto px-3 py-3 ${panelSurface}`}>
+    <div className={`w-full h-full overflow-y-auto px-3 pb-4 pt-6 lg:pt-8 ${panelSurface}`}>
       {showStudioBackButton && (
-        <div className="flex items-center justify-between mb-3">
+        <div className={`sticky top-0 z-10 -mx-3 mb-4 flex items-center gap-3 px-3 pb-3 pt-2 backdrop-blur ${headerSurface}`}>
           <button
             type="button"
             onClick={onBackToStudio}
@@ -175,7 +191,6 @@ export default function ImageLibraryHome(props) {
             <span>Back to Studio</span>
           </button>
           <div className="text-sm font-semibold">Image Library</div>
-          <div className="w-[120px]" />
         </div>
       )}
 

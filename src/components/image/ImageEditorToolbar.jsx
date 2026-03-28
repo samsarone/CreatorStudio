@@ -1,8 +1,9 @@
 import React from 'react';
-import { FaUpload, FaChevronDown } from 'react-icons/fa';
+import { FaUpload, FaChevronDown, FaPencilAlt, FaEraser } from 'react-icons/fa';
+import { LuCombine } from 'react-icons/lu';
 import { TbLibraryPhoto } from 'react-icons/tb';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
+import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../constants/Types.ts';
 import PromptGenerator from '../video/toolbars/PromptGenerator.jsx';
 import ImageEditGenerator from '../video/toolbars/ImageEditGenerator.jsx';
 import AddText from '../video/toolbars/text_toolbar/AddText.tsx';
@@ -18,6 +19,8 @@ export default function ImageEditorToolbar(props) {
   const {
     currentViewDisplay,
     setCurrentViewDisplay,
+    currentCanvasAction,
+    setCurrentCanvasAction,
     promptText,
     setPromptText,
     submitGenerateNewRequest,
@@ -53,11 +56,21 @@ export default function ImageEditorToolbar(props) {
     selectedId,
     setSelectedId,
     hideItemInLayer,
+    pencilWidth,
+    setPencilWidth,
+    pencilColor,
+    setPencilColor,
+    eraserWidth,
+    setEraserWidth,
+    onCombineCurrentLayerItems,
   } = props;
 
   const { colorMode } = useColorMode();
 
   const toggleCurrentViewDisplay = (view) => {
+    if (typeof setCurrentCanvasAction === 'function') {
+      setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
+    }
     const nextView =
       view === currentViewDisplay
         ? CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY
@@ -95,8 +108,23 @@ export default function ImageEditorToolbar(props) {
   }`;
   const actionIconClass = 'text-[30px] m-auto cursor-pointer';
   const actionLabelClass = 'mt-2 text-[13px] font-medium tracking-tight';
+  const actionTileActive =
+    colorMode === 'dark'
+      ? 'bg-rose-500/20 border-rose-400/30 text-rose-100'
+      : 'bg-rose-50 border-rose-200 text-rose-700';
+  const actionTileInactive =
+    colorMode === 'dark'
+      ? 'bg-[#111a2f] border-[#1f2a3d] text-slate-200 hover:bg-[#16213a]'
+      : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-white';
+  const sliderAccentColor = colorMode === 'dark' ? '#ff5f8a' : '#f97316';
+  const sliderTrackColor = colorMode === 'dark' ? '#1f2a3d' : '#d7deef';
+  const colorInputClass =
+    colorMode === 'dark'
+      ? 'w-full h-11 rounded-xl border border-[#1f2a3d] bg-[#111a2f] p-1'
+      : 'w-full h-11 rounded-xl border border-slate-200 bg-white p-1';
 
   const isSelected = (view) => currentViewDisplay === view;
+  const isCanvasActionSelected = (action) => currentCanvasAction === action;
   const canShowLayersPanel =
     Array.isArray(activeItemList) &&
     typeof setActiveItemList === 'function' &&
@@ -116,6 +144,21 @@ export default function ImageEditorToolbar(props) {
   const canvasLabel = matchingCanvasAspectRatioOption
     ? matchingCanvasAspectRatioOption.label
     : `Custom (${getSimplifiedAspectRatioLabel(normalizedCanvasDimensions)})`;
+
+  const getSliderStyle = (value, min, max) => {
+    const safeValue = Number.isFinite(Number(value))
+      ? Math.min(Math.max(Number(value), min), max)
+      : min;
+    const percent = ((safeValue - min) / (max - min)) * 100;
+    return {
+      accentColor: sliderAccentColor,
+      background: `linear-gradient(to right, ${sliderAccentColor} 0%, ${sliderAccentColor} ${percent}%, ${sliderTrackColor} ${percent}%, ${sliderTrackColor} 100%)`,
+      height: '8px',
+      borderRadius: '9999px',
+      outline: 'none',
+      transition: 'background 0.25s ease',
+    };
+  };
 
   const toolbarSections = [
     {
@@ -159,6 +202,77 @@ export default function ImageEditorToolbar(props) {
         showModelSelector={false}
         sizeVariant="imageStudio"
       />
+      ),
+    },
+    {
+      label: 'Actions',
+      view: CURRENT_TOOLBAR_VIEW.SHOW_ACTIONS_DISPLAY,
+      content: (
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <button
+            type="button"
+            className={`rounded-2xl border px-4 py-4 transition ${isCanvasActionSelected(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) ? actionTileActive : actionTileInactive}`}
+            onClick={() => setCurrentCanvasAction?.(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}
+          >
+            <FaPencilAlt className={actionIconClass} />
+            <div className={actionLabelClass}>Pencil</div>
+          </button>
+          <button
+            type="button"
+            className={`rounded-2xl border px-4 py-4 transition ${isCanvasActionSelected(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) ? actionTileActive : actionTileInactive}`}
+            onClick={() => setCurrentCanvasAction?.(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}
+          >
+            <FaEraser className={actionIconClass} />
+            <div className={actionLabelClass}>Magic Eraser</div>
+          </button>
+          <button
+            type="button"
+            className={`rounded-2xl border px-4 py-4 transition ${actionTileInactive}`}
+            onClick={() => onCombineCurrentLayerItems?.()}
+          >
+            <LuCombine className={actionIconClass} />
+            <div className={actionLabelClass}>Combine</div>
+          </button>
+        </div>
+
+        {currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY && (
+          <div className={`${aspectRatioSurface} rounded-2xl px-4 py-4`}>
+            <label className="block text-sm font-semibold mb-2">Pencil width</label>
+            <input
+              type="range"
+              min="1"
+              max="50"
+              className="w-full appearance-none rounded-full"
+              value={pencilWidth}
+              onChange={(event) => setPencilWidth(event.target.value)}
+              style={getSliderStyle(pencilWidth, 1, 50)}
+            />
+            <label className="block text-sm font-semibold mt-4 mb-2">Pencil color</label>
+            <input
+              type="color"
+              value={pencilColor}
+              className={colorInputClass}
+              onChange={(event) => setPencilColor(event.target.value)}
+            />
+          </div>
+        )}
+
+        {currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY && (
+          <div className={`${aspectRatioSurface} rounded-2xl px-4 py-4`}>
+            <label className="block text-sm font-semibold mb-2">Eraser width</label>
+            <input
+              type="range"
+              min="1"
+              max="100"
+              className="w-full appearance-none rounded-full"
+              value={eraserWidth}
+              onChange={(event) => setEraserWidth(event.target.value)}
+              style={getSliderStyle(eraserWidth, 1, 100)}
+            />
+          </div>
+        )}
+      </div>
       ),
     },
     {
