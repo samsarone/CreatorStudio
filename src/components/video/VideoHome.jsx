@@ -30,6 +30,18 @@ const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DEFAULT_SCENE_TRANSITION_PRESET = 'none';
 const VALID_SCENE_TRANSITION_PRESETS = new Set(['none', 'fade', 'dissolve']);
 const DISPLAY_FRAMES_PER_SECOND = 30;
+const VIDEO_CANVAS_ZOOM_MODE_STORAGE_KEY = 'videoCanvasZoomMode';
+const VIDEO_CANVAS_ZOOM_SCALE_STORAGE_KEY = 'videoCanvasZoomScale';
+const CANVAS_ZOOM_STEP_RATIO = 0.25;
+const MIN_CANVAS_ZOOM_RATIO = 0.5;
+const MAX_CANVAS_ZOOM_RATIO = 4;
+
+function clampCanvasZoomScale(nextScale, fitZoomScale = 1) {
+  const safeBaseScale = Math.max(Number(fitZoomScale) || 1, 0.01);
+  const minScale = safeBaseScale * MIN_CANVAS_ZOOM_RATIO;
+  const maxScale = safeBaseScale * MAX_CANVAS_ZOOM_RATIO;
+  return Math.min(Math.max(Number(nextScale) || safeBaseScale, minScale), maxScale);
+}
 
 function normalizeSceneTransitionPreset(value) {
   if (typeof value !== 'string') {
@@ -94,7 +106,7 @@ export default function VideoHome(props) {
   const [isCanvasDirty, setIsCanvasDirty] = useState(false);
   const [isAssistantQueryGenerating, setIsAssistantQueryGenerating] = useState(false);
   const [polling, setPolling] = useState(false); // New state variable to track polling status
-  const [displayZoomType, setDisplayZoomType] = useState('fit'); // fit or fill
+  const [displayZoomType, setDisplayZoomType] = useState('fit'); // fit or manual
   const [stageZoomScale, setStageZoomScale] = useState(1);
 
   const [sessionMetadata, setSessionMetadata] = useState(null);
@@ -220,7 +232,7 @@ export default function VideoHome(props) {
     setLayerListRequestAdded(false);
     setIsCanvasDirty(false);
     setPolling(false); // Reset polling status
-    setDisplayZoomType('fit'); // Reset zoom type
+    setDisplayZoomType('fit'); // Reset zoom mode
     setStageZoomScale(getFitZoomScale()); // Reset zoom scale
     setMinimalToolbarDisplay(true);
     setAspectRatio(null);
@@ -234,14 +246,21 @@ export default function VideoHome(props) {
     const defaultModel = localStorage.getItem("defaultModel") || 'DALLE3';
     const defaultSceneDuration = parseFloat(localStorage.getItem("defaultSceneDuration")) || 2;
     const defaultApplyAudioDucking = localStorage.getItem("applyAudioDucking") !== 'false'; // defaults to true
-    const defaultZoomType = localStorage.getItem("displayZoomType") || 'fit';
     const defaultMinimalToolbarDisplay = localStorage.getItem("minimalToolbarDisplay") !== 'false'; // defaults to true
+    const storedZoomMode = localStorage.getItem(VIDEO_CANVAS_ZOOM_MODE_STORAGE_KEY);
+    const storedZoomScaleValue = Number(localStorage.getItem(VIDEO_CANVAS_ZOOM_SCALE_STORAGE_KEY));
+    const normalizedZoomMode = storedZoomMode === 'manual' ? 'manual' : 'fit';
+    const fitZoomScale = getFitZoomScale();
 
     // If you have state variables for these, set them
     setApplyAudioDucking(defaultApplyAudioDucking);
-    setDisplayZoomType(defaultZoomType);
     setMinimalToolbarDisplay(defaultMinimalToolbarDisplay);
-    setStageZoomScale(defaultZoomType === 'fit' ? getFitZoomScale() : 1);
+    setDisplayZoomType(normalizedZoomMode);
+    setStageZoomScale(
+      normalizedZoomMode === 'manual' && Number.isFinite(storedZoomScaleValue)
+        ? clampCanvasZoomScale(storedZoomScaleValue, fitZoomScale)
+        : fitZoomScale
+    );
 
     // If you need to pass these defaults to other components or use them in functions, make sure they're updated
     setVideoSessionDetails(prevDetails => ({
@@ -573,12 +592,47 @@ export default function VideoHome(props) {
   }
 
   useEffect(() => {
-
-
     const fitZoomScale = getFitZoomScale();
-    setStageZoomScale(fitZoomScale);
+    if (displayZoomType === 'fit') {
+      setStageZoomScale(fitZoomScale);
+    }
+  }, [aspectRatio, displayZoomType]);
 
+  useEffect(() => {
+    localStorage.setItem(
+      VIDEO_CANVAS_ZOOM_MODE_STORAGE_KEY,
+      displayZoomType === 'manual' ? 'manual' : 'fit'
+    );
+    localStorage.setItem(VIDEO_CANVAS_ZOOM_SCALE_STORAGE_KEY, String(stageZoomScale));
+  }, [displayZoomType, stageZoomScale]);
+
+  const zoomCanvasIn = useCallback(() => {
+    const fitZoomScale = getFitZoomScale();
+    const stepSize = fitZoomScale * CANVAS_ZOOM_STEP_RATIO;
+    setDisplayZoomType('manual');
+    setStageZoomScale((prevScale) => clampCanvasZoomScale(prevScale + stepSize, fitZoomScale));
   }, [aspectRatio]);
+
+  const zoomCanvasOut = useCallback(() => {
+    const fitZoomScale = getFitZoomScale();
+    const stepSize = fitZoomScale * CANVAS_ZOOM_STEP_RATIO;
+    setDisplayZoomType('manual');
+    setStageZoomScale((prevScale) => clampCanvasZoomScale(prevScale - stepSize, fitZoomScale));
+  }, [aspectRatio]);
+
+  const resetCanvasZoom = useCallback(() => {
+    const fitZoomScale = getFitZoomScale();
+    setDisplayZoomType('fit');
+    setStageZoomScale(fitZoomScale);
+  }, [aspectRatio]);
+
+  const toggleStageZoom = resetCanvasZoom;
+  const fitZoomScale = getFitZoomScale();
+  const canvasZoomPercent = Math.round((stageZoomScale / Math.max(fitZoomScale, 0.01)) * 100);
+  const canZoomInCanvas =
+    stageZoomScale < clampCanvasZoomScale(fitZoomScale * MAX_CANVAS_ZOOM_RATIO, fitZoomScale) - 0.001;
+  const canZoomOutCanvas =
+    stageZoomScale > clampCanvasZoomScale(fitZoomScale * MIN_CANVAS_ZOOM_RATIO, fitZoomScale) + 0.001;
 
   const setSelectedLayer = (layer) => {
     if (!layer || !layer._id) {
@@ -2418,23 +2472,6 @@ export default function VideoHome(props) {
     });
   }
 
-
-
-
-  const toggleStageZoom = () => {
-    if (displayZoomType === 'fit') {
-      setDisplayZoomType('fill');
-      setStageZoomScale(1);
-    } else {
-      setDisplayZoomType('fit');
-      const fitZoomScale = getFitZoomScale();
-      setStageZoomScale(fitZoomScale);
-    }
-
-  }
-
-
-
   const onToggleMinimalFrameToolbarDisplay = () => {
     setMinimalToolbarDisplay(!minimalToolbarDisplay);
   }
@@ -2541,6 +2578,12 @@ export default function VideoHome(props) {
         displayZoomType={displayZoomType}
         toggleStageZoom={toggleStageZoom}
         stageZoomScale={stageZoomScale}
+        zoomCanvasIn={zoomCanvasIn}
+        zoomCanvasOut={zoomCanvasOut}
+        resetCanvasZoom={resetCanvasZoom}
+        canvasZoomPercent={canvasZoomPercent}
+        canZoomInCanvas={canZoomInCanvas}
+        canZoomOutCanvas={canZoomOutCanvas}
         updateCurrentLayerInSessionList={updateCurrentLayerInSessionList}
         updateCurrentLayerAndLayerList={updateCurrentLayerAndLayerList}
         totalDuration={totalDuration}
@@ -2655,34 +2698,6 @@ export default function VideoHome(props) {
       </div>
     )
   }
-  if (displayZoomType === 'fill') {
-    return (
-      <CommonContainer
-        isVideoPreviewPlaying={isVideoPreviewPlaying}
-        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
-        isRenderPending={isVideoRenderPending}
-      >
-        <div className='m-auto'>
-          <div className='block'>
-            {frameToolbarDisplay}
-            <div className='w-[98%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
-              {editorContainerDisplay}
-            </div>
-            <AssistantHome
-              submitAssistantQuery={submitAssistantQuery}
-              sessionId={id}
-              sessionMessages={sessionMessages}
-              onSessionMessagesChange={setSessionMessages}
-              onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
-              isAssistantQueryGenerating={isAssistantQueryGenerating}
-              getFrameImageData={getAssistantFrameImageData}
-            />
-          </div>
-        </div>
-      </CommonContainer>
-    )
-  }
-
   return (
     <CommonContainer
       isVideoPreviewPlaying={isVideoPreviewPlaying}

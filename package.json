@@ -48,10 +48,14 @@
     ]
   },
   "overrides": {
-    "rollup": "4.60.0"
+    "rollup": "4.60.0",
+    "cosmiconfig": {
+      "yaml": "1.10.3"
+    }
   },
   "resolutions": {
-    "rollup": "4.60.0"
+    "rollup": "4.60.0",
+    "**/cosmiconfig/yaml": "1.10.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.0.14",

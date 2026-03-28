@@ -63,6 +63,12 @@ export default function ImageEditorToolbar(props) {
     eraserWidth,
     setEraserWidth,
     onCombineCurrentLayerItems,
+    zoomCanvasIn,
+    zoomCanvasOut,
+    resetCanvasZoom,
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -272,6 +278,35 @@ export default function ImageEditorToolbar(props) {
             />
           </div>
         )}
+
+        <div className={`${aspectRatioSurface} rounded-2xl px-4 py-4`}>
+          <div className="mb-3 text-sm font-semibold">Zoom {canvasZoomPercent}%</div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => zoomCanvasOut?.()}
+              disabled={!canZoomOutCanvas}
+              className={`${secondaryButton} rounded-xl px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+              Out
+            </button>
+            <button
+              type="button"
+              onClick={() => resetCanvasZoom?.()}
+              className={`${secondaryButton} rounded-xl px-3 py-2 text-sm font-medium transition`}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={() => zoomCanvasIn?.()}
+              disabled={!canZoomInCanvas}
+              className={`${secondaryButton} rounded-xl px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50`}
+            >
+              In
+            </button>
+          </div>
+        </div>
       </div>
       ),
     },

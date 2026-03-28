@@ -46,6 +46,20 @@ import '../video/toolbars/editorToolbar.css';
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const IMAGE_LIBRARY_PAGE_SIZE = 40;
 const CUSTOM_CANVAS_OPTION_VALUE = '__custom_canvas__';
+const IMAGE_STUDIO_CANVAS_ZOOM_MODE_STORAGE_KEY = 'imageStudioCanvasZoomMode';
+const IMAGE_STUDIO_CANVAS_ZOOM_SCALE_STORAGE_KEY = 'imageStudioCanvasZoomScale';
+const IMAGE_STUDIO_CANVAS_ZOOM_STEP = 0.25;
+const IMAGE_STUDIO_CANVAS_ZOOM_MIN = 0.5;
+const IMAGE_STUDIO_CANVAS_ZOOM_MAX = 4;
+
+function clampImageStudioCanvasZoom(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return 1;
+  }
+
+  return Math.min(Math.max(numericValue, IMAGE_STUDIO_CANVAS_ZOOM_MIN), IMAGE_STUDIO_CANVAS_ZOOM_MAX);
+}
 
 function EditImageProjectDialogContent({
   aspectRatio,
@@ -357,6 +371,24 @@ export default function ImageStudioHome() {
   const canvasRef = useRef(null);
   const canvasViewportRef = useRef(null);
   const canvasSurfaceRef = useRef(null);
+  const [canvasZoomMode, setCanvasZoomMode] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 'fit';
+    }
+
+    return window.localStorage.getItem(IMAGE_STUDIO_CANVAS_ZOOM_MODE_STORAGE_KEY) === 'manual'
+      ? 'manual'
+      : 'fit';
+  });
+  const [canvasZoomScale, setCanvasZoomScale] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 1;
+    }
+
+    return clampImageStudioCanvasZoom(
+      window.localStorage.getItem(IMAGE_STUDIO_CANVAS_ZOOM_SCALE_STORAGE_KEY)
+    );
+  });
   const [canvasDisplayScale, setCanvasDisplayScale] = useState(1);
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: null, height: null });
   const [isCanvasDragActive, setIsCanvasDragActive] = useState(false);
@@ -374,6 +406,40 @@ export default function ImageStudioHome() {
     () => normalizeCanvasDimensions(sessionDetails?.canvasDimensions, aspectRatio),
     [aspectRatio, sessionDetails?.canvasDimensions]
   );
+  const isCanvasManualZoom = canvasZoomMode === 'manual';
+  const canvasZoomPercent = Math.round(canvasZoomScale * 100);
+  const canZoomInCanvas = canvasZoomScale < IMAGE_STUDIO_CANVAS_ZOOM_MAX - 0.001;
+  const canZoomOutCanvas = canvasZoomScale > IMAGE_STUDIO_CANVAS_ZOOM_MIN + 0.001;
+
+  const zoomCanvasIn = useCallback(() => {
+    setCanvasZoomMode('manual');
+    setCanvasZoomScale((prevScale) => clampImageStudioCanvasZoom(prevScale + IMAGE_STUDIO_CANVAS_ZOOM_STEP));
+  }, []);
+
+  const zoomCanvasOut = useCallback(() => {
+    setCanvasZoomMode('manual');
+    setCanvasZoomScale((prevScale) => clampImageStudioCanvasZoom(prevScale - IMAGE_STUDIO_CANVAS_ZOOM_STEP));
+  }, []);
+
+  const resetCanvasZoom = useCallback(() => {
+    setCanvasZoomMode('fit');
+    setCanvasZoomScale(1);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(
+      IMAGE_STUDIO_CANVAS_ZOOM_MODE_STORAGE_KEY,
+      isCanvasManualZoom ? 'manual' : 'fit'
+    );
+    window.localStorage.setItem(
+      IMAGE_STUDIO_CANVAS_ZOOM_SCALE_STORAGE_KEY,
+      String(canvasZoomScale)
+    );
+  }, [canvasZoomScale, isCanvasManualZoom]);
 
   useEffect(() => {
     setTextConfig((prev) => {
@@ -1767,6 +1833,12 @@ export default function ImageStudioHome() {
       return;
     }
 
+    if (isCanvasManualZoom) {
+      setCanvasDisplayScale(1);
+      setCanvasDisplaySize({ width: null, height: null });
+      return;
+    }
+
     const recalc = () => updateCanvasDisplayScale();
     const frameId = window.requestAnimationFrame(recalc);
 
@@ -1791,6 +1863,7 @@ export default function ImageStudioHome() {
       }
     };
   }, [
+    isCanvasManualZoom,
     isCanvasStudioDisplay,
     resolvedCanvasDimensions.height,
     resolvedCanvasDimensions.width,
@@ -1833,7 +1906,7 @@ export default function ImageStudioHome() {
         ? 'ring-2 ring-[#46bfff] bg-[#13203a]'
         : 'ring-2 ring-rose-400 bg-rose-50'
       : '';
-    const shouldScaleCanvas = canvasDisplayScale < 0.999;
+    const shouldScaleCanvas = !isCanvasManualZoom && canvasDisplayScale < 0.999;
     const scaledCanvasWrapperStyle =
       shouldScaleCanvas && canvasDisplaySize.width && canvasDisplaySize.height
         ? {
@@ -1919,9 +1992,9 @@ export default function ImageStudioHome() {
               setPromptAspectRatio={setGenerationAspectRatio}
               isAIVideoGenerationPending={false}
               toggleStageZoom={() => {}}
-              stageZoomScale={1}
+              stageZoomScale={canvasZoomScale}
               requestRegenerateSubtitles={() => {}}
-              displayZoomType="normal"
+              displayZoomType={canvasZoomMode}
               aiVideoLayer={null}
               aiVideoLayerType={null}
               requestRegenerateAnimations={() => {}}
@@ -2029,6 +2102,12 @@ export default function ImageStudioHome() {
             eraserWidth={eraserWidth}
             setEraserWidth={setEraserWidth}
             onCombineCurrentLayerItems={combineCurrentLayerItems}
+            zoomCanvasIn={zoomCanvasIn}
+            zoomCanvasOut={zoomCanvasOut}
+            resetCanvasZoom={resetCanvasZoom}
+            canvasZoomPercent={canvasZoomPercent}
+            canZoomInCanvas={canZoomInCanvas}
+            canZoomOutCanvas={canZoomOutCanvas}
           />
           <AssistantHome
             submitAssistantQuery={submitAssistantQuery}

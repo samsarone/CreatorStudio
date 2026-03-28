@@ -123,6 +123,12 @@ export default function VideoEditorContainer(props) {
     displayZoomType,
     toggleStageZoom,
     stageZoomScale,
+    zoomCanvasIn,
+    zoomCanvasOut,
+    resetCanvasZoom,
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
     updateCurrentLayerInSessionList,
     updateCurrentLayerAndLayerList,
     totalDuration,
@@ -3358,6 +3364,12 @@ export default function VideoEditorContainer(props) {
       submitGenerateNewVideoRequest={submitGenerateNewAIVideoRequest}
       selectedVideoGenerationModel={selectedVideoGenerationModel}
       setSelectedVideoGenerationModel={setSelectedVideoGenerationModel}
+      zoomCanvasIn={zoomCanvasIn}
+      zoomCanvasOut={zoomCanvasOut}
+      resetCanvasZoom={resetCanvasZoom}
+      canvasZoomPercent={canvasZoomPercent}
+      canZoomInCanvas={canZoomInCanvas}
+      canZoomOutCanvas={canZoomOutCanvas}
       aiVideoGenerationPending={isAIVideoGenerationPending}
       aspectRatio={aspectRatio}
       setAdvancedSessionTheme={setAdvancedSessionTheme}
@@ -3392,63 +3404,6 @@ export default function VideoEditorContainer(props) {
     colorMode === 'dark'
       ? 'bg-[#0f1629] border-l border-[#1f2a3d]'
       : 'bg-white border-l border-slate-200 shadow-sm';
-
-  if (displayZoomType === 'fill') {
-    let editorToolbarDisplay = <span />;
-    if (mimialEditorDisplay) {
-      editorToolbarDisplay = (
-        <div className={`w-[2%] inline-block ${collapsedToolbarShell}`}>
-          <VideoEditorToolbarMinimal
-            onToggleDisplay={onToggleEditorMinimalDisplay}
-            isRenderPending={isRenderPending}
-          />
-        </div>
-      );
-    } else {
-      editorToolbarDisplay = (
-        <div className={`w-[18%] inline-block ${toolbarShell}`}>
-          {editorToolbarExpanded}
-          <ToastContainer
-            position='bottom-center'
-            autoClose={5000}
-            hideProgressBar
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            className='custom-toast-container'
-            toastClassName='custom-toast'
-            bodyClassName='custom-toast-body'
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div className={`${mainWorkspaceShell} block min-h-screen`}>
-        <div className={`text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8 ${disabledShellClass}`} aria-disabled={isRenderPending}>
-          {viewDisplay}
-        </div>
-        {editorToolbarDisplay}
-        <ToastContainer
-          position='bottom-center'
-          autoClose={5000}
-          hideProgressBar
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          className='custom-toast-container'
-          toastClassName='custom-toast'
-          bodyClassName='custom-toast-body'
-        />
-      </div>
-    );
-  }
 
   return (
     <div className={`${mainWorkspaceShell} block min-h-screen`}>

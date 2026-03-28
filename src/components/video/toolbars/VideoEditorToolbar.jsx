@@ -9,7 +9,9 @@ import {
   FaChevronLeft,
   FaChevronRight,
   FaChevronCircleRight,
-  FaTimes
+  FaTimes,
+  FaSearchPlus,
+  FaSearchMinus
 } from 'react-icons/fa';
 import AddShapeDisplay from '../../editor/utils/AddShapeDisplay.tsx';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
@@ -119,6 +121,12 @@ export default function VideoEditorToolbar(props) {
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
+    zoomCanvasIn,
+    zoomCanvasOut,
+    resetCanvasZoom,
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
     isRenderPending,
   } = props;
 
@@ -1225,7 +1233,7 @@ export default function VideoEditorToolbar(props) {
       <div>
         <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${pencilOptionsVisible ? interactiveTile : inputSurface
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY ? interactiveTile : inputSurface
               } ${text2Color} transition-colors duration-300`}
           >
             <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}>
@@ -1235,7 +1243,7 @@ export default function VideoEditorToolbar(props) {
           </div>
 
           <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${eraserOptionsVisible ? interactiveTile : inputSurface
+            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY ? interactiveTile : inputSurface
               } ${text2Color} transition-colors duration-300`}
           >
             <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}>
@@ -1255,6 +1263,38 @@ export default function VideoEditorToolbar(props) {
           </div>
         </div>
         {actionsSubOptionsDisplay}
+        <div className={`mt-3 rounded-md border p-3 ${inputSurface} ${text2Color}`}>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide">
+            Zoom {canvasZoomPercent}%
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={zoomCanvasOut}
+              disabled={!canZoomOutCanvas}
+              className={`rounded-md px-2 py-2 text-xs font-medium transition ${inputSurface} ${!canZoomOutCanvas ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <FaSearchMinus className="inline-flex mr-1" />
+              Out
+            </button>
+            <button
+              type="button"
+              onClick={resetCanvasZoom}
+              className={`rounded-md px-2 py-2 text-xs font-medium transition ${inputSurface}`}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              onClick={zoomCanvasIn}
+              disabled={!canZoomInCanvas}
+              className={`rounded-md px-2 py-2 text-xs font-medium transition ${inputSurface} ${!canZoomInCanvas ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <FaSearchPlus className="inline-flex mr-1" />
+              In
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

@@ -55,10 +55,7 @@ export default function TopNav(props) {
     downloadCurrentFrame,
     isExpressGeneration,
     sessionId,
-    toggleStageZoom,
     requestRegenerateSubtitles,
-    displayZoomType,
-    stageZoomScale,
     requestRegenerateAnimations,
     requestRealignLayers,
     requestRealignToAiVideoAndLayers,
@@ -648,10 +645,7 @@ const showLicenseDialog = () => {
         downloadCurrentFrame={downloadCurrentFrame}
         isExpressGeneration={isExpressGeneration}
         sessionId={sessionId}
-        toggleStageZoom={toggleStageZoom}
         requestRegenerateSubtitles={requestRegenerateSubtitles}
-        displayZoomType={displayZoomType}
-        stageZoomScale={stageZoomScale}
         requestRegenerateAnimations={requestRegenerateAnimations}
         requestRealignLayers={requestRealignLayers}
         canvasActualDimensions={canvasActualDimensions}

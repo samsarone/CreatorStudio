@@ -2,7 +2,7 @@ import React from "react";
 import SecondaryButton from "../../common/SecondaryButton.tsx";
 import SecondaryPublicButton from "../../common/buttons/SecondaryPublicButton.tsx";
 import { useNavigate } from "react-router-dom";
-import { FaExpandArrowsAlt, FaDownload, FaTimes } from "react-icons/fa";
+import { FaDownload, FaTimes } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 import SingleSelect from "../../common/SingleSelect.jsx";
 import { IoMdGrid } from "react-icons/io";
@@ -22,10 +22,7 @@ export default function CanvasControlBar(props) {
     downloadCurrentFrame,
     isExpressGeneration,
     sessionId,
-    toggleStageZoom,
     requestRegenerateSubtitles,
-    displayZoomType,
-    stageZoomScale,
     requestRegenerateAnimations,
     requestRealignLayers,
     requestRealignToAiVideoAndLayers,
@@ -62,24 +59,6 @@ export default function CanvasControlBar(props) {
       </div>
     );
   };
-
-
-
-
-
-  let expandButtonText = (
-    <div className="flex">
-      <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> {t("common.expand")}
-    </div>
-  );
-  if (displayZoomType === "fill") {
-    expandButtonText = (
-      <div className="flex">
-        <FaExpandArrowsAlt className="inline-flex mt-[2px] mr-2" /> {t("common.collapse")}
-      </div>
-    );
-  }
-
 
 
   const showGridView = () => {
@@ -140,11 +119,6 @@ export default function CanvasControlBar(props) {
 
         {canvasDimensionsDisplay}
         {expressGenerationLink}
-        <div>
-          <SecondaryButton onClick={toggleStageZoom}>
-            {expandButtonText}
-          </SecondaryButton>
-        </div>
         <div>
           <SecondaryButton onClick={downloadCurrentFrame}>
             <FaDownload className="text-xs inline-flex mr-1" /> {t("common.frame")}
