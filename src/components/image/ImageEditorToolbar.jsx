@@ -5,6 +5,7 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import PromptGenerator from '../video/toolbars/PromptGenerator.jsx';
 import ImageEditGenerator from '../video/toolbars/ImageEditGenerator.jsx';
+import AddText from '../video/toolbars/text_toolbar/AddText.tsx';
 import ImageLayersPanel from './ImageLayersPanel.jsx';
 import {
   findAspectRatioOptionForCanvasDimensions,
@@ -34,6 +35,11 @@ export default function ImageEditorToolbar(props) {
     setEditBrushWidth,
     showUploadAction,
     onShowLibrary,
+    textConfig,
+    setTextConfig,
+    addText,
+    setAddText,
+    submitAddText,
     aspectRatio,
     canvasDimensions,
     generationAspectRatio,
@@ -84,6 +90,11 @@ export default function ImageEditorToolbar(props) {
     colorMode === 'dark'
       ? 'bg-[#111a2f] text-slate-300 hover:text-rose-200 border border-[#1f2a3d]'
       : 'bg-slate-100 text-slate-600 hover:text-rose-600 border border-slate-200';
+  const sectionButtonClass = `w-full rounded-2xl px-4 py-2.5 text-[15px] font-medium transition flex items-center justify-between ${
+    colorMode === 'dark' ? 'shadow-[0_10px_22px_rgba(2,6,23,0.22)]' : 'shadow-sm'
+  }`;
+  const actionIconClass = 'text-[30px] m-auto cursor-pointer';
+  const actionLabelClass = 'mt-2 text-[13px] font-medium tracking-tight';
 
   const isSelected = (view) => currentViewDisplay === view;
   const canShowLayersPanel =
@@ -123,6 +134,7 @@ export default function ImageEditorToolbar(props) {
         setAspectRatio={setGenerationAspectRatio}
         canvasDimensions={normalizedCanvasDimensions}
         showModelSelector={false}
+        sizeVariant="imageStudio"
       />
       ),
     },
@@ -145,6 +157,21 @@ export default function ImageEditorToolbar(props) {
         setAspectRatio={setGenerationAspectRatio}
         canvasDimensions={normalizedCanvasDimensions}
         showModelSelector={false}
+        sizeVariant="imageStudio"
+      />
+      ),
+    },
+    {
+      label: 'Add Text',
+      view: CURRENT_TOOLBAR_VIEW.SHOW_ADD_TEXT_DISPLAY,
+      content: (
+      <AddText
+        setAddText={setAddText}
+        submitAddText={submitAddText}
+        addText={addText}
+        textConfig={textConfig}
+        setTextConfig={setTextConfig}
+        editorVariant="imageStudio"
       />
       ),
     },
@@ -152,56 +179,67 @@ export default function ImageEditorToolbar(props) {
       label: 'Upload/Library',
       view: CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY,
       content: (
-      <div className="m-auto text-center grid grid-cols-2">
-        <div className="text-center m-auto align-center mt-4 mb-4">
-          <FaUpload className="text-2xl m-auto cursor-pointer" onClick={showUploadAction} />
-          <div className="text-[12px] tracking-tight m-auto text-center">Upload</div>
-        </div>
-        <div className="text-center m-auto align-center mt-4 mb-4">
-          <TbLibraryPhoto className="text-2xl m-auto cursor-pointer" onClick={onShowLibrary} />
-          <div className="text-[12px] tracking-tight m-auto text-center">Library</div>
-        </div>
+      <div className="m-auto grid grid-cols-2 gap-3 text-center">
+        <button
+          type="button"
+          className={`${secondaryButton} rounded-2xl px-4 py-4 text-center transition`}
+          onClick={showUploadAction}
+        >
+          <FaUpload className={actionIconClass} />
+          <div className={actionLabelClass}>Upload</div>
+        </button>
+        <button
+          type="button"
+          className={`${secondaryButton} rounded-2xl px-4 py-4 text-center transition`}
+          onClick={onShowLibrary}
+        >
+          <TbLibraryPhoto className={actionIconClass} />
+          <div className={actionLabelClass}>Library</div>
+        </button>
       </div>
       ),
     },
   ];
 
   return (
-    <div className="px-3 pb-3 pt-2 h-full overflow-y-auto">
-      <div className={`${panelSurface} rounded-xl p-3 min-h-full flex flex-col`}>
-        <div className={`${aspectRatioSurface} rounded-lg px-3 py-2 flex items-center justify-between`}>
+    <div
+      className="h-full overflow-y-auto px-4 pt-3"
+      style={{ paddingBottom: 'calc(var(--assistant-sidebar-safe-bottom, 0px) + 1.25rem)' }}
+    >
+      <div className={`${panelSurface} min-h-full rounded-[22px] p-4 flex flex-col gap-4`}>
+        <div className={`${aspectRatioSurface} rounded-2xl px-4 py-3 flex items-center justify-between gap-3`}>
           <div>
-            <div className={`text-[10px] uppercase tracking-wide ${colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+            <div className={`text-[11px] uppercase tracking-[0.22em] ${colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
               Canvas
             </div>
-            <div className={`text-xs font-semibold ${textColor}`}>{canvasLabel}</div>
-            <div className={`text-[11px] ${colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+            <div className={`text-sm font-semibold ${textColor}`}>{canvasLabel}</div>
+            <div className={`text-[13px] ${colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
               {normalizedCanvasDimensions.width} x {normalizedCanvasDimensions.height} px
             </div>
           </div>
           <button
             type="button"
-            className={`text-xs px-2 py-1 rounded-md ${secondaryButton}`}
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium ${secondaryButton}`}
             onClick={() => onEditProject?.()}
           >
             Edit
           </button>
         </div>
 
-        <div className="mt-3 flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {toolbarSections.map((section) => (
             <div key={section.view}>
               <button
                 type="button"
-                className={`w-full px-3 py-1 text-sm rounded-full transition flex items-center justify-between ${isSelected(section.view) ? pillSelected : pillUnselected}`}
+                className={`${sectionButtonClass} ${isSelected(section.view) ? pillSelected : pillUnselected}`}
                 onClick={() => toggleCurrentViewDisplay(section.view)}
               >
                 <span>{section.label}</span>
                 <FaChevronDown
-                  className={`text-[10px] transition-transform duration-150 ${isSelected(section.view) ? 'rotate-180' : ''}`}
+                  className={`text-xs transition-transform duration-150 ${isSelected(section.view) ? 'rotate-180' : ''}`}
                 />
               </button>
-              {isSelected(section.view) && <div className="mt-2">{section.content}</div>}
+              {isSelected(section.view) && <div className="mt-3">{section.content}</div>}
             </div>
           ))}
         </div>
@@ -214,18 +252,19 @@ export default function ImageEditorToolbar(props) {
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             onToggleItemVisibility={hideItemInLayer}
+            sizeVariant="imageStudio"
           />
         )}
 
-        <div className="mt-4 pt-3 border-t border-slate-200/20 flex items-center justify-between">
+        <div className="mt-auto pt-4 border-t border-slate-200/20 flex items-center justify-between gap-3">
           <button
-            className={`text-xs font-medium ${downloadLink}`}
+            className={`text-sm font-medium ${downloadLink}`}
             onClick={onDownloadSimple}
           >
             Download image
           </button>
           <button
-            className={`text-xs px-2 py-1 rounded-md ${advancedButton}`}
+            className={`rounded-xl px-3.5 py-2 text-sm font-medium ${advancedButton}`}
             onClick={onDownloadAdvanced}
           >
             Advanced

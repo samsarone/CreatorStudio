@@ -276,18 +276,23 @@ export default function VideoEditorToolbar(props) {
     };
   }, []);
 
-  const submitAddText = () => {
-    let textConfigCopy = { ...textConfig };
-    if (textConfig.fontSize) {
-      textConfigCopy.fontSize = parseInt(textConfig.fontSize, 10);
+  const submitAddText = (payloadOverride = null) => {
+    const sourcePayload = payloadOverride || {
+      text: addText,
+      config: textConfig,
+    };
+
+    let textConfigCopy = { ...(sourcePayload?.config || {}) };
+    if (textConfigCopy.fontSize) {
+      textConfigCopy.fontSize = parseInt(textConfigCopy.fontSize, 10);
     }
-    if (textConfig.strokeWidth) {
-      textConfigCopy.strokeWidth = parseInt(textConfig.strokeWidth, 10);
+    if (textConfigCopy.strokeWidth) {
+      textConfigCopy.strokeWidth = parseInt(textConfigCopy.strokeWidth, 10);
     }
-    textConfigCopy.textAlign = 'center'; // example default
+    textConfigCopy.textAlign = textConfigCopy.textAlign || 'center';
     const payload = {
       type: 'text',
-      text: addText,
+      text: sourcePayload?.text || '',
       config: textConfigCopy
     };
     addTextBoxToCanvas(payload);
@@ -1559,6 +1564,7 @@ export default function VideoEditorToolbar(props) {
     <div
       className={`${panelSurface} h-full m-auto fixed top-0 overflow-y-auto pl-3 pr-3 ${containerWidth} right-0 toolbar-container ${disabledShellClass}`}
       aria-disabled={isRenderPending}
+      style={{ paddingBottom: 'calc(var(--assistant-sidebar-safe-bottom, 0px) + 1rem)' }}
     >
       <div>
         <div
@@ -1603,7 +1609,7 @@ export default function VideoEditorToolbar(props) {
                   <FaChevronDown className="inline-flex mr-4 text-sm" />
                 </div>
                 <div
-                  className={`${index === layerToolbarList.length - 1 ? 'mb-32' : 'mb-1'
+                  className={`${index === layerToolbarList.length - 1 ? 'mb-4' : 'mb-1'
                     } pt-1 pl-2 pr-2 ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
                     } transition-all duration-500 ${isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
                     }`}

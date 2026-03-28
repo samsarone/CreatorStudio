@@ -216,6 +216,13 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const [tempTopNode, setTempTopNode] = useState(null);
   const createCurrentLayerImageItem = (imagePayload) =>
     createLayerBoundImageItem({ layer: currentLayer, ...imagePayload });
+  const isMaskPaintMode =
+    (
+      currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY
+      && selectedEditModelValue
+      && selectedEditModelValue.editType === 'inpaint'
+    )
+    || currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_MASK_DISPLAY;
 
 
   useEffect(() => {
@@ -470,7 +477,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       setPaintToolbarVisible(false);
       const pos = e.target.getStage().getPointerPosition();
       setPencilLines([...pencilLines, { points: [pos.x, pos.y], stroke: pencilColor, strokeWidth: pencilWidth }]);
-    } else {
+    } else if (isMaskPaintMode) {
       setIsPainting(true);
       const pos = e.target.getStage().getPointerPosition();
       addLine([pos.x, pos.y, pos.x, pos.y]);
@@ -1052,42 +1059,46 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
   const updateTargetTextActiveLayerConfig = (id, newConfig) => {
+    const { text: nextText, positionMode, ...configChanges } = newConfig || {};
 
-
-    const stage = ref.current.getStage();
+    const stage = ref.current?.getStage?.();
+    const useExplicitCenterPosition =
+      positionMode === 'center'
+      && typeof configChanges.x === 'number'
+      && typeof configChanges.y === 'number';
 
     
-    const textNode = stage.findOne(`#${id}`);
-    if (!textNode) {
+    const textNode = stage?.findOne?.(`#${id}`);
+    if (!textNode && !useExplicitCenterPosition) {
       
       return;
     }
   
-    const boundingBox = textNode.getClientRect();
+    const boundingBox = textNode?.getClientRect?.();
   
-    let centerX = boundingBox.x + boundingBox.width / 2;
-    let centerY = boundingBox.y + boundingBox.height / 2;
+    let centerX = boundingBox ? boundingBox.x + boundingBox.width / 2 : 0;
+    let centerY = boundingBox ? boundingBox.y + boundingBox.height / 2 : 0;
   
-    const newWidth = newConfig.width / stageZoomScale;
+    const newWidth =
+      typeof configChanges.width === 'number' ? configChanges.width / stageZoomScale : undefined;
   
-    const newHeight = newConfig.height / stageZoomScale;
+    const newHeight =
+      typeof configChanges.height === 'number' ? configChanges.height / stageZoomScale : undefined;
 
   
     let scaledNewConfig = {
-      ...newConfig,
-      x: centerX / stageZoomScale,
-      y: centerY / stageZoomScale,
-      width: newWidth,
-      height: newHeight,
+      ...configChanges,
+      x: useExplicitCenterPosition ? configChanges.x : centerX / stageZoomScale,
+      y: useExplicitCenterPosition ? configChanges.y : centerY / stageZoomScale,
     };
-    if (newConfig.width) {
-      scaledNewConfig.width = newConfig.width / stageZoomScale;
+    if (typeof configChanges.width === 'number') {
+      scaledNewConfig.width = configChanges.width / stageZoomScale;
     }
-    if (newConfig.height) {
-      scaledNewConfig.height = newConfig.height / stageZoomScale;
+    if (typeof configChanges.height === 'number') {
+      scaledNewConfig.height = configChanges.height / stageZoomScale;
     }
-    if (newConfig.fontSize) {
-      scaledNewConfig.fontSize = newConfig.fontSize / stageZoomScale;
+    if (typeof configChanges.fontSize === 'number') {
+      scaledNewConfig.fontSize = configChanges.fontSize / stageZoomScale;
     }
   
 
@@ -1095,6 +1106,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       if (item.id === id) {
         return {
           ...item,
+          ...(typeof nextText === 'string' ? { text: nextText } : {}),
           config: {
             ...item.config,
             ...scaledNewConfig,

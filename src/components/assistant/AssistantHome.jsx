@@ -20,6 +20,7 @@ import { ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 import { getHeaders } from "../../utils/web.jsx";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const ASSISTANT_SIDEBAR_SAFE_GAP_PX = 24;
 
 function normalizeMessageText(content) {
   if (typeof content === 'string') {
@@ -134,6 +135,8 @@ export default function AssistantHome(props) {
   const { colorMode } = useColorMode();
   const { user, getUserAPI } = useUser();
   const messagesEndRef = useRef(null);
+  const launcherRef = useRef(null);
+  const panelRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [userInput, setUserInput] = useState('');
@@ -166,6 +169,14 @@ export default function AssistantHome(props) {
 
     return () => clearTimeout(timer);
   }, [isOpen, sessionMessages, isExpanded]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.documentElement?.style?.removeProperty('--assistant-sidebar-safe-bottom');
+      }
+    };
+  }, []);
 
   const updateUserAssistantModel = async (newModelValue) => {
     try {
@@ -285,6 +296,66 @@ export default function AssistantHome(props) {
     messageList.length > 0 || isAssistantQueryGenerating || isPreparingFrameImage;
   const shouldShowConversationArea = isExpanded || hasConversationActivity;
 
+  useEffect(() => {
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const rootStyle = document.documentElement?.style;
+    if (!rootStyle) {
+      return undefined;
+    }
+
+    let frameId = null;
+    let resizeObserver = null;
+
+    const updateSidebarSafeBottom = () => {
+      const activeElement = isOpen ? panelRef.current : launcherRef.current;
+      if (!activeElement) {
+        rootStyle.setProperty('--assistant-sidebar-safe-bottom', '0px');
+        return;
+      }
+
+      const rect = activeElement.getBoundingClientRect();
+      const overlayHeight = Math.max(
+        0,
+        Math.ceil(window.innerHeight - rect.top + ASSISTANT_SIDEBAR_SAFE_GAP_PX)
+      );
+
+      rootStyle.setProperty('--assistant-sidebar-safe-bottom', `${overlayHeight}px`);
+    };
+
+    const scheduleSidebarSafeBottomUpdate = () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
+        updateSidebarSafeBottom();
+      });
+    };
+
+    scheduleSidebarSafeBottomUpdate();
+    window.addEventListener('resize', scheduleSidebarSafeBottomUpdate);
+
+    const activeElement = isOpen ? panelRef.current : launcherRef.current;
+    if (activeElement && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        scheduleSidebarSafeBottomUpdate();
+      });
+      resizeObserver.observe(activeElement);
+    }
+
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener('resize', scheduleSidebarSafeBottomUpdate);
+      resizeObserver?.disconnect();
+    };
+  }, [hasConversationActivity, isExpanded, isOpen, userInput]);
+
   const launcherShell =
     colorMode === 'dark'
       ? 'border border-slate-700 bg-[#10192f] text-slate-100 shadow-[0_18px_38px_rgba(2,6,23,0.5)]'
@@ -316,6 +387,7 @@ export default function AssistantHome(props) {
   return (
     <div className="fixed bottom-4 right-4 z-40">
       <button
+        ref={launcherRef}
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         className={`group inline-flex items-center gap-3 rounded-full px-4 py-3 transition ${launcherShell}`}
@@ -329,7 +401,10 @@ export default function AssistantHome(props) {
       </button>
 
       {isOpen ? (
-        <div className={`${panelDimensions} ${isExpanded ? 'right-4 bottom-4' : ''}`}>
+        <div
+          ref={panelRef}
+          className={`${panelDimensions} ${isExpanded ? 'right-4 bottom-4' : ''}`}
+        >
           <div
             className={`flex ${isExpanded || hasConversationActivity ? 'h-full' : ''} flex-col overflow-hidden rounded-3xl shadow-[0_28px_80px_rgba(15,23,42,0.3)] ${panelShell}`}
           >

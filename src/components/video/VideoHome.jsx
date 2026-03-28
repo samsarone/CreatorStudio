@@ -122,6 +122,10 @@ export default function VideoHome(props) {
   const layerPollTimerRef = useRef(null);
   const layersRef = useRef([]);
   const currentLayerRef = useRef({});
+  const sessionIdRef = useRef(null);
+  const videoSessionDetailsRef = useRef(null);
+  const latestActiveItemListSaveRequestRef = useRef(0);
+  const debouncedUpdateSessionLayerActiveItemListRef = useRef(null);
   const assistantFrameCaptureRef = useRef(null);
 
   let { id } = useParams();
@@ -256,6 +260,14 @@ export default function VideoHome(props) {
   useEffect(() => {
     currentLayerRef.current = currentLayer;
   }, [currentLayer]);
+
+  useEffect(() => {
+    sessionIdRef.current = id;
+  }, [id]);
+
+  useEffect(() => {
+    videoSessionDetailsRef.current = videoSessionDetails;
+  }, [videoSessionDetails]);
 
   useEffect(() => {
     if (!isCanvasDirty || !renderCompletedThisSession) {
@@ -1331,10 +1343,6 @@ export default function VideoHome(props) {
     };
   }, []);
 
-  if (!videoSessionDetails) {
-    return <StudioSkeletonLoader />;
-  }
-
   const fps = 30;
   const frameDurationMs = 1000 / fps;
   const totalDurationInFrames = totalDuration * fps;
@@ -1427,48 +1435,78 @@ export default function VideoHome(props) {
     const playbackInterval = setInterval(updateFrame, frameRate);
   };
 
-  const debouncedUpdateSessionLayerActiveItemList = debounce((newActiveItemList) => {
-    const headers = getHeaders();
-    if (!headers) {
-      showLoginDialog();
-      return;
-    }
-
-
-    const reqPayload = {
-      sessionId: id,
-      activeItemList: newActiveItemList,
-      layerId: currentLayer._id.toString(),
-      aspectRatio: videoSessionDetails.aspectRatio,
-    };
-
-    setActiveItemList(newActiveItemList);
-
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_active_item_list`, reqPayload, headers).then((response) => {
-      const videoSessionData = response.data;
-      const { session, layer } = videoSessionData;
-
-      const newActiveItemList = layer.imageSession.activeItemList;
-
-      setVideoSessionDetails(session);
-      setCurrentLayer(layer);
-      setActiveItemList(layer.imageSession.activeItemList);
-
-      // Merge updated layer back into layers array
-      const updatedLayerIndex = layers.findIndex((l) => l._id === layer._id);
-      if (updatedLayerIndex > -1) {
-        const newLayers = [...layers];
-        newLayers[updatedLayerIndex] = layer;
-        setLayers(newLayers);
+  if (!debouncedUpdateSessionLayerActiveItemListRef.current) {
+    debouncedUpdateSessionLayerActiveItemListRef.current = debounce((newActiveItemList) => {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return;
       }
 
-      setIsCanvasDirty(true);
-    }).catch(function (err) {
-      
-    });
+      const currentLayerSnapshot = currentLayerRef.current;
+      const currentSessionId = sessionIdRef.current;
+      const sessionDetailsSnapshot = videoSessionDetailsRef.current;
+      const requestLayerId = currentLayerSnapshot?._id?.toString?.();
 
+      if (!currentSessionId || !requestLayerId) {
+        return;
+      }
 
-  }, 5);
+      const requestId = latestActiveItemListSaveRequestRef.current + 1;
+      latestActiveItemListSaveRequestRef.current = requestId;
+
+      const reqPayload = {
+        sessionId: currentSessionId,
+        activeItemList: newActiveItemList,
+        layerId: requestLayerId,
+        aspectRatio: sessionDetailsSnapshot?.aspectRatio,
+      };
+
+      setActiveItemList(newActiveItemList);
+
+      axios
+        .post(`${PROCESSOR_API_URL}/video_sessions/update_active_item_list`, reqPayload, headers)
+        .then((response) => {
+          if (requestId !== latestActiveItemListSaveRequestRef.current) {
+            return;
+          }
+
+          const videoSessionData = response.data;
+          const { session, layer } = videoSessionData || {};
+          const updatedLayerId = layer?._id?.toString?.();
+
+          if (session) {
+            setVideoSessionDetails(session);
+          }
+
+          if (updatedLayerId) {
+            const nextLayers = [...layersRef.current];
+            const updatedLayerIndex = nextLayers.findIndex(
+              (existingLayer) => existingLayer?._id?.toString?.() === updatedLayerId
+            );
+
+            if (updatedLayerIndex > -1) {
+              nextLayers[updatedLayerIndex] = layer;
+              setLayers(nextLayers);
+            }
+          }
+
+          if (
+            updatedLayerId
+            && currentLayerRef.current?._id?.toString?.() === requestLayerId
+            && updatedLayerId === requestLayerId
+          ) {
+            setCurrentLayer(layer);
+            setActiveItemList(layer?.imageSession?.activeItemList || []);
+          }
+
+          setIsCanvasDirty(true);
+        })
+        .catch(function (err) {
+          
+        });
+    }, 5);
+  }
 
   const syncSessionAfterLayerItemMutation = (sessionData, updatedLayer) => {
     if (!sessionData) {
@@ -1504,14 +1542,14 @@ export default function VideoHome(props) {
 
     //setActiveItemList(newActiveItemList);
     if (currentEditorView !== CURRENT_EDITOR_VIEW.SHOW_ANIMATE_DISPLAY) {
-      debouncedUpdateSessionLayerActiveItemList(newActiveItemList);
+      debouncedUpdateSessionLayerActiveItemListRef.current?.(newActiveItemList);
     }
   };
 
   const updateSessionLayerActiveItemListAnimations = (newActiveItemList) => {
     //setActiveItemList(newActiveItemList);
     if (currentEditorView !== CURRENT_EDITOR_VIEW.SHOW_ANIMATE_DISPLAY) {
-      debouncedUpdateSessionLayerActiveItemList(newActiveItemList);
+      debouncedUpdateSessionLayerActiveItemListRef.current?.(newActiveItemList);
     }
   };
 
@@ -2132,8 +2170,8 @@ export default function VideoHome(props) {
     // stripe any query params from the image src
     const src = imageItem.src.split('?')[0];
     const imageItemNew = { ...imageItem, src: src };
-    const newActiveItemList = activeItemList.concat(imageItem);
-    debouncedUpdateSessionLayerActiveItemList();
+    const newActiveItemList = activeItemList.concat(imageItemNew);
+    debouncedUpdateSessionLayerActiveItemListRef.current?.(newActiveItemList);
   }
 
   const addLayersViaPromptList = (payload) => {
@@ -2246,6 +2284,10 @@ export default function VideoHome(props) {
 
     return await assistantFrameCaptureRef.current();
   }, []);
+
+  if (!videoSessionDetails) {
+    return <StudioSkeletonLoader />;
+  }
 
 
 

@@ -14,9 +14,11 @@ export default function ImagePayloadAspectRatioSelector(props) {
     options = [],
     canvasDimensions,
     compactInline = false,
+    sizeVariant = 'default',
   } = props;
 
   const { colorMode } = useColorMode();
+  const isImageStudio = sizeVariant === 'imageStudio';
 
   const normalizedCanvasDimensions = useMemo(
     () => normalizeCanvasDimensions(canvasDimensions, value || options?.[0]?.value || '1:1'),
@@ -38,6 +40,23 @@ export default function ImagePayloadAspectRatioSelector(props) {
     colorMode === 'dark'
       ? 'bg-slate-950/80 text-slate-100 border border-white/10'
       : 'bg-white text-slate-900 border border-rose-200 shadow-sm';
+  const cardPaddingClass = isImageStudio ? 'rounded-2xl px-4 py-3' : 'rounded-lg px-3 py-2';
+  const layoutClassName = compactInline
+    ? isImageStudio
+      ? 'flex flex-wrap items-center gap-4'
+      : 'flex flex-wrap items-center gap-3'
+    : isImageStudio
+    ? 'grid grid-cols-[auto,1fr,auto] items-center gap-4'
+    : 'grid grid-cols-[auto,1fr,auto] items-center gap-3';
+  const labelClass = isImageStudio
+    ? `text-[11px] font-semibold uppercase tracking-[0.22em] ${eyebrowText}`
+    : `text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowText}`;
+  const helperClass = isImageStudio
+    ? `min-w-0 truncate text-[13px] ${subtleText}`
+    : `min-w-0 truncate text-[11px] ${subtleText}`;
+  const selectClass = isImageStudio
+    ? `${selectShell} min-w-[170px] rounded-xl px-4 py-2.5 text-sm font-medium`
+    : `${selectShell} min-w-[150px] rounded-lg px-3 py-2 text-sm font-medium`;
 
   const canvasResolutionLabel = `${normalizedCanvasDimensions.width} x ${normalizedCanvasDimensions.height} px`;
   const helperText = matchingCanvasAspectRatioOption
@@ -47,13 +66,13 @@ export default function ImagePayloadAspectRatioSelector(props) {
     : `Custom canvas ${canvasResolutionLabel}`;
 
   return (
-    <div className={`rounded-lg px-3 py-2 ${cardSurface}`}>
-      <div className={compactInline ? 'flex flex-wrap items-center gap-3' : 'grid grid-cols-[auto,1fr,auto] items-center gap-3'}>
+    <div className={`${cardPaddingClass} ${cardSurface}`}>
+      <div className={layoutClassName}>
         <div className={compactInline ? 'flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1' : ''}>
-          <div className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${eyebrowText}`}>
+          <div className={labelClass}>
             {label}
           </div>
-          <div className={`min-w-0 truncate text-[11px] ${subtleText}`}>
+          <div className={helperClass}>
             {helperText}
           </div>
         </div>
@@ -61,7 +80,7 @@ export default function ImagePayloadAspectRatioSelector(props) {
           name={name}
           value={value}
           onChange={(event) => onChange?.(event.target.value)}
-          className={`${selectShell} min-w-[150px] rounded-lg px-3 py-2 text-sm font-medium`}
+          className={selectClass}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>

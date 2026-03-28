@@ -36,7 +36,6 @@ export default function OverlayPromptGenerator(props) {
   const [selectedImageStyle, setSelectedImageStyle] = useState(null);
 
   const isPortraitLayout = layoutMode === "portrait";
-  const isLandscapeLayout = layoutMode === "landscape";
   const isImageStudioPrompt = editorVariant === "imageStudio";
   const selectShell =
     colorMode === "dark"
@@ -52,15 +51,26 @@ export default function OverlayPromptGenerator(props) {
     colorMode === "dark"
       ? "text-xs font-semibold text-slate-200"
       : "text-xs font-semibold text-slate-700";
-  const fieldLayoutClassName = isImageStudioPrompt
+  const controlGroupClassName = isImageStudioPrompt
+    ? "flex w-full min-w-0 items-center gap-4"
+    : "flex w-full min-w-0 items-center gap-3";
+  const topControlRowClassName = isPortraitLayout
     ? "flex w-full flex-col gap-3"
-    : isLandscapeLayout
-    ? "grid w-full grid-cols-2 gap-3"
-    : "flex w-full flex-col gap-3";
-  const controlGroupClassName = "flex w-full min-w-0 items-center gap-3";
-  const optionRowClassName = isImageStudioPrompt
-    ? "flex flex-wrap items-center gap-2"
-    : "flex flex-wrap items-center justify-end gap-2";
+    : isImageStudioPrompt
+    ? "flex w-full flex-wrap items-center gap-4"
+    : "flex w-full flex-wrap items-center gap-3";
+  const selectControlGroupClassName = isPortraitLayout
+    ? controlGroupClassName
+    : isImageStudioPrompt
+    ? "flex min-w-[240px] flex-1 items-center gap-4"
+    : "flex min-w-[220px] flex-1 items-center gap-3";
+  const optionRowClassName = isPortraitLayout
+    ? isImageStudioPrompt
+      ? "flex flex-wrap items-center gap-3"
+      : "flex flex-wrap items-center gap-2"
+    : isImageStudioPrompt
+    ? "flex flex-wrap items-center gap-3"
+    : "ml-auto flex flex-wrap items-center gap-2";
   const optionChipBase =
     colorMode === "dark"
       ? "bg-slate-950 border border-slate-700 text-slate-300 hover:bg-slate-900"
@@ -77,6 +87,15 @@ export default function OverlayPromptGenerator(props) {
     colorMode === "dark"
       ? "border-slate-400 bg-slate-100 text-slate-900"
       : "border-slate-400 bg-slate-900 text-white";
+  const inputPaddingClass = isImageStudioPrompt ? "rounded-xl px-4 py-3 text-sm" : "rounded-md px-2.5 py-2";
+  const labelClassName = isImageStudioPrompt
+    ? colorMode === "dark"
+      ? "text-sm font-semibold text-slate-100"
+      : "text-sm font-semibold text-slate-800"
+    : fieldLabelClassName;
+  const checkboxChipClassName = isImageStudioPrompt
+    ? "inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition-colors duration-150"
+    : "inline-flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150";
 
   useEffect(() => {
     const storedDefaultModel = localStorage.getItem("defaultModel");
@@ -152,10 +171,10 @@ export default function OverlayPromptGenerator(props) {
 
   return (
     <div className="w-full space-y-3">
-      <div className={fieldLayoutClassName}>
-        <div className={controlGroupClassName}>
+      <div className={topControlRowClassName}>
+        <div className={selectControlGroupClassName}>
           <div
-            className={`${fieldLabelClassName} flex shrink-0 items-center gap-1 whitespace-nowrap`}
+            className={`${labelClassName} flex shrink-0 items-center gap-1 whitespace-nowrap`}
           >
             <span>Model</span>
             <a
@@ -168,7 +187,7 @@ export default function OverlayPromptGenerator(props) {
           </div>
           <select
             onChange={setSelectedModelDisplay}
-            className={`${selectShell} min-w-0 flex-1 rounded-md px-2.5 py-2`}
+            className={`${selectShell} min-w-0 flex-1 ${inputPaddingClass}`}
             value={selectedGenerationModel}
           >
             {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -180,14 +199,14 @@ export default function OverlayPromptGenerator(props) {
         </div>
 
         {selectedModelDefinition?.imageStyles?.length ? (
-          <div className={controlGroupClassName}>
-            <div className={`${fieldLabelClassName} shrink-0 whitespace-nowrap`}>
+          <div className={selectControlGroupClassName}>
+            <div className={`${labelClassName} shrink-0 whitespace-nowrap`}>
               Style
             </div>
             <select
               onChange={handleImageStyleChange}
               value={selectedImageStyle || ""}
-              className={`${selectShell} min-w-0 flex-1 rounded-md px-2.5 py-2`}
+              className={`${selectShell} min-w-0 flex-1 ${inputPaddingClass}`}
             >
               {selectedModelDefinition.imageStyles.map((style) => (
                 <option key={style} value={style}>
@@ -197,6 +216,68 @@ export default function OverlayPromptGenerator(props) {
             </select>
           </div>
         ) : null}
+
+        <div className={`${optionRowClassName} ${checkboxText}`}>
+          <label
+            className={`${checkboxChipClassName} ${
+              retryOnFailure ? optionChipActive : optionChipBase
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={retryOnFailure}
+              onChange={(event) => setRetryOnFailure(event.target.checked)}
+            />
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-[4px] border text-[9px] ${
+                retryOnFailure ? optionIndicatorActive : optionIndicatorBase
+              }`}
+            >
+              {retryOnFailure ? <FaCheck /> : null}
+            </span>
+            <span className="flex items-center gap-1">
+              Retry
+              <a
+                data-tooltip-id="retryOnFailTooltip"
+                data-tooltip-content="Retry generation if it fails up to 3 times with prompt variants"
+              >
+                <FaQuestionCircle className="text-[10px] opacity-70" />
+              </a>
+              <Tooltip id="retryOnFailTooltip" place="right" effect="solid" />
+            </span>
+          </label>
+
+          <label
+            className={`${checkboxChipClassName} ${
+              isCharacterImage ? optionChipActive : optionChipBase
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={isCharacterImage}
+              onChange={(event) => setIsCharacterImage(event.target.checked)}
+            />
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-[4px] border text-[9px] ${
+                isCharacterImage ? optionIndicatorActive : optionIndicatorBase
+              }`}
+            >
+              {isCharacterImage ? <FaCheck /> : null}
+            </span>
+            <span className="flex items-center gap-1">
+              Speaker scene
+              <a
+                data-tooltip-id="characterImageTooltip"
+                data-tooltip-content="Generate an image from the POV of the main character in the prompt."
+              >
+                <FaQuestionCircle className="text-[10px] opacity-70" />
+              </a>
+              <Tooltip id="characterImageTooltip" place="right" effect="solid" />
+            </span>
+          </label>
+        </div>
       </div>
 
       {showAspectRatioSelector ? (
@@ -212,73 +293,11 @@ export default function OverlayPromptGenerator(props) {
         </div>
       ) : null}
 
-      <div className={`${optionRowClassName} ${checkboxText}`}>
-        <label
-          className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150 ${
-            retryOnFailure ? optionChipActive : optionChipBase
-          }`}
-        >
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={retryOnFailure}
-            onChange={(event) => setRetryOnFailure(event.target.checked)}
-          />
-          <span
-            className={`flex h-4 w-4 items-center justify-center rounded-[4px] border text-[9px] ${
-              retryOnFailure ? optionIndicatorActive : optionIndicatorBase
-            }`}
-          >
-            {retryOnFailure ? <FaCheck /> : null}
-          </span>
-          <span className="flex items-center gap-1">
-            Retry
-            <a
-              data-tooltip-id="retryOnFailTooltip"
-              data-tooltip-content="Retry generation if it fails up to 3 times with prompt variants"
-            >
-              <FaQuestionCircle className="text-[10px] opacity-70" />
-            </a>
-            <Tooltip id="retryOnFailTooltip" place="right" effect="solid" />
-          </span>
-        </label>
-
-        <label
-          className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150 ${
-            isCharacterImage ? optionChipActive : optionChipBase
-          }`}
-        >
-          <input
-            type="checkbox"
-            className="sr-only"
-            checked={isCharacterImage}
-            onChange={(event) => setIsCharacterImage(event.target.checked)}
-          />
-          <span
-            className={`flex h-4 w-4 items-center justify-center rounded-[4px] border text-[9px] ${
-              isCharacterImage ? optionIndicatorActive : optionIndicatorBase
-            }`}
-          >
-            {isCharacterImage ? <FaCheck /> : null}
-          </span>
-          <span className="flex items-center gap-1">
-            Speaker scene
-            <a
-              data-tooltip-id="characterImageTooltip"
-              data-tooltip-content="Generate an image from the POV of the main character in the prompt."
-            >
-              <FaQuestionCircle className="text-[10px] opacity-70" />
-            </a>
-            <Tooltip id="characterImageTooltip" place="right" effect="solid" />
-          </span>
-        </label>
-      </div>
-
       <TextareaAutosize
         onChange={(event) => setPromptText(event.target.value)}
         placeholder="Describe your prompt to generate an image"
-        className={`${textareaShell} w-full rounded-lg px-3 py-2`}
-        minRows={isPortraitLayout ? 3 : 2}
+        className={`${textareaShell} w-full ${isImageStudioPrompt ? "rounded-2xl px-4 py-3.5 text-sm" : "rounded-lg px-3 py-2"}`}
+        minRows={isImageStudioPrompt ? 4 : isPortraitLayout ? 3 : 2}
         value={promptText}
       />
 
@@ -290,7 +309,13 @@ export default function OverlayPromptGenerator(props) {
         <CommonButton
           onClick={handleSubmit}
           isPending={isGenerationPending}
-          extraClasses={isPortraitLayout ? "w-full" : "min-w-[140px]"}
+          extraClasses={
+            isImageStudioPrompt
+              ? "min-h-[46px] min-w-[160px] text-sm"
+              : isPortraitLayout
+              ? "w-full"
+              : "min-w-[140px]"
+          }
         >
           Submit
         </CommonButton>

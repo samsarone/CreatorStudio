@@ -9,10 +9,12 @@ export default function PaintToolbar(props) {
   const {
     pos,
     addPaintImage,
-    resetPaintImage
+    resetPaintImage,
+    editorVariant = 'videoStudio',
   } = props;
 
   const { colorMode } = useColorMode();
+  const isImageStudio = editorVariant === 'imageStudio';
 
   const iconColor = colorMode === 'dark' ? 'text-neutral-200' : 'text-slate-600';
   const panelStyles = {
@@ -27,9 +29,9 @@ export default function PaintToolbar(props) {
       ? '0 18px 45px rgba(15, 23, 42, 0.6)'
       : '0 18px 45px rgba(15, 23, 42, 0.12)',
     color: colorMode === 'dark' ? '#e2e8f0' : '#0f172a',
-    width: '350px',
-    borderRadius: '12px',
-    padding: '12px',
+    width: isImageStudio ? '420px' : '350px',
+    borderRadius: isImageStudio ? '16px' : '12px',
+    padding: isImageStudio ? '14px' : '12px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -40,13 +42,13 @@ export default function PaintToolbar(props) {
   return (
     <div key={pos.id} style={panelStyles}>
 
-      <div className='grid grid-cols-2 w-full text-center'>
-        <div onClick={() => resetPaintImage()}>
-          <MdOutlineRefresh className={`inline-flex ${iconColor}`} />
+      <div className={`grid grid-cols-2 w-full text-center ${isImageStudio ? 'gap-2 text-sm font-medium' : ''}`}>
+        <div className={isImageStudio ? 'rounded-xl px-3 py-2 bg-white/5 cursor-pointer' : 'cursor-pointer'} onClick={() => resetPaintImage()}>
+          <MdOutlineRefresh className={`inline-flex ${iconColor} ${isImageStudio ? 'text-lg' : ''}`} />
           Reset
         </div>
-        <div onClick={() => addPaintImage()}>
-          <FaCheck className={`inline-flex ${iconColor}`}  />
+        <div className={isImageStudio ? 'rounded-xl px-3 py-2 bg-white/5 cursor-pointer' : 'cursor-pointer'} onClick={() => addPaintImage()}>
+          <FaCheck className={`inline-flex ${iconColor} ${isImageStudio ? 'text-lg' : ''}`}  />
           Apply
         </div>
       </div>

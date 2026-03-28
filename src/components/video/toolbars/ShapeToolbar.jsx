@@ -5,7 +5,9 @@ export default function ShapeToolbar(props) {
   const { pos, moveItem, index, applyFilter, removeItem, colorMode, flipImageVertical,
     flipImageHorizontal, itemId, applyFinalFilter, updateTargetActiveLayerConfig,
     activeItemList,
+    editorVariant = 'videoStudio',
   } = props;
+  const isImageStudio = editorVariant === 'imageStudio';
 
 
   const [selectedFilter, setSelectedFilter] = useState(null);
@@ -95,11 +97,14 @@ export default function ShapeToolbar(props) {
 
   const bgColor = colorMode === 'dark' ? `bg-[#111a2f]` : `bg-neutral-300`;
   const textColor = colorMode === 'dark' ? `text-slate-100` : `text-black`;
+  const inputClassName = `w-full ${isImageStudio ? 'rounded-xl px-3 py-2 text-[15px]' : 'rounded-sm p-1 pr-0 text-sm'} ${bgColor} ${textColor}`;
+  const labelClassName = isImageStudio ? 'mt-1 text-sm text-center' : 'text-xs text-center';
+  const iconClassName = isImageStudio ? 'mt-2 text-[26px] cursor-hover' : 'mt-2 text-xl cursor-hover';
 
   return (
     <div key={pos.id} style={{
       position: 'absolute', left: pos.x, top: pos.y, background: "#0f1629",
-      width: "400px", borderRadius: "5px", padding: "5px", paddingTop: "1px", paddingBottom: "1px", display: "flex", flexDirection: "column", alignItems: "center",
+      width: isImageStudio ? "480px" : "400px", borderRadius: isImageStudio ? "16px" : "5px", padding: isImageStudio ? "14px" : "5px", paddingTop: isImageStudio ? "14px" : "1px", paddingBottom: isImageStudio ? "14px" : "1px", display: "flex", flexDirection: "column", alignItems: "center",
       zIndex: 100
     }}>
       <div className='flex flex-row w-full'>
@@ -112,9 +117,9 @@ export default function ShapeToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'x')}
                 onBlur={() => handleInputBlur('x')}
                 placeholder="X"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 X
               </div>
             </div>
@@ -125,9 +130,9 @@ export default function ShapeToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'y')}
                 onBlur={() => handleInputBlur('y')}
                 placeholder="Y"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 Y
               </div>
             </div>
@@ -138,9 +143,9 @@ export default function ShapeToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'width')}
                 onBlur={() => handleInputBlur('width')}
                 placeholder="W"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 W
               </div>
             </div>
@@ -151,9 +156,9 @@ export default function ShapeToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'height')}
                 onBlur={() => handleInputBlur('height')}
                 placeholder="H"
-                className={`w-full rounded-sm p-1 pr-0 ${bgColor} ${textColor} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 H
               </div>
             </div>
@@ -162,10 +167,10 @@ export default function ShapeToolbar(props) {
         <div className='basis-1/4'>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
             <button onClick={() => moveItem(index, -1)}>
-              <FaChevronCircleDown className={`${iconColor} mt-2 text-xl cursor-hover`} />
+              <FaChevronCircleDown className={`${iconColor} ${iconClassName}`} />
             </button>
             <button onClick={() => moveItem(index, 1)} style={{ marginLeft: '10px' }}>
-              <FaChevronCircleUp className={`${iconColor} mt-2 text-xl cursor-hover`} />
+              <FaChevronCircleUp className={`${iconColor} ${iconClassName}`} />
             </button>
           </div>
         </div>
@@ -174,7 +179,7 @@ export default function ShapeToolbar(props) {
 
         </div>
         <div className='basis-1/4 flex'>
-          <FaTimesCircle className={`${iconColor} ml-4 mt-2 text-xl cursor-hover`} onClick={() => removeItem(index)} />
+          <FaTimesCircle className={`${iconColor} ml-4 ${iconClassName}`} onClick={() => removeItem(index)} />
         </div>
       </div>
     </div>

@@ -2,9 +2,10 @@ import React from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 function RangeSlider(props) {
-  const { editBrushWidth, setEditBrushWidth } = props;
+  const { editBrushWidth, setEditBrushWidth, sizeVariant = 'default' } = props;
 
   const { colorMode } = useColorMode();
+  const isImageStudio = sizeVariant === 'imageStudio';
 
   const min = 5;
   const max = 100;
@@ -29,7 +30,7 @@ function RangeSlider(props) {
         max={max}
         value={editBrushWidth}
         onChange={handleSliderChange}
-        className="w-full h-2 rounded-full cursor-pointer appearance-none"
+        className={`w-full rounded-full cursor-pointer appearance-none ${isImageStudio ? 'h-3' : 'h-2'}`}
         style={{
           accentColor,
           background: `linear-gradient(to right, ${accentColor} 0%, ${accentColor} ${fillPercent}%, ${trackColor} ${fillPercent}%, ${trackColor} 100%)`,
@@ -37,7 +38,7 @@ function RangeSlider(props) {
           transition: 'background 0.25s ease',
         }}
       />
-      <div className='text-xs text-center font-bold text-slate-500 dark:text-slate-300 mt-2'>
+      <div className={`${isImageStudio ? 'text-sm mt-3' : 'text-xs mt-2'} text-center font-bold text-slate-500 dark:text-slate-300`}>
         Brush width
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   TOOLBAR_ACTION_VIEW,
   IMAGE_EDIT_MODEL_TYPES,
 } from '../../constants/Types.ts';
+import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
 import {
   findAspectRatioOptionForCanvasDimensions,
   findClosestAspectRatioOption,
@@ -329,6 +330,8 @@ export default function ImageStudioHome() {
 
   const [currentView, setCurrentView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY);
   const [currentCanvasAction, setCurrentCanvasAction] = useState(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
+  const [textConfig, setTextConfig] = useState(null);
+  const [addText, setAddText] = useState('');
 
   const [editBrushWidth, setEditBrushWidth] = useState(25);
   const [editMasklines, setEditMaskLines] = useState([]);
@@ -364,11 +367,28 @@ export default function ImageStudioHome() {
   const outpaintPollIntervalRef = useRef(null);
   const assistantPollRef = useRef(null);
   const assistantErrorCountRef = useRef(0);
+  const currentLayerRef = useRef(null);
+  const latestActiveItemListSaveRequestRef = useRef(0);
 
   const resolvedCanvasDimensions = useMemo(
     () => normalizeCanvasDimensions(sessionDetails?.canvasDimensions, aspectRatio),
     [aspectRatio, sessionDetails?.canvasDimensions]
   );
+
+  useEffect(() => {
+    setTextConfig((prev) => {
+      const defaultConfig = getTextConfigForCanvas(prev, resolvedCanvasDimensions);
+      return {
+        ...defaultConfig,
+        x: resolvedCanvasDimensions.width / 2,
+        y: resolvedCanvasDimensions.height / 2,
+      };
+    });
+  }, [resolvedCanvasDimensions.height, resolvedCanvasDimensions.width]);
+
+  useEffect(() => {
+    currentLayerRef.current = currentLayer;
+  }, [currentLayer]);
 
   const getPreferredGenerationAspectRatio = useCallback(
     (nextAspectRatio, nextCanvasDimensions) => {
@@ -578,20 +598,28 @@ export default function ImageStudioHome() {
       showLoginDialog();
       return;
     }
+    const requestLayerId = currentLayer._id.toString();
+    const requestId = latestActiveItemListSaveRequestRef.current + 1;
+    latestActiveItemListSaveRequestRef.current = requestId;
+
     const payload = {
       sessionId: id,
-      layerId: currentLayer._id.toString(),
+      layerId: requestLayerId,
       activeItemList: newActiveItemList,
     };
     axios
       .post(`${PROCESSOR_API_URL}/image_sessions/update_active_item_list`, payload, headers)
       .then((response) => {
+        if (requestId !== latestActiveItemListSaveRequestRef.current) {
+          return;
+        }
+
         const { session, layer } = response.data || {};
         if (session) {
           setSessionDetails(session);
           setGenerationImages(session.generations || []);
         }
-        if (layer) {
+        if (layer && currentLayerRef.current?._id?.toString?.() === requestLayerId) {
           setCurrentLayer(layer);
           if (layer?.imageSession?.activeItemList) {
             setActiveItemList(layer.imageSession.activeItemList);
@@ -621,6 +649,29 @@ export default function ImageStudioHome() {
       updateSessionLayerActiveItemList(updatedItemList);
     },
     [activeItemList, selectedId, updateSessionLayerActiveItemList]
+  );
+
+  const createTextLayer = useCallback(
+    (payload) => {
+      const normalizedText = `${payload?.text || ''}`.trim();
+      if (!normalizedText) {
+        return;
+      }
+
+      const nextTextItem = {
+        type: 'text',
+        text: normalizedText,
+        id: `item_${activeItemList.length}`,
+        config: getTextConfigForCanvas(payload?.config || textConfig, resolvedCanvasDimensions),
+      };
+
+      const newItemList = [...activeItemList, nextTextItem];
+      setActiveItemList(newItemList);
+      setSelectedId(nextTextItem.id);
+      setSelectedLayerType('text');
+      updateSessionLayerActiveItemList(newItemList);
+    },
+    [activeItemList, resolvedCanvasDimensions, textConfig, updateSessionLayerActiveItemList]
   );
 
   const setUploadURL = useCallback(
@@ -1807,7 +1858,7 @@ export default function ImageStudioHome() {
               requestRealignLayers={() => {}}
               totalDuration={0}
               selectedEditModelValue={selectedEditModelValue}
-              createTextLayer={() => {}}
+              createTextLayer={createTextLayer}
               requestRealignToAiVideoAndLayers={() => {}}
               requestLipSyncToSpeech={() => {}}
               editorVariant="imageStudio"
@@ -1843,20 +1894,24 @@ export default function ImageStudioHome() {
     colorMode === 'dark'
       ? 'bg-[#0f1629] border-l border-[#1f2a3d] shadow-[0_1px_0_rgba(255,255,255,0.04)]'
       : 'bg-white border-l border-slate-200 shadow-sm';
+  const imageStudioRightPanelWidth = 'clamp(360px, 24vw, 460px)';
   const canvasViewportLayout = isCanvasStudioDisplay
-    ? 'inline-flex items-center justify-center overflow-hidden'
-    : 'inline-block overflow-auto';
+    ? 'flex items-center justify-center overflow-hidden'
+    : 'block overflow-auto';
 
   return (
     <CommonContainer>
-      <div className={`${mainWorkspaceShell} block min-h-screen`}>
+      <div className={`${mainWorkspaceShell} flex min-h-screen items-stretch`}>
         <div
           ref={canvasViewportRef}
-          className={`text-center w-[82%] h-[100vh] m-auto align-top ${canvasViewportLayout}`}
+          className={`min-w-0 flex-1 h-[100vh] ${canvasViewportLayout} text-center`}
         >
           {viewDisplay}
         </div>
-        <div className={`w-[18%] inline-block align-top pt-[60px] ${toolbarShell}`}>
+        <div
+          className={`shrink-0 h-[100vh] overflow-y-auto pt-[60px] ${toolbarShell}`}
+          style={{ width: imageStudioRightPanelWidth }}
+        >
           <ImageEditorToolbar
             currentViewDisplay={currentView}
             setCurrentViewDisplay={setCurrentView}
@@ -1877,6 +1932,11 @@ export default function ImageStudioHome() {
             setEditBrushWidth={setEditBrushWidth}
             showUploadAction={openUploadDialog}
             onShowLibrary={openImageLibrary}
+            textConfig={textConfig}
+            setTextConfig={setTextConfig}
+            addText={addText}
+            setAddText={setAddText}
+            submitAddText={createTextLayer}
             aspectRatio={aspectRatio}
             canvasDimensions={resolvedCanvasDimensions}
             generationAspectRatio={generationAspectRatio}

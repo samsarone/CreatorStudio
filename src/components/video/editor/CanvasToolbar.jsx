@@ -43,6 +43,8 @@ export default function CanvasToolbar(props) {
 
     updateTargetImageActiveLayerConfig,
     updateTargetShapeActiveLayerConfigNoScale,
+    updateTargetTextActiveLayerConfig,
+    editorVariant = 'videoStudio',
   } = props;
 
   return (
@@ -65,6 +67,7 @@ export default function CanvasToolbar(props) {
               flipImageVertical={flipImageVertical}
               updateTargetActiveLayerConfig={updateTargetImageActiveLayerConfig} 
               activeItemList={activeItemList} 
+              editorVariant={editorVariant}
             />
           );
         } else if (selectedLayerType === 'shape') {
@@ -82,6 +85,7 @@ export default function CanvasToolbar(props) {
             itemId={selectedId}
             updateTargetActiveLayerConfig={updateTargetShapeActiveLayerConfigNoScale}
             activeItemList={activeItemList}
+            editorVariant={editorVariant}
             />
           )
 
@@ -97,8 +101,9 @@ export default function CanvasToolbar(props) {
             colorMode={colorMode}
             removeItem={removeSelectedItem}
             itemId={selectedId}
-            updateTargetActiveLayerConfig={updateTargetShapeActiveLayerConfig}
+            updateTargetTextActiveLayerConfig={updateTargetTextActiveLayerConfig}
             activeItemList={activeItemList}
+            editorVariant={editorVariant}
             />
           )
         } else {
@@ -124,6 +129,7 @@ export default function CanvasToolbar(props) {
           replaceEraserImage={replaceEraserImage}
           duplicateEraserImage={duplicateEraserImage}
           resetEraserImage={resetEraserImage}
+          editorVariant={editorVariant}
         />
       )}
       {shapeSelectToolbarVisible && (
@@ -132,6 +138,7 @@ export default function CanvasToolbar(props) {
           onResetShape={handleResetShapeLayer}
           onCopyShape={onCopyShapeLayer}
           onReplaceShape={onReplaceShapeLayer}
+          editorVariant={editorVariant}
         />
       )}
       {paintToolbarVisible && (
@@ -139,6 +146,7 @@ export default function CanvasToolbar(props) {
           pos={paintToolbarPosition}
           addPaintImage={addPaintImage}
           resetPaintImage={resetPaintImage}
+          editorVariant={editorVariant}
         />
       )}
     </div>

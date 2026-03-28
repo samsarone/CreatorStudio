@@ -27,9 +27,11 @@ export default function PromptGenerator(props) {
     setAspectRatio,
     canvasDimensions,
     showModelSelector = true,
+    sizeVariant = "default",
   } = props;
 
   const { colorMode } = useColorMode();
+  const isImageStudio = sizeVariant === "imageStudio";
 
   // Whether to retry if generation fails:
   const [retryOnFailure, setRetryOnFailure] = useState(false);
@@ -81,6 +83,15 @@ export default function PromptGenerator(props) {
     colorMode === "dark"
       ? "bg-slate-900/60 text-slate-100 border border-white/10"
       : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+  const fieldRowClass = isImageStudio ? "flex w-full items-center gap-4 py-1" : "flex w-full mt-2 mb-2";
+  const fieldLabelWrapClass = isImageStudio ? "inline-flex min-w-[88px] items-center" : "inline-flex w-[25%] items-center";
+  const fieldLabelClass = isImageStudio ? "text-sm font-semibold flex items-center" : "text-xs font-bold flex items-center";
+  const selectClass = isImageStudio
+    ? `${selectShell} inline-flex min-h-[44px] flex-1 rounded-xl px-4 py-2.5 text-sm bg-transparent`
+    : `${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`;
+  const optionLabelClass = isImageStudio ? "ml-1 text-sm font-semibold" : "ml-1 text-xs font-semibold";
+  const buttonContainerClass = isImageStudio ? "pt-3 text-center" : "text-center";
+  const buttonExtraClass = isImageStudio ? "min-h-[46px] min-w-[160px] text-sm" : "";
 
   // ------------------------------------------------------------------
   // Find the cost of the current model + aspect ratio, if any
@@ -145,9 +156,9 @@ export default function PromptGenerator(props) {
     <div>
       {/* ------------------ Model Selection ------------------ */}
       {showModelSelector && (
-        <div className="flex w-full mt-2 mb-2">
-          <div className="inline-flex w-[25%] items-center">
-            <div className="text-xs font-bold flex items-center">
+        <div className={fieldRowClass}>
+          <div className={fieldLabelWrapClass}>
+            <div className={fieldLabelClass}>
               Model
               <a
                 data-tooltip-id="modelCostTooltip"
@@ -161,7 +172,7 @@ export default function PromptGenerator(props) {
           </div>
           <select
             onChange={handleModelChange}
-            className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
+            className={selectClass}
             value={selectedGenerationModel}
           >
             {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -182,14 +193,14 @@ export default function PromptGenerator(props) {
           );
           if (modelDef?.imageStyles?.length) {
             return (
-              <div className="flex w-full mt-2 mb-2">
-                <div className="inline-flex w-[25%]">
-                  <div className="text-xs font-bold">Image Style</div>
+              <div className={fieldRowClass}>
+                <div className={fieldLabelWrapClass}>
+                  <div className={isImageStudio ? "text-sm font-semibold" : "text-xs font-bold"}>Image Style</div>
                 </div>
                 <select
                   onChange={handleImageStyleChange}
                   value={selectedImageStyle || ""}
-                  className={`${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`}
+                  className={selectClass}
                 >
                   {modelDef.imageStyles.map((style) => (
                     <option key={style} value={style}>
@@ -211,19 +222,20 @@ export default function PromptGenerator(props) {
           onChange={setAspectRatio}
           options={imageAspectRatioOptions}
           canvasDimensions={canvasDimensions}
+          sizeVariant={sizeVariant}
         />
       </div>
 
       <div className="w-full mb-2">
-        <div className="text-xs font-semibold flex items-center space-x-4">
+        <div className={`flex items-center flex-wrap gap-x-4 gap-y-2 ${isImageStudio ? "text-sm font-medium" : "text-xs font-semibold"}`}>
           <label className="flex items-center">
             <input
               type="checkbox"
-              className="form-checkbox h-4 w-4 text-blue-600"
+              className={`${isImageStudio ? "h-[18px] w-[18px]" : "h-4 w-4"} form-checkbox text-blue-600`}
               checked={retryOnFailure}
               onChange={(e) => setRetryOnFailure(e.target.checked)}
             />
-            <span className="ml-1 text-xs font-semibold">
+            <span className={optionLabelClass}>
               Fail Retry
               <a
                 data-tooltip-id="retryOnFailTooltip"
@@ -240,11 +252,11 @@ export default function PromptGenerator(props) {
           <label className="flex items-center">
             <input
               type="checkbox"
-              className="form-checkbox h-4 w-4 text-blue-600"
+              className={`${isImageStudio ? "h-[18px] w-[18px]" : "h-4 w-4"} form-checkbox text-blue-600`}
               checked={isCharacterImage}
               onChange={(e) => setIsCharacterImage(e.target.checked)}
             />
-            <span className="ml-1 text-xs font-semibold">
+            <span className={optionLabelClass}>
               Speaker
               <a
                 data-tooltip-id="characterImageTooltip"
@@ -264,15 +276,15 @@ export default function PromptGenerator(props) {
       <AutoExpandableTextarea
         onChange={(evt) => setPromptText(evt.target.value)}
         placeholder="Add prompt text here"
-        className={`${textareaShell} w-full m-auto rounded-xl px-3 py-3 bg-transparent`}
-        minRows={4}
+        className={`${textareaShell} w-full m-auto rounded-2xl bg-transparent ${isImageStudio ? "px-4 py-3.5 text-sm" : "px-3 py-3"}`}
+        minRows={isImageStudio ? 5 : 4}
         maxRows={10}
         value={promptText}
       />
 
       {/* ------------------ Submit Button ------------------ */}
-      <div className="text-center">
-        <CommonButton onClick={handleSubmit} isPending={isGenerationPending}>
+      <div className={buttonContainerClass}>
+        <CommonButton onClick={handleSubmit} isPending={isGenerationPending} extraClasses={buttonExtraClass}>
           Submit
         </CommonButton>
       </div>

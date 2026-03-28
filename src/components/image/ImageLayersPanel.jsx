@@ -73,9 +73,11 @@ export default function ImageLayersPanel(props) {
     selectedId,
     setSelectedId,
     onToggleItemVisibility,
+    sizeVariant = 'default',
   } = props;
 
   const { colorMode } = useColorMode();
+  const isImageStudio = sizeVariant === 'imageStudio';
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const items = useMemo(
@@ -111,6 +113,15 @@ export default function ImageLayersPanel(props) {
     colorMode === 'dark'
       ? 'text-slate-300'
       : 'text-slate-600';
+  const panelPaddingClass = isImageStudio ? 'mt-5 rounded-[22px] p-4' : 'mt-4 rounded-xl p-3';
+  const headerLabelClass = isImageStudio ? 'text-base font-semibold' : 'text-sm font-semibold';
+  const countBadgeClass = isImageStudio
+    ? `text-sm px-2.5 py-1 rounded-full ${listBackground} ${subtleText}`
+    : `text-xs px-2 py-0.5 rounded-full ${listBackground} ${subtleText}`;
+  const emptyStateClass = isImageStudio ? `text-sm text-center py-4 ${emptyState}` : `text-xs text-center py-3 ${emptyState}`;
+  const rowClassName = isImageStudio ? 'rounded-xl px-3 py-3 transition' : 'rounded-lg px-2 py-2 transition';
+  const itemTitleClass = isImageStudio ? 'text-sm font-medium truncate' : 'text-xs font-medium truncate';
+  const itemTypeClass = isImageStudio ? `text-xs uppercase tracking-[0.18em] ${subtleText}` : `text-[11px] uppercase tracking-wide ${subtleText}`;
 
   const applyUpdatedItems = (nextItems, nextSelectedId = null) => {
     setActiveItemList(nextItems);
@@ -136,16 +147,16 @@ export default function ImageLayersPanel(props) {
   };
 
   return (
-    <div className={`mt-4 rounded-xl p-3 ${cardSurface}`}>
+    <div className={`${panelPaddingClass} ${cardSurface}`}>
       <button
         type="button"
         className="w-full flex items-center justify-between"
         onClick={() => setIsCollapsed((prev) => !prev)}
       >
         <div className="flex items-center gap-2">
-          <FaLayerGroup className="text-sm" />
-          <div className="text-sm font-semibold">Layers</div>
-          <div className={`text-xs px-2 py-0.5 rounded-full ${listBackground} ${subtleText}`}>
+          <FaLayerGroup className={isImageStudio ? 'text-base' : 'text-sm'} />
+          <div className={headerLabelClass}>Layers</div>
+          <div className={countBadgeClass}>
             {items.length}
           </div>
         </div>
@@ -155,9 +166,9 @@ export default function ImageLayersPanel(props) {
       </button>
 
       {!isCollapsed && (
-        <div className={`mt-3 rounded-lg p-2 ${listBackground}`}>
+        <div className={`mt-3 rounded-2xl p-3 ${listBackground}`}>
           {items.length === 0 ? (
-            <div className={`text-xs text-center py-3 ${emptyState}`}>
+            <div className={emptyStateClass}>
               No layers yet.
             </div>
           ) : (
@@ -167,7 +178,7 @@ export default function ImageLayersPanel(props) {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="space-y-2 max-h-[220px] overflow-y-auto pr-1"
+                    className={`${isImageStudio ? 'space-y-2.5 max-h-[280px]' : 'space-y-2 max-h-[220px]'} overflow-y-auto pr-1`}
                   >
                     {items.map((item, index) => {
                       const currentItemId = item?.id ?? `item_${index}`;
@@ -183,7 +194,7 @@ export default function ImageLayersPanel(props) {
                             <div
                               ref={dragProvided.innerRef}
                               {...dragProvided.draggableProps}
-                              className={`rounded-lg px-2 py-2 transition ${rowBase} ${
+                              className={`${rowClassName} ${rowBase} ${
                                 isSelected ? rowSelected : ''
                               } ${dragSnapshot.isDragging ? 'shadow-lg' : ''}`}
                               onClick={() => setSelectedId(currentItemId)}
@@ -199,10 +210,10 @@ export default function ImageLayersPanel(props) {
                                 </div>
 
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-medium truncate">
+                                  <div className={itemTitleClass}>
                                     {getLayerLabel(item, index)}
                                   </div>
-                                  <div className={`text-[11px] uppercase tracking-wide ${subtleText}`}>
+                                  <div className={itemTypeClass}>
                                     {item?.type || 'item'}
                                   </div>
                                 </div>

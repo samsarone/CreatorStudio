@@ -39,6 +39,32 @@ const SELECTABLE_TYPES = ['SHOW_DEFAULT_DISPLAY',
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const IMAGE_SERVER_API_URL = import.meta.env.VITE_IMAGE_SERVER_API;
 
+function canDragCanvasItems({
+  editorVariant,
+  currentView,
+  currentCanvasAction,
+  selectedEditModelValue,
+}) {
+  if (editorVariant !== "imageStudio") {
+    return isTypeSelectable(currentView, currentCanvasAction);
+  }
+
+  const isMaskEditMode =
+    currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_MASK_DISPLAY
+    || (
+      currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY
+      && selectedEditModelValue?.editType === 'inpaint'
+    );
+
+  const blockedCanvasActions = new Set([
+    TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY,
+    TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY,
+    TOOLBAR_ACTION_VIEW.SHOW_SMART_SELECT_DISPLAY,
+  ]);
+
+  return !isMaskEditMode && !blockedCanvasActions.has(currentCanvasAction);
+}
+
 const VideoCanvas = forwardRef((props, ref) => {
   const {
     activeItemList, setActiveItemList, currentView, editBrushWidth, editMasklines, currentCanvasAction,
@@ -301,7 +327,12 @@ const VideoCanvas = forwardRef((props, ref) => {
     );
   };
 
-  const isDraggable = isTypeSelectable(currentView, currentCanvasAction);
+  const isCanvasItemDraggable = canDragCanvasItems({
+    editorVariant,
+    currentView,
+    currentCanvasAction,
+    selectedEditModelValue,
+  });
 
   const previousViewRef = useRef();
 
@@ -332,7 +363,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         selectedFrameId={selectedFrameId}
         showMask={showMask}
         updateToolbarButtonPosition={updateToolbarButtonPosition}
-        isDraggable={isDraggable}
+        isDraggable={isCanvasItemDraggable}
         updateTargetActiveLayerConfig={updateTargetActiveLayerConfig}
         isLayerSeeking={isLayerSeeking}
         selectLayer={selectLayer}
@@ -925,6 +956,8 @@ const VideoCanvas = forwardRef((props, ref) => {
         resetPaintImage={resetPaintImage}
         updateTargetImageActiveLayerConfig={updateTargetImageActiveLayerConfig}
         updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
+        updateTargetTextActiveLayerConfig={updateTargetTextActiveLayerConfig}
+        editorVariant={editorVariant}
       />
       {showAddRemoveMaskedItemButton && (
         <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] p-2 rounded-lg shadow-[0_10px_28px_rgba(0,0,0,0.35)] z-50">

@@ -9,10 +9,12 @@ export default function EraserToolbar(props) {
   const {
     pos,
     replaceEraserImage,
-    resetEraserImage
+    resetEraserImage,
+    editorVariant = 'videoStudio',
   } = props;
 
   const { colorMode } = useColorMode();
+  const isImageStudio = editorVariant === 'imageStudio';
 
 
 
@@ -21,16 +23,16 @@ export default function EraserToolbar(props) {
   return (
     <div key={pos.id} style={{
       position: 'absolute', left: pos.x, top: pos.y, background: "#030712",
-      width: "350px", borderRadius: "5px", padding: "5px", display: "flex", flexDirection: "column", alignItems: "center",
+      width: isImageStudio ? "420px" : "350px", borderRadius: isImageStudio ? "16px" : "5px", padding: isImageStudio ? "12px" : "5px", display: "flex", flexDirection: "column", alignItems: "center",
       zIndex: 1000
     }}>
-      <div className='grid grid-cols-2 w-full text-center'>
-        <div onClick={() => resetEraserImage()}>
-          <MdOutlineRefresh className='inline-flex' />
+      <div className={`grid grid-cols-2 w-full text-center ${isImageStudio ? 'text-sm font-medium gap-2' : ''}`}>
+        <div className={isImageStudio ? 'rounded-xl px-3 py-2 bg-white/5 cursor-pointer' : 'cursor-pointer'} onClick={() => resetEraserImage()}>
+          <MdOutlineRefresh className={`inline-flex ${isImageStudio ? 'text-lg' : ''} ${iconColor}`} />
           Reset
         </div>
-        <div onClick={() => replaceEraserImage()}>
-        <FaCheck className='inline-flex' />
+        <div className={isImageStudio ? 'rounded-xl px-3 py-2 bg-white/5 cursor-pointer' : 'cursor-pointer'} onClick={() => replaceEraserImage()}>
+        <FaCheck className={`inline-flex ${isImageStudio ? 'text-lg' : ''} ${iconColor}`} />
         Replace
         </div>
       </div>
