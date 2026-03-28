@@ -92,6 +92,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     selectedVideoGenerationModel, setSelectedVideoGenerationModel,
     videoPromptText, setVideoPromptText, promptTextVideo, setPromptTextVideo,
     updateTargetShapeActiveLayerConfigNoScale,
+    selectedEditModelValue,
     openUploadDialog,
     rightPanelView,
     promptAspectRatio,
