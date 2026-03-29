@@ -16,6 +16,7 @@ const LayersDisplay = (props) => {
   } = props;
 
   const { colorMode } = useColorMode();
+  const displayItems = Array.isArray(activeItemList) ? [...activeItemList].reverse() : [];
 
   const bgColorDragging = colorMode === 'dark' ? '#0f1629' : '#fafafa';
   const bgColorDraggingOver = colorMode === 'dark' ? '#111a2f' : '#f5f5f5';
@@ -31,10 +32,12 @@ const LayersDisplay = (props) => {
       return;
     }
 
+    const actualSourceIndex = activeItemList.length - 1 - result.source.index;
+    const actualDestinationIndex = activeItemList.length - 1 - result.destination.index;
     const newItems = reorder(
       [...activeItemList],
-      result.source.index,
-      result.destination.index
+      actualSourceIndex,
+      actualDestinationIndex
     );
 
     const reorderedItems = newItems.map((item, index) => ({
@@ -71,7 +74,7 @@ const LayersDisplay = (props) => {
             ref={provided.innerRef}
             style={getListStyle(snapshot.isDraggingOver)}
           >
-            {activeItemList.map((item, index) => (
+            {displayItems.map((item, index) => (
               <Draggable key={item.id} draggableId={item.id} index={index}>
                 {(provided, snapshot) => (
                   <div

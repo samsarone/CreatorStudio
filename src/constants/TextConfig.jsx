@@ -26,10 +26,10 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
     textAlign: 'center',
     strokeColor: '#ffffff',
     strokeWidth: 0,
-    shadowColor: 'transparent',
-    shadowBlur: 0,
+    shadowColor: 'rgba(15,23,42,0.92)',
+    shadowBlur: 8,
     shadowOffsetX: 0,
-    shadowOffsetY: 0,
+    shadowOffsetY: 2,
     rotationAngle: 0,
     autoWrap: false,
     capitalizeLetters: false,
@@ -45,4 +45,33 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
   textConfig = { ...defaultTextConfig, ...textConfig };
 
   return textConfig;
+}
+
+export function normalizeActiveTextItemListForCanvas(
+  itemList,
+  canvasDimensions = { width: 1024, height: 1024 },
+  fallbackItems = [],
+  options = {}
+) {
+  const items = Array.isArray(itemList) ? itemList : [];
+  const fallbackMap = new Map(
+    (Array.isArray(fallbackItems) ? fallbackItems : []).map((item) => [item?.id, item])
+  );
+  const preferFallbackTextConfig = options?.preferFallbackTextConfig === true;
+
+  return items.map((item) => {
+    if (!item || item.type !== 'text') {
+      return item;
+    }
+
+    const fallbackConfig = fallbackMap.get(item.id)?.config || {};
+    const mergedConfig = preferFallbackTextConfig
+      ? { ...(item.config || {}), ...fallbackConfig }
+      : { ...fallbackConfig, ...(item.config || {}) };
+
+    return {
+      ...item,
+      config: getTextConfigForCanvas(mergedConfig, canvasDimensions),
+    };
+  });
 }

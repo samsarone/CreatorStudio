@@ -84,6 +84,10 @@ export default function ImageLayersPanel(props) {
     () => (Array.isArray(activeItemList) ? activeItemList : []),
     [activeItemList]
   );
+  const displayItems = useMemo(
+    () => [...items].reverse(),
+    [items]
+  );
 
   const cardSurface =
     colorMode === 'dark'
@@ -135,8 +139,10 @@ export default function ImageLayersPanel(props) {
     if (!result.destination) return;
     if (result.destination.index === result.source.index) return;
 
-    const reordered = reorder(items, result.source.index, result.destination.index);
-    const { normalizedItems, nextSelectedId } = normalizeItemsAndSelection(reordered, selectedId);
+    const actualSourceIndex = items.length - 1 - result.source.index;
+    const actualDestinationIndex = items.length - 1 - result.destination.index;
+    const reorderedActual = reorder(items, actualSourceIndex, actualDestinationIndex);
+    const { normalizedItems, nextSelectedId } = normalizeItemsAndSelection(reorderedActual, selectedId);
     applyUpdatedItems(normalizedItems, nextSelectedId);
   };
 
@@ -180,8 +186,9 @@ export default function ImageLayersPanel(props) {
                     {...provided.droppableProps}
                     className={`${isImageStudio ? 'space-y-2.5 max-h-[280px]' : 'space-y-2 max-h-[220px]'} overflow-y-auto pr-1`}
                   >
-                    {items.map((item, index) => {
+                    {displayItems.map((item, index) => {
                       const currentItemId = item?.id ?? `item_${index}`;
+                      const actualIndex = items.length - 1 - index;
                       const isSelected = selectedId === currentItemId;
                       const isHidden = Boolean(item?.isHidden);
                       return (
@@ -211,7 +218,7 @@ export default function ImageLayersPanel(props) {
 
                                 <div className="flex-1 min-w-0">
                                   <div className={itemTitleClass}>
-                                    {getLayerLabel(item, index)}
+                                    {getLayerLabel(item, actualIndex)}
                                   </div>
                                   <div className={itemTypeClass}>
                                     {item?.type || 'item'}

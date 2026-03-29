@@ -14,7 +14,10 @@ import {
   TOOLBAR_ACTION_VIEW,
   IMAGE_EDIT_MODEL_TYPES,
 } from '../../constants/Types.ts';
-import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
+import {
+  getTextConfigForCanvas,
+  normalizeActiveTextItemListForCanvas,
+} from '../../constants/TextConfig.jsx';
 import {
   findAspectRatioOptionForCanvasDimensions,
   findClosestAspectRatioOption,
@@ -422,6 +425,8 @@ export default function ImageStudioHome() {
   const assistantPollRef = useRef(null);
   const assistantErrorCountRef = useRef(0);
   const currentLayerRef = useRef(null);
+  const activeItemListRef = useRef([]);
+  const previousSyncedLayerIdRef = useRef(null);
   const latestActiveItemListSaveRequestRef = useRef(0);
   const isHistoryInteractionBlocked =
     currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY ||
@@ -503,6 +508,10 @@ export default function ImageStudioHome() {
   useEffect(() => {
     currentLayerRef.current = currentLayer;
   }, [currentLayer]);
+
+  useEffect(() => {
+    activeItemListRef.current = activeItemList;
+  }, [activeItemList]);
 
   const getPreferredGenerationAspectRatio = useCallback(
     (nextAspectRatio, nextCanvasDimensions) => {
@@ -693,14 +702,27 @@ export default function ImageStudioHome() {
   }, [id]);
 
   useEffect(() => {
+    const currentLayerId = currentLayer?._id?.toString?.() || null;
+    const shouldReuseLocalTextConfig =
+      currentLayerId && previousSyncedLayerIdRef.current === currentLayerId;
+
     if (currentLayer?.imageSession?.activeItemList) {
-      syncActiveItemList(currentLayer.imageSession.activeItemList, {
+      syncActiveItemList(
+        normalizeActiveTextItemListForCanvas(
+          currentLayer.imageSession.activeItemList,
+          resolvedCanvasDimensions,
+          shouldReuseLocalTextConfig ? activeItemListRef.current : [],
+          { preferFallbackTextConfig: shouldReuseLocalTextConfig }
+        ),
+        {
         resetHistory: true,
-      });
+        }
+      );
     } else {
       syncActiveItemList([], { resetHistory: true });
     }
-  }, [currentLayer?._id, syncActiveItemList]);
+    previousSyncedLayerIdRef.current = currentLayerId;
+  }, [currentLayer?._id, resolvedCanvasDimensions, syncActiveItemList]);
 
   useEffect(() => {
     return () => {
@@ -740,7 +762,14 @@ export default function ImageStudioHome() {
         if (layer && currentLayerRef.current?._id?.toString?.() === requestLayerId) {
           setCurrentLayer(layer);
           if (layer?.imageSession?.activeItemList) {
-            syncActiveItemList(layer.imageSession.activeItemList);
+            syncActiveItemList(
+              normalizeActiveTextItemListForCanvas(
+                layer.imageSession.activeItemList,
+                resolvedCanvasDimensions,
+                newActiveItemList,
+                { preferFallbackTextConfig: true }
+              )
+            );
           } else {
             syncActiveItemList([]);
           }
@@ -885,7 +914,13 @@ export default function ImageStudioHome() {
         type: 'text',
         text: normalizedText,
         id: `item_${activeItemList.length}`,
-        config: getTextConfigForCanvas(payload?.config || textConfig, resolvedCanvasDimensions),
+        config: getTextConfigForCanvas(
+          {
+            ...(textConfig || {}),
+            ...(payload?.config || {}),
+          },
+          resolvedCanvasDimensions
+        ),
       };
 
       const newItemList = [...activeItemList, nextTextItem];
@@ -1381,8 +1416,17 @@ export default function ImageStudioHome() {
         const fontSize = item.config?.fontSize || 40;
         ctx.fillStyle = item.config?.fillColor || '#000000';
         ctx.font = `${fontSize}px ${item.config?.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config?.align || 'left';
+        ctx.textAlign = item.config?.textAlign || 'left';
         ctx.textBaseline = 'top';
+        ctx.shadowColor = item.config?.shadowColor || 'transparent';
+        ctx.shadowBlur = item.config?.shadowBlur || 0;
+        ctx.shadowOffsetX = item.config?.shadowOffsetX || 0;
+        ctx.shadowOffsetY = item.config?.shadowOffsetY || 0;
+        if ((item.config?.strokeWidth || 0) > 0) {
+          ctx.strokeStyle = item.config?.strokeColor || '#ffffff';
+          ctx.lineWidth = item.config?.strokeWidth || 0;
+          ctx.strokeText(item.text || '', 0, 0);
+        }
         ctx.fillText(item.text || '', 0, 0);
       } else if (item.type === 'shape') {
         const config = item.config || {};

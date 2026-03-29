@@ -1291,8 +1291,17 @@ export default function VideoEditorContainer(props) {
         const fontSize = item.config.fontSize || 40;
         ctx.fillStyle = item.config.fillColor || '#000000';
         ctx.font = `${fontSize}px ${item.config.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config.align || 'left';
+        ctx.textAlign = item.config.textAlign || 'left';
         ctx.textBaseline = 'top';
+        ctx.shadowColor = item.config.shadowColor || 'transparent';
+        ctx.shadowBlur = item.config.shadowBlur || 0;
+        ctx.shadowOffsetX = item.config.shadowOffsetX || 0;
+        ctx.shadowOffsetY = item.config.shadowOffsetY || 0;
+        if ((item.config.strokeWidth || 0) > 0) {
+          ctx.strokeStyle = item.config.strokeColor || '#ffffff';
+          ctx.lineWidth = item.config.strokeWidth || 0;
+          ctx.strokeText(item.text, 0, 0);
+        }
         ctx.fillText(item.text, 0, 0);
       } else if (item.type === 'shape') {
         const config = item.config;
@@ -1715,8 +1724,17 @@ export default function VideoEditorContainer(props) {
         const fontSize = item.config.fontSize || 40;
         ctx.fillStyle = item.config.fillColor || '#000000';
         ctx.font = `${fontSize}px ${item.config.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config.align || 'left';
+        ctx.textAlign = item.config.textAlign || 'left';
         ctx.textBaseline = 'top';
+        ctx.shadowColor = item.config.shadowColor || 'transparent';
+        ctx.shadowBlur = item.config.shadowBlur || 0;
+        ctx.shadowOffsetX = item.config.shadowOffsetX || 0;
+        ctx.shadowOffsetY = item.config.shadowOffsetY || 0;
+        if ((item.config.strokeWidth || 0) > 0) {
+          ctx.strokeStyle = item.config.strokeColor || '#ffffff';
+          ctx.lineWidth = item.config.strokeWidth || 0;
+          ctx.strokeText(item.text, 0, 0);
+        }
         ctx.fillText(item.text, 0, 0);
       } else if (item.type === 'shape') {
         const config = item.config;
@@ -1978,9 +1996,20 @@ export default function VideoEditorContainer(props) {
    *            TEXT / SHAPES
    ************************************************/
   const addTextBoxToCanvas = (payload) => {
+    const normalizedTextConfig = getTextConfigForCanvas(
+      {
+        ...(textConfig || {}),
+        ...(payload?.config || {}),
+      },
+      getCanvasDimensionsForAspectRatio(aspectRatio)
+    );
     const nImageList = [
       ...activeItemList,
-      { ...payload, id: `item_${activeItemList.length}` },
+      {
+        ...payload,
+        id: `item_${activeItemList.length}`,
+        config: normalizedTextConfig,
+      },
     ];
 
     // If any item is an image with a query param in src, remove it

@@ -17,6 +17,8 @@ import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
+import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+import { normalizeActiveTextItemListForCanvas } from '../../constants/TextConfig.jsx';
 
 
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
@@ -143,6 +145,8 @@ export default function VideoHome(props) {
   const layerPollTimerRef = useRef(null);
   const layersRef = useRef([]);
   const currentLayerRef = useRef({});
+  const activeItemListRef = useRef([]);
+  const previousSyncedLayerIdRef = useRef(null);
   const sessionIdRef = useRef(null);
   const videoSessionDetailsRef = useRef(null);
   const latestActiveItemListSaveRequestRef = useRef(0);
@@ -288,6 +292,10 @@ export default function VideoHome(props) {
   useEffect(() => {
     currentLayerRef.current = currentLayer;
   }, [currentLayer]);
+
+  useEffect(() => {
+    activeItemListRef.current = activeItemList;
+  }, [activeItemList]);
 
   useEffect(() => {
     sessionIdRef.current = id;
@@ -880,8 +888,17 @@ export default function VideoHome(props) {
 
 
   useEffect(() => {
+    const currentLayerId = currentLayer?._id?.toString?.() || null;
+    const shouldReuseLocalTextConfig =
+      currentLayerId && previousSyncedLayerIdRef.current === currentLayerId;
+
     if (currentLayer && currentLayer.imageSession && currentLayer.imageSession.activeItemList) {
-      const activeList = currentLayer.imageSession.activeItemList.map(function (item) {
+      const activeList = normalizeActiveTextItemListForCanvas(
+        currentLayer.imageSession.activeItemList,
+        getCanvasDimensionsForAspectRatio(videoSessionDetails?.aspectRatio),
+        shouldReuseLocalTextConfig ? activeItemListRef.current : [],
+        { preferFallbackTextConfig: shouldReuseLocalTextConfig }
+      ).map(function (item) {
         return { ...item, isHidden: false };
       });
       setActiveItemList(activeList);
@@ -890,6 +907,7 @@ export default function VideoHome(props) {
     } else {
       setActiveItemList([]);
     }
+    previousSyncedLayerIdRef.current = currentLayerId;
   }, [currentLayer]);
 
   // Image Preloading Worker Setup
@@ -1579,7 +1597,14 @@ export default function VideoHome(props) {
             && updatedLayerId === requestLayerId
           ) {
             setCurrentLayer(layer);
-            setActiveItemList(layer?.imageSession?.activeItemList || []);
+            setActiveItemList(
+              normalizeActiveTextItemListForCanvas(
+                layer?.imageSession?.activeItemList || [],
+                getCanvasDimensionsForAspectRatio(session?.aspectRatio || sessionDetailsSnapshot?.aspectRatio),
+                newActiveItemList,
+                { preferFallbackTextConfig: true }
+              )
+            );
           }
 
           setIsCanvasDirty(true);
