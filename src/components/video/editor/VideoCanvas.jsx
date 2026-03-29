@@ -93,6 +93,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     videoPromptText, setVideoPromptText, promptTextVideo, setPromptTextVideo,
     updateTargetShapeActiveLayerConfigNoScale,
     selectedEditModelValue,
+    onPersistTextStyle,
     openUploadDialog,
     rightPanelView,
     promptAspectRatio,
@@ -144,6 +145,8 @@ const VideoCanvas = forwardRef((props, ref) => {
     expressGenerativeVideoRequired,
 
     showGridOverlay,
+    showCanvasNavigationGrid,
+    canvasNavigationGridGranularity,
 
   } = useContext(NavCanvasControlContext);
 
@@ -805,8 +808,13 @@ const VideoCanvas = forwardRef((props, ref) => {
     let canvasInternalLoading = <span />;
 
     let canvasGridOverlay = <span />;
-    if (showGridOverlay) {
-      canvasGridOverlay = <VideoCanvasGridOverlay canvasDimensions={canvasDimensions} />;
+    if (showGridOverlay || showCanvasNavigationGrid) {
+      canvasGridOverlay = (
+        <VideoCanvasGridOverlay
+          canvasDimensions={canvasDimensions}
+          granularityMultiplier={canvasNavigationGridGranularity}
+        />
+      );
 
     }
     if (isUpdateLayerPending) {
@@ -958,6 +966,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         updateTargetImageActiveLayerConfig={updateTargetImageActiveLayerConfig}
         updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
         updateTargetTextActiveLayerConfig={updateTargetTextActiveLayerConfig}
+        onPersistTextStyle={onPersistTextStyle}
         editorVariant={editorVariant}
       />
       {showAddRemoveMaskedItemButton && (

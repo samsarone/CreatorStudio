@@ -2,9 +2,12 @@ import React from 'react';
 import { useColorMode } from '../../../../contexts/ColorMode';
 
 export default function VideoCanvasGridOverlay(props) {
-  const { canvasDimensions } = props;
+  const { canvasDimensions, granularityMultiplier = 1 } = props;
   const { colorMode } = useColorMode();
   const { width, height } = canvasDimensions;
+  const safeGranularityMultiplier = Math.min(Math.max(Number(granularityMultiplier) || 1, 1), 10);
+  const minorGridDivisions = 20 * safeGranularityMultiplier;
+  const majorGridStep = 2 * safeGranularityMultiplier;
 
   // If there’s no valid width/height, don’t render
   if (!width || !height) {
@@ -28,14 +31,15 @@ export default function VideoCanvasGridOverlay(props) {
   const hLine1 = height / 3;
   const hLine2 = (2 * height) / 3;
 
-  // Generate a grid at each 10% step
+  // Generate a fine navigation grid with stronger guide lines every 10%.
   const verticalGridLines = [];
   const horizontalGridLines = [];
   const labels = [];
 
-  for (let i = 1; i < 10; i++) {
-    const x = (width * i) / 10;
-    const y = (height * i) / 10;
+  for (let i = 1; i < minorGridDivisions; i++) {
+    const x = (width * i) / minorGridDivisions;
+    const y = (height * i) / minorGridDivisions;
+    const isMajorLine = i % majorGridStep === 0;
 
     // Vertical line
     verticalGridLines.push(
@@ -45,24 +49,25 @@ export default function VideoCanvasGridOverlay(props) {
         y1={0}
         x2={x}
         y2={height}
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray="3,3"
+        stroke={isMajorLine ? lineColorBold : lineColor}
+        strokeWidth={isMajorLine ? '1.2' : '1'}
+        strokeDasharray={isMajorLine ? '4,4' : '2,4'}
       />
     );
-    // Label for the vertical line (top edge)
-    labels.push(
-      <text
-        key={`v-label-${i}`}
-        x={x + 2}
-        y={12}
-        fill={lineColor}
-        fontSize={10}
-        fontFamily="sans-serif"
-      >
-        {`${i * 10}%`}
-      </text>
-    );
+    if (isMajorLine) {
+      labels.push(
+        <text
+          key={`v-label-${i}`}
+          x={x + 2}
+          y={12}
+          fill={lineColor}
+          fontSize={10}
+          fontFamily="sans-serif"
+        >
+          {`${Math.round((i / minorGridDivisions) * 100)}%`}
+        </text>
+      );
+    }
 
     // Horizontal line
     horizontalGridLines.push(
@@ -72,24 +77,25 @@ export default function VideoCanvasGridOverlay(props) {
         y1={y}
         x2={width}
         y2={y}
-        stroke={lineColor}
-        strokeWidth="1"
-        strokeDasharray="3,3"
+        stroke={isMajorLine ? lineColorBold : lineColor}
+        strokeWidth={isMajorLine ? '1.2' : '1'}
+        strokeDasharray={isMajorLine ? '4,4' : '2,4'}
       />
     );
-    // Label for the horizontal line (left edge)
-    labels.push(
-      <text
-        key={`h-label-${i}`}
-        x={4}
-        y={y - 2}
-        fill={lineColor}
-        fontSize={10}
-        fontFamily="sans-serif"
-      >
-        {`${i * 10}%`}
-      </text>
-    );
+    if (isMajorLine) {
+      labels.push(
+        <text
+          key={`h-label-${i}`}
+          x={4}
+          y={y - 2}
+          fill={lineColor}
+          fontSize={10}
+          fontFamily="sans-serif"
+        >
+          {`${Math.round((i / minorGridDivisions) * 100)}%`}
+        </text>
+      );
+    }
   }
 
   // Draw center crosshair
@@ -109,6 +115,7 @@ export default function VideoCanvasGridOverlay(props) {
     <div
       style={{
         position: 'absolute',
+        top: 0,
         left: 0,
         width,
         height,
@@ -116,7 +123,7 @@ export default function VideoCanvasGridOverlay(props) {
         zIndex: 20,
       }}
     >
-      <svg width={width} height={height} style={{ display: 'block' }}>
+      <svg width={width} height={height} style={{ display: 'block', pointerEvents: 'none' }}>
         {/* 10% Grid lines (thin) */}
         {verticalGridLines}
         {horizontalGridLines}

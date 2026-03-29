@@ -3245,10 +3245,15 @@ export default function VideoEditorContainer(props) {
               requestRealignLayers={requestReAlignLayersToSpeechAndRegenerateSubtitles}
               totalDuration={totalDuration}
               selectedEditModelValue={selectedEditModelValue}
-
               createTextLayer={createTextLayer}
               requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
               requestLipSyncToSpeech={requestLipSyncToSpeech}
+              onPersistTextStyle={(nextStyle) =>
+                setTextConfig((prev) => ({
+                  ...(prev || {}),
+                  ...(nextStyle || {}),
+                }))
+              }
               setPromptText={setPromptText}
               promptText={promptText}
               submitGenerateRequest={submitGenerateRequest}

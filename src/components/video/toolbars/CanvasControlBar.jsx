@@ -32,14 +32,34 @@ export default function CanvasControlBar(props) {
     setIsVideoPreviewPlaying,
     isVideoPreviewPlaying,
     isRenderPending,
+    editorVariant = 'videoStudio',
   } = props;
 
-  const {  toggleShowGridOverlay, toggleIsVideoPreviewPlaying } = useContext(NavCanvasControlContext);
+  const {
+    showCanvasNavigationGrid,
+    toggleShowCanvasNavigationGrid,
+    canvasNavigationGridGranularity,
+    setCanvasNavigationGridGranularity,
+    zoomCanvasIn,
+    zoomCanvasOut,
+    resetCanvasZoom,
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
+  } = useContext(NavCanvasControlContext);
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
   const { t } = useLocalization();
+  const isImageStudio = editorVariant === 'imageStudio';
   let expressGenerationLink = null;
+  const gridGranularityOptions = Array.from({ length: 10 }, (_, index) => ({
+    value: index + 1,
+    label: `${index + 1}x`,
+  }));
+  const selectedGridGranularityOption =
+    gridGranularityOptions.find((option) => option.value === canvasNavigationGridGranularity)
+    || gridGranularityOptions[2];
 
 
 
@@ -59,14 +79,6 @@ export default function CanvasControlBar(props) {
       </div>
     );
   };
-
-
-  const showGridView = () => {
-    // Simply toggle the grid overlay on/off
-    toggleShowGridOverlay();
-  };
-
-
   const showPlayPause = () => {
    // toggleIsVideoPreviewPlaying();
    isVideoPreviewPlaying ? setIsVideoPreviewPlaying(false) : setIsVideoPreviewPlaying(true);
@@ -90,14 +102,16 @@ export default function CanvasControlBar(props) {
             </div>
           </div>
           <div className="inline-block mr-4">
-            <div className="block">
-              <div className="font-bold">
-                {totalEffectiveDuration ? totalEffectiveDuration.toFixed(2) : '-'}
+            {!isImageStudio && (
+              <div className="block">
+                <div className="font-bold">
+                  {totalEffectiveDuration ? totalEffectiveDuration.toFixed(2) : '-'}
+                </div>
+                <div className="">
+                  {t("common.duration")}
+                </div>
               </div>
-              <div className="">
-                {t("common.duration")}
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
@@ -119,27 +133,53 @@ export default function CanvasControlBar(props) {
 
         {canvasDimensionsDisplay}
         {expressGenerationLink}
-        <div>
-          <SecondaryButton onClick={downloadCurrentFrame}>
-            <FaDownload className="text-xs inline-flex mr-1" /> {t("common.frame")}
-          </SecondaryButton>
+        {!isImageStudio && (
+          <div>
+            <SecondaryButton onClick={downloadCurrentFrame}>
+              <FaDownload className="text-xs inline-flex mr-1" /> {t("common.frame")}
+            </SecondaryButton>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <SecondaryPublicButton onClick={toggleShowCanvasNavigationGrid}>
+            <IoMdGrid className="text-xs inline-flex mr-1" /> {showCanvasNavigationGrid ? 'Hide Canvas Grid' : 'Canvas Grid'}
+          </SecondaryPublicButton>
+          {showCanvasNavigationGrid && (
+            <div className="w-[92px] min-w-[92px] text-xs">
+              <SingleSelect
+                options={gridGranularityOptions}
+                value={selectedGridGranularityOption}
+                onChange={(option) => setCanvasNavigationGridGranularity(option?.value || 1)}
+                classNamePrefix="canvas-grid-granularity"
+                isSearchable={false}
+              />
+            </div>
+          )}
         </div>
 
-        <div>
-          <SecondaryButton onClick={showGridView}>
-            <IoMdGrid className="text-xs inline-flex mr-1" /> {t("common.grid")}
-          </SecondaryButton>
-        </div>
-
-
-
-
-
-        <div>
-          <SecondaryPublicButton onClick={showPlayPause}>
-            {isVideoPreviewPlaying ? <><FaPause className="text-xs inline-flex mr-1" /> {t("common.pause")}</> : <><FaPlay className="text-xs inline-flex mr-1" /> {t("common.play")}</>}
+        <div className="flex items-center gap-2">
+          <div className="text-xs font-semibold whitespace-nowrap">
+            Zoom {canvasZoomPercent}%
+          </div>
+          <SecondaryPublicButton onClick={zoomCanvasOut} extraClasses={!canZoomOutCanvas ? 'opacity-50 pointer-events-none' : ''}>
+            Out
+          </SecondaryPublicButton>
+          <SecondaryPublicButton onClick={resetCanvasZoom}>
+            Reset
+          </SecondaryPublicButton>
+          <SecondaryPublicButton onClick={zoomCanvasIn} extraClasses={!canZoomInCanvas ? 'opacity-50 pointer-events-none' : ''}>
+            In
           </SecondaryPublicButton>
         </div>
+
+        {!isImageStudio && (
+          <div>
+            <SecondaryPublicButton onClick={showPlayPause}>
+              {isVideoPreviewPlaying ? <><FaPause className="text-xs inline-flex mr-1" /> {t("common.pause")}</> : <><FaPlay className="text-xs inline-flex mr-1" /> {t("common.play")}</>}
+            </SecondaryPublicButton>
+          </div>
+        )}
 
 
 

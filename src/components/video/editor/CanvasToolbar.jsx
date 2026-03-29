@@ -44,6 +44,7 @@ export default function CanvasToolbar(props) {
     updateTargetImageActiveLayerConfig,
     updateTargetShapeActiveLayerConfigNoScale,
     updateTargetTextActiveLayerConfig,
+    onPersistTextStyle,
     editorVariant = 'videoStudio',
   } = props;
 
@@ -103,6 +104,7 @@ export default function CanvasToolbar(props) {
             itemId={selectedId}
             updateTargetTextActiveLayerConfig={updateTargetTextActiveLayerConfig}
             activeItemList={activeItemList}
+            onPersistTextStyle={onPersistTextStyle}
             editorVariant={editorVariant}
             />
           )

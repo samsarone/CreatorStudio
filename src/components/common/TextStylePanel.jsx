@@ -36,11 +36,24 @@ export const TEXT_FONT_OPTIONS = [
   { value: 'Serif', label: 'Serif' },
 ];
 
-const DEFAULT_TEXT_STYLE_DRAFT = {
+export const TEXT_STYLE_STORAGE_KEYS = {
+  fontSize: 'selected_text_config_fontSize',
+  fontFamily: 'selected_text_config_fontFamily',
+  fillColor: 'selected_text_config_fillColor',
+  strokeColor: 'selected_text_config_strokeColor',
+  strokeWidth: 'selected_text_config_strokeWidth',
+  bold: 'selected_text_config_bold',
+  italic: 'selected_text_config_italic',
+  underline: 'selected_text_config_underline',
+  textAlign: 'selected_text_config_textAlign',
+  lineHeight: 'selected_text_config_lineHeight',
+};
+
+export const DEFAULT_TEXT_STYLE_DRAFT = {
   text: '',
   fontSize: 32,
   fontFamily: 'Arial',
-  fillColor: '#000000',
+  fillColor: '#ffffff',
   strokeColor: '#ffffff',
   strokeWidth: 0,
   bold: false,
@@ -49,6 +62,19 @@ const DEFAULT_TEXT_STYLE_DRAFT = {
   textAlign: 'center',
   lineHeight: 1.2,
 };
+
+const SHARED_TEXT_STYLE_FIELDS = [
+  'fontSize',
+  'fontFamily',
+  'fillColor',
+  'strokeColor',
+  'strokeWidth',
+  'bold',
+  'italic',
+  'underline',
+  'textAlign',
+  'lineHeight',
+];
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}){1,2}$/i;
 
@@ -74,11 +100,75 @@ export function mapTextDraftToConfig(value = {}) {
   return config;
 }
 
+export function mapTextDraftToStyleConfig(value = {}) {
+  const draft = buildTextStyleDraft(value);
+  return SHARED_TEXT_STYLE_FIELDS.reduce((styleConfig, field) => {
+    styleConfig[field] = draft[field];
+    return styleConfig;
+  }, {});
+}
+
 export function mapTextItemToDraft(item) {
   return buildTextStyleDraft({
     text: item?.text || '',
     ...(item?.config || {}),
   });
+}
+
+export function loadStoredTextStyleConfig(storage) {
+  const resolvedStorage =
+    storage || (typeof window !== 'undefined' ? window.localStorage : null);
+  if (!resolvedStorage) {
+    return {};
+  }
+
+  const storedFontSize = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.fontSize);
+  const storedFontFamily = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.fontFamily);
+  const storedFillColor = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.fillColor);
+  const storedStrokeColor = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.strokeColor);
+  const storedStrokeWidth = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.strokeWidth);
+  const storedBold = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.bold);
+  const storedItalic = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.italic);
+  const storedUnderline = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.underline);
+  const storedTextAlign = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.textAlign);
+  const storedLineHeight = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.lineHeight);
+
+  return Object.fromEntries(
+    Object.entries({
+      fontSize: storedFontSize ? parseInt(storedFontSize, 10) : undefined,
+      fontFamily: storedFontFamily || undefined,
+      fillColor: storedFillColor || undefined,
+      strokeColor: storedStrokeColor || undefined,
+      strokeWidth: storedStrokeWidth ? parseInt(storedStrokeWidth, 10) : undefined,
+      bold: storedBold === 'true' ? true : storedBold === 'false' ? false : undefined,
+      italic: storedItalic === 'true' ? true : storedItalic === 'false' ? false : undefined,
+      underline: storedUnderline === 'true' ? true : storedUnderline === 'false' ? false : undefined,
+      textAlign: storedTextAlign || undefined,
+      lineHeight: storedLineHeight ? parseFloat(storedLineHeight) : undefined,
+    }).filter(([, value]) => value !== undefined)
+  );
+}
+
+export function persistTextStyleConfig(value, storage) {
+  const resolvedStorage =
+    storage || (typeof window !== 'undefined' ? window.localStorage : null);
+  if (!resolvedStorage) {
+    return;
+  }
+
+  const draft = buildTextStyleDraft(value);
+  const sharedStyle = mapTextDraftToStyleConfig(draft);
+
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.fontSize, `${sharedStyle.fontSize}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.fontFamily, sharedStyle.fontFamily);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.fillColor, sharedStyle.fillColor);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.strokeColor, sharedStyle.strokeColor);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.strokeWidth, `${sharedStyle.strokeWidth}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.bold, `${sharedStyle.bold}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.italic, `${sharedStyle.italic}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.underline, `${sharedStyle.underline}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.textAlign, sharedStyle.textAlign);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.lineHeight, `${sharedStyle.lineHeight}`);
 }
 
 function IconToggleButton({ active, onClick, children, title, className = '' }) {
@@ -119,10 +209,12 @@ export default function TextStylePanel(props) {
     header = 'Text',
     helperText = null,
     layerActions = [],
+    density = 'comfortable',
   } = props;
 
   const { colorMode } = useColorMode();
   const isImageStudio = editorVariant === 'imageStudio';
+  const isCompact = density === 'compact';
   const draft = buildTextStyleDraft(value);
 
   const fieldSurface =
@@ -150,8 +242,8 @@ export default function TextStylePanel(props) {
     colorMode === 'dark'
       ? 'bg-[#111a2f] border-[#1f2a3d] text-slate-200 hover:bg-[#17233d]'
       : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100';
-  const inputClassName = `w-full rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/20 ${fieldSurface}`;
-  const sectionTitleClass = `mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`;
+  const inputClassName = `w-full rounded-xl px-3 ${isCompact ? 'py-2' : 'py-2.5'} text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/20 ${fieldSurface}`;
+  const sectionTitleClass = `${isCompact ? 'mb-1' : 'mb-2'} text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`;
 
   const updateDraft = (changes) => {
     if (typeof onChange !== 'function') return;
@@ -197,11 +289,11 @@ export default function TextStylePanel(props) {
     { key: 'right', icon: <FaAlignRight />, title: 'Align right' },
   ];
 
-  const safeFillColor = getSafeColorValue(draft.fillColor, '#000000');
+  const safeFillColor = getSafeColorValue(draft.fillColor, '#ffffff');
   const safeStrokeColor = getSafeColorValue(draft.strokeColor, '#ffffff');
 
   return (
-    <div className={`flex flex-col ${isImageStudio ? 'gap-4' : 'gap-3'}`}>
+    <div className={`flex flex-col ${isCompact ? 'gap-2.5' : isImageStudio ? 'gap-4' : 'gap-3'}`}>
       <div>
         <div className={`${isImageStudio ? 'text-base' : 'text-sm'} font-semibold`}>{header}</div>
         {helperText ? <div className={`mt-1 text-xs ${mutedText}`}>{helperText}</div> : null}
@@ -210,15 +302,15 @@ export default function TextStylePanel(props) {
       <div>
         <div className={sectionTitleClass}>Content</div>
         <TextareaAutosize
-          minRows={isImageStudio ? 4 : 3}
+          minRows={isCompact ? 2 : isImageStudio ? 4 : 3}
           value={draft.text}
           onChange={(event) => updateDraft({ text: event.target.value })}
           placeholder="Enter text"
-          className={`${inputClassName} min-h-[96px] resize-none`}
+          className={`${inputClassName} ${isCompact ? 'min-h-[72px]' : 'min-h-[96px]'} resize-none`}
         />
       </div>
 
-      <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
+      <div className={`grid grid-cols-[minmax(0,1fr)_110px] ${isCompact ? 'gap-2' : 'gap-3'}`}>
         <div>
           <div className={sectionTitleClass}>Font</div>
           <SingleSelect
@@ -234,14 +326,14 @@ export default function TextStylePanel(props) {
             min="1"
             max="240"
             value={draft.fontSize}
-            onChange={(event) => updateNumericField('fontSize', event.target.value, 16, { min: 1, max: 240 })}
+            onChange={(event) => updateNumericField('fontSize', event.target.value, DEFAULT_TEXT_STYLE_DRAFT.fontSize, { min: 1, max: 240 })}
             className={inputClassName}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className={`${cardSurface} rounded-2xl p-3`}>
+      <div className={`grid grid-cols-2 ${isCompact ? 'gap-2' : 'gap-3'}`}>
+        <div className={`${cardSurface} rounded-2xl ${isCompact ? 'p-2.5' : 'p-3'}`}>
           <div className={sectionTitleClass}>Text Color</div>
           <div className="flex items-center gap-3">
             <input
@@ -256,13 +348,18 @@ export default function TextStylePanel(props) {
           </div>
         </div>
 
-        <div className={`${cardSurface} rounded-2xl p-3`}>
+        <div className={`${cardSurface} rounded-2xl ${isCompact ? 'p-2.5' : 'p-3'}`}>
           <div className={sectionTitleClass}>Outline</div>
           <div className="flex items-center gap-3">
             <input
               type="color"
               value={safeStrokeColor}
-              onChange={(event) => updateDraft({ strokeColor: event.target.value })}
+              onChange={(event) =>
+                updateDraft({
+                  strokeColor: event.target.value,
+                  strokeWidth: draft.strokeWidth > 0 ? draft.strokeWidth : 1,
+                })
+              }
               className="h-11 w-14 cursor-pointer rounded-xl border border-slate-300 bg-transparent p-1"
             />
             <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -282,7 +379,7 @@ export default function TextStylePanel(props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={`grid grid-cols-2 ${isCompact ? 'gap-2' : 'gap-3'}`}>
         <div>
           <div className={sectionTitleClass}>Style</div>
           <div className="grid grid-cols-3 gap-2">
@@ -318,7 +415,7 @@ export default function TextStylePanel(props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={`grid ${isCompact ? 'grid-cols-1' : 'grid-cols-2'} ${isCompact ? 'gap-2' : 'gap-3'}`}>
         <div>
           <div className={sectionTitleClass}>Line Height</div>
           <input
@@ -332,28 +429,30 @@ export default function TextStylePanel(props) {
           />
         </div>
 
-        <div className={`${cardSurface} rounded-2xl p-3`}>
-          <div className={sectionTitleClass}>Preview</div>
-          <div
-            className={`rounded-xl px-3 py-3 text-sm ${fieldSurface}`}
-            style={{
-              fontFamily: draft.fontFamily,
-              fontSize: `${Math.max(14, Math.min(draft.fontSize, 28))}px`,
-              color: safeFillColor,
-              WebkitTextStroke:
-                draft.strokeWidth > 0
-                  ? `${Math.max(0.4, Math.min(draft.strokeWidth, 3))}px ${safeStrokeColor}`
-                  : '0 transparent',
-              fontWeight: draft.bold ? 700 : 400,
-              fontStyle: draft.italic ? 'italic' : 'normal',
-              textDecoration: draft.underline ? 'underline' : 'none',
-              textAlign: draft.textAlign,
-              lineHeight: draft.lineHeight,
-            }}
-          >
-            {draft.text || 'Sample text'}
+        {!isCompact ? (
+          <div className={`${cardSurface} rounded-2xl ${isCompact ? 'p-2.5' : 'p-3'}`}>
+            <div className={sectionTitleClass}>Preview</div>
+            <div
+              className={`rounded-xl px-3 py-3 text-sm ${fieldSurface}`}
+              style={{
+                fontFamily: draft.fontFamily,
+                fontSize: `${Math.max(14, Math.min(draft.fontSize, 28))}px`,
+                color: safeFillColor,
+                WebkitTextStroke:
+                  draft.strokeWidth > 0
+                    ? `${Math.max(0.4, Math.min(draft.strokeWidth, 3))}px ${safeStrokeColor}`
+                    : '0 transparent',
+                fontWeight: draft.bold ? 700 : 400,
+                fontStyle: draft.italic ? 'italic' : 'normal',
+                textDecoration: draft.underline ? 'underline' : 'none',
+                textAlign: draft.textAlign,
+                lineHeight: draft.lineHeight,
+              }}
+            >
+              {draft.text || 'Sample text'}
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
 
       {layerActions.length > 0 ? (

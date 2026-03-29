@@ -1,5 +1,5 @@
 import VideoCanvas from "./VideoCanvas";
-import React, { forwardRef, useEffect, useState, useRef } from "react";
+import React, { forwardRef, useContext, useEffect, useState, useRef } from "react";
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
 import { generateCursor, generatePencilCursor } from "../util/GenerateSVG.jsx";
 import Konva from 'konva';
@@ -9,6 +9,7 @@ import {
 } from '../../../utils/frame_animation/GlitchUtils.jsx';
 import { applyBloomEffect } from '../../../utils/frame_animation/BloomUtils.jsx';
 import { createLayerBoundImageItem } from '../util/layerBoundImageItem.js';
+import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 
 
 
@@ -168,7 +169,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     exportAnimationFrames, currentLayer, currentLayerSeek, updateSessionActiveItemList,
     selectedLayerSelectShape, isLayerSeeking, applyFinalFilter, isExpressGeneration,
     stageZoomScale, selectedEditModelValue, createTextLayer, requestRealignToAiVideoAndLayers,
-    requestLipSyncToSpeech
+    requestLipSyncToSpeech, onPersistTextStyle
   } = props;
 
 
@@ -216,6 +217,13 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const [tempTopNode, setTempTopNode] = useState(null);
   const eraserTargetItemIdRef = useRef(null);
   const eraserExitHandledRef = useRef(false);
+  const lastEraserPointRef = useRef(null);
+  const {
+    showCanvasNavigationGrid,
+    setShowCanvasNavigationGrid,
+    canvasNavigationGridGranularity,
+    snapEraserToGrid,
+  } = useContext(NavCanvasControlContext);
   const createCurrentLayerImageItem = (imagePayload) =>
     createLayerBoundImageItem({ layer: currentLayer, ...imagePayload });
   const isMaskPaintMode =
@@ -264,6 +272,88 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const getEraserLayerImageNode = () =>
     eraserLayer?.findOne('#originalShape') || eraserLayer?.children?.[0] || null;
 
+  const getCanvasGridStep = (stage) => {
+    const stageWidth = Number(stage?.width?.()) || 0;
+    const stageHeight = Number(stage?.height?.()) || 0;
+    const granularityMultiplier = Math.min(
+      Math.max(Number(canvasNavigationGridGranularity) || 1, 1),
+      10
+    );
+    return {
+      x: stageWidth > 0 ? stageWidth / (20 * granularityMultiplier) : 0,
+      y: stageHeight > 0 ? stageHeight / (20 * granularityMultiplier) : 0,
+    };
+  };
+
+  const getResolvedEraserPoint = (stage, point) => {
+    if (!point) {
+      return null;
+    }
+
+    if (!snapEraserToGrid) {
+      return point;
+    }
+
+    const { x: stepX, y: stepY } = getCanvasGridStep(stage);
+    const stageWidth = Number(stage?.width?.()) || point.x;
+    const stageHeight = Number(stage?.height?.()) || point.y;
+    if (!stepX || !stepY) {
+      return point;
+    }
+
+    return {
+      x: Math.min(Math.max(Math.round(point.x / stepX) * stepX, 0), stageWidth),
+      y: Math.min(Math.max(Math.round(point.y / stepY) * stepY, 0), stageHeight),
+    };
+  };
+
+  const drawEraserStrokeAtPoint = (activeEraserLayer, stage, point, options = {}) => {
+    if (!activeEraserLayer || !stage || !point) {
+      return;
+    }
+
+    const resolvedPoint = getResolvedEraserPoint(stage, point);
+    if (!resolvedPoint) {
+      return;
+    }
+
+    const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
+    const isInitialPoint = options.isInitialPoint || !lastEraserPointRef.current;
+
+    if (snapEraserToGrid && !isInitialPoint) {
+      const previousPoint = lastEraserPointRef.current;
+      if (previousPoint.x === resolvedPoint.x && previousPoint.y === resolvedPoint.y) {
+        return;
+      }
+
+      const eraserSegment = new Konva.Line({
+        points: [previousPoint.x, previousPoint.y, resolvedPoint.x, resolvedPoint.y],
+        stroke: 'black',
+        strokeWidth: eraserRadius * 2,
+        lineCap: 'round',
+        lineJoin: 'round',
+        globalCompositeOperation: 'destination-out',
+        listening: false,
+        id: 'eraserLine',
+      });
+      activeEraserLayer.add(eraserSegment);
+    } else {
+      const eraserShape = new Konva.Circle({
+        x: resolvedPoint.x,
+        y: resolvedPoint.y,
+        radius: eraserRadius,
+        fill: 'black',
+        globalCompositeOperation: 'destination-out',
+        listening: false,
+        id: 'eraserCircle',
+      });
+      activeEraserLayer.add(eraserShape);
+    }
+
+    lastEraserPointRef.current = resolvedPoint;
+    activeEraserLayer.batchDraw();
+  };
+
   const getEraserResultPayload = () => {
     if (!eraserLayer) {
       return null;
@@ -299,6 +389,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const finishEraserStroke = (activeEraserLayer = eraserLayer) => {
     if (!activeEraserLayer) {
       setIsPainting(false);
+      lastEraserPointRef.current = null;
       return;
     }
 
@@ -309,11 +400,18 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       setEraserToolbarVisible(true);
     }
     setIsPainting(false);
+    lastEraserPointRef.current = null;
     setEraserLayer(activeEraserLayer);
     activeEraserLayer.off('mousemove');
     activeEraserLayer.off('mouseup');
   };
 
+
+  useEffect(() => {
+    if (snapEraserToGrid && !showCanvasNavigationGrid) {
+      setShowCanvasNavigationGrid(true);
+    }
+  }, [showCanvasNavigationGrid, setShowCanvasNavigationGrid, snapEraserToGrid]);
 
   useEffect(() => {
     const stage = ref.current.getStage();
@@ -467,6 +565,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const resetEraserImage = () => {
     const stage = ref.current.getStage();
     eraserExitHandledRef.current = true;
+    lastEraserPointRef.current = null;
     if (eraserLayer) {
       eraserLayer.destroy();
       setEraserLayer(null);
@@ -565,6 +664,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       newEraserLayer.on('mousedown', () => {
         if (showEraserRef.current) {
           setIsPainting(true);
+          lastEraserPointRef.current = null;
           setHandlersForLayer(newEraserLayer);
         }
         setEraserToolbarPosition(null);
@@ -575,35 +675,16 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         nextEraserLayer.off('mousemove');
         nextEraserLayer.off('mouseup');
         nextEraserLayer.on('mousemove', () => {
-          const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
           const currentPoint = stage.getPointerPosition();
-          const eraserShape = new Konva.Circle({
-            x: currentPoint.x,
-            y: currentPoint.y,
-            radius: eraserRadius,
-            fill: 'black',
-            globalCompositeOperation: 'destination-out',
-            id: 'eraserCircle'
-          });
-          nextEraserLayer.add(eraserShape);
-          nextEraserLayer.batchDraw();
+          drawEraserStrokeAtPoint(nextEraserLayer, stage, currentPoint);
         });
         nextEraserLayer.on('mouseup', () => {
           finishEraserStroke(nextEraserLayer);
         });
       }
 
-      const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
-      const initialEraserShape = new Konva.Circle({
-        x: point.x,
-        y: point.y,
-        radius: eraserRadius,
-        fill: 'black',
-        globalCompositeOperation: 'destination-out',
-        id: 'eraserCircle'
-      });
-      newEraserLayer.add(initialEraserShape);
-      newEraserLayer.batchDraw();
+      lastEraserPointRef.current = null;
+      drawEraserStrokeAtPoint(newEraserLayer, stage, point, { isInitialPoint: true });
     } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
       setIsPainting(true);
       setPaintToolbarVisible(false);
@@ -649,16 +730,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     if (!isPainting) return;
     const point = stage.getPointerPosition();
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY && eraserLayer) {
-      const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
-      const eraserShape = new Konva.Circle({
-        x: point.x,
-        y: point.y,
-        radius: eraserRadius,
-        fill: 'black',
-        globalCompositeOperation: 'destination-out'
-      });
-      eraserLayer.add(eraserShape);
-      eraserLayer.batchDraw();
+      drawEraserStrokeAtPoint(eraserLayer, stage, point);
     } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
       let lastLine = pencilLines[pencilLines.length - 1];
       if (lastLine) {
@@ -717,6 +789,8 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       return;
     }
 
+    lastEraserPointRef.current = null;
+
     const { boundingBox, dataURL } = eraserResult;
     const targetItemId = eraserTargetItemIdRef.current;
     const targetIndex = activeItemList.findIndex((item) => item?.id === targetItemId);
@@ -758,6 +832,8 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     if (!eraserResult) {
       return;
     }
+
+    lastEraserPointRef.current = null;
 
     const { boundingBox, dataURL } = eraserResult;
     const imageObj = new window.Image();
@@ -1330,6 +1406,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
         requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
         requestLipSyncToSpeech={requestLipSyncToSpeech}
+        onPersistTextStyle={onPersistTextStyle}
       />
 
     </div>

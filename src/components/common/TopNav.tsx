@@ -639,7 +639,7 @@ const showLicenseDialog = () => {
   }
 
   let controlbarView: React.ReactNode = null;
-  if (location.pathname.includes('/video/')) {
+  if (location.pathname.includes('/video/') || isImageEditor) {
     controlbarView = (
       <CanvasControlBar
         downloadCurrentFrame={downloadCurrentFrame}
@@ -656,6 +656,7 @@ const showLicenseDialog = () => {
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         isRenderPending={isRenderPending}
+        editorVariant={isImageEditor ? 'imageStudio' : 'videoStudio'}
       />
     );
   } else if (location.pathname.includes('/vidgenie/')) {

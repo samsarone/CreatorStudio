@@ -1,5 +1,5 @@
 // VideoEditorToolbar.js
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useContext, useState, useRef, useEffect } from 'react';
 import PromptGenerator from './PromptGenerator.jsx';
 import ImageEditGenerator from '../toolbars/ImageEditGenerator.jsx';
 
@@ -56,6 +56,7 @@ import SingleSelect from '../../common/SingleSelect.jsx';
 import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
 import VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.jsx';
 import VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.jsx';
+import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 
 export default function VideoEditorToolbar(props) {
   const {
@@ -129,6 +130,20 @@ export default function VideoEditorToolbar(props) {
     canZoomOutCanvas,
     isRenderPending,
   } = props;
+  const {
+    showCanvasNavigationGrid,
+    setShowCanvasNavigationGrid,
+    snapEraserToGrid,
+    setSnapEraserToGrid,
+  } = useContext(NavCanvasControlContext);
+
+  const toggleEraserGridSnap = () => {
+    const nextValue = !snapEraserToGrid;
+    setSnapEraserToGrid(nextValue);
+    if (nextValue) {
+      setShowCanvasNavigationGrid(true);
+    }
+  };
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
@@ -1226,6 +1241,15 @@ export default function VideoEditorToolbar(props) {
             onChange={(e) => setEraserWidth(e.target.value)}
             style={getSliderStyle(Number(eraserWidth), 1, 100)}
           />
+          {showCanvasNavigationGrid && (
+            <button
+              type="button"
+              onClick={toggleEraserGridSnap}
+              className={`mt-3 w-full rounded-md border px-3 py-2 text-xs font-medium transition ${snapEraserToGrid ? interactiveTile : inputSurface} ${text2Color}`}
+            >
+              {snapEraserToGrid ? 'Snap Eraser: On' : 'Snap Eraser: Off'}
+            </button>
+          )}
         </div>
       );
     }
@@ -1263,38 +1287,6 @@ export default function VideoEditorToolbar(props) {
           </div>
         </div>
         {actionsSubOptionsDisplay}
-        <div className={`mt-3 rounded-md border p-3 ${inputSurface} ${text2Color}`}>
-          <div className="mb-2 text-xs font-semibold uppercase tracking-wide">
-            Zoom {canvasZoomPercent}%
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={zoomCanvasOut}
-              disabled={!canZoomOutCanvas}
-              className={`rounded-md px-2 py-2 text-xs font-medium transition ${inputSurface} ${!canZoomOutCanvas ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <FaSearchMinus className="inline-flex mr-1" />
-              Out
-            </button>
-            <button
-              type="button"
-              onClick={resetCanvasZoom}
-              className={`rounded-md px-2 py-2 text-xs font-medium transition ${inputSurface}`}
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={zoomCanvasIn}
-              disabled={!canZoomInCanvas}
-              className={`rounded-md px-2 py-2 text-xs font-medium transition ${inputSurface} ${!canZoomInCanvas ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <FaSearchPlus className="inline-flex mr-1" />
-              In
-            </button>
-          </div>
-        </div>
       </div>
     );
   }

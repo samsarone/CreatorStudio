@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useParams } from 'react-router-dom';
@@ -16,6 +16,7 @@ import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
+import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 
 
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
@@ -81,6 +82,14 @@ function getLayerDisplayFrameRange(layer) {
 }
 
 export default function VideoHome(props) {
+  const {
+    setZoomCanvasIn,
+    setZoomCanvasOut,
+    setResetCanvasZoom,
+    setCanvasZoomPercent,
+    setCanZoomInCanvas,
+    setCanZoomOutCanvas,
+  } = useContext(NavCanvasControlContext);
   const [videoSessionDetails, setVideoSessionDetails] = useState(null);
   const [selectedLayerIndex, setSelectedLayerIndex] = useState(0);
   const [currentLayer, setCurrentLayer] = useState({});
@@ -633,6 +642,25 @@ export default function VideoHome(props) {
     stageZoomScale < clampCanvasZoomScale(fitZoomScale * MAX_CANVAS_ZOOM_RATIO, fitZoomScale) - 0.001;
   const canZoomOutCanvas =
     stageZoomScale > clampCanvasZoomScale(fitZoomScale * MIN_CANVAS_ZOOM_RATIO, fitZoomScale) + 0.001;
+
+  useEffect(() => {
+    setZoomCanvasIn(() => zoomCanvasIn);
+    setZoomCanvasOut(() => zoomCanvasOut);
+    setResetCanvasZoom(() => resetCanvasZoom);
+  }, [resetCanvasZoom, setResetCanvasZoom, setZoomCanvasIn, setZoomCanvasOut, zoomCanvasIn, zoomCanvasOut]);
+
+  useEffect(() => {
+    setCanvasZoomPercent(canvasZoomPercent);
+    setCanZoomInCanvas(canZoomInCanvas);
+    setCanZoomOutCanvas(canZoomOutCanvas);
+  }, [
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
+    setCanvasZoomPercent,
+    setCanZoomInCanvas,
+    setCanZoomOutCanvas,
+  ]);
 
   const setSelectedLayer = (layer) => {
     if (!layer || !layer._id) {

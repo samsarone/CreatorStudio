@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -6,6 +6,7 @@ import { FaCheck, FaTimes } from 'react-icons/fa';
 
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import {
@@ -27,6 +28,7 @@ import {
 } from '../../utils/canvas.jsx';
 import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
+import useUndoRedoState from '../../hooks/useUndoRedoState.js';
 
 import CommonContainer from '../common/CommonContainer.tsx';
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
@@ -308,6 +310,14 @@ function EditImageProjectDialogContent({
 }
 
 export default function ImageStudioHome() {
+  const {
+    setZoomCanvasIn,
+    setZoomCanvasOut,
+    setResetCanvasZoom,
+    setCanvasZoomPercent,
+    setCanZoomInCanvas,
+    setCanZoomOutCanvas,
+  } = useContext(NavCanvasControlContext);
   const { id } = useParams();
   const { colorMode } = useColorMode();
   const { getUserAPI } = useUser();
@@ -315,7 +325,18 @@ export default function ImageStudioHome() {
 
   const [sessionDetails, setSessionDetails] = useState(null);
   const [currentLayer, setCurrentLayer] = useState(null);
-  const [activeItemList, setActiveItemList] = useState([]);
+  const {
+    state: activeItemList,
+    setState: setActiveItemList,
+    syncState: syncActiveItemList,
+    undo: undoActiveItemList,
+    redo: redoActiveItemList,
+    canUndo,
+    canRedo,
+    undoCount,
+    redoCount,
+    historyLimit,
+  } = useUndoRedoState([], { limit: 5 });
   const [generationImages, setGenerationImages] = useState([]);
   const [sessionMessages, setSessionMessages] = useState([]);
   const [globalLibraryImages, setGlobalLibraryImages] = useState([]);
@@ -393,6 +414,7 @@ export default function ImageStudioHome() {
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: null, height: null });
   const [isCanvasDragActive, setIsCanvasDragActive] = useState(false);
   const [isCanvasDropProcessing, setIsCanvasDropProcessing] = useState(false);
+  const [isCanvasPointerInside, setIsCanvasPointerInside] = useState(false);
   const canvasDragDepthRef = useRef(0);
 
   const generationPollIntervalRef = useRef(null);
@@ -401,6 +423,13 @@ export default function ImageStudioHome() {
   const assistantErrorCountRef = useRef(0);
   const currentLayerRef = useRef(null);
   const latestActiveItemListSaveRequestRef = useRef(0);
+  const isHistoryInteractionBlocked =
+    currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY ||
+    currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY;
+  const isCanvasHistoryHotkeyEnabled =
+    Boolean(selectedId) &&
+    isCanvasPointerInside &&
+    !isHistoryInteractionBlocked;
 
   const resolvedCanvasDimensions = useMemo(
     () => normalizeCanvasDimensions(sessionDetails?.canvasDimensions, aspectRatio),
@@ -425,6 +454,25 @@ export default function ImageStudioHome() {
     setCanvasZoomMode('fit');
     setCanvasZoomScale(1);
   }, []);
+
+  useEffect(() => {
+    setZoomCanvasIn(() => zoomCanvasIn);
+    setZoomCanvasOut(() => zoomCanvasOut);
+    setResetCanvasZoom(() => resetCanvasZoom);
+  }, [resetCanvasZoom, setResetCanvasZoom, setZoomCanvasIn, setZoomCanvasOut, zoomCanvasIn, zoomCanvasOut]);
+
+  useEffect(() => {
+    setCanvasZoomPercent(canvasZoomPercent);
+    setCanZoomInCanvas(canZoomInCanvas);
+    setCanZoomOutCanvas(canZoomOutCanvas);
+  }, [
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
+    setCanvasZoomPercent,
+    setCanZoomInCanvas,
+    setCanZoomOutCanvas,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -522,9 +570,11 @@ export default function ImageStudioHome() {
         const firstLayer = session?.layers?.[0] || null;
         setCurrentLayer(firstLayer);
         if (firstLayer?.imageSession?.activeItemList) {
-          setActiveItemList(firstLayer.imageSession.activeItemList);
+          syncActiveItemList(firstLayer.imageSession.activeItemList, {
+            resetHistory: true,
+          });
         } else {
-          setActiveItemList([]);
+          syncActiveItemList([], { resetHistory: true });
         }
       })
       .catch(() => {
@@ -538,7 +588,7 @@ export default function ImageStudioHome() {
           }
         );
       });
-  }, [id]);
+  }, [id, syncActiveItemList]);
 
   const stopAssistantQueryPoll = useCallback(() => {
     if (assistantPollRef.current) {
@@ -644,11 +694,13 @@ export default function ImageStudioHome() {
 
   useEffect(() => {
     if (currentLayer?.imageSession?.activeItemList) {
-      setActiveItemList(currentLayer.imageSession.activeItemList);
+      syncActiveItemList(currentLayer.imageSession.activeItemList, {
+        resetHistory: true,
+      });
     } else {
-      setActiveItemList([]);
+      syncActiveItemList([], { resetHistory: true });
     }
-  }, [currentLayer?._id]);
+  }, [currentLayer?._id, syncActiveItemList]);
 
   useEffect(() => {
     return () => {
@@ -688,12 +740,117 @@ export default function ImageStudioHome() {
         if (layer && currentLayerRef.current?._id?.toString?.() === requestLayerId) {
           setCurrentLayer(layer);
           if (layer?.imageSession?.activeItemList) {
-            setActiveItemList(layer.imageSession.activeItemList);
+            syncActiveItemList(layer.imageSession.activeItemList);
+          } else {
+            syncActiveItemList([]);
           }
         }
       })
       .catch(() => {});
   };
+
+  const syncSelectionWithItemList = useCallback(
+    (nextItemList) => {
+      const selectedItem = (nextItemList || []).find((item) => item?.id === selectedId) || null;
+
+      if (!selectedItem) {
+        setSelectedId(null);
+        setSelectedLayerType(null);
+        return;
+      }
+
+      setSelectedLayerType(selectedItem.type || null);
+    },
+    [selectedId]
+  );
+
+  const handleUndoHistory = useCallback(() => {
+    if (!canUndo || isHistoryInteractionBlocked) {
+      return;
+    }
+
+    const nextItemList = undoActiveItemList();
+    syncSelectionWithItemList(nextItemList);
+    updateSessionLayerActiveItemList(nextItemList);
+  }, [
+    canUndo,
+    isHistoryInteractionBlocked,
+    syncSelectionWithItemList,
+    undoActiveItemList,
+    updateSessionLayerActiveItemList,
+  ]);
+
+  const handleRedoHistory = useCallback(() => {
+    if (!canRedo || isHistoryInteractionBlocked) {
+      return;
+    }
+
+    const nextItemList = redoActiveItemList();
+    syncSelectionWithItemList(nextItemList);
+    updateSessionLayerActiveItemList(nextItemList);
+  }, [
+    canRedo,
+    isHistoryInteractionBlocked,
+    redoActiveItemList,
+    syncSelectionWithItemList,
+    updateSessionLayerActiveItemList,
+  ]);
+
+  const shouldIgnoreHistoryShortcut = useCallback((target) => {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    const interactiveAncestor = target.closest(
+      'input, textarea, select, button, [contenteditable="true"], [role="textbox"]'
+    );
+
+    return Boolean(interactiveAncestor);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+        return;
+      }
+
+      if (!isCanvasHistoryHotkeyEnabled) {
+        return;
+      }
+
+      if (shouldIgnoreHistoryShortcut(event.target)) {
+        return;
+      }
+
+      const key = `${event.key || ''}`.toLowerCase();
+
+      if (key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          handleRedoHistory();
+        } else {
+          handleUndoHistory();
+        }
+        return;
+      }
+
+      if (key === 'y') {
+        event.preventDefault();
+        handleRedoHistory();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    handleRedoHistory,
+    handleUndoHistory,
+    isCanvasHistoryHotkeyEnabled,
+    shouldIgnoreHistoryShortcut,
+  ]);
 
   const toggleHideItemInLayer = useCallback(
     (itemId) => {
@@ -1829,6 +1986,7 @@ export default function ImageStudioHome() {
       setCanvasDisplaySize({ width: null, height: null });
       setIsCanvasDragActive(false);
       setIsCanvasDropProcessing(false);
+      setIsCanvasPointerInside(false);
       canvasDragDepthRef.current = 0;
       return;
     }
@@ -1931,6 +2089,8 @@ export default function ImageStudioHome() {
         >
           <div
             className={`relative ${canvasSurface} ${canvasDropSurfaceHighlight} rounded-xl px-4 py-6 inline-block cursor-pointer transition-colors duration-150`}
+            onPointerEnter={() => setIsCanvasPointerInside(true)}
+            onPointerLeave={() => setIsCanvasPointerInside(false)}
             onDragEnter={handleCanvasDragEnter}
             onDragOver={handleCanvasDragOver}
             onDragLeave={handleCanvasDragLeave}
@@ -2004,6 +2164,12 @@ export default function ImageStudioHome() {
               createTextLayer={createTextLayer}
               requestRealignToAiVideoAndLayers={() => {}}
               requestLipSyncToSpeech={() => {}}
+              onPersistTextStyle={(nextStyle) =>
+                setTextConfig((prev) => ({
+                  ...(prev || {}),
+                  ...(nextStyle || {}),
+                }))
+              }
               editorVariant="imageStudio"
               setPromptText={setPromptText}
               promptText={promptText}
@@ -2095,6 +2261,14 @@ export default function ImageStudioHome() {
             selectedId={selectedId}
             setSelectedId={setSelectedId}
             hideItemInLayer={toggleHideItemInLayer}
+            canUndoHistory={canUndo && !isHistoryInteractionBlocked}
+            canRedoHistory={canRedo && !isHistoryInteractionBlocked}
+            undoHistoryCount={undoCount}
+            redoHistoryCount={redoCount}
+            historyLimit={historyLimit}
+            onUndoHistory={handleUndoHistory}
+            onRedoHistory={handleRedoHistory}
+            isHistoryInteractionBlocked={isHistoryInteractionBlocked}
             pencilWidth={pencilWidth}
             setPencilWidth={setPencilWidth}
             pencilColor={pencilColor}

@@ -1,8 +1,9 @@
-import React from 'react';
-import { FaUpload, FaChevronDown, FaPencilAlt, FaEraser } from 'react-icons/fa';
+import React, { useContext } from 'react';
+import { FaUpload, FaChevronDown, FaPencilAlt, FaEraser, FaUndo, FaRedo } from 'react-icons/fa';
 import { LuCombine } from 'react-icons/lu';
 import { TbLibraryPhoto } from 'react-icons/tb';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../constants/Types.ts';
 import PromptGenerator from '../video/toolbars/PromptGenerator.jsx';
 import ImageEditGenerator from '../video/toolbars/ImageEditGenerator.jsx';
@@ -56,6 +57,14 @@ export default function ImageEditorToolbar(props) {
     selectedId,
     setSelectedId,
     hideItemInLayer,
+    canUndoHistory,
+    canRedoHistory,
+    undoHistoryCount,
+    redoHistoryCount,
+    historyLimit,
+    onUndoHistory,
+    onRedoHistory,
+    isHistoryInteractionBlocked,
     pencilWidth,
     setPencilWidth,
     pencilColor,
@@ -70,6 +79,12 @@ export default function ImageEditorToolbar(props) {
     canZoomInCanvas,
     canZoomOutCanvas,
   } = props;
+  const {
+    showCanvasNavigationGrid,
+    setShowCanvasNavigationGrid,
+    snapEraserToGrid,
+    setSnapEraserToGrid,
+  } = useContext(NavCanvasControlContext);
 
   const { colorMode } = useColorMode();
 
@@ -128,6 +143,15 @@ export default function ImageEditorToolbar(props) {
     colorMode === 'dark'
       ? 'w-full h-11 rounded-xl border border-[#1f2a3d] bg-[#111a2f] p-1'
       : 'w-full h-11 rounded-xl border border-slate-200 bg-white p-1';
+  const subtleText =
+    colorMode === 'dark'
+      ? 'text-slate-400'
+      : 'text-slate-500';
+  const historyButtonClass = `${
+    colorMode === 'dark'
+      ? 'bg-[#17233d] text-slate-100 border border-[#24324f] hover:bg-[#1c3153] disabled:bg-[#111a2f] disabled:text-slate-500'
+      : 'bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400'
+  } flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed`;
 
   const isSelected = (view) => currentViewDisplay === view;
   const isCanvasActionSelected = (action) => currentCanvasAction === action;
@@ -138,6 +162,14 @@ export default function ImageEditorToolbar(props) {
     typeof setSelectedId === 'function' &&
     typeof hideItemInLayer === 'function';
   const aspectRatioLabel = aspectRatio || '1:1';
+
+  const toggleEraserGridSnap = () => {
+    const nextValue = !snapEraserToGrid;
+    setSnapEraserToGrid(nextValue);
+    if (nextValue) {
+      setShowCanvasNavigationGrid(true);
+    }
+  };
   const aspectRatioSurface =
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d]'
@@ -242,6 +274,47 @@ export default function ImageEditorToolbar(props) {
           </button>
         </div>
 
+        <div className={`${aspectRatioSurface} rounded-2xl px-4 py-4`}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Undo / Redo</div>
+              <div className={`mt-1 text-xs ${subtleText}`}>
+                Undo up to {historyLimit} recent canvas changes. Hotkeys only work while the pointer is on the canvas and an item is selected.
+              </div>
+            </div>
+            <div className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${secondaryButton}`}>
+              {undoHistoryCount}/{historyLimit}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              className={historyButtonClass}
+              disabled={!canUndoHistory}
+              onClick={() => onUndoHistory?.()}
+            >
+              <FaUndo />
+              <span>Undo</span>
+            </button>
+            <button
+              type="button"
+              className={historyButtonClass}
+              disabled={!canRedoHistory}
+              onClick={() => onRedoHistory?.()}
+            >
+              <FaRedo />
+              <span>Redo</span>
+            </button>
+          </div>
+
+          <div className={`mt-3 text-xs ${subtleText}`}>
+            {isHistoryInteractionBlocked
+              ? 'Finish the current pencil or eraser action before using history.'
+              : `Use Ctrl/Cmd+Z to undo and Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y to redo. Available now: ${undoHistoryCount} undo, ${redoHistoryCount} redo.`}
+          </div>
+        </div>
+
         {currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY && (
           <div className={`${aspectRatioSurface} rounded-2xl px-4 py-4`}>
             <label className="block text-sm font-semibold mb-2">Pencil width</label>
@@ -276,37 +349,18 @@ export default function ImageEditorToolbar(props) {
               onChange={(event) => setEraserWidth(event.target.value)}
               style={getSliderStyle(eraserWidth, 1, 100)}
             />
+            {showCanvasNavigationGrid && (
+              <button
+                type="button"
+                onClick={toggleEraserGridSnap}
+                className={`${secondaryButton} mt-4 w-full rounded-xl px-3 py-2 text-sm font-medium transition`}
+              >
+                {snapEraserToGrid ? 'Snap Eraser: On' : 'Snap Eraser: Off'}
+              </button>
+            )}
           </div>
         )}
 
-        <div className={`${aspectRatioSurface} rounded-2xl px-4 py-4`}>
-          <div className="mb-3 text-sm font-semibold">Zoom {canvasZoomPercent}%</div>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => zoomCanvasOut?.()}
-              disabled={!canZoomOutCanvas}
-              className={`${secondaryButton} rounded-xl px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              Out
-            </button>
-            <button
-              type="button"
-              onClick={() => resetCanvasZoom?.()}
-              className={`${secondaryButton} rounded-xl px-3 py-2 text-sm font-medium transition`}
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={() => zoomCanvasIn?.()}
-              disabled={!canZoomInCanvas}
-              className={`${secondaryButton} rounded-xl px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              In
-            </button>
-          </div>
-        </div>
       </div>
       ),
     },

@@ -16,12 +16,15 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
     width: textBoxWidth,
     height: textBoxHeight,
     fontFamily: 'Arial',
-    fontSize: 16,
-    fillColor: 'black',
+    fontSize: 32,
+    fillColor: '#ffffff',
     textDecoration: '',
     fontStyle: 'normal',
+    bold: false,
+    italic: false,
+    underline: false,
     textAlign: 'center',
-    strokeColor: 'transparent',
+    strokeColor: '#ffffff',
     strokeWidth: 0,
     shadowColor: 'transparent',
     shadowBlur: 0,
@@ -30,6 +33,7 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
     rotationAngle: 0,
     autoWrap: false,
     capitalizeLetters: false,
+    lineHeight: 1.2,
 
     textBaseline: 'alphabetic', // for backend parity
     verticalAlign: 'middle', // conceptually, if you implement it
