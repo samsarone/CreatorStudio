@@ -29,6 +29,7 @@ import {
   MIN_CANVAS_DIMENSION,
   normalizeCanvasDimensions,
 } from '../../utils/canvas.jsx';
+import { drawCanvasTextItem } from '../../utils/canvasText.js';
 import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 import useUndoRedoState from '../../hooks/useUndoRedoState.js';
@@ -707,18 +708,18 @@ export default function ImageStudioHome() {
       currentLayerId && previousSyncedLayerIdRef.current === currentLayerId;
 
     if (currentLayer?.imageSession?.activeItemList) {
-      syncActiveItemList(
-        normalizeActiveTextItemListForCanvas(
-          currentLayer.imageSession.activeItemList,
-          resolvedCanvasDimensions,
-          shouldReuseLocalTextConfig ? activeItemListRef.current : [],
-          { preferFallbackTextConfig: shouldReuseLocalTextConfig }
-        ),
-        {
-        resetHistory: true,
-        }
+      const normalizedItemList = normalizeActiveTextItemListForCanvas(
+        currentLayer.imageSession.activeItemList,
+        resolvedCanvasDimensions,
+        shouldReuseLocalTextConfig ? activeItemListRef.current : [],
+        { preferFallbackTextConfig: shouldReuseLocalTextConfig }
       );
+      activeItemListRef.current = normalizedItemList;
+      syncActiveItemList(normalizedItemList, {
+        resetHistory: true,
+      });
     } else {
+      activeItemListRef.current = [];
       syncActiveItemList([], { resetHistory: true });
     }
     previousSyncedLayerIdRef.current = currentLayerId;
@@ -747,6 +748,7 @@ export default function ImageStudioHome() {
       layerId: requestLayerId,
       activeItemList: newActiveItemList,
     };
+    activeItemListRef.current = newActiveItemList;
     axios
       .post(`${PROCESSOR_API_URL}/image_sessions/update_active_item_list`, payload, headers)
       .then((response) => {
@@ -762,15 +764,16 @@ export default function ImageStudioHome() {
         if (layer && currentLayerRef.current?._id?.toString?.() === requestLayerId) {
           setCurrentLayer(layer);
           if (layer?.imageSession?.activeItemList) {
-            syncActiveItemList(
-              normalizeActiveTextItemListForCanvas(
-                layer.imageSession.activeItemList,
-                resolvedCanvasDimensions,
-                newActiveItemList,
-                { preferFallbackTextConfig: true }
-              )
+            const normalizedItemList = normalizeActiveTextItemListForCanvas(
+              layer.imageSession.activeItemList,
+              resolvedCanvasDimensions,
+              newActiveItemList,
+              { preferFallbackTextConfig: true }
             );
+            activeItemListRef.current = normalizedItemList;
+            syncActiveItemList(normalizedItemList);
           } else {
+            activeItemListRef.current = [];
             syncActiveItemList([]);
           }
         }
@@ -924,6 +927,7 @@ export default function ImageStudioHome() {
       };
 
       const newItemList = [...activeItemList, nextTextItem];
+      activeItemListRef.current = newItemList;
       setActiveItemList(newItemList);
       setSelectedId(nextTextItem.id);
       setSelectedLayerType('text');
@@ -1393,6 +1397,12 @@ export default function ImageStudioHome() {
 
     for (const item of activeItemList || []) {
       if (item.isHidden) continue;
+
+      if (item.type === 'text') {
+        drawCanvasTextItem(ctx, item, resolvedCanvasDimensions);
+        continue;
+      }
+
       ctx.save();
       const { x = 0, y = 0, width = 0, height = 0, rotation } = item;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1412,22 +1422,6 @@ export default function ImageStudioHome() {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
         } catch (_) {}
-      } else if (item.type === 'text') {
-        const fontSize = item.config?.fontSize || 40;
-        ctx.fillStyle = item.config?.fillColor || '#000000';
-        ctx.font = `${fontSize}px ${item.config?.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config?.textAlign || 'left';
-        ctx.textBaseline = 'top';
-        ctx.shadowColor = item.config?.shadowColor || 'transparent';
-        ctx.shadowBlur = item.config?.shadowBlur || 0;
-        ctx.shadowOffsetX = item.config?.shadowOffsetX || 0;
-        ctx.shadowOffsetY = item.config?.shadowOffsetY || 0;
-        if ((item.config?.strokeWidth || 0) > 0) {
-          ctx.strokeStyle = item.config?.strokeColor || '#ffffff';
-          ctx.lineWidth = item.config?.strokeWidth || 0;
-          ctx.strokeText(item.text || '', 0, 0);
-        }
-        ctx.fillText(item.text || '', 0, 0);
       } else if (item.type === 'shape') {
         const config = item.config || {};
         const shapeX = config.x || 0;

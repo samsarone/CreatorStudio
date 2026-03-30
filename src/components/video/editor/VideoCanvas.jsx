@@ -701,7 +701,7 @@ const VideoCanvas = forwardRef((props, ref) => {
 
 
   let canvasVideoUnderlay = (
-    <div className='absolute pt-0 pl-0 '>
+    <div className='absolute inset-0'>
       <VideoUnderlay aiVideoLayer={aiVideoLayer} currentLayerSeek={currentRelateiveTimeStamp}
         removeVideoLayer={removeVideoLayer} canvasDimensions={canvasDimensions}
         requestLipSyncToSpeech={requestLipSyncToSpeech}
@@ -857,82 +857,90 @@ const VideoCanvas = forwardRef((props, ref) => {
         boxSizing: 'border-box',
       }}
     >
-      {canvasVideoUnderlay}
       {canvasInternalLoading}
-      {canvasGridOverlay}
-      <Stage width={canvasDimensions.width} height={canvasDimensions.height} ref={ref} id="samsar-konva-stage"
-        onMouseMove={debouncedHandleMouseOver} onClick={handleCanvasClick}
+      <div
+        className="relative inline-block"
         style={{
-          border: '2px solid stone-300',
-          boxSizing: 'border-box',
-          padding: 0,
-          margin: 0,
-          backgroundColor: {bgCanvasColor},
+          width: `${canvasDimensions.width}px`,
+          height: `${canvasDimensions.height}px`,
         }}
       >
-        <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove}
-         onMouseUp={handleLayerMouseUp}
-         onMouseLeave={handleLayerMouseUp}
-         >
-          <Group id="baseGroup">
-            {imageStackList}
-          </Group>
+        {canvasVideoUnderlay}
+        {canvasGridOverlay}
+        <Stage width={canvasDimensions.width} height={canvasDimensions.height} ref={ref} id="samsar-konva-stage"
+          onMouseMove={debouncedHandleMouseOver} onClick={handleCanvasClick}
+          style={{
+            border: '2px solid stone-300',
+            boxSizing: 'border-box',
+            padding: 0,
+            margin: 0,
+            backgroundColor: {bgCanvasColor},
+          }}
+        >
+          <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove}
+           onMouseUp={handleLayerMouseUp}
+           onMouseLeave={handleLayerMouseUp}
+           >
+            <Group id="baseGroup">
+              {imageStackList}
+            </Group>
 
-          {currentCanvasAction === 'SHOW_SMART_SELECT_DISPLAY' && boundingBoxes.map((bbox, index) => (
-            <Rect
-              key={index}
-              x={bbox[0]}
-              y={bbox[1]}
-              width={bbox[2]}
-              height={bbox[3]}
-              stroke="red"
-              strokeWidth={2}
-              id={`bbox_rect_${index}`}
-            />
-          ))}
+            {currentCanvasAction === 'SHOW_SMART_SELECT_DISPLAY' && boundingBoxes.map((bbox, index) => (
+              <Rect
+                key={index}
+                x={bbox[0]}
+                y={bbox[1]}
+                width={bbox[2]}
+                height={bbox[3]}
+                stroke="red"
+                strokeWidth={2}
+                id={`bbox_rect_${index}`}
+              />
+            ))}
 
-          {showMask && (
-            <Group id="maskGroup">
-              {editMasklines.map((line, i) => (
-                <Line key={i} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth} />
-              ))}
-            </Group>
-          )}
-          {showPencil && (
-            <Group id="pencilGroup">
-              {pencilLines.map((line, i) => (
-                <Line key={i} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth} />
-              ))}
-            </Group>
-          )}
-          {overlayImage && (
-            <KonvaImage
-              image={overlayImage}
-              x={0}
-              y={0}
-              width={canvasDimensions.width}
-              height={canvasDimensions.height}
-              opacity={0.6}
-            />
-          )}
-          {maskImage && (
-            <KonvaImage
-              image={maskImage.src}
-              x={maskImage.x}
-              y={maskImage.y}
-              width={maskImage.width}
-              height={maskImage.height}
-              opacity={0.6}
-            />
-          )}
-          {shadedArea && (
-            <Group>
-              <Line points={shadedArea} fill="rgba(0, 0, 0, 0.5)" closed />
-            </Group>
-          )}
-          {currentShapeSelectDisplay}
-        </Layer>
-      </Stage>
+            {showMask && (
+              <Group id="maskGroup">
+                {editMasklines.map((line, i) => (
+                  <Line key={i} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth} />
+                ))}
+              </Group>
+            )}
+            {showPencil && (
+              <Group id="pencilGroup">
+                {pencilLines.map((line, i) => (
+                  <Line key={i} points={line.points} stroke={line.stroke} strokeWidth={line.strokeWidth} />
+                ))}
+              </Group>
+            )}
+            {overlayImage && (
+              <KonvaImage
+                image={overlayImage}
+                x={0}
+                y={0}
+                width={canvasDimensions.width}
+                height={canvasDimensions.height}
+                opacity={0.6}
+              />
+            )}
+            {maskImage && (
+              <KonvaImage
+                image={maskImage.src}
+                x={maskImage.x}
+                y={maskImage.y}
+                width={maskImage.width}
+                height={maskImage.height}
+                opacity={0.6}
+              />
+            )}
+            {shadedArea && (
+              <Group>
+                <Line points={shadedArea} fill="rgba(0, 0, 0, 0.5)" closed />
+              </Group>
+            )}
+            {currentShapeSelectDisplay}
+          </Layer>
+        </Stage>
+      </div>
 
       <CanvasToolbar
         buttonPositions={buttonPositions}

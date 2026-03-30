@@ -77,6 +77,7 @@ const SHARED_TEXT_STYLE_FIELDS = [
 ];
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}){1,2}$/i;
+const VALID_TEXT_ALIGN_VALUES = new Set(['left', 'center', 'right']);
 
 function isValidHexColor(value) {
   return HEX_COLOR_PATTERN.test(`${value || ''}`.trim());
@@ -86,11 +87,55 @@ function getSafeColorValue(value, fallback) {
   return isValidHexColor(value) ? value : fallback;
 }
 
+function normalizeNumericField(value, fallback, { min = null, max = null, integer = false } = {}) {
+  const parsedValue = integer ? parseInt(value, 10) : parseFloat(value);
+  let nextValue = Number.isFinite(parsedValue) ? parsedValue : fallback;
+
+  if (typeof min === 'number') {
+    nextValue = Math.max(min, nextValue);
+  }
+  if (typeof max === 'number') {
+    nextValue = Math.min(max, nextValue);
+  }
+
+  return nextValue;
+}
+
 export function buildTextStyleDraft(value = {}) {
-  return {
+  const nextDraft = {
     ...DEFAULT_TEXT_STYLE_DRAFT,
     ...value,
     text: `${value?.text ?? DEFAULT_TEXT_STYLE_DRAFT.text}`,
+  };
+
+  return {
+    ...nextDraft,
+    fontFamily:
+      typeof nextDraft.fontFamily === 'string' && nextDraft.fontFamily.trim()
+        ? nextDraft.fontFamily
+        : DEFAULT_TEXT_STYLE_DRAFT.fontFamily,
+    fontSize: normalizeNumericField(nextDraft.fontSize, DEFAULT_TEXT_STYLE_DRAFT.fontSize, {
+      min: 1,
+      max: 240,
+      integer: true,
+    }),
+    fillColor: getSafeColorValue(nextDraft.fillColor, DEFAULT_TEXT_STYLE_DRAFT.fillColor),
+    strokeColor: getSafeColorValue(nextDraft.strokeColor, DEFAULT_TEXT_STYLE_DRAFT.strokeColor),
+    strokeWidth: normalizeNumericField(nextDraft.strokeWidth, DEFAULT_TEXT_STYLE_DRAFT.strokeWidth, {
+      min: 0,
+      max: 40,
+      integer: true,
+    }),
+    bold: Boolean(nextDraft.bold),
+    italic: Boolean(nextDraft.italic),
+    underline: Boolean(nextDraft.underline),
+    textAlign: VALID_TEXT_ALIGN_VALUES.has(nextDraft.textAlign)
+      ? nextDraft.textAlign
+      : DEFAULT_TEXT_STYLE_DRAFT.textAlign,
+    lineHeight: normalizeNumericField(nextDraft.lineHeight, DEFAULT_TEXT_STYLE_DRAFT.lineHeight, {
+      min: 0.6,
+      max: 3,
+    }),
   };
 }
 
@@ -135,16 +180,37 @@ export function loadStoredTextStyleConfig(storage) {
 
   return Object.fromEntries(
     Object.entries({
-      fontSize: storedFontSize ? parseInt(storedFontSize, 10) : undefined,
+      fontSize: storedFontSize
+        ? normalizeNumericField(storedFontSize, DEFAULT_TEXT_STYLE_DRAFT.fontSize, {
+            min: 1,
+            max: 240,
+            integer: true,
+          })
+        : undefined,
       fontFamily: storedFontFamily || undefined,
-      fillColor: storedFillColor || undefined,
-      strokeColor: storedStrokeColor || undefined,
-      strokeWidth: storedStrokeWidth ? parseInt(storedStrokeWidth, 10) : undefined,
+      fillColor: storedFillColor
+        ? getSafeColorValue(storedFillColor, DEFAULT_TEXT_STYLE_DRAFT.fillColor)
+        : undefined,
+      strokeColor: storedStrokeColor
+        ? getSafeColorValue(storedStrokeColor, DEFAULT_TEXT_STYLE_DRAFT.strokeColor)
+        : undefined,
+      strokeWidth: storedStrokeWidth
+        ? normalizeNumericField(storedStrokeWidth, DEFAULT_TEXT_STYLE_DRAFT.strokeWidth, {
+            min: 0,
+            max: 40,
+            integer: true,
+          })
+        : undefined,
       bold: storedBold === 'true' ? true : storedBold === 'false' ? false : undefined,
       italic: storedItalic === 'true' ? true : storedItalic === 'false' ? false : undefined,
       underline: storedUnderline === 'true' ? true : storedUnderline === 'false' ? false : undefined,
-      textAlign: storedTextAlign || undefined,
-      lineHeight: storedLineHeight ? parseFloat(storedLineHeight) : undefined,
+      textAlign: VALID_TEXT_ALIGN_VALUES.has(storedTextAlign) ? storedTextAlign : undefined,
+      lineHeight: storedLineHeight
+        ? normalizeNumericField(storedLineHeight, DEFAULT_TEXT_STYLE_DRAFT.lineHeight, {
+            min: 0.6,
+            max: 3,
+          })
+        : undefined,
     }).filter(([, value]) => value !== undefined)
   );
 }

@@ -901,10 +901,12 @@ export default function VideoHome(props) {
       ).map(function (item) {
         return { ...item, isHidden: false };
       });
+      activeItemListRef.current = activeList;
       setActiveItemList(activeList);
       // const newLayerSeek = Math.floor(currentLayer.durationOffset * 30);
       //setCurrentLayerSeek(newLayerSeek);
     } else {
+      activeItemListRef.current = [];
       setActiveItemList([]);
     }
     previousSyncedLayerIdRef.current = currentLayerId;
@@ -1562,6 +1564,7 @@ export default function VideoHome(props) {
         aspectRatio: sessionDetailsSnapshot?.aspectRatio,
       };
 
+      activeItemListRef.current = newActiveItemList;
       setActiveItemList(newActiveItemList);
 
       axios
@@ -1596,15 +1599,15 @@ export default function VideoHome(props) {
             && currentLayerRef.current?._id?.toString?.() === requestLayerId
             && updatedLayerId === requestLayerId
           ) {
-            setCurrentLayer(layer);
-            setActiveItemList(
-              normalizeActiveTextItemListForCanvas(
-                layer?.imageSession?.activeItemList || [],
-                getCanvasDimensionsForAspectRatio(session?.aspectRatio || sessionDetailsSnapshot?.aspectRatio),
-                newActiveItemList,
-                { preferFallbackTextConfig: true }
-              )
+            const normalizedItemList = normalizeActiveTextItemListForCanvas(
+              layer?.imageSession?.activeItemList || [],
+              getCanvasDimensionsForAspectRatio(session?.aspectRatio || sessionDetailsSnapshot?.aspectRatio),
+              newActiveItemList,
+              { preferFallbackTextConfig: true }
             );
+            activeItemListRef.current = normalizedItemList;
+            setCurrentLayer(layer);
+            setActiveItemList(normalizedItemList);
           }
 
           setIsCanvasDirty(true);
