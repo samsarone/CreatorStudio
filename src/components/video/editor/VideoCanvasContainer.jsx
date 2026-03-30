@@ -230,6 +230,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const eraserTargetItemIdRef = useRef(null);
   const eraserExitHandledRef = useRef(false);
   const lastEraserPointRef = useRef(null);
+  const erasedGridColumnsRef = useRef(new Set());
   const {
     showCanvasNavigationGrid,
     setShowCanvasNavigationGrid,
@@ -319,6 +320,69 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     };
   };
 
+  const getGridAlignedEraserColumns = (activeEraserLayer, stage, resolvedPoint, eraserRadius) => {
+    if (!activeEraserLayer || !stage || !resolvedPoint) {
+      return null;
+    }
+
+    const { x: stepX } = getCanvasGridStep(stage);
+    const eraserImageNode =
+      activeEraserLayer.findOne('#originalShape') || activeEraserLayer.children?.[0] || null;
+
+    if (!stepX || !eraserImageNode) {
+      return null;
+    }
+
+    const imageBounds = eraserImageNode.getClientRect({
+      skipTransform: false,
+      skipShadow: false,
+      skipStroke: false,
+    });
+    if (!imageBounds?.width || !imageBounds?.height) {
+      return null;
+    }
+
+    const imageLeft = imageBounds.x;
+    const imageRight = imageBounds.x + imageBounds.width;
+    const imageTop = imageBounds.y;
+    const imageBottom = imageBounds.y + imageBounds.height;
+    const coveredLeft = Math.max(resolvedPoint.x - eraserRadius, imageLeft);
+    const coveredRight = Math.min(resolvedPoint.x + eraserRadius, imageRight);
+
+    if (coveredRight <= coveredLeft) {
+      return [];
+    }
+
+    const stageWidth = Number(stage?.width?.()) || imageRight;
+    const startColumnIndex = Math.max(Math.floor(coveredLeft / stepX), 0);
+    const endColumnIndex = Math.max(
+      startColumnIndex,
+      Math.floor((Math.max(coveredRight - 0.001, coveredLeft)) / stepX)
+    );
+    const columns = [];
+
+    for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex += 1) {
+      const columnStart = columnIndex * stepX;
+      const columnEnd = Math.min(columnStart + stepX, stageWidth);
+      const x = Math.max(columnStart, imageLeft);
+      const width = Math.min(columnEnd, imageRight) - x;
+
+      if (width <= 0) {
+        continue;
+      }
+
+      columns.push({
+        key: `${stepX.toFixed(4)}:${columnIndex}`,
+        x,
+        y: imageTop,
+        width,
+        height: imageBottom - imageTop,
+      });
+    }
+
+    return columns;
+  };
+
   const drawEraserStrokeAtPoint = (activeEraserLayer, stage, point, options = {}) => {
     if (!activeEraserLayer || !stage || !point) {
       return;
@@ -331,6 +395,41 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
     const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
     const isInitialPoint = options.isInitialPoint || !lastEraserPointRef.current;
+
+    if (snapEraserToGrid) {
+      const gridAlignedColumns = getGridAlignedEraserColumns(
+        activeEraserLayer,
+        stage,
+        resolvedPoint,
+        eraserRadius
+      );
+
+      if (gridAlignedColumns) {
+        let hasNewStrip = false;
+
+        gridAlignedColumns.forEach(({ key, ...strip }) => {
+          if (erasedGridColumnsRef.current.has(key)) {
+            return;
+          }
+
+          activeEraserLayer.add(new Konva.Rect({
+            ...strip,
+            fill: 'black',
+            globalCompositeOperation: 'destination-out',
+            listening: false,
+            id: 'eraserGridStrip',
+          }));
+          erasedGridColumnsRef.current.add(key);
+          hasNewStrip = true;
+        });
+
+        lastEraserPointRef.current = resolvedPoint;
+        if (hasNewStrip) {
+          activeEraserLayer.batchDraw();
+        }
+        return;
+      }
+    }
 
     if (snapEraserToGrid && !isInitialPoint) {
       const previousPoint = lastEraserPointRef.current;
@@ -668,6 +767,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     const stage = ref.current.getStage();
     eraserExitHandledRef.current = true;
     lastEraserPointRef.current = null;
+    erasedGridColumnsRef.current = new Set();
     if (eraserLayer) {
       eraserLayer.destroy();
       setEraserLayer(null);
@@ -752,6 +852,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         const clonedImageNode = targetImageNode.clone({ id: 'originalShape' });
         setTempTopNode(target.node.clone());
         eraserTargetItemIdRef.current = target.item.id;
+        erasedGridColumnsRef.current = new Set();
         target.node.destroy();
         newEraserLayer.add(clonedImageNode);
         stage.add(newEraserLayer);
@@ -922,6 +1023,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       eraserLayer.destroy();
       setEraserLayer(null);
       setTempTopNode(null);
+      erasedGridColumnsRef.current = new Set();
       eraserTargetItemIdRef.current = null;
       updateSessionActiveItemList(newActiveItemList);
       setSelectedId(null);
@@ -955,6 +1057,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       eraserLayer.destroy();
       setEraserLayer(null);
       setTempTopNode(null);
+      erasedGridColumnsRef.current = new Set();
       eraserTargetItemIdRef.current = null;
     };
     imageObj.src = dataURL;
