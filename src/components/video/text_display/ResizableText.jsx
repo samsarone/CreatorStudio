@@ -254,8 +254,8 @@ const ResizableText = ({
       y: (nextState.y + nextState.height / 2) / stageZoomScale,
       width: nextState.width,
       height: nextState.height,
-      fontSize: nextState.fontSize * stageZoomScale,
-      strokeWidth: nextState.strokeWidth * stageZoomScale,
+      fontSize: nextState.fontSize,
+      strokeWidth: nextState.strokeWidth,
       lineHeight: nextState.lineHeight,
       positionMode: 'center',
     });

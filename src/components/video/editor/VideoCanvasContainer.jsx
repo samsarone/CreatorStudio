@@ -1,5 +1,5 @@
 import VideoCanvas from "./VideoCanvas";
-import React, { forwardRef, useContext, useEffect, useState, useRef } from "react";
+import React, { forwardRef, useCallback, useContext, useEffect, useState, useRef } from "react";
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
 import { generateCursor, generatePencilCursor } from "../util/GenerateSVG.jsx";
 import Konva from 'konva';
@@ -158,6 +158,18 @@ function applyStaticAnimation(node, type, params) {
     default:
       break;
   }
+}
+
+function shouldIgnoreCanvasNudgeShortcut(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const interactiveAncestor = target.closest(
+    'input, textarea, select, button, a, [contenteditable="true"], [role="textbox"], [role="button"]'
+  );
+
+  return Boolean(interactiveAncestor);
 }
 
 const VideoCanvasContainer = forwardRef((props, ref) => {
@@ -433,6 +445,96 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
     setButtonPositions(positions);
   }, [activeItemList, ref, selectedId]);
+
+  const nudgeSelectedTextItem = useCallback((deltaX, deltaY) => {
+    if (!selectedId || selectedLayerType !== 'text') {
+      return false;
+    }
+
+    const selectedTextItem = activeItemList.find(
+      (item) => item?.id === selectedId && item?.type === 'text' && !item?.isHidden
+    );
+
+    if (!selectedTextItem) {
+      return false;
+    }
+
+    const currentX = Number(selectedTextItem.config?.x);
+    const currentY = Number(selectedTextItem.config?.y);
+
+    if (!Number.isFinite(currentX) || !Number.isFinite(currentY)) {
+      return false;
+    }
+
+    const nextActiveItemList = activeItemList.map((item) => {
+      if (item?.id !== selectedId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        config: {
+          ...(item.config || {}),
+          x: currentX + deltaX,
+          y: currentY + deltaY,
+        },
+      };
+    });
+
+    setActiveItemList(nextActiveItemList);
+    updateSessionActiveItemList(nextActiveItemList);
+    return true;
+  }, [
+    activeItemList,
+    selectedId,
+    selectedLayerType,
+    setActiveItemList,
+    updateSessionActiveItemList,
+  ]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      if (shouldIgnoreCanvasNudgeShortcut(event.target)) {
+        return;
+      }
+
+      const step = event.shiftKey ? 10 : 1;
+      let deltaX = 0;
+      let deltaY = 0;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          deltaX = -step;
+          break;
+        case 'ArrowRight':
+          deltaX = step;
+          break;
+        case 'ArrowUp':
+          deltaY = -step;
+          break;
+        case 'ArrowDown':
+          deltaY = step;
+          break;
+        default:
+          return;
+      }
+
+      const moved = nudgeSelectedTextItem(deltaX, deltaY);
+      if (moved) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [nudgeSelectedTextItem]);
 
 
   useEffect(() => {
@@ -1242,7 +1344,12 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
   const updateTargetTextActiveLayerConfig = (id, newConfig) => {
-    const { text: nextText, positionMode, ...configChanges } = newConfig || {};
+    const {
+      text: nextText,
+      positionMode,
+      styleValueSpace = 'canvas',
+      ...configChanges
+    } = newConfig || {};
 
     const stage = ref.current?.getStage?.();
     const useExplicitCenterPosition =
@@ -1281,7 +1388,16 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       scaledNewConfig.height = configChanges.height / stageZoomScale;
     }
     if (typeof configChanges.fontSize === 'number') {
-      scaledNewConfig.fontSize = configChanges.fontSize / stageZoomScale;
+      scaledNewConfig.fontSize =
+        styleValueSpace === 'raw'
+          ? configChanges.fontSize
+          : configChanges.fontSize / stageZoomScale;
+    }
+    if (typeof configChanges.strokeWidth === 'number') {
+      scaledNewConfig.strokeWidth =
+        styleValueSpace === 'raw'
+          ? configChanges.strokeWidth
+          : configChanges.strokeWidth / stageZoomScale;
     }
   
 

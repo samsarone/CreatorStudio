@@ -29,8 +29,10 @@ import {
   MIN_CANVAS_DIMENSION,
   normalizeCanvasDimensions,
 } from '../../utils/canvas.jsx';
-import { drawCanvasTextItem } from '../../utils/canvasText.js';
-import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
+import {
+  captureAssistantStageImageData,
+  captureStageCanvas,
+} from '../../utils/assistantFrameCapture.js';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 import useUndoRedoState from '../../hooks/useUndoRedoState.js';
 
@@ -1378,81 +1380,32 @@ export default function ImageStudioHome() {
     return canvas.toDataURL('image/png');
   };
 
-  const renderActiveItemCanvas = useCallback(async () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = resolvedCanvasDimensions.width;
-    canvas.height = resolvedCanvasDimensions.height;
-    const ctx = canvas.getContext('2d');
-
-    const loadImage = (src) =>
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        if (!src.startsWith('data:')) {
-          img.crossOrigin = 'Anonymous';
-        }
-        img.onload = () => resolve(img);
-        img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
-      });
-
-    for (const item of activeItemList || []) {
-      if (item.isHidden) continue;
-
-      if (item.type === 'text') {
-        drawCanvasTextItem(ctx, item, resolvedCanvasDimensions);
-        continue;
-      }
-
-      ctx.save();
-      const { x = 0, y = 0, width = 0, height = 0, rotation } = item;
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.translate(x, y);
-
-      if (rotation) {
-        ctx.translate(width / 2, height / 2);
-        ctx.rotate((rotation * Math.PI) / 180);
-        ctx.translate(-width / 2, -height / 2);
-      }
-
-      if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
-        try {
-          const img = await loadImage(imgSrc);
-          ctx.drawImage(img, 0, 0, width, height);
-        } catch (_) {}
-      } else if (item.type === 'shape') {
-        const config = item.config || {};
-        const shapeX = config.x || 0;
-        const shapeY = config.y || 0;
-        const shapeWidth = config.width || 0;
-        const shapeHeight = config.height || 0;
-        const radius = config.radius || 0;
-        const strokeWidth = config.strokeWidth || 1;
-
-        ctx.fillStyle = config.fillColor || '#000000';
-        ctx.strokeStyle = config.strokeColor || '#000000';
-        ctx.lineWidth = strokeWidth;
-        if (item.shape === 'rectangle') {
-          ctx.fillRect(shapeX, shapeY, shapeWidth, shapeHeight);
-          if (strokeWidth > 0) {
-            ctx.strokeRect(shapeX, shapeY, shapeWidth, shapeHeight);
-          }
-        } else if (item.shape === 'circle') {
-          ctx.beginPath();
-          ctx.arc(shapeX + radius, shapeY + radius, radius, 0, 2 * Math.PI);
-          ctx.fill();
-          if (strokeWidth > 0) {
-            ctx.stroke();
-          }
-        }
-      }
-      ctx.restore();
+  const captureDownloadCanvas = useCallback(async () => {
+    const stage = canvasRef.current?.getStage?.();
+    if (!stage) {
+      return null;
     }
 
-    return canvas;
-  }, [activeItemList, resolvedCanvasDimensions.height, resolvedCanvasDimensions.width]);
+    const stageWidth = Math.max(Number(stage.width()) || 0, 1);
+    const stageHeight = Math.max(Number(stage.height()) || 0, 1);
+    const pixelRatio = Math.min(
+      resolvedCanvasDimensions.width / stageWidth,
+      resolvedCanvasDimensions.height / stageHeight
+    );
+
+    return captureStageCanvas(canvasRef, {
+      pixelRatio: pixelRatio > 0 ? pixelRatio : 1,
+      hideSelectors: [
+        'Transformer',
+        '#maskGroup',
+        '#pencilGroup',
+        '#shapeSelectToolbar',
+        '#overlayImagePreview',
+        '#maskImagePreview',
+        '#shadedAreaPreview',
+      ],
+    });
+  }, [resolvedCanvasDimensions.height, resolvedCanvasDimensions.width]);
 
   const triggerDownload = (canvas, suffix = '') => {
     const dataURL = canvas.toDataURL('image/png');
@@ -1467,14 +1420,14 @@ export default function ImageStudioHome() {
   };
 
   const downloadImageSimple = useCallback(async () => {
-    const baseCanvas = await renderActiveItemCanvas();
+    const baseCanvas = await captureDownloadCanvas();
     if (!baseCanvas) return;
     triggerDownload(baseCanvas);
-  }, [renderActiveItemCanvas]);
+  }, [captureDownloadCanvas]);
 
   const downloadImageAdvanced = useCallback(
     async ({ mode, scale, width, height }) => {
-      const baseCanvas = await renderActiveItemCanvas();
+      const baseCanvas = await captureDownloadCanvas();
       if (!baseCanvas) return;
       let outputCanvas = baseCanvas;
 
@@ -1521,7 +1474,7 @@ export default function ImageStudioHome() {
         triggerDownload(outputCanvas, `${safeWidth}x${safeHeight}`);
       }
     },
-    [renderActiveItemCanvas]
+    [captureDownloadCanvas]
   );
 
   const openAdvancedDownloadDialog = useCallback(() => {

@@ -914,6 +914,7 @@ const VideoCanvas = forwardRef((props, ref) => {
             )}
             {overlayImage && (
               <KonvaImage
+                id="overlayImagePreview"
                 image={overlayImage}
                 x={0}
                 y={0}
@@ -924,6 +925,7 @@ const VideoCanvas = forwardRef((props, ref) => {
             )}
             {maskImage && (
               <KonvaImage
+                id="maskImagePreview"
                 image={maskImage.src}
                 x={maskImage.x}
                 y={maskImage.y}
@@ -933,7 +935,7 @@ const VideoCanvas = forwardRef((props, ref) => {
               />
             )}
             {shadedArea && (
-              <Group>
+              <Group id="shadedAreaPreview">
                 <Line points={shadedArea} fill="rgba(0, 0, 0, 0.5)" closed />
               </Group>
             )}

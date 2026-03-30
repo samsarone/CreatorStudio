@@ -61,10 +61,10 @@ function scaleCanvasToDataUrl(sourceCanvas, maxDimension = 1536) {
   return scaledCanvas.toDataURL('image/png');
 }
 
-export async function captureAssistantStageImageData(stageRef, options = {}) {
+export async function captureStageCanvas(stageRef, options = {}) {
   const {
-    maxDimension = 1536,
     hideSelectors = ['Transformer', '#maskGroup', '#pencilGroup'],
+    pixelRatio = 1,
   } = options;
 
   const stage = getStageFromRef(stageRef);
@@ -75,9 +75,22 @@ export async function captureAssistantStageImageData(stageRef, options = {}) {
   const restoreStageVisibility = hideStageNodes(stage, hideSelectors);
 
   try {
-    const sourceCanvas = await stage.toCanvas({ pixelRatio: 1 });
-    return scaleCanvasToDataUrl(sourceCanvas, maxDimension);
+    return await stage.toCanvas({ pixelRatio });
   } finally {
     restoreStageVisibility();
   }
+}
+
+export async function captureAssistantStageImageData(stageRef, options = {}) {
+  const {
+    maxDimension = 1536,
+    hideSelectors = ['Transformer', '#maskGroup', '#pencilGroup'],
+  } = options;
+
+  const sourceCanvas = await captureStageCanvas(stageRef, {
+    hideSelectors,
+    pixelRatio: 1,
+  });
+
+  return scaleCanvasToDataUrl(sourceCanvas, maxDimension);
 }

@@ -124,6 +124,7 @@ export default function TextToolbar(props) {
     const normalizedDraft = buildTextStyleDraft(draft);
     updateTargetTextActiveLayerConfig(itemId, {
       text: `${normalizedDraft.text || ''}`,
+      styleValueSpace: 'raw',
       fontFamily: normalizedDraft.fontFamily,
       fontSize: Number.isFinite(Number(normalizedDraft.fontSize)) ? Number(normalizedDraft.fontSize) : 32,
       fillColor: normalizedDraft.fillColor,
