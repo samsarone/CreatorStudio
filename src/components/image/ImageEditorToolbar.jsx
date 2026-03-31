@@ -279,7 +279,7 @@ export default function ImageEditorToolbar(props) {
             <div>
               <div className="text-sm font-semibold">Undo / Redo</div>
               <div className={`mt-1 text-xs ${subtleText}`}>
-                Undo up to {historyLimit} recent canvas changes. Hotkeys only work while the pointer is on the canvas and an item is selected.
+                Undo up to {historyLimit} recent canvas changes across the current canvas state, including add, delete, and reorder actions.
               </div>
             </div>
             <div className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${secondaryButton}`}>

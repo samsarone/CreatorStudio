@@ -420,7 +420,6 @@ export default function ImageStudioHome() {
   const [canvasDisplaySize, setCanvasDisplaySize] = useState({ width: null, height: null });
   const [isCanvasDragActive, setIsCanvasDragActive] = useState(false);
   const [isCanvasDropProcessing, setIsCanvasDropProcessing] = useState(false);
-  const [isCanvasPointerInside, setIsCanvasPointerInside] = useState(false);
   const canvasDragDepthRef = useRef(0);
 
   const generationPollIntervalRef = useRef(null);
@@ -434,10 +433,7 @@ export default function ImageStudioHome() {
   const isHistoryInteractionBlocked =
     currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY ||
     currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY;
-  const isCanvasHistoryHotkeyEnabled =
-    Boolean(selectedId) &&
-    isCanvasPointerInside &&
-    !isHistoryInteractionBlocked;
+  const isCanvasHistoryHotkeyEnabled = !isHistoryInteractionBlocked;
 
   const resolvedCanvasDimensions = useMemo(
     () => normalizeCanvasDimensions(sessionDetails?.canvasDimensions, aspectRatio),
@@ -1977,7 +1973,6 @@ export default function ImageStudioHome() {
       setCanvasDisplaySize({ width: null, height: null });
       setIsCanvasDragActive(false);
       setIsCanvasDropProcessing(false);
-      setIsCanvasPointerInside(false);
       canvasDragDepthRef.current = 0;
       return;
     }
@@ -2080,8 +2075,6 @@ export default function ImageStudioHome() {
         >
           <div
             className={`relative ${canvasSurface} ${canvasDropSurfaceHighlight} rounded-xl px-4 py-6 inline-block cursor-pointer transition-colors duration-150`}
-            onPointerEnter={() => setIsCanvasPointerInside(true)}
-            onPointerLeave={() => setIsCanvasPointerInside(false)}
             onDragEnter={handleCanvasDragEnter}
             onDragOver={handleCanvasDragOver}
             onDragLeave={handleCanvasDragLeave}
