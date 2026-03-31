@@ -74,7 +74,8 @@ const VideoCanvas = forwardRef((props, ref) => {
     flipImageHorizontal, onCopyShapeLayer, onReplaceShapeLayer, handleResetShapeLayer, removeItem,
     updateTargetActiveLayerConfig, updateTargetShapeActiveLayerConfig, addPaintImage, resetPaintImage,
     shapeSelectTransformerCircleRef, shapeSelectTransformerRectangleRef, replaceEraserImage, duplicateEraserImage,
-    handleLayerMouseDown, handleLayerMouseMove, handleLayerMouseUp, resetEraserImage, showMask, eraserToolbarVisible,
+    undoEraserStroke, redoEraserStroke, handleLayerMouseDown, handleLayerMouseMove, handleLayerMouseUp,
+    resetEraserImage, showMask, eraserToolbarVisible,
     eraserToolbarPosition, eraserWidthRef, toolbarShapeProps, setToolbarShapeProps, paintToolbarPosition,
     paintToolbarVisible, isDrawing, shapeSet, showPencil, pencilLines, overlayImage, shapeSelectToolbarVisible,
     shapeSelectToolbarPosition, enableSegmentationMask, segmentationData, setSegmentationData,
@@ -98,6 +99,11 @@ const VideoCanvas = forwardRef((props, ref) => {
     rightPanelView,
     promptAspectRatio,
     setPromptAspectRatio,
+    eraserUndoCount,
+    eraserRedoCount,
+    eraserHistoryLimit,
+    canUndoEraserStroke,
+    canRedoEraserStroke,
     editorVariant = "videoStudio",
   
 
@@ -963,6 +969,13 @@ const VideoCanvas = forwardRef((props, ref) => {
         eraserToolbarPosition={eraserToolbarPosition}
         replaceEraserImage={replaceEraserImage}
         duplicateEraserImage={duplicateEraserImage}
+        undoEraserStroke={undoEraserStroke}
+        redoEraserStroke={redoEraserStroke}
+        eraserUndoCount={eraserUndoCount}
+        eraserRedoCount={eraserRedoCount}
+        eraserHistoryLimit={eraserHistoryLimit}
+        canUndoEraserStroke={canUndoEraserStroke}
+        canRedoEraserStroke={canRedoEraserStroke}
         resetEraserImage={resetEraserImage}
         shapeSelectToolbarVisible={shapeSelectToolbarVisible}
         shapeSelectToolbarPosition={shapeSelectToolbarPosition}

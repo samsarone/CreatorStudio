@@ -30,6 +30,13 @@ export default function CanvasToolbar(props) {
     eraserToolbarPosition,
     replaceEraserImage,
     duplicateEraserImage,
+    undoEraserStroke,
+    redoEraserStroke,
+    eraserUndoCount,
+    eraserRedoCount,
+    eraserHistoryLimit,
+    canUndoEraserStroke,
+    canRedoEraserStroke,
     resetEraserImage,
     shapeSelectToolbarVisible,
     shapeSelectToolbarPosition,
@@ -130,6 +137,13 @@ export default function CanvasToolbar(props) {
           pos={eraserToolbarPosition}
           replaceEraserImage={replaceEraserImage}
           duplicateEraserImage={duplicateEraserImage}
+          undoEraserStroke={undoEraserStroke}
+          redoEraserStroke={redoEraserStroke}
+          eraserUndoCount={eraserUndoCount}
+          eraserRedoCount={eraserRedoCount}
+          eraserHistoryLimit={eraserHistoryLimit}
+          canUndoEraserStroke={canUndoEraserStroke}
+          canRedoEraserStroke={canRedoEraserStroke}
           resetEraserImage={resetEraserImage}
           editorVariant={editorVariant}
         />
