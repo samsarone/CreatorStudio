@@ -24,6 +24,14 @@ import SingleSelect from "../common/SingleSelect.jsx";
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const VIDEO_FPS_OPTIONS = [
+  { value: 16, label: "16 FPS" },
+  { value: 30, label: "30 FPS" },
+];
+
+function getVideoFpsOption(value) {
+  return VIDEO_FPS_OPTIONS.find((option) => option.value === Number(value)) || VIDEO_FPS_OPTIONS[0];
+}
 
 export default function UserAccount() {
   const { colorMode } = useColorMode();
@@ -66,6 +74,7 @@ export default function UserAccount() {
   const [assistantModel, setAssistantModel] = useState(
     ASSISTANT_MODEL_TYPES.find((m) => m.value === "GPT5.4") || ASSISTANT_MODEL_TYPES[0]
   );
+  const [videoFps, setVideoFps] = useState(VIDEO_FPS_OPTIONS[0]);
 
   useEffect(() => {
     if (!user) return;
@@ -79,6 +88,7 @@ export default function UserAccount() {
         ASSISTANT_MODEL_TYPES[0]
     );
     setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
+    setVideoFps(getVideoFpsOption(user.videoFramesPerSecond));
   }, [user]);
 
   useEffect(() => {
@@ -127,6 +137,11 @@ export default function UserAccount() {
   const handleAssistantModelChange = (newVal) => {
     setAssistantModel(newVal);
     updateUserDetails({ selectedAssistantModel: newVal.value });
+  };
+
+  const handleVideoFpsChange = (newVal) => {
+    setVideoFps(newVal);
+    updateUserDetails({ videoFramesPerSecond: newVal.value });
   };
 
   const deleteAllGenerationsForUser = async () => {
@@ -356,7 +371,7 @@ export default function UserAccount() {
                         </div>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4 md:grid-cols-3">
                         <div className="space-y-2">
                           <p className="text-sm font-semibold">Assistant model</p>
                           <SingleSelect
@@ -372,6 +387,18 @@ export default function UserAccount() {
                             value={inferenceModel}
                             onChange={handleInferenceModelChange}
                           />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold">Final render FPS</p>
+                          <SingleSelect
+                            options={VIDEO_FPS_OPTIONS}
+                            value={videoFps}
+                            onChange={handleVideoFpsChange}
+                            isSearchable={false}
+                          />
+                          <p className={`text-xs ${secondaryTextColor}`}>
+                            Default render frame rate for new video sessions.
+                          </p>
                         </div>
                       </div>
 

@@ -679,14 +679,19 @@ export default function FrameToolbar(props) {
     isCanvasDirty,
     isUpdateLayerPending,
     isVideoPreviewPlaying = false,
-    framesPerSecond = 24,
+    framesPerSecond = 16,
 
   } = props;
 
 
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
   const DISPLAY_FRAMES_PER_SECOND = 30;
-  const sessionFramesPerSecond = Number(framesPerSecond) === 30 ? 30 : 24;
+  const numericFramesPerSecond = Number(framesPerSecond);
+  const sessionFramesPerSecond = numericFramesPerSecond === 30
+    ? 30
+    : numericFramesPerSecond === 24
+      ? 24
+      : 16;
 
   const secondsToDisplayFrames = (value) => Math.max(
     0,
@@ -4426,9 +4431,25 @@ export default function FrameToolbar(props) {
   };
 
   const isExpandedToolbarView = frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED;
-  let containerWdidth = 'w-[10%] z-1 opacity-100';
+  const timeRulerWidthPx = isExpandedToolbarView ? 54 : 34;
+  const timelineRailStyle = {
+    '--time-ruler-width': `${timeRulerWidthPx}px`,
+    '--time-ruler-padding-x': isExpandedToolbarView ? '2px' : '1px',
+    '--time-ruler-gap': isExpandedToolbarView ? '4px' : '2px',
+    '--time-ruler-mark-width': isExpandedToolbarView ? '8px' : '5px',
+    '--time-ruler-font-size': isExpandedToolbarView ? '10px' : '9px',
+  };
+  const collapsedToolbarWidth = 'min(10vw, 128px)';
+  const frameToolbarInsetStyle = {
+    left: '16px',
+    top: '72px',
+    bottom: '16px',
+  };
+  let containerWdidth = 'z-1 opacity-100';
   if (isExpandedToolbarView) {
     containerWdidth = 'min-w-[50%] max-w-[90%] z-[102]';
+  } else {
+    frameToolbarInsetStyle.width = collapsedToolbarWidth;
   }
 
   let trackViewDisplay = <span />;
@@ -4481,7 +4502,7 @@ export default function FrameToolbar(props) {
     <button
       type="button"
       onClick={toggleShowExpandedTrackView}
-      className={`inline-flex h-[42px] w-[26px] shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition-colors duration-150 ${collapsedToggleSurface}`}
+      className={`inline-flex h-[40px] w-[24px] shrink-0 items-center justify-center rounded-lg text-xs font-semibold transition-colors duration-150 ${collapsedToggleSurface}`}
       aria-label="Expand toolbar"
       title="Expand toolbar"
     >
@@ -5234,19 +5255,17 @@ export default function FrameToolbar(props) {
     };
   }, [openPopupLayerIndex, durationChanged]);
 
-  const panelVerticalBoundsClass = 'top-[56px] bottom-0';
-
   let buttonGroupMT = 'mt-0.5';
   if (isExpandedToolbarView) {
     buttonGroupMT = 'mt-0';
   }
 
-  let trackSliderML = 'ml-[20px]';
+  let trackSliderML = 'ml-[12px]';
   if (isExpandedToolbarView) {
     trackSliderML = 'ml-[10px]';
   }
 
-  let rangeScaleML = 'ml-0.5';
+  let rangeScaleML = 'ml-0';
   if (isExpandedToolbarView) {
     rangeScaleML = 'ml-1';
   }
@@ -5326,9 +5345,10 @@ export default function FrameToolbar(props) {
 
   return (
     <div
-      className={`shadow-lg m-auto fixed ${panelVerticalBoundsClass} ${containerWdidth} ${textColor} ${panelShellSurface}
-       text-left left-0 toolbar-container overflow-visible`}
+      className={`shadow-lg m-auto fixed ${containerWdidth} ${textColor} ${panelShellSurface}
+       text-left toolbar-container overflow-visible`}
       aria-disabled={isRenderPending}
+      style={frameToolbarInsetStyle}
     >
       <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]'>
         <div className={`relative z-[240] w-full shrink-0 overflow-visible pb-1 border-r-2 ${bgColor} border-stone-600`}>
@@ -5361,10 +5381,10 @@ export default function FrameToolbar(props) {
             </div>
           ) : (
             <div
-              className='cursor-pointer px-1.5 pt-0.5'
+              className='cursor-pointer px-1 pt-0.5'
               onClick={toggleShowExpandedTrackView}
             >
-              <div className={`btn-container flex w-full items-start ${btnLeftMargin} pr-1.5 mb-1`}>
+              <div className={`btn-container flex w-full items-start ${btnLeftMargin} pr-1 mb-1`}>
                 <div className={`flex w-full max-w-full flex-col items-start ${buttonGroupMT}`}>
                   {submitRenderFullActionDisplay}
                 </div>
@@ -5373,9 +5393,15 @@ export default function FrameToolbar(props) {
           )}
         </div>
 
-        <div className={`relative z-0 min-h-0 h-full w-full overflow-hidden flex flex-row pl-1 ${panelBodySurface}`}>
+        <div
+          className={`relative z-0 min-h-0 h-full w-full overflow-hidden flex flex-row pl-1 ${panelBodySurface}`}
+          style={timelineRailStyle}
+        >
           {isGridVisible && hasUsableFrameRange && (
-            <div className='pointer-events-none absolute inset-y-0 left-0 right-[54px] z-[3] overflow-hidden'>
+            <div
+              className='pointer-events-none absolute inset-y-0 left-0 z-[3] overflow-hidden'
+              style={{ right: `${timeRulerWidthPx}px` }}
+            >
               <div className='action-view-grid-overlay h-full w-full' style={gridOverlayThemeStyle}>
                 {minorGridLineOffsets.map((offset) => (
                   <div

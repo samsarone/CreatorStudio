@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import {
   FaDownload,
-  FaPause,
   FaPlay,
+  FaPause,
   FaRedo,
   FaSearch,
   FaVideo,
@@ -28,6 +28,18 @@ function resolveVideoUrl(assetPath) {
   }
 
   return `${API_SERVER}${trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`}`;
+}
+
+function resolveThumbnailUrl(item = {}) {
+  const thumbnailPath = [
+    item?.thumbnailPath,
+    item?.thumbnail,
+    item?.previewImage,
+    item?.poster,
+    item?.aiLayerStartFrame,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  return resolveVideoUrl(thumbnailPath || '');
 }
 
 function formatDuration(duration) {
@@ -73,7 +85,7 @@ export default function VideoLibraryHome(props) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [previewingVideoId, setPreviewingVideoId] = useState(null);
   const [trimByVideoId, setTrimByVideoId] = useState({});
   const videoRefs = useRef({});
 
@@ -173,27 +185,26 @@ export default function VideoLibraryHome(props) {
     setSearchTerm(event.target.value);
   };
 
-  const handlePlayPause = (itemId) => {
-    const videoElement = videoRefs.current[itemId];
-    if (!videoElement) {
+  const handlePreviewToggle = (itemId) => {
+    if (previewingVideoId && previewingVideoId !== itemId) {
+      const previousPreview = videoRefs.current[previewingVideoId];
+      if (previousPreview?.pause) {
+        previousPreview.pause();
+        previousPreview.currentTime = 0;
+      }
+    }
+
+    if (previewingVideoId === itemId) {
+      const currentPreview = videoRefs.current[itemId];
+      if (currentPreview?.pause) {
+        currentPreview.pause();
+        currentPreview.currentTime = 0;
+      }
+      setPreviewingVideoId(null);
       return;
     }
 
-    if (playingVideoId && playingVideoId !== itemId && videoRefs.current[playingVideoId]) {
-      videoRefs.current[playingVideoId].pause();
-    }
-
-    if (playingVideoId === itemId) {
-      videoElement.pause();
-      setPlayingVideoId(null);
-      return;
-    }
-
-    videoElement.play();
-    setPlayingVideoId(itemId);
-    videoElement.onended = () => {
-      setPlayingVideoId((currentValue) => (currentValue === itemId ? null : currentValue));
-    };
+    setPreviewingVideoId(itemId);
   };
 
   const handleDownload = (item) => {
@@ -242,41 +253,72 @@ export default function VideoLibraryHome(props) {
     }
 
     return (
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
         {items.map((item, index) => {
           const itemKey = getTrimKey(item) || `${sectionKey}-${index}`;
           const videoUrl = resolveVideoUrl(item?.assetPath || item?.url);
+          const thumbnailUrl = resolveThumbnailUrl(item);
           const durationLabel = formatDuration(item?.duration);
-          const isPlaying = playingVideoId === itemKey;
+          const isPreviewing = previewingVideoId === itemKey;
 
           return (
             <div key={`${sectionKey}-${itemKey}-${index}`} className={`rounded-2xl p-3 shadow-sm ${cardSurface}`}>
-              <div className="relative overflow-hidden rounded-xl">
-                {videoUrl ? (
+              <div className="relative overflow-hidden rounded-xl bg-slate-950">
+                {isPreviewing && videoUrl ? (
                   <video
                     ref={(node) => {
                       videoRefs.current[itemKey] = node;
                     }}
                     src={videoUrl}
-                    className="h-48 w-full cursor-pointer rounded-xl object-cover bg-black"
+                    poster={thumbnailUrl || undefined}
+                    className="h-48 w-full rounded-xl object-cover bg-black"
                     preload="metadata"
-                    controls={false}
-                    onClick={() => handlePlayPause(itemKey)}
+                    controls
+                    autoPlay
+                    playsInline
+                    onEnded={() => {
+                      setPreviewingVideoId((currentValue) => (currentValue === itemKey ? null : currentValue));
+                    }}
                   />
+                ) : thumbnailUrl ? (
+                  <button
+                    type="button"
+                    className="group relative block h-48 w-full overflow-hidden rounded-xl"
+                    onClick={() => handlePreviewToggle(itemKey)}
+                    disabled={!videoUrl}
+                  >
+                    <img
+                      src={thumbnailUrl}
+                      alt={item?.title || item?.sourceLabel || 'Video preview'}
+                      className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur">
+                        <FaPlay className="ml-0.5" />
+                      </span>
+                    </div>
+                  </button>
                 ) : (
-                  <div className="flex h-48 w-full items-center justify-center rounded-xl bg-slate-900/70 text-slate-200">
+                  <button
+                    type="button"
+                    className="flex h-48 w-full items-center justify-center rounded-xl bg-slate-900/70 text-slate-200"
+                    onClick={() => handlePreviewToggle(itemKey)}
+                    disabled={!videoUrl}
+                  >
                     <FaVideo className="mr-2" />
-                    Preview unavailable
-                  </div>
+                    {videoUrl ? 'Preview video' : 'Preview unavailable'}
+                  </button>
                 )}
 
                 <button
                   type="button"
                   className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur"
-                  onClick={() => handlePlayPause(itemKey)}
+                  onClick={() => handlePreviewToggle(itemKey)}
+                  disabled={!videoUrl}
                 >
-                  {isPlaying ? <FaPause /> : <FaPlay />}
-                  {isPlaying ? 'Pause' : 'Preview'}
+                  {isPreviewing ? <FaPause /> : <FaPlay />}
+                  {isPreviewing ? 'Hide' : 'Preview'}
                 </button>
               </div>
 

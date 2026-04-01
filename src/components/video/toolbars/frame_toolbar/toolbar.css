@@ -116,9 +116,9 @@
   display: block;
   height: 100%;
   min-height: 0;
-  padding: 0 2px 0 2px;
+  padding: 0 var(--time-ruler-padding-x, 2px);
   color: #fff; /* Adjust color based on your theme */
-  width: 54px;
+  width: var(--time-ruler-width, 54px);
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -130,19 +130,19 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: var(--time-ruler-gap, 4px);
   box-sizing: border-box;
 }
 
 .time-ruler-tick-mark {
-  flex: 0 0 8px;
+  flex: 0 0 var(--time-ruler-mark-width, 8px);
   height: 1px;
   background-color: currentColor;
   opacity: 0.7;
 }
 
 .time-ruler-tick-label {
-  font-size: 10px;
+  font-size: var(--time-ruler-font-size, 10px);
   font-weight: bold;
   line-height: 1;
   white-space: nowrap;

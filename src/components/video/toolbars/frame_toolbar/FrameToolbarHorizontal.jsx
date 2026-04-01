@@ -233,17 +233,17 @@ export default function FrameToolbarHorizontal({
     <div
       className={`${
         colorMode === "dark"
-          ? "bg-[#0f1629] text-slate-100 border-t border-[#1f2a3d] shadow-[0_-6px_30px_rgba(0,0,0,0.4)]"
-          : "bg-white/90 text-slate-800 border-t border-slate-200 shadow-[0_-6px_30px_rgba(15,23,42,0.06)] backdrop-blur-sm"
+          ? "bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.32)]"
+          : "bg-white/90 text-slate-800 border border-slate-200 shadow-[0_14px_32px_rgba(15,23,42,0.06)] backdrop-blur-sm"
       } w-full overflow-hidden`}
       aria-disabled={isRenderPending}
     >
       <div>
         {/* Seek */}
-        <div className="px-4 pt-3 pb-2 space-y-2">
+        <div className="px-3 pt-2 pb-1.5 space-y-1.5">
           <ReactSlider
             key="horizontal-seek-slider"
-            className="modern-horizontal-slider w-full h-7 flex items-center"
+            className="modern-horizontal-slider flex h-6 w-full items-center"
             min={0}
             max={totalFrames}
             value={currentLayerSeek}
@@ -283,15 +283,15 @@ export default function FrameToolbarHorizontal({
               );
             }}
           />
-          <div className={`text-[11px] font-medium ${colorMode === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+          <div className={`text-[10px] font-medium ${colorMode === "dark" ? "text-slate-400" : "text-slate-500"}`}>
             {(currentLayerSeek / fps).toFixed(2)}s / {totalDuration.toFixed(2)}s
           </div>
         </div>
 
         {/* Scroll controls */}
-        <div className="px-4 pb-3 flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-2 px-3 pb-2">
           <button
-            className={`p-2.5 rounded-full transition-colors duration-150 ${
+            className={`rounded-full p-2 transition-colors duration-150 ${
               colorMode === "dark"
                 ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
                 : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
@@ -327,7 +327,7 @@ export default function FrameToolbarHorizontal({
                     {...provided.droppableProps}
                   >
                     {/* the wide track inside the scroll container */}
-                    <div className="relative h-10" style={{ width: trackWidth }}>
+                    <div className="relative h-8" style={{ width: trackWidth }}>
                       <div className="absolute inset-0 flex items-stretch gap-2">
                         {layers.map((layer, i) => {
                           const widthPx = tileWidths[i] ?? MIN_TILE_WIDTH;
@@ -348,11 +348,11 @@ export default function FrameToolbarHorizontal({
                                   }}
                                   {...drag.draggableProps}
                                   {...drag.dragHandleProps}
-                                  className={`rounded-lg border transition-colors duration-150 ${
+                                  className={`rounded-md border transition-colors duration-150 ${
                                     isSelected
                                       ? colorMode === "dark"
-                                        ? "border-rose-400/60 bg-rose-500/20 shadow-[0_8px_20px_rgba(248,113,113,0.2)]"
-                                        : "border-amber-300 bg-amber-50 shadow-[0_8px_24px_rgba(251,191,36,0.2)]"
+                                        ? "border-rose-400/60 bg-rose-500/20 shadow-[0_6px_18px_rgba(248,113,113,0.18)]"
+                                        : "border-amber-300 bg-amber-50 shadow-[0_6px_20px_rgba(251,191,36,0.16)]"
                                       : colorMode === "dark"
                                         ? "border-[#1f2a3d] bg-[#111a2f] hover:border-rose-400/30"
                                         : "border-slate-200 bg-slate-100 hover:border-slate-300"
@@ -369,7 +369,7 @@ export default function FrameToolbarHorizontal({
                                   }}
                                   data-layer-id={layer._id} // helpful for debugging
                                 >
-                                  <div className="text-[11px] leading-tight text-center px-2">
+                                  <div className="px-2 text-center text-[10px] leading-tight">
                                     <div className="font-semibold">{i + 1}</div>
                                     <div className={colorMode === "dark" ? "text-slate-200/90" : "text-slate-600"}>
                                       {layer.duration?.toFixed(1)}s
@@ -398,7 +398,7 @@ export default function FrameToolbarHorizontal({
           </div>
 
           <button
-            className={`p-2.5 rounded-full transition-colors duration-150 ${
+            className={`rounded-full p-2 transition-colors duration-150 ${
               colorMode === "dark"
                 ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
                 : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"

@@ -3409,23 +3409,18 @@ export default function VideoEditorContainer(props) {
     colorMode === 'dark'
       ? 'bg-[#0b1021] text-slate-100'
       : 'bg-gradient-to-br from-[#e9edf7] via-[#eef3fb] to-white text-slate-900';
-  const toolbarShell =
-    colorMode === 'dark'
-      ? 'bg-[#0f1629] border-l border-[#1f2a3d] shadow-[0_1px_0_rgba(255,255,255,0.04)]'
-      : 'bg-white border-l border-slate-200 shadow-sm';
-  const collapsedToolbarShell =
-    colorMode === 'dark'
-      ? 'bg-[#0f1629] border-l border-[#1f2a3d]'
-      : 'bg-white border-l border-slate-200 shadow-sm';
 
   return (
-    <div className={`${mainWorkspaceShell} block min-h-screen`}>
-      <div className={`text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8 ${disabledShellClass}`} aria-disabled={isRenderPending}>
-        {viewDisplay}
+    <div className={`${mainWorkspaceShell} flex h-full min-h-0`}>
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden px-6 py-6 text-center ${disabledShellClass}`}
+        aria-disabled={isRenderPending}
+      >
+        <div className="flex h-full w-full items-center justify-center overflow-hidden">
+          {viewDisplay}
+        </div>
       </div>
-      <div className={`w-[18%] inline-block ${toolbarShell}`}>
-        {editorToolbarExpanded}
-      </div>
+      {editorToolbarExpanded}
     </div>
   );
 }

@@ -115,6 +115,10 @@ export default function ImageLibraryHome(props) {
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d] hover:border-rose-300/40'
       : 'bg-white border border-slate-200 hover:border-rose-300';
+  const selectedTileSurface =
+    colorMode === 'dark'
+      ? 'border-sky-400/60 ring-2 ring-sky-400/25'
+      : 'border-sky-400 ring-2 ring-sky-200';
   const paginationButton =
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-200 hover:bg-[#16213a] disabled:opacity-50'
@@ -140,7 +144,9 @@ export default function ImageLibraryHome(props) {
         return (
           <div
             key={`${sectionKey}-${previewLink}-${index}`}
-            className={`rounded-lg overflow-hidden transition-all ${tileSurface}`}
+            className={`rounded-lg overflow-hidden transition-all ${tileSurface} ${
+              selectedImage === previewLink ? selectedTileSurface : ''
+            }`}
           >
             <img
               src={previewLink}
@@ -195,7 +201,12 @@ export default function ImageLibraryHome(props) {
       )}
 
       <div className={`rounded-xl p-3 ${sectionSurface}`}>
-        <div className="text-sm font-semibold mb-2">Current Session</div>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold">Current Session</div>
+          <div className={`text-[11px] ${helperText}`}>
+            {currentSessionAssets.length} items
+          </div>
+        </div>
         {renderAssetsGrid(
           currentSessionAssets,
           'current-session',
@@ -206,9 +217,10 @@ export default function ImageLibraryHome(props) {
       <div className={`rounded-xl p-3 mt-3 ${sectionSurface}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-semibold">Global Sessions</div>
-          <div className={`text-[11px] ${helperText}`}>
-            Page {page} of {Math.max(1, totalPages)}
-          </div>
+          <div className={`text-[11px] ${helperText}`}>{globalAssets.length} items</div>
+        </div>
+        <div className={`mb-2 text-[11px] ${helperText}`}>
+          Page {page} of {Math.max(1, totalPages)}
         </div>
 
         {isGlobalLoading ? (

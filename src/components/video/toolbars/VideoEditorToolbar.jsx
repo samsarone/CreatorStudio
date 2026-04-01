@@ -154,9 +154,11 @@ export default function VideoEditorToolbar(props) {
   // We only read this value; never update it, so we can just store `true`.
   const addSubtitles = true;
 
+  const COLLAPSED_EDITOR_TOOLBAR_WIDTH = 'clamp(148px, 11vw, 168px)';
+  const EXPANDED_EDITOR_TOOLBAR_WIDTH = 'min(48vw, 720px)';
   const [currentlyPlayingSpeaker, setCurrentlyPlayingSpeaker] = useState(null);
   const [isExpandedView, setIsExpandedView] = useState(false);
-  const [containerWidth, setContainerWidth] = useState('w-[16%]');
+  const [containerWidth, setContainerWidth] = useState(COLLAPSED_EDITOR_TOOLBAR_WIDTH);
   const audioSampleRef = useRef(null);
   const [numberOfSpeechLayersRequested, setNumberOfSpeechLayersRequested] = useState(0);
   const [selectedMusicProvider, setSelectedMusicProvider] = useState(MUSIC_PROVIDERS[0]);
@@ -1569,12 +1571,21 @@ export default function VideoEditorToolbar(props) {
 
   const showEditorExpandedView = () => {
     if (isExpandedView) {
-      setContainerWidth('w-[16%]');
+      setContainerWidth(COLLAPSED_EDITOR_TOOLBAR_WIDTH);
     } else {
-      setContainerWidth('w-[48%]');
+      setContainerWidth(EXPANDED_EDITOR_TOOLBAR_WIDTH);
     }
     setIsExpandedView(!isExpandedView);
   };
+
+  const stickyHeaderPaddingClass = isExpandedView ? 'p-3' : 'p-2.5';
+  const toolbarListTopMarginClass = isExpandedView ? 'mt-[56px]' : 'mt-4';
+  const toolbarItemButtonClass = isExpandedView
+    ? 'pt-1 pb-1 pl-2 pr-2 text-lg font-bold'
+    : 'px-1.5 py-1.5 text-[13px] font-semibold';
+  const toolbarItemIconClass = isExpandedView ? 'inline-flex ml-4' : 'inline-flex ml-1.5';
+  const toolbarItemChevronClass = isExpandedView ? 'inline-flex mr-4 text-sm' : 'inline-flex mr-1.5 text-xs';
+  const toolbarItemBodyClass = isExpandedView ? 'pt-1 pl-2 pr-2' : 'pt-1 px-1.5';
 
   let expandButtonLabel = (
     <div className='relative w-full cursor-pointer pb-1 block'>
@@ -1594,26 +1605,30 @@ export default function VideoEditorToolbar(props) {
 
   return (
     <div
-      className={`${panelSurface} h-full m-auto fixed top-0 overflow-y-auto pl-3 pr-3 ${containerWidth} right-0 toolbar-container ${disabledShellClass}`}
+      className={`${panelSurface} m-auto fixed top-[72px] bottom-4 right-4 overflow-y-auto pl-2 pr-2 toolbar-container ${disabledShellClass}`}
       aria-disabled={isRenderPending}
-      style={{ paddingBottom: 'calc(var(--assistant-sidebar-safe-bottom, 0px) + 1rem)' }}
+      style={{
+        width: containerWidth,
+        maxWidth: 'calc(100vw - 32px)',
+        paddingBottom: 'calc(var(--assistant-sidebar-safe-bottom, 0px) + 1rem)',
+      }}
     >
       <div>
         <div
-          className={`sticky top-[50px] z-10 p-3 rounded-xl transition-colors duration-200 ${colorMode === 'dark'
+          className={`sticky top-0 z-10 rounded-xl transition-colors duration-200 ${stickyHeaderPaddingClass} ${colorMode === 'dark'
             ? 'bg-[#111a2f] border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.35)]'
             : 'bg-white/95 border border-slate-200 shadow-sm'}`}
         >
           {collapseButton}
           <div
             onClick={showEditorExpandedView}
-            className={`m-auto text-center text-sm font-medium ${colorMode === 'dark' ? 'text-slate-100' : 'text-slate-700'}`}
+            className={`m-auto text-center ${isExpandedView ? 'text-sm' : 'text-[13px]'} font-medium ${colorMode === 'dark' ? 'text-slate-100' : 'text-slate-700'}`}
           >
             {expandButtonLabel}
           </div>
         </div>
 
-        <div className='mt-[56px]'>
+        <div className={toolbarListTopMarginClass}>
           {layerToolbarList.map((item, index) => (
             <div key={index} className={`${getMarginTop(item.view)} transition-all duration-300`}>
               <div
@@ -1621,14 +1636,14 @@ export default function VideoEditorToolbar(props) {
                   } transition-colors duration-300`}
               >
                 <div
-                  className={`pt-1 pb-1 pl-2 pr-2 text-lg font-bold m-auto cursor-pointer flex justify-between items-center ${getSelectedClass(
+                  className={`${toolbarItemButtonClass} m-auto cursor-pointer flex justify-between items-center ${getSelectedClass(
                     item.view
                   )} rounded transition-colors duration-300`}
                   onClick={item.onClick}
                 >
                   {item.icon && (
                     <div
-                      className="inline-flex ml-4"
+                      className={toolbarItemIconClass}
                       onClick={(e) => {
                         e.stopPropagation();
                         item.onExpandClick && item.onExpandClick();
@@ -1638,11 +1653,11 @@ export default function VideoEditorToolbar(props) {
                     </div>
                   )}
                   <div className="flex-grow text-center">{item.label}</div>
-                  <FaChevronDown className="inline-flex mr-4 text-sm" />
+                  <FaChevronDown className={toolbarItemChevronClass} />
                 </div>
                 <div
                   className={`${index === layerToolbarList.length - 1 ? 'mb-4' : 'mb-1'
-                    } pt-1 pl-2 pr-2 ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
+                    } ${toolbarItemBodyClass} ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
                     } transition-all duration-500 ${isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
                     }`}
                 >

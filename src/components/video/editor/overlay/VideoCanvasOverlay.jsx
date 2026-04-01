@@ -44,17 +44,18 @@ export default function VideoCanvasOverlay(props) {
     : isLandscapeCanvas
     ? "landscape"
     : "square";
+  const baseVideoOverlayCardWidth = isLandscapeCanvas
+    ? Math.min(680, Math.max(460, canvasWidth * 0.62))
+    : isPortraitCanvas
+    ? Math.min(420, Math.max(300, canvasWidth * 0.82))
+    : Math.min(520, Math.max(360, canvasWidth * 0.72));
   const overlayCardWidth = isImageStudioOverlay
     ? isLandscapeCanvas
       ? Math.min(760, Math.max(560, canvasWidth * 0.68))
       : isPortraitCanvas
       ? Math.min(560, Math.max(360, canvasWidth * 0.96))
       : Math.min(660, Math.max(420, canvasWidth * 0.9))
-    : isLandscapeCanvas
-    ? Math.min(680, Math.max(460, canvasWidth * 0.62))
-    : isPortraitCanvas
-    ? Math.min(420, Math.max(300, canvasWidth * 0.82))
-    : Math.min(520, Math.max(360, canvasWidth * 0.72));
+    : Math.max(280, Math.round(baseVideoOverlayCardWidth * 0.67));
   const imageStudioTopOffset = isPortraitCanvas
     ? Math.min(140, Math.max(36, canvasHeight * 0.18))
     : isLandscapeCanvas
@@ -117,6 +118,9 @@ export default function VideoCanvasOverlay(props) {
         ? "bg-slate-950 text-slate-200 border border-slate-700 hover:bg-slate-900"
         : "bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200";
     const subText = colorMode === "dark" ? "text-slate-300" : "text-slate-600";
+    const headerTextLayout = isImageStudioOverlay
+      ? "min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1"
+      : "min-w-0 flex flex-col gap-1";
     const overlayTitle = isImageStudioOverlay
       ? "Start this canvas"
       : "Start this frame";
@@ -134,11 +138,11 @@ export default function VideoCanvasOverlay(props) {
           className={`pointer-events-auto ${overlaySurface} ${isImageStudioOverlay ? "rounded-[28px] px-5 py-5" : "rounded-2xl px-4 py-4"}`}
           style={{
             width: `${overlayCardWidth}px`,
-            maxWidth: "calc(100% - 24px)",
+            maxWidth: isImageStudioOverlay ? "calc(100% - 24px)" : "calc(100% - 32px)",
           }}
         >
           <div className={`flex items-start justify-between gap-3 ${isImageStudioOverlay ? "mb-5" : "mb-4"}`}>
-            <div className="min-w-0 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <div className={headerTextLayout}>
               <div className={isImageStudioOverlay ? "text-base font-semibold" : "text-sm font-semibold"}>{overlayTitle}</div>
               <div className={`${isImageStudioOverlay ? "text-sm" : "text-xs"} ${subText}`}>
                 {overlaySubtitle}

@@ -851,10 +851,14 @@ const VideoCanvas = forwardRef((props, ref) => {
     || (isUserVideoUploadActive
       ? 'The server is normalizing the uploaded video for this layer.'
       : 'This can take a few minutes.');
+  const canvasSurfaceClassName =
+    colorMode === 'dark'
+      ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_16px_34px_rgba(2,6,23,0.18)]'
+      : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_14px_28px_rgba(15,23,42,0.08)]';
   const canvasShellClassName =
     editorVariant === "imageStudio"
       ? "m-auto relative py-6 pl-0 pr-0"
-      : "m-auto relative pb-8 shadow-lg mt-4 pt-[60px] pl-0 pr-0";
+      : `m-auto relative rounded-xl px-4 py-6 ${canvasSurfaceClassName}`;
 
   return (
     <div className={`${canvasShellClassName} ${textColor}`}
@@ -880,7 +884,7 @@ const VideoCanvas = forwardRef((props, ref) => {
             boxSizing: 'border-box',
             padding: 0,
             margin: 0,
-            backgroundColor: {bgCanvasColor},
+            backgroundColor: bgCanvasColor,
           }}
         >
           <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove}

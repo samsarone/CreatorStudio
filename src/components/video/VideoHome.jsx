@@ -2596,10 +2596,16 @@ export default function VideoHome(props) {
   }
 
   const isVideoRenderPending = Boolean(isVideoGenerating || videoSessionDetails?.videoGenerationPending);
+  const collapsedFrameToolbarWidth = 'min(10vw, 128px)';
+  const collapsedRightPanelWidth = 'clamp(148px, 11vw, 168px)';
+  const studioInsetPx = 16;
+  const studioTopInsetPx = 72;
+  const reservedLeftRailWidth = `calc(${collapsedFrameToolbarWidth} + ${studioInsetPx * 2}px)`;
+  const reservedRightRailWidth = `calc(${collapsedRightPanelWidth} + ${studioInsetPx}px)`;
 
 
   const editorContainerDisplay = (
-    <div className=''>
+    <div className='h-full min-h-0'>
       <VideoEditorContainer
         selectedLayerIndex={selectedLayerIndex}
         layers={layers}
@@ -2749,7 +2755,7 @@ export default function VideoHome(props) {
           isVideoPreviewPlaying={isVideoPreviewPlaying}
           requestRealignLayers={requestRealignLayers}
           cancelPendingRender={cancelPendingRender}
-          framesPerSecond={videoSessionDetails?.framesPerSecond || 24}
+          framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
         />
       </div>
     )
@@ -2760,89 +2766,109 @@ export default function VideoHome(props) {
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       isRenderPending={isVideoRenderPending}
     >
-      <div className='m-auto'>
-        <div className='block'>
-          <div className='w-[10%] inline-block'>
-            <FrameToolbar
-              layers={layers}
-              setSelectedLayerIndex={setSelectedLayerIndex}
-              currentLayer={currentLayer}
-              setCurrentLayer={setCurrentLayer}
-              setLayerDuration={setLayerDuration}
-              selectedLayerIndex={selectedLayerIndex}
-              setCurrentLayerSeek={setNewSeek}
-              currentLayerSeek={currentLayerSeek}
-              submitRenderVideo={submitRenderVideo}
-              totalDuration={totalDuration}
-              showAddAudioToProjectDialog={showAddAudioToProjectDialog}
-              audioFileTrack={audioFileTrack}
-              setSelectedLayer={setSelectedLayer}
-              startPlayFrames={startPlayFrames}
-              renderedVideoPath={renderedVideoPath}
-              downloadVideoDisplay={downloadVideoDisplay}
+      <div
+        className='box-border h-[100dvh] overflow-hidden px-4 pb-4'
+        style={{ paddingTop: `${studioTopInsetPx}px` }}
+      >
+        <div className='grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-4 overflow-hidden'>
+          <div className='flex min-h-0 gap-4 overflow-hidden'>
+            <div className='shrink-0' style={{ width: reservedLeftRailWidth }}>
+              <FrameToolbar
+                layers={layers}
+                setSelectedLayerIndex={setSelectedLayerIndex}
+                currentLayer={currentLayer}
+                setCurrentLayer={setCurrentLayer}
+                setLayerDuration={setLayerDuration}
+                selectedLayerIndex={selectedLayerIndex}
+                setCurrentLayerSeek={setNewSeek}
+                currentLayerSeek={currentLayerSeek}
+                submitRenderVideo={submitRenderVideo}
+                totalDuration={totalDuration}
+                showAddAudioToProjectDialog={showAddAudioToProjectDialog}
+                audioFileTrack={audioFileTrack}
+                setSelectedLayer={setSelectedLayer}
+                startPlayFrames={startPlayFrames}
+                renderedVideoPath={renderedVideoPath}
+                downloadVideoDisplay={downloadVideoDisplay}
+                sessionId={id}
+                updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
+                updateSessionLayer={updateSessionLayer}
+                setIsLayerSeeking={setIsLayerSeeking}
+                isLayerSeeking={isLayerSeeking}
+                isVideoGenerating={isVideoGenerating}
+                showAudioTrackView={showAudioTrackView}
+                frameToolbarView={frameToolbarView}
+                audioLayers={audioLayers}
+                updateAudioLayer={updateAudioLayer}
+                isAudioLayerDirty={isAudioLayerDirty}
+                removeAudioLayer={removeAudioLayer}
+                updateChangesToActiveAudioLayers={updateChangesToActiveAudioLayers}
+                updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
+                updateLayerVisualItem={updateLayerVisualItem}
+                deleteLayerVisualItem={deleteLayerVisualItem}
+                addLayerToComposition={addLayerToComposition}
+                copyCurrentLayerBelow={copyCurrentLayerBelow}
+                removeSessionLayer={removeSessionLayer}
+                addLayersViaPromptList={addLayersViaPromptList}
+                defaultSceneDuration={videoSessionDetails.defaultSceneDuration}
+                isCanvasDirty={isCanvasDirty}
+                downloadLink={downloadLink}
+                submitRegenerateFrames={submitRegenerateFrames}
+                applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
+                applyAudioDucking={applyAudioDucking}
+                sceneTransitionPreset={sceneTransitionPreset}
+                onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
+                onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
+                applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
+                applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
+                applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
+                onLayersOrderChange={updateSessionLayersOrder}
+                updateSessionLayersOnServer={updateSessionLayersOnServer}
+                regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+                duplicateAudioLayer={duplicateAudioLayer}
+                publishVideoSession={publishVideoSession}
+                unpublishVideoSession={unpublishVideoSession}
+                isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
+                generateMeta={generateMeta}
+                sessionMetadata={sessionMetadata}
+                isGuestSession={isGuestSession}
+                updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+                requestVideoLayerEdit={requestVideoLayerEdit}
+                renderCompletedThisSession={renderCompletedThisSession}
+                isRenderPending={isVideoRenderPending}
+                isUpdateLayerPending={isUpdateLayerPending}
+                isVideoPreviewPlaying={isVideoPreviewPlaying}
+                requestRealignLayers={requestRealignLayers}
+                cancelPendingRender={cancelPendingRender}
+                framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
+              />
+            </div>
+            <div
+              className='flex min-h-0 min-w-0 flex-1'
+              style={{ paddingRight: reservedRightRailWidth }}
+            >
+              <div className='relative min-h-0 flex-1 overflow-hidden'>
+                {canvasProcessLoading && (
+                  <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center bg-opacity-50">
+                    <ScreenLoader />
+                  </div>
+                )}
+                {editorContainerDisplay}
+              </div>
+            </div>
+            <AssistantHome
+              submitAssistantQuery={submitAssistantQuery}
               sessionId={id}
-              updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
-              updateSessionLayer={updateSessionLayer}
-              setIsLayerSeeking={setIsLayerSeeking}
-              isLayerSeeking={isLayerSeeking}
-              isVideoGenerating={isVideoGenerating}
-              showAudioTrackView={showAudioTrackView}
-              frameToolbarView={frameToolbarView}
-              audioLayers={audioLayers}
-              updateAudioLayer={updateAudioLayer}
-              isAudioLayerDirty={isAudioLayerDirty}
-              removeAudioLayer={removeAudioLayer}
-              updateChangesToActiveAudioLayers={updateChangesToActiveAudioLayers}
-              updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
-              updateLayerVisualItem={updateLayerVisualItem}
-              deleteLayerVisualItem={deleteLayerVisualItem}
-              addLayerToComposition={addLayerToComposition}
-              copyCurrentLayerBelow={copyCurrentLayerBelow}
-              removeSessionLayer={removeSessionLayer}
-              addLayersViaPromptList={addLayersViaPromptList}
-              defaultSceneDuration={videoSessionDetails.defaultSceneDuration}
-              isCanvasDirty={isCanvasDirty}
-              downloadLink={downloadLink}
-              submitRegenerateFrames={submitRegenerateFrames}
-              applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
-              applyAudioDucking={applyAudioDucking}
-              sceneTransitionPreset={sceneTransitionPreset}
-              onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
-              onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
-              applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
-              applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
-              applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
-              onLayersOrderChange={updateSessionLayersOrder}
-              updateSessionLayersOnServer={updateSessionLayersOnServer}
-              regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
-              duplicateAudioLayer={duplicateAudioLayer}
-              publishVideoSession={publishVideoSession}
-              unpublishVideoSession={unpublishVideoSession}
-              isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
-              generateMeta={generateMeta}
-              sessionMetadata={sessionMetadata}
-              isGuestSession={isGuestSession}
-              updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
-              requestVideoLayerEdit={requestVideoLayerEdit}
-              renderCompletedThisSession={renderCompletedThisSession}
-              isRenderPending={isVideoRenderPending}
-              isUpdateLayerPending={isUpdateLayerPending}
-              isVideoPreviewPlaying={isVideoPreviewPlaying}
-              requestRealignLayers={requestRealignLayers}
-              cancelPendingRender={cancelPendingRender}
-              framesPerSecond={videoSessionDetails?.framesPerSecond || 24}
+              sessionMessages={sessionMessages}
+              onSessionMessagesChange={setSessionMessages}
+              onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
+              isAssistantQueryGenerating={isAssistantQueryGenerating}
+              getFrameImageData={getAssistantFrameImageData}
             />
           </div>
-          <div className='w-[90%] bg-[#0f1629] inline-block rounded-lg shadow-[0_16px_40px_rgba(0,0,0,0.35)]'>
-
-            {canvasProcessLoading && (
-              <div className="absolute z-10 top-0 left-0 w-full h-full flex items-center justify-center  bg-opacity-50">
-                <ScreenLoader />
-
-              </div>
-            )}
-            {editorContainerDisplay}
-            <div className="sticky bottom-0 w-[82%]">
+          <div className='flex items-end gap-4'>
+            <div className='shrink-0' style={{ width: reservedLeftRailWidth }} />
+            <div className='min-w-0 flex-1' style={{ paddingRight: reservedRightRailWidth }}>
               <FrameToolbarHorizontal
                 key={`layers-${layers.length}`}
                 layers={layers}
@@ -2862,15 +2888,6 @@ export default function VideoHome(props) {
               />
             </div>
           </div>
-          <AssistantHome
-            submitAssistantQuery={submitAssistantQuery}
-            sessionId={id}
-            sessionMessages={sessionMessages}
-            onSessionMessagesChange={setSessionMessages}
-            onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
-            isAssistantQueryGenerating={isAssistantQueryGenerating}
-            getFrameImageData={getAssistantFrameImageData}
-          />
         </div>
         <div id="hidden-video-container" style={{ 'display': 'none' }}></div>
         <ToastContainer
