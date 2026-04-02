@@ -13,6 +13,11 @@ import {
   mergeFontPreferencesWithDefaults,
 } from "../../constants/fontPreferences.js";
 
+const BACKING_TRACK_MODEL_OPTIONS = [
+  { value: "ELEVENLABS_MUSIC", label: "ElevenLabs" },
+  { value: "LYRIA2", label: "Lyria 2" },
+];
+
 export default function SettingsPanelContent(props) {
   const { logoutUser, updateUserDetails,
      deleteAllProjectsForUser, deleteAllGenerationsForUser, deleteAccountForUser } = props;
@@ -28,6 +33,9 @@ export default function SettingsPanelContent(props) {
 
   const [username, setUsername] = useState(user.username || "");
   const [preferredLanguage, setPreferredLanguage] = useState(user.preferredLanguage || "en");
+  const [backingTrackModel, setBackingTrackModel] = useState(
+    user.backingTrackModel || "ELEVENLABS_MUSIC"
+  );
   const [fontPreferences, setFontPreferences] = useState(() =>
     mergeFontPreferencesWithDefaults(user?.fontPreferences)
   );
@@ -42,6 +50,7 @@ export default function SettingsPanelContent(props) {
       if (user.preferredLanguage) {
         setPreferredLanguage(user.preferredLanguage);
       }
+      setBackingTrackModel(user.backingTrackModel || "ELEVENLABS_MUSIC");
       setFontPreferences(mergeFontPreferencesWithDefaults(user.fontPreferences));
     }
   }, [user]);
@@ -52,6 +61,7 @@ export default function SettingsPanelContent(props) {
     const updatedDetails = {
       username,
       preferredLanguage,
+      backingTrackModel,
     };
 
 
@@ -162,7 +172,7 @@ export default function SettingsPanelContent(props) {
       <form onSubmit={handleUpdateUserDetails}>
         <div className="space-y-4">
           <h3 className="text-lg font-semibold">{t("account.updateSettingsTitle")}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 w-full gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 w-full gap-4">
             <div>
               <input
                 type="text"
@@ -186,6 +196,22 @@ export default function SettingsPanelContent(props) {
                 {SUPPORTED_LANGUAGES.map((lang) => (
                   <option key={lang.code} value={lang.code}>
                     {lang.nativeName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                Express backing track
+              </label>
+              <select
+                value={backingTrackModel}
+                onChange={(e) => setBackingTrackModel(e.target.value)}
+                className={formInputClasses}
+              >
+                {BACKING_TRACK_MODEL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>

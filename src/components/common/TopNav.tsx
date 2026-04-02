@@ -12,7 +12,7 @@ import Login from '../auth/Login.tsx';
 import UpgradePlan from '../payments/UpgradePlan.tsx';
 import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
-import { FaStar, FaArrowUpRightFromSquare } from 'react-icons/fa6';
+import { FaStar } from 'react-icons/fa6';
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
@@ -600,13 +600,6 @@ const showLicenseDialog = () => {
 
   let errorMessageDisplay = <span />;
 
-  const galleryLinkClasses =
-    colorMode === 'dark'
-      ? 'text-[#bce8ff] hover:text-[#e7f8ff]'
-      : 'text-rose-600 hover:text-rose-500';
-
-
-
   const showRegenerateSubtitles = () => {
 
     openAlertDialog(
@@ -677,15 +670,6 @@ const showLicenseDialog = () => {
           </div>
         </div>
         <div className="flex items-center justify-end gap-3 flex-shrink-0 text-xs sm:text-sm">
-          <a
-            href="https://gallery.samsar.one"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`hidden sm:inline-flex items-center gap-1 text-xs font-semibold transition-colors ${galleryLinkClasses}`}
-          >
-            {t("common.visitGallery")}
-            <FaArrowUpRightFromSquare className="text-[10px]" />
-          </a>
           {errorMessageDisplay}
           <div className="flex items-center">
             {addSessionButton}

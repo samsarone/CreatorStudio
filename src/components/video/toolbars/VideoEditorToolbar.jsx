@@ -1631,6 +1631,15 @@ export default function VideoEditorToolbar(props) {
         <div className={toolbarListTopMarginClass}>
           {layerToolbarList.map((item, index) => (
             <div key={index} className={`${getMarginTop(item.view)} transition-all duration-300`}>
+              {(() => {
+                const isSelected = isItemSelected(item.view);
+                const toolbarItemBodyMarginClass = isSelected
+                  ? index === layerToolbarList.length - 1
+                    ? 'mb-4'
+                    : 'mb-1'
+                  : 'mb-0';
+
+                return (
               <div
                 className={`${buttonBgcolor} rounded-sm text-left ${isItemSelected(item.view) ? 'mt-1' : 'mt-4'
                   } transition-colors duration-300`}
@@ -1656,14 +1665,15 @@ export default function VideoEditorToolbar(props) {
                   <FaChevronDown className={toolbarItemChevronClass} />
                 </div>
                 <div
-                  className={`${index === layerToolbarList.length - 1 ? 'mb-4' : 'mb-1'
-                    } ${toolbarItemBodyClass} ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
+                  className={`${toolbarItemBodyMarginClass} ${toolbarItemBodyClass} ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
                     } transition-all duration-500 ${isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
                     }`}
                 >
                   {item.content}
                 </div>
               </div>
+                );
+              })()}
             </div>
           ))}
         </div>
