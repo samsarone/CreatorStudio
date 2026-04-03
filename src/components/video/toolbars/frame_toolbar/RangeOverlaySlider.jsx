@@ -5,18 +5,6 @@ import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
 const RANGE_OVERLAY_THUMB_HEIGHT = 12;
 
-function addStyleValueOffset(styleValue, offsetPixels) {
-  if (typeof styleValue === 'number') {
-    return styleValue + offsetPixels;
-  }
-
-  if (typeof styleValue === 'string' && styleValue.length > 0) {
-    return `calc(${styleValue} + ${offsetPixels}px)`;
-  }
-
-  return offsetPixels;
-}
-
 export default function RangeOverlaySlider({
   min,
   max,
@@ -124,9 +112,6 @@ export default function RangeOverlaySlider({
     };
   }, [scheduleForcedInteractionStop]);
 
-  const { height } = highlightBoundaries;
-
-
   return (
     <div
       style={{
@@ -187,12 +172,7 @@ export default function RangeOverlaySlider({
               key={key}
               {...trackProps}
               className={`${classes} ${incomingClass ?? ''}`}
-              style={{
-                ...style,
-                bottom: isActiveSegment
-                  ? addStyleValueOffset(style?.bottom, RANGE_OVERLAY_THUMB_HEIGHT)
-                  : style?.bottom,
-              }}
+              style={style}
             />
           );
         }}
@@ -208,7 +188,7 @@ export default function RangeOverlaySlider({
         }}
         orientation="vertical"
         minDistance={MIN_DISTANCE_IN_FRAMES}
-        style={{ height: `calc(100% + ${RANGE_OVERLAY_THUMB_HEIGHT}px)`, pointerEvents: 'auto' }}
+        style={{ height: '100%', pointerEvents: 'auto' }}
       />
     </div>
   );

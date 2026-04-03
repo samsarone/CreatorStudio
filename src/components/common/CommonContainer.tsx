@@ -5,7 +5,26 @@ import { useColorMode } from "../../contexts/ColorMode.jsx";
 
 
 export default function CommonContainer(props) {
-  const { children, isVideoPreviewPlaying, setIsVideoPreviewPlaying, downloadCurrentFrame, resetSession, isRenderPending } = props;
+  const {
+    children,
+    isVideoPreviewPlaying,
+    setIsVideoPreviewPlaying,
+    downloadCurrentFrame,
+    resetSession,
+    isRenderPending,
+    submitRenderVideo,
+    cancelPendingRender,
+    renderedVideoPath,
+    downloadLink,
+    isVideoGenerating,
+    isUpdateLayerPending,
+    isCanvasDirty,
+    isSessionPublished,
+    publishVideoSession,
+    unpublishVideoSession,
+    renderCompletedThisSession,
+    sessionId,
+  } = props;
   const { colorMode } = useColorMode();
 
   useEffect(() => {
@@ -69,7 +88,18 @@ export default function CommonContainer(props) {
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         downloadCurrentFrame={downloadCurrentFrame}
         isRenderPending={isRenderPending}
-
+        submitRenderVideo={submitRenderVideo}
+        cancelPendingRender={cancelPendingRender}
+        renderedVideoPath={renderedVideoPath}
+        downloadLink={downloadLink}
+        isVideoGenerating={isVideoGenerating}
+        isUpdateLayerPending={isUpdateLayerPending}
+        isCanvasDirty={isCanvasDirty}
+        isSessionPublished={isSessionPublished}
+        publishVideoSession={publishVideoSession}
+        unpublishVideoSession={unpublishVideoSession}
+        renderCompletedThisSession={renderCompletedThisSession}
+        sessionId={sessionId}
       />
       <div>
         <AlertDialog />

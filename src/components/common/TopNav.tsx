@@ -36,7 +36,25 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function TopNav(props) {
-  const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying, isRenderPending } = props;
+  const {
+    resetCurrentSession,
+    addCustodyAddress,
+    isVideoPreviewPlaying,
+    setIsVideoPreviewPlaying,
+    isRenderPending,
+    submitRenderVideo,
+    cancelPendingRender,
+    renderedVideoPath,
+    downloadLink,
+    isVideoGenerating,
+    isUpdateLayerPending,
+    isCanvasDirty,
+    isSessionPublished,
+    publishVideoSession,
+    unpublishVideoSession,
+    renderCompletedThisSession,
+    sessionId: sessionIdOverride,
+  } = props;
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
@@ -54,15 +72,16 @@ export default function TopNav(props) {
   const {
     downloadCurrentFrame,
     isExpressGeneration,
-    sessionId,
     requestRegenerateSubtitles,
     requestRegenerateAnimations,
     requestRealignLayers,
     requestRealignToAiVideoAndLayers,
     canvasActualDimensions,
     totalEffectiveDuration,
-
+    sessionId: navSessionId,
   } = useContext(NavCanvasControlContext);
+
+  const resolvedSessionId = sessionIdOverride || navSessionId;
 
   const navShell =
     colorMode === 'dark'
@@ -623,7 +642,7 @@ const showLicenseDialog = () => {
     const headers = getHeaders();
 
 
-    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: sessionId }, headers).then(function (response) {
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: resolvedSessionId }, headers).then(function (response) {
 
 
     });
@@ -637,7 +656,7 @@ const showLicenseDialog = () => {
       <CanvasControlBar
         downloadCurrentFrame={downloadCurrentFrame}
         isExpressGeneration={isExpressGeneration}
-        sessionId={sessionId}
+        sessionId={resolvedSessionId}
         requestRegenerateSubtitles={requestRegenerateSubtitles}
         requestRegenerateAnimations={requestRegenerateAnimations}
         requestRealignLayers={requestRealignLayers}
@@ -649,6 +668,17 @@ const showLicenseDialog = () => {
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         isRenderPending={isRenderPending}
+        submitRenderVideo={submitRenderVideo}
+        cancelPendingRender={cancelPendingRender}
+        renderedVideoPath={renderedVideoPath}
+        downloadLink={downloadLink}
+        isVideoGenerating={isVideoGenerating}
+        isUpdateLayerPending={isUpdateLayerPending}
+        isCanvasDirty={isCanvasDirty}
+        isSessionPublished={isSessionPublished}
+        publishVideoSession={publishVideoSession}
+        unpublishVideoSession={unpublishVideoSession}
+        renderCompletedThisSession={renderCompletedThisSession}
         editorVariant={isImageEditor ? 'imageStudio' : 'videoStudio'}
       />
     );

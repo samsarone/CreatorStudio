@@ -232,6 +232,29 @@
   transition: width 0.3s ease, opacity 0.3s ease;
 }
 
+.layers-container,
+.current-layers,
+.incoming-layers,
+.layer-scene-item {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.current-layers,
+.incoming-layers,
+.layer-scene-item {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.current-layers::-webkit-scrollbar,
+.incoming-layers::-webkit-scrollbar,
+.layer-scene-item::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .action-view-grid-overlay {
   position: relative;
   isolation: isolate;

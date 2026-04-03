@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaPlus } from 'react-icons/fa';
+import { FaChevronDown, FaPlus } from 'react-icons/fa';
 import { useColorMode } from '../../../contexts/ColorMode';
 
 function DropdownButton(props) {
@@ -9,7 +9,7 @@ function DropdownButton(props) {
     showBatchLayerDialog,
     compact = false,
     iconOnly = false,
-    buttonLabel = 'Add',
+    buttonLabel = 'Layer',
     menuAlign = 'right',
     fullWidth = false,
     fitMenuToTrigger = false,
@@ -52,7 +52,7 @@ function DropdownButton(props) {
       : 'bg-sky-100 text-sky-700';
   const triggerSizeClassName = iconOnly
     ? (compact ? 'h-[34px] w-[34px] px-0 text-[11px]' : 'h-10 w-10 px-0 text-sm')
-    : (compact ? 'h-[26px] px-2.5 text-[11px]' : 'px-4 py-2 text-sm');
+    : (compact ? 'min-h-[34px] px-3 text-[11px]' : 'px-4 py-2 text-sm');
   const iconClassName = iconOnly
     ? (compact ? 'text-[11px]' : 'text-sm')
     : (compact ? 'shrink-0 text-[11px]' : 'shrink-0 text-sm');
@@ -126,10 +126,19 @@ function DropdownButton(props) {
         onClick={toggleDropdown}
         title={buttonLabel}
         aria-label={buttonLabel}
-        className={`inline-flex w-full items-center justify-center gap-1.5 font-medium leading-none rounded-lg focus:outline-none transition-all duration-150 ${triggerSizeClassName} ${triggerSurfaceClassName}`}
+        className={`inline-flex w-full items-center ${iconOnly ? 'justify-center' : 'justify-between'} gap-1.5 font-medium leading-none rounded-lg focus:outline-none transition-all duration-150 ${triggerSizeClassName} ${triggerSurfaceClassName}`}
       >
-        <FaPlus className={iconClassName} />
-        {!iconOnly ? <span className="inline-flex items-center leading-none text-xs">{buttonLabel}</span> : null}
+        {iconOnly ? (
+          <FaPlus className={iconClassName} />
+        ) : (
+          <>
+            <span className="inline-flex items-center gap-1.5 leading-none text-xs">
+              <FaPlus className={iconClassName} />
+              <span>{buttonLabel}</span>
+            </span>
+            <FaChevronDown className="shrink-0 text-[10px] opacity-80" />
+          </>
+        )}
       </button>
 
       {/* MAIN DROPDOWN MENU */}

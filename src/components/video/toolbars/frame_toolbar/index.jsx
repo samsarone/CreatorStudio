@@ -1,5 +1,5 @@
 // FrameToolbar.js
-import React, { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 import CommonButton from '../../../common/CommonButton.tsx';
 import './toolbar.css';
@@ -80,6 +80,8 @@ const GRID_STEP_FRAMES = [
   5400,
   7200,
 ];
+const SCENE_POPUP_WIDTH = 150;
+const SCENE_POPUP_GAP = 10;
 const SCENE_TRANSITION_PRESET_OPTIONS = [
   { value: 'none', label: 'None' },
   { value: 'fade', label: 'Fade' },
@@ -1857,6 +1859,46 @@ export default function FrameToolbar(props) {
   // Popup ref
   const popupRef = useRef(null);
 
+  const computeScenePopupPosition = useCallback((layerRect, popupHeight) => {
+    if (!layerRect) {
+      return null;
+    }
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const safePopupHeight = Math.max(70, Number(popupHeight) || 0);
+    const maxLeft = Math.max(
+      SCENE_POPUP_GAP,
+      viewportWidth - SCENE_POPUP_WIDTH - SCENE_POPUP_GAP,
+    );
+    const maxTop = Math.max(
+      SCENE_POPUP_GAP,
+      viewportHeight - safePopupHeight - SCENE_POPUP_GAP,
+    );
+
+    return {
+      top: `${clamp(layerRect.top, SCENE_POPUP_GAP, maxTop)}px`,
+      left: `${clamp(layerRect.right + SCENE_POPUP_GAP, SCENE_POPUP_GAP, maxLeft)}px`,
+      transform: 'translateY(0)',
+    };
+  }, []);
+
+  const updateScenePopupPosition = useCallback((layerId, layerRect = null) => {
+    if (!layerId) {
+      return;
+    }
+
+    const resolvedLayerRect = layerRect || layerRefs.current[layerId]?.getBoundingClientRect?.();
+    const nextPopupPosition = computeScenePopupPosition(
+      resolvedLayerRect,
+      durationChanged ? 110 : 70,
+    );
+
+    if (nextPopupPosition) {
+      setPopupPosition(nextPopupPosition);
+    }
+  }, [computeScenePopupPosition, durationChanged]);
+
   // Compute whether we can navigate further
   const canGoPrev = visibleLayersStartIndex > 0;
   const canGoNext = visibleLayersStartIndex + MAX_VISIBLE_LAYERS < allVisibleLayerMetadata.length;
@@ -2224,51 +2266,31 @@ export default function FrameToolbar(props) {
 
 
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (openPopupLayerIndex !== null) {
-      // Identify which layer is selected in the *entire* layers array
-      const popupLayerId = layers[openPopupLayerIndex]._id.toString();
-
-      // Find that same layer inside the visibleLayers array.
-      const foundIndexInVisibleLayers = visibleLayers.findIndex(
-        (vl) => vl._id.toString() === popupLayerId
-      );
-
-      // If it’s not found, we can’t position properly
-      if (foundIndexInVisibleLayers === -1) return;
-
-      // Get the DOM rect of the clicked layer
-      const layerElement = layerRefs.current[popupLayerId];
-      if (!layerElement) return;
-
-      const rect = layerElement.getBoundingClientRect();
-
-      // By default, position “next to” the layer. For instance:
-      const defaultLeft = rect.right + 10;
-      // Or any offset that makes sense for “next to”
-      const defaultTop = rect.top + window.scrollY;
-
-      // Decide if the layer is among the last two in the *visible* list
-      const isLast =
-        foundIndexInVisibleLayers >= visibleLayers.length - 1;
-
-      if (isLast) {
-        // For the last two, align the portal to the top of the layer.
-        setPopupPosition({
-          top: `${defaultTop - 50}px`,
-          left: `${defaultLeft}px`,
-          transform: 'translateY(0)',
-        });
-      } else {
-        // For everything else, position the popup “next to” the layer.
-        setPopupPosition({
-          top: `${defaultTop}px`,
-          left: `${defaultLeft}px`,
-          transform: 'translateY(0)',
-        });
-      }
+      const popupLayerId = layers[openPopupLayerIndex]?._id?.toString?.();
+      updateScenePopupPosition(popupLayerId);
     }
-  }, [openPopupLayerIndex, visibleLayers, layers]);
+  }, [openPopupLayerIndex, layers, layerViewportHeight, updateScenePopupPosition]);
+
+  useEffect(() => {
+    if (openPopupLayerIndex === null) {
+      return undefined;
+    }
+
+    const repositionPopup = () => {
+      const popupLayerId = layers[openPopupLayerIndex]?._id?.toString?.();
+      updateScenePopupPosition(popupLayerId);
+    };
+
+    window.addEventListener('resize', repositionPopup);
+    document.addEventListener('scroll', repositionPopup, true);
+
+    return () => {
+      window.removeEventListener('resize', repositionPopup);
+      document.removeEventListener('scroll', repositionPopup, true);
+    };
+  }, [openPopupLayerIndex, layers, updateScenePopupPosition]);
 
 
 
@@ -3394,6 +3416,7 @@ export default function FrameToolbar(props) {
       setCurrentLayerSeek(nextLayerSeekFrame);
     }
     openPopupLayerIdRef.current = nextLayerId;
+    updateScenePopupPosition(nextLayerId, e.currentTarget?.getBoundingClientRect?.());
     setOpenPopupLayerIndex(originalIndex);
 
     if (isSameLayerSelection) {
@@ -3441,12 +3464,16 @@ export default function FrameToolbar(props) {
               const layerItem = (
                 <div
                   ref={(el) => {
-                    layerRefs.current[layerId] = el;
+                    if (el) {
+                      layerRefs.current[layerId] = el;
+                    } else {
+                      delete layerRefs.current[layerId];
+                    }
                     provided.innerRef(el);
                   }}
                   {...provided.draggableProps}
                   data-scene-layer-body="true"
-                  className={`${layerSurfaceClass} ${index > 0 ? '-mt-px' : ''} ml-1 mr-1 cursor-pointer border relative overflow-hidden rounded-[3px] shadow-none`}
+                  className={`layer-scene-item ${layerSurfaceClass} ${index > 0 ? '-mt-px' : ''} ml-1 mr-1 cursor-pointer border relative overflow-hidden rounded-[3px] shadow-none`}
                   style={{
                     height: `${layerHeightInPixels}px`,
                     maxHeight: `${layerHeightInPixels}px`,
@@ -3519,7 +3546,7 @@ export default function FrameToolbar(props) {
         <Droppable droppableId="layersDroppable" direction="vertical">
           {(provided, snapshot) => (
             <div
-              className='layers-container relative h-full w-full '
+              className='layers-container relative h-full w-full overflow-hidden'
               style={{
                 position: 'relative',
                 height: '100%',
@@ -3530,7 +3557,7 @@ export default function FrameToolbar(props) {
             >
               {/* Current Layers */}
               <div
-                className='current-layers absolute top-0 left-0 w-full h-full'
+                className='current-layers absolute top-0 left-0 w-full h-full overflow-hidden'
                 ref={currentLayersRef}
               >
                 {renderLayers(visibleLayers, 'current')}
@@ -3540,7 +3567,7 @@ export default function FrameToolbar(props) {
               {/* Incoming Layers */}
               {isAnimating && incomingVisibleLayers.length > 0 && (
                 <div
-                  className='incoming-layers absolute top-0 left-0 w-full h-full'
+                  className='incoming-layers absolute top-0 left-0 w-full h-full overflow-hidden'
                   ref={incomingLayersRef}
                 >
                   {renderLayers(incomingVisibleLayers, 'incoming')}
@@ -4442,8 +4469,8 @@ export default function FrameToolbar(props) {
   const collapsedToolbarWidth = 'min(10vw, 128px)';
   const frameToolbarInsetStyle = {
     left: '16px',
-    top: '72px',
-    bottom: '16px',
+    top: '56px',
+    bottom: '0px',
   };
   let containerWdidth = 'z-1 opacity-100';
   if (isExpandedToolbarView) {
@@ -4552,11 +4579,26 @@ export default function FrameToolbar(props) {
       addLayerToComposition={addLayerToComposition}
       copyCurrentLayerBelow={copyCurrentLayerBelow}
       showBatchLayerDialog={showBatchLayerDialog}
+      buttonLabel="Layer"
       compact={true}
       menuAlign={isExpandedToolbarView ? 'right' : 'left'}
       fullWidth={!isExpandedToolbarView}
       fitMenuToTrigger={!isExpandedToolbarView}
     />
+  );
+
+  const toolbarHeaderControls = (
+    <div
+      className='flex w-full items-center gap-1.5'
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className={`min-w-0 ${isExpandedToolbarView ? 'shrink-0' : 'flex-1'} ${disabledMenuClass}`}>
+        {dropdownButtonDisplay}
+      </div>
+      <div className='shrink-0'>
+        {expandButtonLabel}
+      </div>
+    </div>
   );
 
   let topSubToolbar = <span />;
@@ -5363,14 +5405,11 @@ export default function FrameToolbar(props) {
                     {expandedTopRowActionDisplay}
                   </div>
                 </div>
-                <div className='shrink-0'>
-                  {expandButtonLabel}
-                </div>
               </div>
 
               <div className='grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2'>
                 <div className='min-w-0 shrink-0'>
-                  {submitRenderFullActionDisplay}
+                  {toolbarHeaderControls}
                 </div>
                 <div className='min-w-0 overflow-visible'>
                   <div className='flex min-w-0 flex-wrap items-center justify-end gap-1.5'>
@@ -5384,9 +5423,9 @@ export default function FrameToolbar(props) {
               className='cursor-pointer px-1 pt-0.5'
               onClick={toggleShowExpandedTrackView}
             >
-              <div className={`btn-container flex w-full items-start ${btnLeftMargin} pr-1 mb-1`}>
-                <div className={`flex w-full max-w-full flex-col items-start ${buttonGroupMT}`}>
-                  {submitRenderFullActionDisplay}
+              <div className='btn-container flex w-full items-center pr-1 mb-1'>
+                <div className='flex w-full max-w-full items-center'>
+                  {toolbarHeaderControls}
                 </div>
               </div>
             </div>
@@ -5536,7 +5575,7 @@ export default function FrameToolbar(props) {
               top: popupPosition.top, // Use the calculated top position
               left: popupPosition.left,
               transform: popupPosition.transform, // Remove the translateY(-50%)
-              width: '150px',
+              width: `${SCENE_POPUP_WIDTH}px`,
 
               height: durationChanged ? '110px' : '70px',
 

@@ -6,6 +6,7 @@ import axios from 'axios';
 import { CURRENT_EDITOR_VIEW, FRAME_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import { getHeaders, clearAuthData } from '../../utils/web.jsx';
 import VideoEditorContainer from './VideoEditorContainer.jsx';
+import PreviewPlaybackController from './PreviewPlaybackController.jsx';
 import AddAudioDialog from './util/AddAudioDialog.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { debounce } from './util/debounce.jsx';
@@ -206,6 +207,18 @@ export default function VideoHome(props) {
     ));
   };
 
+  function ensureHiddenVideoContainer() {
+    let hiddenContainer = document.getElementById('hidden-video-container');
+    if (!hiddenContainer) {
+      hiddenContainer = document.createElement('div');
+      hiddenContainer.id = 'hidden-video-container';
+      hiddenContainer.style.display = 'none';
+      document.body.appendChild(hiddenContainer);
+    }
+
+    return hiddenContainer;
+  }
+
   const stopLayerPolling = () => {
     if (layerPollTimerRef.current) {
       clearInterval(layerPollTimerRef.current);
@@ -315,27 +328,16 @@ export default function VideoHome(props) {
 
   useEffect(() => {
     if (layers && layers.length > 0) {
-      const hiddenContainer = document.getElementById('hidden-video-container');
+      const hiddenContainer = ensureHiddenVideoContainer();
 
       layers.forEach(layer => {
 
         if (layer && layer.aiVideoLayer) {
-
           const videoSrc = `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
-          const video = document.createElement('video');
-          video.src = videoSrc;
-          video.preload = 'none';
-          video.style.display = 'none'; // Hide the video
-
-          hiddenContainer.appendChild(video);
+          preloadVideo(videoSrc, hiddenContainer, 'metadata');
         } else if (layer && layer.userVideoLayer) {
           const videoSrc = `${PROCESSOR_API_URL}${layer.userVideoLayer}`;
-          const video = document.createElement('video');
-          video.src = videoSrc;
-          video.preload = 'none';
-          video.style.display = 'none';
-
-          hiddenContainer.appendChild(video);
+          preloadVideo(videoSrc, hiddenContainer, 'metadata');
         }
       });
 
@@ -389,18 +391,47 @@ export default function VideoHome(props) {
   // --------------
   // HELPER: Preload
   // --------------
-  const preloadVideo = (src, container) => {
+  const preloadVideo = (src, container, preload = 'auto') => {
+    if (!src || !container) {
+      return null;
+    }
+
+    const existingVideo = Array.from(container.querySelectorAll('video[data-preload-src]'))
+      .find((videoEl) => videoEl.dataset.preloadSrc === src);
+
+    if (existingVideo) {
+      if (preload === 'auto' && existingVideo.preload !== 'auto') {
+        existingVideo.preload = 'auto';
+        try {
+          existingVideo.load();
+        } catch (err) {
+          // Ignore best-effort preload failures.
+        }
+      }
+      return existingVideo;
+    }
+
     const videoEl = document.createElement('video');
     videoEl.src = src;
-    // For truly minimal overhead, consider 'metadata' or 'none'
-    videoEl.preload = 'metadata';
+    videoEl.dataset.preloadSrc = src;
+    videoEl.preload = preload;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
     videoEl.style.display = 'none';
     container.appendChild(videoEl);
+    if (preload !== 'none') {
+      try {
+        videoEl.load();
+      } catch (err) {
+        // Ignore best-effort preload failures.
+      }
+    }
+    return videoEl;
   };
 
   function preloadLayerAiVideoLayer(layer) {
     if (!layer) return;
-    const hiddenContainer = document.getElementById('hidden-video-container');
+    const hiddenContainer = ensureHiddenVideoContainer();
     if (!hiddenContainer) return;
 
     // Don’t re-preload the same layer if we already did
@@ -2599,7 +2630,7 @@ export default function VideoHome(props) {
   const collapsedFrameToolbarWidth = 'min(10vw, 128px)';
   const collapsedRightPanelWidth = 'clamp(148px, 11vw, 168px)';
   const studioInsetPx = 16;
-  const studioTopInsetPx = 72;
+  const studioTopInsetPx = 56;
   const reservedLeftRailWidth = `calc(${collapsedFrameToolbarWidth} + ${studioInsetPx * 2}px)`;
   const reservedRightRailWidth = `calc(${collapsedRightPanelWidth} + ${studioInsetPx}px)`;
 
@@ -2765,7 +2796,28 @@ export default function VideoHome(props) {
       isVideoPreviewPlaying={isVideoPreviewPlaying}
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       isRenderPending={isVideoRenderPending}
+      submitRenderVideo={submitRenderVideo}
+      cancelPendingRender={cancelPendingRender}
+      renderedVideoPath={renderedVideoPath}
+      downloadLink={downloadLink}
+      isVideoGenerating={isVideoGenerating}
+      isUpdateLayerPending={isUpdateLayerPending}
+      isCanvasDirty={isCanvasDirty}
+      isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
+      publishVideoSession={publishVideoSession}
+      unpublishVideoSession={unpublishVideoSession}
+      renderCompletedThisSession={renderCompletedThisSession}
+      sessionId={id}
     >
+      <PreviewPlaybackController
+        applyAudioDucking={applyAudioDucking}
+        audioLayers={audioLayers}
+        currentLayerSeek={currentLayerSeek}
+        isVideoPreviewPlaying={isVideoPreviewPlaying}
+        setCurrentLayerSeek={setCurrentLayerSeek}
+        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        totalDuration={totalDuration}
+      />
       <div
         className='box-border h-[100dvh] overflow-hidden px-4 pb-4'
         style={{ paddingTop: `${studioTopInsetPx}px` }}
@@ -2868,24 +2920,26 @@ export default function VideoHome(props) {
           </div>
           <div className='flex items-end gap-4'>
             <div className='shrink-0' style={{ width: reservedLeftRailWidth }} />
-            <div className='min-w-0 flex-1' style={{ paddingRight: reservedRightRailWidth }}>
-              <FrameToolbarHorizontal
-                key={`layers-${layers.length}`}
-                layers={layers}
-                selectedLayerIndex={selectedLayerIndex}
-                setSelectedLayerIndex={setSelectedLayerIndex}
-                setSelectedLayer={setSelectedLayer}
-                totalDuration={totalDuration}
-                currentLayerSeek={currentLayerSeek}
-                setCurrentLayerSeek={setNewSeek}
-                onLayersOrderChange={updateSessionLayersOrder}
-                submitRenderVideo={submitRenderVideo}
-                isVideoGenerating={isVideoGenerating}
-                downloadLink={downloadLink}
-                isGuestSession={isGuestSession}
-                setIsLayerSeeking={setIsLayerSeeking}
-                isRenderPending={isVideoRenderPending}
-              />
+            <div className='min-w-0 flex-1 box-border overflow-hidden' style={{ paddingRight: reservedRightRailWidth }}>
+              <div className='relative min-w-0 overflow-hidden'>
+                <FrameToolbarHorizontal
+                  key={`layers-${layers.length}`}
+                  layers={layers}
+                  selectedLayerIndex={selectedLayerIndex}
+                  setSelectedLayerIndex={setSelectedLayerIndex}
+                  setSelectedLayer={setSelectedLayer}
+                  totalDuration={totalDuration}
+                  currentLayerSeek={currentLayerSeek}
+                  setCurrentLayerSeek={setNewSeek}
+                  onLayersOrderChange={updateSessionLayersOrder}
+                  submitRenderVideo={submitRenderVideo}
+                  isVideoGenerating={isVideoGenerating}
+                  downloadLink={downloadLink}
+                  isGuestSession={isGuestSession}
+                  setIsLayerSeeking={setIsLayerSeeking}
+                  isRenderPending={isVideoRenderPending}
+                />
+              </div>
             </div>
           </div>
         </div>
