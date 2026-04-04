@@ -19,7 +19,20 @@ export default function MovieSpeechProviderSelect(props) {
     text2Color,
     colorMode,
     playMusicPreviewForSpeaker,
+    sizeVariant = "default",
   } = props;
+  const isSidebarPanel =
+    sizeVariant === "sidebarCollapsed" || sizeVariant === "sidebarExpanded";
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const headerRowClass = isSidebarPanel
+    ? "mb-2 flex flex-col gap-2"
+    : "mb-2 flex items-center justify-between";
+  const addSpeakerButtonClass = isSidebarPanel
+    ? "w-full rounded-md bg-neutral-700 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-neutral-600"
+    : "px-2 py-1 bg-neutral-700 text-white text-xs rounded hover:bg-neutral-600";
+  const submitContainerClass = isSidebarPanel
+    ? "mt-3"
+    : "flex justify-center mt-3";
 
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showAddSpeakerForm, setShowAddSpeakerForm] = useState(false);
@@ -106,12 +119,12 @@ export default function MovieSpeechProviderSelect(props) {
   return (
     <div className="w-full">
       {/* Header row with Add Speaker button */}
-      <div className="flex justify-between items-center mb-2">
+      <div className={headerRowClass}>
         <label className={`text-sm font-bold ${text2Color}`}>Speakers</label>
         <button
           type="button"
           onClick={handleAddSpeakerClick}
-          className="px-2 py-1 bg-neutral-700 text-white text-xs rounded hover:bg-neutral-600"
+          className={addSpeakerButtonClass}
         >
           {showAddSpeakerForm ? 'Close' : 'Add Speaker'}
         </button>
@@ -126,6 +139,7 @@ export default function MovieSpeechProviderSelect(props) {
           bgColor={bgColor}
           text2Color={text2Color}
           colorMode={colorMode}
+          sizeVariant={sizeVariant}
         />
       ) : noSpeakersYet ? (
         // If no speakers are defined yet, simply show a message
@@ -263,6 +277,8 @@ export default function MovieSpeechProviderSelect(props) {
                   : null
               }
               onChange={handleSpeakerChange}
+              compactLayout={!isSidebarCollapsed && isSidebarPanel}
+              truncateLabels={isSidebarCollapsed}
             />
           </div>
 
@@ -275,10 +291,11 @@ export default function MovieSpeechProviderSelect(props) {
           />
 
           {/* Submit */}
-          <div className="flex justify-center mt-3">
+          <div className={submitContainerClass}>
             <CommonButton
               type="submit"
               isPending={audioGenerationPending}
+              extraClasses={isSidebarPanel ? 'w-full whitespace-normal text-center leading-tight' : ''}
             >
               Generate
             </CommonButton>

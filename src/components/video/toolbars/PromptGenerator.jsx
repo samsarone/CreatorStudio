@@ -32,6 +32,9 @@ export default function PromptGenerator(props) {
 
   const { colorMode } = useColorMode();
   const isImageStudio = sizeVariant === "imageStudio";
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const isSidebarExpanded = sizeVariant === "sidebarExpanded";
+  const isSidebarPanel = isSidebarCollapsed || isSidebarExpanded;
 
   // Whether to retry if generation fails:
   const [retryOnFailure, setRetryOnFailure] = useState(false);
@@ -83,15 +86,45 @@ export default function PromptGenerator(props) {
     colorMode === "dark"
       ? "bg-slate-900/60 text-slate-100 border border-white/10"
       : "bg-white text-slate-900 border border-slate-200 shadow-sm";
-  const fieldRowClass = isImageStudio ? "flex w-full items-center gap-4 py-1" : "flex w-full mt-2 mb-2";
-  const fieldLabelWrapClass = isImageStudio ? "inline-flex min-w-[88px] items-center" : "inline-flex w-[25%] items-center";
-  const fieldLabelClass = isImageStudio ? "text-sm font-semibold flex items-center" : "text-xs font-bold flex items-center";
+  const fieldRowClass = isImageStudio
+    ? "flex w-full items-center gap-4 py-1"
+    : isSidebarExpanded
+    ? "mt-2 mb-3 grid w-full grid-cols-[112px_minmax(0,1fr)] items-center gap-3"
+    : isSidebarCollapsed
+    ? "mt-2 mb-3 flex w-full flex-col gap-1.5"
+    : "flex w-full mt-2 mb-2";
+  const fieldLabelWrapClass = isImageStudio
+    ? "inline-flex min-w-[88px] items-center"
+    : isSidebarExpanded || isSidebarCollapsed
+    ? "inline-flex w-full items-center"
+    : "inline-flex w-[25%] items-center";
+  const fieldLabelClass = isImageStudio
+    ? "text-sm font-semibold flex items-center"
+    : isSidebarExpanded || isSidebarCollapsed
+    ? "text-xs font-bold flex w-full items-center"
+    : "text-xs font-bold flex items-center";
   const selectClass = isImageStudio
     ? `${selectShell} inline-flex min-h-[44px] flex-1 rounded-xl px-4 py-2.5 text-sm bg-transparent`
+    : isSidebarExpanded
+    ? `${selectShell} inline-flex min-h-[44px] w-full rounded-xl px-4 py-2.5 text-sm bg-transparent`
+    : isSidebarCollapsed
+    ? `${selectShell} inline-flex min-h-[44px] w-full rounded-xl px-3 py-2.5 text-sm bg-transparent`
     : `${selectShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`;
   const optionLabelClass = isImageStudio ? "ml-1 text-sm font-semibold" : "ml-1 text-xs font-semibold";
-  const buttonContainerClass = isImageStudio ? "pt-3 text-center" : "text-center";
-  const buttonExtraClass = isImageStudio ? "min-h-[46px] min-w-[160px] text-sm" : "";
+  const buttonContainerClass = isImageStudio
+    ? "pt-3 text-center"
+    : isSidebarExpanded
+    ? "pt-4 flex justify-end"
+    : isSidebarCollapsed
+    ? "pt-3"
+    : "text-center";
+  const buttonExtraClass = isImageStudio
+    ? "min-h-[46px] min-w-[160px] text-sm"
+    : isSidebarExpanded
+    ? "min-w-[168px] text-sm"
+    : isSidebarCollapsed
+    ? "w-full whitespace-normal text-center leading-tight"
+    : "";
 
   // ------------------------------------------------------------------
   // Find the cost of the current model + aspect ratio, if any

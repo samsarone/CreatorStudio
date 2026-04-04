@@ -9,7 +9,10 @@ export default function VideoAiVideoOptionsViewer(props) {
     onRegenerateLayer,      // prop to handle Regenerate
     onRequestLipSync,       // prop to handle Request Lip Sync
     removeVideoLayer,
+    sizeVariant = "default",
   } = props;
+  const isSidebarPanel =
+    sizeVariant === "sidebarCollapsed" || sizeVariant === "sidebarExpanded";
 
 
 
@@ -25,7 +28,10 @@ export default function VideoAiVideoOptionsViewer(props) {
     <div className="mt-2">
       {/* Delete button */}
       <div className="mb-2">
-        <SecondaryButton onClick={handleDeleteLayer}>
+        <SecondaryButton
+          onClick={handleDeleteLayer}
+          className={isSidebarPanel ? 'w-full whitespace-normal text-center leading-tight' : ''}
+        >
           Delete Layer
         </SecondaryButton>
       </div>

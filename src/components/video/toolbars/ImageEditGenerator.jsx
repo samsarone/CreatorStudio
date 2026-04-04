@@ -21,6 +21,9 @@ export default function ImageEditGenerator(props) {
   } = props;
   const { colorMode } = useColorMode();
   const isImageStudio = sizeVariant === "imageStudio";
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const isSidebarExpanded = sizeVariant === "sidebarExpanded";
+  const isSidebarPanel = isSidebarCollapsed || isSidebarExpanded;
 
 
 
@@ -47,8 +50,29 @@ export default function ImageEditGenerator(props) {
   const modelLabelClass = isImageStudio ? "text-sm font-semibold" : "text-xs font-bold";
   const selectClass = isImageStudio
     ? `${inputShell} inline-flex min-h-[44px] w-full rounded-xl px-4 py-2.5 text-sm bg-transparent`
+    : isSidebarExpanded
+    ? `${inputShell} inline-flex min-h-[44px] w-full rounded-xl px-4 py-2.5 text-sm bg-transparent`
+    : isSidebarCollapsed
+    ? `${inputShell} inline-flex min-h-[44px] w-full rounded-xl px-3 py-2.5 text-sm bg-transparent`
     : `${inputShell} inline-flex w-[75%] rounded-md px-3 py-2 bg-transparent`;
-  const buttonExtraClass = isImageStudio ? "min-h-[46px] min-w-[160px] text-sm" : "";
+  const buttonExtraClass = isImageStudio
+    ? "min-h-[46px] min-w-[160px] text-sm"
+    : isSidebarExpanded
+    ? "min-w-[168px] text-sm"
+    : isSidebarCollapsed
+    ? "w-full whitespace-normal text-center leading-tight"
+    : "";
+  const editOptionsGridClass = isSidebarExpanded
+    ? "grid grid-cols-3 gap-3"
+    : isSidebarCollapsed
+    ? "grid gap-2"
+    : `grid grid-cols-3 ${isImageStudio ? "gap-2.5" : "gap-1"}`;
+  const editOptionsGridStyle = isSidebarCollapsed
+    ? { gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))" }
+    : undefined;
+  const modelFieldClass = isSidebarExpanded
+    ? "grid grid-cols-[112px_minmax(0,1fr)] items-center gap-3"
+    : "block";
 
 
 
@@ -64,7 +88,7 @@ export default function ImageEditGenerator(props) {
 
   if (selectedEditModel === "SDXL") {
 
-    editOptionsDisplay = (<div className={`grid grid-cols-3 ${isImageStudio ? "gap-2.5" : "gap-1"}`}>
+    editOptionsDisplay = (<div className={editOptionsGridClass} style={editOptionsGridStyle}>
       <div>
         <input type="text" className={`${inputShell} w-full rounded-xl ${isImageStudio ? "px-3.5 py-2.5 text-sm" : "px-3 py-2"}`} name="guidanceScale" defaultValue={5} />
         <div className={isImageStudio ? "mt-1 text-sm" : "text-xs "}>
@@ -128,7 +152,7 @@ export default function ImageEditGenerator(props) {
 
         <div className={`w-full ${isImageStudio ? "space-y-3" : "mt-2 mb-2"}`}>
           {showModelSelector && (
-            <div className="block">
+            <div className={modelFieldClass}>
               <div className={modelLabelClass}>
                 Model
               </div>
@@ -150,7 +174,7 @@ export default function ImageEditGenerator(props) {
         </div>
 
         {promptTextArea}
-        <div className={isImageStudio ? "pt-3 text-center" : "text-center"}>
+        <div className={isImageStudio ? "pt-3 text-center" : isSidebarExpanded ? "pt-4 flex justify-end" : isSidebarCollapsed ? "pt-3" : "text-center"}>
           <CommonButton type="submit" isPending={isOutpaintPending} extraClasses={buttonExtraClass}>
             Submit
           </CommonButton>

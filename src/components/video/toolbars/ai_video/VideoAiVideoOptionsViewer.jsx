@@ -9,8 +9,16 @@ export default function VideoAiVideoOptionsViewer(props) {
     removeVideoLayer,
     currentLayerHasSpeechLayer,
     requestLipSyncToSpeech,
-    requestAddSyncedSoundEffect
+    requestAddSyncedSoundEffect,
+    sizeVariant = "default",
   } = props;
+  const isSidebarPanel =
+    sizeVariant === "sidebarCollapsed" || sizeVariant === "sidebarExpanded";
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const selectShellClass = isSidebarPanel ? "mb-2 w-full" : "w-48 mb-2";
+  const buttonExtraClass = isSidebarPanel
+    ? "w-full whitespace-normal text-center leading-tight"
+    : "";
 
   const [showSoundEffectPrompt, setShowSoundEffectPrompt] = useState(false);
   const [soundEffectPrompt, setSoundEffectPrompt] = useState('');
@@ -76,16 +84,18 @@ export default function VideoAiVideoOptionsViewer(props) {
   const lipSyncOptionViewer = currentLayerHasSpeechLayer ? (
     <div className="mb-4 flex flex-col items-center">
       <div className="text-sm mb-2">Lip Sync</div>
-      <div className="w-48 mb-2">
+      <div className={selectShellClass}>
         <SingleSelect
           options={lipSyncOptions}
           value={selectedLipSyncOption}
           onChange={setSelectedLipSyncOption}
           classNamePrefix="lipSyncSelect"
           isSearchable={false}
+          compactLayout={!isSidebarCollapsed && isSidebarPanel}
+          truncateLabels={isSidebarCollapsed}
         />
       </div>
-      <SecondaryButton onClick={handleRequestLipSync}>
+      <SecondaryButton onClick={handleRequestLipSync} className={buttonExtraClass}>
         Request Lip Sync
       </SecondaryButton>
     </div>
@@ -108,7 +118,7 @@ export default function VideoAiVideoOptionsViewer(props) {
         <div className="mt-4 mb-2">
           <SecondaryButton
             onClick={handleDeleteLayer}
-            extraClasses="bg-red-500 hover:bg-red-600"
+            extraClasses={`bg-red-500 hover:bg-red-600 ${buttonExtraClass}`.trim()}
           >
             Cancel Upload
           </SecondaryButton>
@@ -129,7 +139,7 @@ export default function VideoAiVideoOptionsViewer(props) {
         <div className="mt-4 mb-2">
           <SecondaryButton
             onClick={handleDeleteLayer}
-            extraClasses="bg-red-500 hover:bg-red-600"
+            extraClasses={`bg-red-500 hover:bg-red-600 ${buttonExtraClass}`.trim()}
           >
             Delete Video Layer
           </SecondaryButton>
@@ -148,31 +158,33 @@ export default function VideoAiVideoOptionsViewer(props) {
         <div className="text-sm mb-2">Sound Effect</div>
 
         {/* NEW: Sound effect model select */}
-        <div className="w-48 mb-2">
+        <div className={selectShellClass}>
           <SingleSelect
             options={soundEffectOptions}
             value={selectedSoundEffectOption}
             onChange={setSelectedSoundEffectOption}
             classNamePrefix="soundEffectSelect"
             isSearchable={false}
+            compactLayout={!isSidebarCollapsed && isSidebarPanel}
+            truncateLabels={isSidebarCollapsed}
           />
         </div>
 
-        <SecondaryButton onClick={handleRequestSoundEffect}>
+        <SecondaryButton onClick={handleRequestSoundEffect} className={buttonExtraClass}>
           Request Sound Effect
         </SecondaryButton>
 
         {showSoundEffectPrompt && (
           <div className="flex flex-col items-center mt-2 w-full">
             <textarea
-              className="w-48 text-sm p-1 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] rounded"
+              className="w-full text-sm p-1 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] rounded"
               placeholder="Enter prompt for effect"
               value={soundEffectPrompt}
               onChange={(e) => setSoundEffectPrompt(e.target.value)}
             />
             <SecondaryButton
               onClick={handleSoundEffectSubmit}
-              extraClasses="mt-2"
+              extraClasses={`mt-2 ${buttonExtraClass}`.trim()}
             >
               Submit
             </SecondaryButton>
@@ -184,7 +196,7 @@ export default function VideoAiVideoOptionsViewer(props) {
       <div className="mt-4 mb-2">
         <SecondaryButton
           onClick={handleDeleteLayer}
-          extraClasses="bg-red-500 hover:bg-red-600"
+          extraClasses={`bg-red-500 hover:bg-red-600 ${buttonExtraClass}`.trim()}
         >
           Delete Video Layer
         </SecondaryButton>

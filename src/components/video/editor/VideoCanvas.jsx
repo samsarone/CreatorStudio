@@ -97,6 +97,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     onPersistTextStyle,
     openUploadDialog,
     rightPanelView,
+    isRightPanelExpanded = false,
     promptAspectRatio,
     setPromptAspectRatio,
     eraserUndoCount,
@@ -730,12 +731,14 @@ const VideoCanvas = forwardRef((props, ref) => {
 
   useEffect(() => {
     if (
+      !isRightPanelExpanded && (
       overlayView === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY ||
       overlayView === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY
+      )
     ) {
       setShowOverlayPromptGenerator(true);
     }
-  }, [overlayView]);
+  }, [overlayView, isRightPanelExpanded]);
   const hasActiveImageInFrame = (() => {
     if (!activeItemList || activeItemList.length === 0) {
       return false;
@@ -761,7 +764,13 @@ const VideoCanvas = forwardRef((props, ref) => {
       : aspectRatio;
 
   let canvasActionOverlay = <span />;
-  if (!isEditImageView && activeItemList.length === 0 && !aiVideoLayer && showOverlayPromptGenerator) {
+  if (
+    !isRightPanelExpanded
+    && !isEditImageView
+    && activeItemList.length === 0
+    && !aiVideoLayer
+    && showOverlayPromptGenerator
+  ) {
 
     canvasActionOverlay = <VideoCanvasOverlay activeItemList={activeItemList}
       activeTab={overlayGenerateTab}

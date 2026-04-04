@@ -126,7 +126,7 @@ export default function VideoCanvasOverlay(props) {
       : "Start this frame";
     const overlaySubtitle = isImageStudioOverlay
       ? "Generate the first image directly on the Image Studio canvas."
-      : "Generate the first image or video directly on the Studio canvas.";
+      : "Generate media directly on canvas";
     return (
       <div
         className={`absolute inset-0 z-10 flex justify-center px-3 pb-4 pointer-events-none ${

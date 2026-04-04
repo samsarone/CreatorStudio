@@ -23,7 +23,24 @@ export default function VideoPromptGenerator(props) {
     generationError,
     aspectRatio,
     activeItemList,
+    sizeVariant = "default",
   } = props;
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const isSidebarExpanded = sizeVariant === "sidebarExpanded";
+  const controlGridClass = isSidebarExpanded
+    ? "grid w-full grid-cols-2 gap-3"
+    : "flex w-full mb-2 flex-col";
+  const controlGridFullSpanClass = isSidebarExpanded ? "col-span-2" : "w-full";
+  const videoFieldClass = isSidebarExpanded ? "w-full" : "w-full";
+  const videoFieldLabelClass = isSidebarExpanded
+    ? "mb-1 text-sm font-semibold"
+    : "w-full text-sm font-bold mt-1";
+  const actionRowClass = isSidebarExpanded ? "pt-4 flex justify-end" : "text-center";
+  const actionButtonClass = isSidebarExpanded
+    ? "min-w-[168px] text-sm"
+    : isSidebarCollapsed
+    ? "w-full whitespace-normal text-center leading-tight"
+    : "";
 
 
 
@@ -333,8 +350,8 @@ export default function VideoPromptGenerator(props) {
   
   return (
     <div>
-      <div className="flex w-full mb-2 flex-col">
-        <div className="w-full">
+      <div className={controlGridClass}>
+        <div className={controlGridFullSpanClass}>
           <div className="text-xs font-semibold text-gray-300">
             This action will incur{" "}
             <span className="text-blue-300">{modelPrice} Credits</span>
@@ -342,7 +359,7 @@ export default function VideoPromptGenerator(props) {
         </div>
 
         {/* Start / End Frame & Trim Scene Checkboxes (only if we have an image to drive img-to-vid) */}
-        <div className="flex w-full items-center mt-2 flex-wrap">
+        <div className={`${controlGridFullSpanClass} flex w-full items-center mt-2 flex-wrap`}>
           {useImgToVidSettings && (
             <>
               {/* Start Frame Checkbox */}
@@ -375,7 +392,9 @@ export default function VideoPromptGenerator(props) {
         </div>
 
         {/* Model Select */}
-        <div className="flex w-full items-center mt-2">
+        <div className={videoFieldClass}>
+          <div className={videoFieldLabelClass}>Model</div>
+          <div className="flex w-full items-center mt-1">
           <select
             onChange={setSelectedModelDisplay}
             className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
@@ -385,12 +404,13 @@ export default function VideoPromptGenerator(props) {
             {modelOptionMap}
           </select>
         </div>
-        <div className="w-full text-sm font-bold mt-1">Model</div>
+        </div>
 
         {/* Duration Select (if pricing info) */}
         {modelPricing?.units && (
-          <>
-            <div className="flex w-full items-center mt-2">
+          <div className={videoFieldClass}>
+            <div className={videoFieldLabelClass}>Duration</div>
+            <div className="flex w-full items-center mt-1">
               <select
                 onChange={handleDurationChange}
                 className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
@@ -403,15 +423,15 @@ export default function VideoPromptGenerator(props) {
                 ))}
               </select>
             </div>
-            <div className="w-full text-sm font-bold mt-1">Duration</div>
-          </>
+          </div>
         )}
 
 
 
         {selectedVideoGenerationModel.startsWith("PIXVERSE") ? (
-          <>
-            <div className="flex w-full items-center mt-2">
+          <div className={videoFieldClass}>
+            <div className={videoFieldLabelClass}>Pixverse Style</div>
+            <div className="flex w-full items-center mt-1">
               <select
                 value={selectedModelSubType}
                 onChange={handleModelSubTypeChange}
@@ -424,11 +444,11 @@ export default function VideoPromptGenerator(props) {
                 ))}
               </select>
             </div>
-            <div className="w-full text-sm font-bold mt-1">Pixverse Style</div>
-          </>
+          </div>
         ) : selectedModelDef?.modelSubTypes?.length > 0 ? (
-          <>
-            <div className="flex w-full items-center mt-2">
+          <div className={videoFieldClass}>
+            <div className={videoFieldLabelClass}>Scene Type</div>
+            <div className="flex w-full items-center mt-1">
               <select
                 value={selectedModelSubType}
                 onChange={handleModelSubTypeChange}
@@ -441,8 +461,7 @@ export default function VideoPromptGenerator(props) {
                 ))}
               </select>
             </div>
-            <div className="w-full text-sm font-bold mt-1">Scene Type</div>
-          </>
+          </div>
         ) : null}
       </div>
 
@@ -463,12 +482,13 @@ export default function VideoPromptGenerator(props) {
         </div>
       )}
 
-      <div className="text-center">
+      <div className={actionRowClass}>
         
         <CommonButton
           onClick={handleSubmit}
           isPending={aiVideoGenerationPending}
           isDisabled={requiresImageButNone || !hasAvailableModels}
+          extraClasses={actionButtonClass}
         >
           Submit
         </CommonButton>

@@ -1,16 +1,12 @@
 // src/components/util/RangeOverlaySlider.js
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
-import { useColorMode } from '../../../../contexts/ColorMode.jsx';
-
-const RANGE_OVERLAY_THUMB_HEIGHT = 12;
 
 export default function RangeOverlaySlider({
   min,
   max,
   value,
   onChange,
-  highlightBoundaries,
   layerDurationUpdated,
   onDragAmountChange, // Add this prop
   onBeforeChange, onAfterChange 
@@ -20,7 +16,6 @@ export default function RangeOverlaySlider({
   const sliderRef = useRef(null);
   const latestSliderValuesRef = useRef(value);
   const isInteractionActiveRef = useRef(false);
-  const { colorMode } = useColorMode();
 
   // Define constants for minimum duration
   const MIN_LAYER_DURATION = 0.1; // Minimum layer duration in seconds
@@ -144,35 +139,13 @@ export default function RangeOverlaySlider({
               style={{
                 ...style,
                 left: '50%',
-                transform: 'translate(-50%, -50%)',
+                transform: 'translateX(-50%)',
               }}
               onMouseDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 thumbProps.onMouseDown?.(event);
               }}
-            />
-          );
-        }}
-        renderTrack={(props, state) => {
-          const isActiveSegment = state.index === 1;
-          const classes = `track rounded-full ${
-            isActiveSegment
-              ? colorMode === 'dark'
-                ? 'bg-indigo-500/35'
-                : 'bg-sky-300/60'
-              : colorMode === 'dark'
-                ? 'bg-slate-900/50'
-                : 'bg-slate-200'
-          }`;
-
-          const { key, className: incomingClass, style, ...trackProps } = props;
-          return (
-            <div
-              key={key}
-              {...trackProps}
-              className={`${classes} ${incomingClass ?? ''}`}
-              style={style}
             />
           );
         }}
@@ -188,6 +161,7 @@ export default function RangeOverlaySlider({
         }}
         orientation="vertical"
         minDistance={MIN_DISTANCE_IN_FRAMES}
+        withTracks={false}
         style={{ height: '100%', pointerEvents: 'auto' }}
       />
     </div>

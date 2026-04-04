@@ -87,10 +87,6 @@ export default function VideoEditorToolbar(props) {
     setPencilColor,
     eraserWidth,
     setEraserWidth,
-    pencilOptionsVisible,
-    eraserOptionsVisible,
-    cursorSelectOptionVisible,
-    setCursorSelectOptionVisible,
     showUploadAction,
     currentCanvasAction,
     setCurrentCanvasAction,
@@ -129,6 +125,7 @@ export default function VideoEditorToolbar(props) {
     canZoomInCanvas,
     canZoomOutCanvas,
     isRenderPending,
+    onExpandedChange,
   } = props;
   const {
     showCanvasNavigationGrid,
@@ -172,6 +169,21 @@ export default function VideoEditorToolbar(props) {
 
 
   const [speakerType, setSpeakerType] = useState(null);
+  const isCollapsedSidebarView = !isExpandedView;
+  const sidebarSizeVariant = isExpandedView ? 'sidebarExpanded' : 'sidebarCollapsed';
+  const shouldStackMusicProviderFields = isCollapsedSidebarView;
+  const musicProviderRowClass = shouldStackMusicProviderFields
+    ? "mb-3 flex flex-col gap-3"
+    : "mb-3 grid grid-cols-[minmax(0,1fr)_140px] items-end gap-3";
+  const musicDurationFieldClass = shouldStackMusicProviderFields
+    ? "w-full"
+    : "w-[136px] shrink-0";
+  const musicFooterRowClass = isCollapsedSidebarView
+    ? "mt-3 flex flex-col gap-3"
+    : "mt-3 flex items-center justify-between gap-3";
+  const musicGenerateButtonWrapClass = isCollapsedSidebarView
+    ? "w-full"
+    : "w-auto shrink-0";
 
   useEffect(() => {
 
@@ -203,6 +215,12 @@ export default function VideoEditorToolbar(props) {
       localStorage.setItem('defaultSpeaker', speakerType.label);
     }
   }, [speakerType]);
+
+  useEffect(() => {
+    if (onExpandedChange) {
+      onExpandedChange(isExpandedView);
+    }
+  }, [isExpandedView, onExpandedChange]);
 
   const { colorMode } = useColorMode();
   const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
@@ -585,26 +603,26 @@ export default function VideoEditorToolbar(props) {
         />
       );
     } else {
-      generateDisplay = <PromptGenerator {...props} />;
+      generateDisplay = <PromptGenerator {...props} sizeVariant={sidebarSizeVariant} />;
     }
   }
 
   let generateVideoDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY) {
     if (currentLayer.hasLipSyncVideoLayer) {
-      generateVideoDisplay = <VideoLipSyncOptionsViewer {...props} />;
+      generateVideoDisplay = <VideoLipSyncOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
     } else if (
       currentLayer.userVideoGenerationPending
       || currentLayer?.userVideoUploadTask?.status === 'UPLOADING'
       || currentLayer?.userVideoUploadTask?.status === 'PROCESSING'
     ) {
-      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
+      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
     } else if (currentLayer.hasUserVideoLayer && currentLayer.userVideoGenerationStatus === "COMPLETED") {
-      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
+      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
     } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoGenerationStatus === "COMPLETED") {
-      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} />;
+      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
     } else {
-      generateVideoDisplay = <VideoPromptGenerator {...props} />;
+      generateVideoDisplay = <VideoPromptGenerator {...props} sizeVariant={sidebarSizeVariant} />;
     }
   }
 
@@ -629,6 +647,7 @@ export default function VideoEditorToolbar(props) {
           {...props}
           editBrushWidth={editBrushWidth}
           setEditBrushWidth={setEditBrushWidth}
+          sizeVariant={sidebarSizeVariant}
         />
       </div>
     );
@@ -707,28 +726,6 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  let uploadDisplay = <span />;
-  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY) {
-    uploadDisplay = (
-      <div>
-        <div className='m-auto text-center grid grid-cols-3'>
-          <div className="text-center m-auto align-center mt-4 mb-4">
-            <FaUpload className="text-2xl m-auto cursor-pointer" onClick={() => showUploadAction()} />
-            <div className="text-[12px] tracking-tight m-auto text-center">
-              Upload
-            </div>
-          </div>
-          <div className="text-center m-auto align-center mt-4 mb-4">
-            <TbLibraryPhoto className="text-2xl m-auto cursor-pointer" onClick={() => showLibraryAction()} />
-            <div className="text-[12px] tracking-tight m-auto text-center">
-              Library
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const panelSurface =
     colorMode === 'dark'
       ? 'bg-[#0f1629] border border-[#1f2a3d] text-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)]'
@@ -757,6 +754,63 @@ export default function VideoEditorToolbar(props) {
   const compactInputClass = `w-full rounded-lg ${inputSurface} ${text2Color} px-3 py-2.5 text-sm leading-5 shadow-sm transition-colors duration-200 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20`;
   const compactNumericInputClass = `${compactInputClass} min-w-0 text-center text-base font-semibold tabular-nums`;
   const compactTextareaClass = `${compactInputClass} min-h-[96px]`;
+  const compactActionGridClass = 'grid w-full gap-2';
+  const compactActionGridStyle = {
+    gridTemplateColumns: isExpandedView
+      ? 'repeat(2, minmax(0, 1fr))'
+      : 'repeat(auto-fit, minmax(96px, 1fr))',
+  };
+  const compactActionLabelClass = isExpandedView
+    ? 'w-full whitespace-normal break-words text-center text-[11px] font-medium leading-tight tracking-tight'
+    : 'w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[11px] font-medium leading-tight tracking-tight';
+  const compactActionTileClass = (isActive = false) =>
+    [
+      `flex ${isExpandedView ? 'min-h-[64px]' : 'min-h-[58px]'} w-full min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-center transition-all duration-200`,
+      isActive ? interactiveTile : `${inputSurface} ${text2Color}`,
+    ].join(' ');
+
+  const renderToolbarActionTile = ({
+    key,
+    icon,
+    label,
+    onClick,
+    isActive = false,
+    ariaPressed,
+  }) => (
+    <button
+      key={key}
+      type="button"
+      onClick={onClick}
+      aria-pressed={ariaPressed}
+      className={compactActionTileClass(isActive)}
+      title={label}
+    >
+      <span className="pointer-events-none text-xl" aria-hidden="true">
+        {icon}
+      </span>
+      <span className={compactActionLabelClass}>{label}</span>
+    </button>
+  );
+
+  let uploadDisplay = <span />;
+  if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_UPLOAD_DISPLAY) {
+    uploadDisplay = (
+      <div className={`${compactActionGridClass} mt-2`} style={compactActionGridStyle}>
+        {renderToolbarActionTile({
+          key: 'upload',
+          icon: <FaUpload />,
+          label: 'Upload',
+          onClick: showUploadAction,
+        })}
+        {renderToolbarActionTile({
+          key: 'library',
+          icon: <TbLibraryPhoto />,
+          label: 'Library',
+          onClick: showLibraryAction,
+        })}
+      </div>
+    );
+  }
 
   const getSliderStyle = (value, min, max) => {
     const numValue = Number(value);
@@ -948,49 +1002,42 @@ export default function VideoEditorToolbar(props) {
 
   let audioOptionsDisplay = <span />;
   let audioSubOptionsDisplay = <span />;
-  const highlightedBgColor = colorMode === 'dark' ? 'bg-blue-800' : 'bg-neutral-800';
 
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_AUDIO_DISPLAY) {
     const isAudioOptionSelected = (option) => currentCanvasAction === option;
 
     audioOptionsDisplay = (
-      <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
-        <div
-          onClick={() => {
+      <div className={compactActionGridClass} style={compactActionGridStyle}>
+        {renderToolbarActionTile({
+          key: 'speech',
+          icon: <RiSpeakLine />,
+          label: 'Speech',
+          onClick: () => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY);
-          }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY)
-              ? highlightedBgColor
-              : ''
-            } p-2 rounded`}
-        >
-          <RiSpeakLine />
-          <div className="text-xs">Speech</div>
-        </div>
-        <div
-          onClick={() => {
+          },
+          isActive: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY),
+          ariaPressed: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY),
+        })}
+        {renderToolbarActionTile({
+          key: 'music',
+          icon: <FaMusic />,
+          label: 'Music',
+          onClick: () => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY);
-          }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY)
-              ? highlightedBgColor
-              : ''
-            } p-2 rounded`}
-        >
-          <FaMusic />
-          <div className="text-xs">Music</div>
-        </div>
-        <div
-          onClick={() => {
+          },
+          isActive: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY),
+          ariaPressed: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY),
+        })}
+        {renderToolbarActionTile({
+          key: 'effect',
+          icon: <AiOutlineSound />,
+          label: 'Effect',
+          onClick: () => {
             setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY);
-          }}
-          className={`cursor-pointer flex flex-col items-center justify-center transition-transform duration-300 transform hover:scale-105 ${isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY)
-              ? highlightedBgColor
-              : ''
-            } p-2 rounded`}
-        >
-          <AiOutlineSound />
-          <div className="text-xs">Effect</div>
-        </div>
+          },
+          isActive: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY),
+          ariaPressed: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY),
+        })}
       </div>
     );
 
@@ -999,7 +1046,7 @@ export default function VideoEditorToolbar(props) {
         <div className="transition-all duration-300 ease-in-out">
           <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateMusic}>
 
-            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className={musicProviderRowClass}>
               <div className="min-w-0 flex-1">
                 <label className={compactFieldLabelClass} htmlFor="musicProvider">
                   Provider
@@ -1015,9 +1062,10 @@ export default function VideoEditorToolbar(props) {
                     label: selectedMusicProvider.name
                   }}
                   onChange={handleMusicProviderChange}
+                  truncateLabels={isCollapsedSidebarView}
                 />
               </div>
-              <div className="w-full sm:w-[120px] sm:flex-shrink-0">
+              <div className={musicDurationFieldClass}>
                 <label className={compactFieldLabelClass} htmlFor="musicDuration">
                   Duration
                 </label>
@@ -1055,7 +1103,7 @@ export default function VideoEditorToolbar(props) {
                 minRows={3}
               />
             )}
-            <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className={musicFooterRowClass}>
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -1066,7 +1114,7 @@ export default function VideoEditorToolbar(props) {
                 />
                 <div className={`inline-flex text-xs ${text2Color} ml-1`}>Instr</div>
               </div>
-              <div className="w-full sm:w-auto">
+              <div className={musicGenerateButtonWrapClass}>
                 <SecondaryButton
                   type="submit"
                   isPending={audioGenerationPending}
@@ -1101,6 +1149,7 @@ export default function VideoEditorToolbar(props) {
             showAdvancedOptions={false}
             setShowAdvancedOptions={() => { }}
             colorMode={colorMode}
+            sizeVariant={sidebarSizeVariant}
           />
         </div>
       );
@@ -1257,36 +1306,29 @@ export default function VideoEditorToolbar(props) {
     }
     actionsOptionsDisplay = (
       <div>
-        <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
-          <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY ? interactiveTile : inputSurface
-              } ${text2Color} transition-colors duration-300`}
-          >
-            <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY)}>
-              <FaPencilAlt className="text-2xl m-auto cursor-pointer" />
-              <div className="text-[10px] tracking-tight m-auto text-center">Pencil</div>
-            </div>
-          </div>
-
-          <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY ? interactiveTile : inputSurface
-              } ${text2Color} transition-colors duration-300`}
-          >
-            <div onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY)}>
-              <FaEraser className="text-2xl m-auto cursor-pointer" />
-              <div className="text-[10px] tracking-tight m-auto text-center">Eraser</div>
-            </div>
-          </div>
-
-          <div
-            className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${cursorSelectOptionVisible ? interactiveTile : inputSurface
-              } ${text2Color} transition-colors duration-300`}
-          >
-            <div onClick={() => combineCurrentLayerItems()}>
-              <LuCombine className="text-2xl m-auto cursor-pointer" />
-              <div className="text-[10px] tracking-tight m-auto text-center">Combine</div>
-            </div>
-          </div>
+        <div className={compactActionGridClass} style={compactActionGridStyle}>
+          {renderToolbarActionTile({
+            key: 'pencil',
+            icon: <FaPencilAlt />,
+            label: 'Pencil',
+            onClick: () => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY),
+            isActive: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY,
+            ariaPressed: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY,
+          })}
+          {renderToolbarActionTile({
+            key: 'eraser',
+            icon: <FaEraser />,
+            label: 'Eraser',
+            onClick: () => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY),
+            isActive: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY,
+            ariaPressed: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY,
+          })}
+          {renderToolbarActionTile({
+            key: 'combine',
+            icon: <LuCombine />,
+            label: 'Combine',
+            onClick: combineCurrentLayerItems,
+          })}
         </div>
         {actionsSubOptionsDisplay}
       </div>
@@ -1297,45 +1339,45 @@ export default function VideoEditorToolbar(props) {
   let selectSubObjectionsDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_SELECT_DISPLAY) {
     selectOptionsDisplay = (
-      <div className={`grid grid-cols-3 ${text2Color} h-auto`}>
-        <div
-          className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${cursorSelectOptionVisible ? interactiveTile : inputSurface
-            } transition-colors duration-300`}
-          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY)}
-        >
-          <FaCrosshairs className="text-2xl m-auto cursor-pointer" />
-          <div className="text-[10px] tracking-tight m-auto text-center">Select Layer</div>
-        </div>
-        <div
-          className={`text-center m-auto align-center p-1 h-[50px] rounded-md ${inputSurface} transition-colors duration-300`}
-          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY)}
-        >
-          <PiSelectionAll className="text-2xl m-auto cursor-pointer" />
-          <div className="text-[10px] tracking-tight m-auto text-center">Select Shape</div>
-        </div>
+      <div className={compactActionGridClass} style={compactActionGridStyle}>
+        {renderToolbarActionTile({
+          key: 'select-layer',
+          icon: <FaCrosshairs />,
+          label: 'Select Layer',
+          onClick: () => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY),
+          isActive: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY,
+          ariaPressed: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY,
+        })}
+        {renderToolbarActionTile({
+          key: 'select-shape',
+          icon: <PiSelectionAll />,
+          label: 'Select Shape',
+          onClick: () => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY),
+          isActive: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY,
+          ariaPressed: currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY,
+        })}
       </div>
     );
 
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY) {
       selectSubObjectionsDisplay = (
-        <div>
-          <div className={`grid grid-cols-2 w-full ${text2Color} h-auto transition-all duration-300`}>
-            <div className="text-center m-auto align-center p-1 h-[50px] rounded-sm">
-              <button onClick={() => setSelectedLayerSelectShape('rectangle')}>
-                <div className="text-2xl m-auto cursor-pointer">
-                  <MdOutlineRectangle />
-                  <div className='text-xs'>Rectangle</div>
-                </div>
-              </button>
-            </div>
-            <div className="text-center m-auto align-center p-1 h-[50px] rounded-sm">
-              <button onClick={() => setSelectedLayerSelectShape('circle')}>
-                <div className="text-2xl m-auto cursor-pointer">
-                  <FaRegCircle />
-                  <div className='text-xs'>Circle</div>
-                </div>
-              </button>
-            </div>
+        <div className="mt-2">
+          <div
+            className={`${compactActionGridClass} transition-all duration-300`}
+            style={compactActionGridStyle}
+          >
+            {renderToolbarActionTile({
+              key: 'select-rectangle',
+              icon: <MdOutlineRectangle />,
+              label: 'Rectangle',
+              onClick: () => setSelectedLayerSelectShape('rectangle'),
+            })}
+            {renderToolbarActionTile({
+              key: 'select-circle',
+              icon: <FaRegCircle />,
+              label: 'Circle',
+              onClick: () => setSelectedLayerSelectShape('circle'),
+            })}
           </div>
         </div>
       );
@@ -1402,7 +1444,7 @@ export default function VideoEditorToolbar(props) {
             className="absolute top-2 right-2 cursor-pointer"
             onClick={closeAlertDialog}
           />
-          <PromptGenerator {...props} />
+          <PromptGenerator {...props} sizeVariant={sidebarSizeVariant} />
         </div>
       );
     }
@@ -1415,7 +1457,7 @@ export default function VideoEditorToolbar(props) {
           className="absolute top-2 right-2 cursor-pointer"
           onClick={closeAlertDialog}
         />
-        <VideoPromptGenerator {...props} />
+        <VideoPromptGenerator {...props} sizeVariant={sidebarSizeVariant} />
       </div>
     );
   };

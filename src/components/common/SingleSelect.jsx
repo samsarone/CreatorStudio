@@ -11,6 +11,11 @@ export default function SingleSelect(props) {
     onChange,
     classNamePrefix,
     isSearchable = true,
+    placeholder,
+    name,
+    compactLayout = false,
+    truncateLabels = false,
+    styles: customStyles,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -22,63 +27,109 @@ export default function SingleSelect(props) {
   const formSelectSelectedTextColor =
     colorMode === 'dark' ? '#f3f4f6' : '#111827';
   const formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
+  const normalizedLabels = [
+    ...(Array.isArray(options) ? options.map((option) => option?.label) : []),
+    value?.label,
+    placeholder,
+  ]
+    .filter(Boolean)
+    .map((label) => String(label));
+  const longestLabelLength = normalizedLabels.reduce(
+    (maxLength, label) => Math.max(maxLength, label.length),
+    0
+  );
+  const shouldUseMultilineValue =
+    !truncateLabels && (compactLayout || longestLabelLength > 18);
+  const controlMinHeight = shouldUseMultilineValue ? 52 : 38;
+  const resolveCustomStyle = (slotName, ...args) => {
+    const slotOverride = customStyles?.[slotName];
+    return typeof slotOverride === 'function' ? slotOverride(...args) : {};
+  };
+  const mergedStyles = {
+    menuPortal: (provided) => ({
+      ...provided,
+      zIndex: MENU_Z_INDEX,
+      ...resolveCustomStyle('menuPortal', provided),
+    }),
+    menu: (provided) => ({
+      ...provided,
+      backgroundColor: formSelectBgColor,
+      zIndex: MENU_Z_INDEX,
+      ...resolveCustomStyle('menu', provided),
+    }),
+    singleValue: (provided) => ({
+      ...provided,
+      color: formSelectTextColor,
+      maxWidth: '100%',
+      marginLeft: 0,
+      marginRight: 0,
+      overflow: shouldUseMultilineValue ? 'visible' : 'hidden',
+      textOverflow: shouldUseMultilineValue ? 'clip' : 'ellipsis',
+      whiteSpace: shouldUseMultilineValue ? 'normal' : 'nowrap',
+      lineHeight: shouldUseMultilineValue ? '1.2' : provided.lineHeight,
+      position: shouldUseMultilineValue ? 'static' : provided.position,
+      transform: shouldUseMultilineValue ? 'none' : provided.transform,
+      ...resolveCustomStyle('singleValue', provided),
+    }),
+    valueContainer: (provided) => ({
+      ...provided,
+      paddingTop: shouldUseMultilineValue ? 6 : provided.paddingTop,
+      paddingBottom: shouldUseMultilineValue ? 6 : provided.paddingBottom,
+      overflow: 'visible',
+      ...resolveCustomStyle('valueContainer', provided),
+    }),
+    control: (provided, state) => ({
+      ...provided,
+      backgroundColor: formSelectBgColor,
+      borderColor: state.isFocused ? '#007BFF' : '#737373',
+      '&:hover': {
+        borderColor: state.isFocused ? '#007BFF' : '#737373',
+      },
+      boxShadow: state.isFocused
+        ? '0 0 0 0.2rem rgba(0, 123, 255, 0.25)'
+        : null,
+      minHeight: `${controlMinHeight}px`,
+      height: shouldUseMultilineValue ? 'auto' : '38px',
+      ...resolveCustomStyle('control', provided, state),
+    }),
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: formSelectBgColor,
+      color: state.isSelected
+        ? formSelectSelectedTextColor
+        : formSelectTextColor,
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      '&:hover': {
+        backgroundColor: formSelectHoverColor,
+      },
+      ...resolveCustomStyle('option', provided, state),
+    }),
+    input: (provided) => ({
+      ...provided,
+      color: formSelectTextColor,
+      ...resolveCustomStyle('input', provided),
+    }),
+    placeholder: (provided) => ({
+      ...provided,
+      color: formSelectTextColor,
+      whiteSpace: shouldUseMultilineValue ? 'normal' : 'nowrap',
+      overflow: shouldUseMultilineValue ? 'visible' : 'hidden',
+      textOverflow: shouldUseMultilineValue ? 'clip' : 'ellipsis',
+      maxWidth: '100%',
+      ...resolveCustomStyle('placeholder', provided),
+    }),
+  };
 
 
   return (
     <Select
+      name={name}
       isSearchable={isSearchable}
+      placeholder={placeholder}
       menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
       menuPosition="fixed"
-      styles={{
-        menuPortal: (provided) => ({
-          ...provided,
-          zIndex: MENU_Z_INDEX,
-        }),
-        menu: (provided) => ({
-          ...provided,
-          backgroundColor: formSelectBgColor,
-          zIndex: MENU_Z_INDEX,
-        }),
-        singleValue: (provided) => ({
-          ...provided,
-          color: formSelectTextColor,
-        }),
-        control: (provided, state) => ({
-          ...provided,
-          backgroundColor: formSelectBgColor,
-          borderColor: state.isFocused ? '#007BFF' : '#737373',
-          '&:hover': {
-            borderColor: state.isFocused ? '#007BFF' : '#737373',
-          },
-          boxShadow: state.isFocused
-            ? '0 0 0 0.2rem rgba(0, 123, 255, 0.25)'
-            : null,
-          minHeight: '38px',
-          height: '38px',
-        }),
-        option: (provided, state) => ({
-          ...provided,
-          backgroundColor: formSelectBgColor,
-          color: state.isSelected
-            ? formSelectSelectedTextColor
-            : formSelectTextColor,
-          '&:hover': {
-            backgroundColor: formSelectHoverColor,
-          },
-        }),
-        input: (provided) => ({
-          ...provided,
-          color: formSelectTextColor,     // This ensures typed text has the same color
-        }),
-        placeholder: (provided) => ({
-          ...provided,
-          color: formSelectTextColor,     // This ensures placeholder text has the same color
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          maxWidth: 'calc(100% - 16px)',
-        }),
-      }}
+      styles={mergedStyles}
       options={options}
       value={value}
       onChange={onChange}

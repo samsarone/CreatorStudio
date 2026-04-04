@@ -11,6 +11,8 @@ export default function SpeechProviderSelect(props) {
     playMusicPreviewForSpeaker,
     currentlyPlayingSpeaker,
     colorMode,
+    compactLayout = false,
+    truncateLabels = false,
   } = props;
 
   // Styles for select and dropdowns
@@ -18,6 +20,13 @@ export default function SpeechProviderSelect(props) {
   const formSelectTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
   const formSelectSelectedTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
   const formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
+  const longestSpeakerLabelLength = TTS_COMBINED_SPEAKER_TYPES.reduce(
+    (maxLength, speaker) => Math.max(maxLength, String(speaker?.label || '').length),
+    0
+  );
+  const shouldUseMultilineValue =
+    !truncateLabels && (compactLayout || longestSpeakerLabelLength > 18);
+  const controlMinHeight = shouldUseMultilineValue ? 52 : 38;
 
   // Build speaker options from combined list
   const speakerOptions = TTS_COMBINED_SPEAKER_TYPES.map((speaker) => {
@@ -63,8 +72,10 @@ export default function SpeechProviderSelect(props) {
 
   const SingleValue = (props) => (
     <components.SingleValue {...props}>
-      {props.data.label}{' '}
-      <small className="text-xs text-gray-500">
+      <span className="whitespace-normal break-words leading-tight">
+        {props.data.label}{' '}
+      </span>
+      <small className="text-xs text-gray-500 whitespace-normal break-words">
         ({props.data.provider.toLowerCase()})
       </small>
     </components.SingleValue>
@@ -76,15 +87,37 @@ export default function SpeechProviderSelect(props) {
         value={speakerType}
         onChange={onSpeakerChange}
         options={speakerOptions}
+        menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+        menuPosition="fixed"
         components={{ Option, SingleValue }}
         styles={{
           menu: (provided) => ({
             ...provided,
             backgroundColor: formSelectBgColor,
+            zIndex: 11050,
+          }),
+          menuPortal: (provided) => ({
+            ...provided,
+            zIndex: 11050,
           }),
           singleValue: (provided) => ({
             ...provided,
             color: formSelectTextColor,
+            maxWidth: '100%',
+            marginLeft: 0,
+            marginRight: 0,
+            overflow: shouldUseMultilineValue ? 'visible' : 'hidden',
+            textOverflow: shouldUseMultilineValue ? 'clip' : 'ellipsis',
+            whiteSpace: shouldUseMultilineValue ? 'normal' : 'nowrap',
+            lineHeight: shouldUseMultilineValue ? '1.2' : provided.lineHeight,
+            position: shouldUseMultilineValue ? 'static' : provided.position,
+            transform: shouldUseMultilineValue ? 'none' : provided.transform,
+          }),
+          valueContainer: (provided) => ({
+            ...provided,
+            paddingTop: shouldUseMultilineValue ? 6 : provided.paddingTop,
+            paddingBottom: shouldUseMultilineValue ? 6 : provided.paddingBottom,
+            overflow: 'visible',
           }),
           control: (provided, state) => ({
             ...provided,
@@ -96,8 +129,8 @@ export default function SpeechProviderSelect(props) {
             boxShadow: state.isFocused
               ? '0 0 0 0.2rem rgba(0, 123, 255, 0.25)'
               : null,
-            minHeight: '38px',
-            height: '38px',
+            minHeight: `${controlMinHeight}px`,
+            height: shouldUseMultilineValue ? 'auto' : '38px',
           }),
           option: (provided, state) => ({
             ...provided,
@@ -105,6 +138,8 @@ export default function SpeechProviderSelect(props) {
             color: state.isSelected
               ? formSelectSelectedTextColor
               : formSelectTextColor,
+            whiteSpace: 'normal',
+            wordBreak: 'break-word',
             '&:hover': {
               backgroundColor: formSelectHoverColor,
             },

@@ -14,7 +14,10 @@ export default function AddSpeaker(props) {
     playMusicPreviewForSpeaker,
     currentlyPlayingSpeaker,
     colorMode,
+    sizeVariant = "default",
   } = props;
+  const isSidebarPanel =
+    sizeVariant === "sidebarCollapsed" || sizeVariant === "sidebarExpanded";
 
   const [speakerName, setSpeakerName] = useState('');
   const [error, setError] = useState('');
@@ -24,6 +27,7 @@ export default function AddSpeaker(props) {
 
 
   const [speakerType, setSpeakerType] = useState(null);
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
 
   /** Called by <SpeechProviderSelect/> when TTS provider changes */
   const handleTtsProviderChange = (selectedOption) => {
@@ -100,14 +104,24 @@ export default function AddSpeaker(props) {
           playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
           currentlyPlayingSpeaker={currentlyPlayingSpeaker}
           colorMode={colorMode}
+          compactLayout={!isSidebarCollapsed && isSidebarPanel}
+          truncateLabels={isSidebarCollapsed}
         />
       </div>
 
-      <div className="flex justify-end space-x-2 mt-3">
-        <CommonButton type="button" onClick={onCancel}>
+      <div className={`mt-3 ${isSidebarPanel ? 'grid grid-cols-1 gap-2' : 'flex justify-end space-x-2'}`}>
+        <CommonButton
+          type="button"
+          onClick={onCancel}
+          extraClasses={isSidebarPanel ? 'w-full whitespace-normal text-center leading-tight' : ''}
+        >
           Back
         </CommonButton>
-        <CommonButton type="button" onClick={handleSave}>
+        <CommonButton
+          type="button"
+          onClick={handleSave}
+          extraClasses={isSidebarPanel ? 'w-full whitespace-normal text-center leading-tight' : ''}
+        >
           Save
         </CommonButton>
       </div>

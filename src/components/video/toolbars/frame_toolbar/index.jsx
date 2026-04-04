@@ -981,8 +981,12 @@ export default function FrameToolbar(props) {
       const parentRect = parentElement.getBoundingClientRect();
       const selectedRect = selectedLayerElement.getBoundingClientRect();
       const safeParentHeight = Math.max(0, parentRect.height || 0);
-      const startPixels = clamp(selectedRect.top - parentRect.top, 0, safeParentHeight);
-      const endPixels = clamp(selectedRect.bottom - parentRect.top, startPixels, safeParentHeight);
+      const startPixels = Math.floor(
+        clamp(selectedRect.top - parentRect.top, 0, safeParentHeight)
+      );
+      const endPixels = Math.ceil(
+        clamp(selectedRect.bottom - parentRect.top, startPixels, safeParentHeight)
+      );
       const heightPixels = Math.max(0, endPixels - startPixels);
 
       setHighlightBoundaries({ start: startPixels, height: heightPixels });
@@ -3473,7 +3477,7 @@ export default function FrameToolbar(props) {
                   }}
                   {...provided.draggableProps}
                   data-scene-layer-body="true"
-                  className={`layer-scene-item ${layerSurfaceClass} ${index > 0 ? '-mt-px' : ''} ml-1 mr-1 cursor-pointer border relative overflow-hidden rounded-[3px] shadow-none`}
+                  className={`layer-scene-item group ${layerSurfaceClass} ${index > 0 ? '-mt-px' : ''} ml-1 mr-1 cursor-pointer border relative overflow-hidden rounded-[3px] shadow-none`}
                   style={{
                     height: `${layerHeightInPixels}px`,
                     maxHeight: `${layerHeightInPixels}px`,
@@ -3509,7 +3513,7 @@ export default function FrameToolbar(props) {
                   <div
                     {...provided.dragHandleProps}
                     data-layer-reorder-handle="true"
-                    className='absolute right-0 top-0 h-full w-[14px] flex items-center justify-center cursor-grab active:cursor-grabbing z-20'
+                    className='absolute right-0 top-0 h-full w-[14px] flex items-center justify-center cursor-grab active:cursor-grabbing z-20 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                     title='Drag to reorder scene'

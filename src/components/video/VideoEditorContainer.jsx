@@ -372,6 +372,7 @@ export default function VideoEditorContainer(props) {
   const [editMasklines, setEditMaskLines] = useState([]);
   const [currentView, setCurrentView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
   const [rightPanelView, setRightPanelView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+  const [isRightPanelExpanded, setIsRightPanelExpanded] = useState(false);
   const [currentCanvasAction, setCurrentCanvasAction] = useState(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
 
   const [selectedGenerationModel, setSelectedGenerationModel] = useState(() => {
@@ -2945,6 +2946,7 @@ export default function VideoEditorContainer(props) {
 
               openUploadDialog={openUploadDialog}
               rightPanelView={rightPanelView}
+              isRightPanelExpanded={isRightPanelExpanded}
               downloadCurrentFrame={downloadCurrentFrame}
             />
 
@@ -3065,6 +3067,7 @@ export default function VideoEditorContainer(props) {
       movieGenSpeakers={movieGenSpeakers}
       updateMovieGenSpeakers={updateMovieGenSpeakers}
       isRenderPending={isRenderPending}
+      onExpandedChange={setIsRightPanelExpanded}
     />
   )
 
