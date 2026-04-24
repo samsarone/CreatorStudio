@@ -36,15 +36,8 @@ export default function LoginPage() {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
     const params = new URLSearchParams({ origin, cookieConsent });
-    axios
-      .get(`${PROCESSOR_SERVER}/users/google_login?${params.toString()}`)
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        
-      });
+    params.set('responseMode', 'redirect');
+    window.location.href = `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
   };
 
   // Similar to AuthContainer

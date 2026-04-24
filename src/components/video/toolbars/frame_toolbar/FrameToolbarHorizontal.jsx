@@ -4,10 +4,7 @@ import ReactSlider from "react-slider";
 import { FaChevronLeft, FaChevronRight, FaDownload } from "react-icons/fa";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 
-const MIN_TILE_WIDTH = 72;
-const MIN_PX_PER_SECOND = 70;
-const MAX_PX_PER_SECOND = 160;
-const TILE_GAP = 8;
+const SCENE_TILE_GAP = 0;
 
 export default function FrameToolbarHorizontal({
   layers,
@@ -170,41 +167,30 @@ export default function FrameToolbarHorizontal({
     }
   };
 
-  const shortestLayerDuration = useMemo(() => {
+  const sceneDurationSum = useMemo(() => {
     if (!layers?.length) return 0;
-    return layers.reduce((min, layer) => {
-      const duration = Math.max(layer?.duration || 0, 0.001);
-      return Math.min(min, duration);
-    }, Infinity);
+    return layers.reduce((sum, layer) => {
+      return sum + Math.max(Number(layer?.duration) || 0, 0);
+    }, 0);
   }, [layers]);
 
-  const pixelsPerSecond = useMemo(() => {
-    const base = (viewportWidth || 960) / safeTotalDuration;
-    const ensureVisible = shortestLayerDuration ? MIN_TILE_WIDTH / shortestLayerDuration : MIN_PX_PER_SECOND;
-    return Math.min(
-      MAX_PX_PER_SECOND,
-      Math.max(MIN_PX_PER_SECOND, Math.max(base, ensureVisible)),
-    );
-  }, [viewportWidth, safeTotalDuration, shortestLayerDuration]);
+  const trackWidth = useMemo(() => {
+    return Math.max(1, Math.floor(viewportWidth || 0));
+  }, [viewportWidth]);
 
   const tileWidths = useMemo(() => {
     if (!layers?.length) return [];
-    return layers.map((layer) => {
-      const duration = Math.max(layer?.duration || 0, 0.001);
-      const width = duration * pixelsPerSecond;
-      return Math.max(MIN_TILE_WIDTH, width);
-    });
-  }, [layers, pixelsPerSecond]);
+    const totalGapWidth = Math.max(layers.length - 1, 0) * SCENE_TILE_GAP;
+    const availableSceneWidth = Math.max(1, trackWidth - totalGapWidth);
 
-  const trackWidth = useMemo(() => {
-    if (!layers?.length) {
-      return viewportWidth;
-    }
-    const widthSum = tileWidths.reduce((acc, width) => acc + width, 0);
-    const gaps = Math.max(layers.length - 1, 0) * TILE_GAP;
-    const computed = widthSum + gaps;
-    return Math.max(computed, viewportWidth || computed);
-  }, [layers, tileWidths, viewportWidth]);
+    return layers.map((layer) => {
+      const duration = Math.max(Number(layer?.duration) || 0, 0);
+      const durationRatio = sceneDurationSum > 0
+        ? duration / sceneDurationSum
+        : 1 / layers.length;
+      return Math.max(0, availableSceneWidth * durationRatio);
+    });
+  }, [layers, sceneDurationSum, trackWidth]);
 
   const renderDownload = () => {
     if (!downloadLink) return null;
@@ -288,37 +274,42 @@ export default function FrameToolbarHorizontal({
           </div>
         </div>
 
-        {/* Scroll controls */}
-        <div className="flex min-w-0 items-center gap-2 px-3 pb-2">
-          <button
-            className={`rounded-full p-2 transition-colors duration-150 ${
-              colorMode === "dark"
-                ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-                : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
-            } ${canScrollLeft ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
-            onClick={() => canScrollLeft && scrollByAmount(-1)}
-            aria-label="Scroll left"
-          >
-            <FaChevronLeft />
-          </button>
-
+        <div className="px-3 pb-2">
           <div className="relative flex-1 min-w-0">
-            <div
-              className={`pointer-events-none absolute inset-y-1 left-0 w-10 bg-gradient-to-r ${
-                colorMode === "dark" ? "from-[#0f1629]" : "from-white"
-              } to-transparent`}
-            />
-            <div
-              className={`pointer-events-none absolute inset-y-1 right-0 w-10 bg-gradient-to-l ${
-                colorMode === "dark" ? "from-[#0f1629]" : "from-white"
-              } to-transparent`}
-            />
+            {canScrollLeft && (
+              <button
+                className={`absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full p-2 transition-colors duration-150 ${
+                  colorMode === "dark"
+                    ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
+                    : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
+                } shadow-sm`}
+                onClick={() => scrollByAmount(-1)}
+                aria-label="Scroll left"
+              >
+                <FaChevronLeft />
+              </button>
+            )}
+
+            {canScrollRight && (
+              <button
+                className={`absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full p-2 transition-colors duration-150 ${
+                  colorMode === "dark"
+                    ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
+                    : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
+                } shadow-sm`}
+                onClick={() => scrollByAmount(1)}
+                aria-label="Scroll right"
+              >
+                <FaChevronRight />
+              </button>
+            )}
+
             {/* IMPORTANT: Make the Droppable be the scroll container so RBD can auto-scroll it */}
             <DragDropContext onDragEnd={onDragEnd} onDragUpdate={onDragUpdate}>
               <Droppable droppableId="rail" direction="horizontal">
                 {(provided) => (
                   <div
-                    className="flex-1 overflow-x-auto no-scrollbar min-w-0"
+                    className="flex-1 overflow-hidden no-scrollbar min-w-0"
                     ref={(node) => {
                       // attach both droppable ref and our local railRef
                       provided.innerRef(node);
@@ -328,10 +319,14 @@ export default function FrameToolbarHorizontal({
                   >
                     {/* the wide track inside the scroll container */}
                     <div className="relative h-8" style={{ width: trackWidth }}>
-                      <div className="absolute inset-0 flex items-stretch gap-2">
+                      <div
+                        className="absolute inset-0 flex items-stretch"
+                        style={{ gap: `${SCENE_TILE_GAP}px` }}
+                      >
                         {layers.map((layer, i) => {
-                          const widthPx = tileWidths[i] ?? MIN_TILE_WIDTH;
+                          const widthPx = tileWidths[i] ?? 0;
                           const isSelected = i === selectedLayerIndex;
+                          const showDurationLabel = widthPx >= 40;
                           return (
                             <Draggable
                               draggableId={layer._id.toString()}
@@ -356,9 +351,11 @@ export default function FrameToolbarHorizontal({
                                       : colorMode === "dark"
                                         ? "border-[#1f2a3d] bg-[#111a2f] hover:border-rose-400/30"
                                         : "border-slate-200 bg-slate-100 hover:border-slate-300"
-                                  } cursor-pointer flex items-center justify-center select-none`}
+                                  } cursor-pointer flex items-center justify-center select-none overflow-hidden box-border`}
                                   style={{
                                     width: widthPx,
+                                    flex: `0 0 ${widthPx}px`,
+                                    minWidth: 0,
                                     // RBD requires applying its style for animations / transforms
                                     ...drag.draggableProps.style,
                                   }}
@@ -369,11 +366,13 @@ export default function FrameToolbarHorizontal({
                                   }}
                                   data-layer-id={layer._id} // helpful for debugging
                                 >
-                                  <div className="px-2 text-center text-[10px] leading-tight">
-                                    <div className="font-semibold">{i + 1}</div>
-                                    <div className={colorMode === "dark" ? "text-slate-200/90" : "text-slate-600"}>
-                                      {layer.duration?.toFixed(1)}s
-                                    </div>
+                                  <div className="min-w-0 overflow-hidden px-1 text-center text-[10px] leading-tight">
+                                    <div className="truncate font-semibold">{i + 1}</div>
+                                    {showDurationLabel && (
+                                      <div className={`truncate ${colorMode === "dark" ? "text-slate-200/90" : "text-slate-600"}`}>
+                                        {layer.duration?.toFixed(1)}s
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               )}
@@ -388,7 +387,7 @@ export default function FrameToolbarHorizontal({
                         currentFrame={currentLayerSeek}
                         layers={layers}
                         tileWidths={tileWidths}
-                        gap={TILE_GAP}
+                        gap={SCENE_TILE_GAP}
                       />
                     </div>
                   </div>
@@ -396,18 +395,6 @@ export default function FrameToolbarHorizontal({
               </Droppable>
             </DragDropContext>
           </div>
-
-          <button
-            className={`rounded-full p-2 transition-colors duration-150 ${
-              colorMode === "dark"
-                ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-                : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
-            } ${canScrollRight ? "" : "opacity-40 cursor-not-allowed"} shadow-sm`}
-            onClick={() => canScrollRight && scrollByAmount(1)}
-            aria-label="Scroll right"
-          >
-            <FaChevronRight />
-          </button>
         </div>
       </div>
     </div>
@@ -419,6 +406,9 @@ function Playhead({ fps, currentFrame, layers, tileWidths, gap }) {
   const seconds = currentFrame / fps;
   let cursor = 0;
   let accumulated = 0;
+  const totalTrackWidth = tileWidths.reduce((sum, width, index) => {
+    return sum + width + (index < safeLayers.length - 1 ? gap : 0);
+  }, 0);
 
   for (let i = 0; i < safeLayers.length; i++) {
     const duration = Math.max(safeLayers[i]?.duration || 0, 0.001);
@@ -439,7 +429,7 @@ function Playhead({ fps, currentFrame, layers, tileWidths, gap }) {
   return (
     <div
       className="absolute top-0 h-full w-px bg-emerald-400 pointer-events-none shadow-[0_0_0_1px_rgba(16,185,129,0.35)]"
-      style={{ transform: `translateX(${cursor}px)` }}
+      style={{ transform: `translateX(${Math.min(cursor, Math.max(0, totalTrackWidth - 1))}px)` }}
     />
   );
 }

@@ -480,7 +480,7 @@ export default function SnowMaker() {
       sessionID: id,
       aspectRatio: selectedAspectRatioOption?.value,
       // example: hard-coded
-      imageModel: 'GPTIMAGE1',
+      imageModel: 'GPTIMAGE2',
       videoGenerationModel: 'RUNWAYML',
       duration: selectedDurationOption?.value,
       videoTone: 'grounded',

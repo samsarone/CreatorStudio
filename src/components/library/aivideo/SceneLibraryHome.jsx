@@ -6,6 +6,23 @@ import { getHeaders } from '../../../utils/web'; // Adjust the path as needed
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
+function resolveMediaUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (/^https?:\/\//i.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  return `${API_SERVER}${trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`}`;
+}
+
 export default function SceneLibraryHome(props) {
   const { hideSelectButton, onSelectVideo, isSelectButtonDisabled } = props;
   const [libraryData, setLibraryData] = useState([]);
@@ -67,30 +84,25 @@ export default function SceneLibraryHome(props) {
   };
 
   const handlePlayPause = (videoId) => {
-    const videoElement = videoRefs.current[videoId];
-    if (!videoElement) return;
-
     if (playingVideoId === videoId) {
-      // Pause
-      videoElement.pause();
+      const currentVideo = videoRefs.current[videoId];
+      if (currentVideo?.pause) {
+        currentVideo.pause();
+        currentVideo.currentTime = 0;
+      }
       setPlayingVideoId(null);
     } else {
-      // Pause any currently playing video
       if (playingVideoId && videoRefs.current[playingVideoId]) {
         videoRefs.current[playingVideoId].pause();
+        videoRefs.current[playingVideoId].currentTime = 0;
       }
-      // Play this one
-      videoElement.play();
       setPlayingVideoId(videoId);
-      videoElement.onended = () => {
-        setPlayingVideoId(null);
-      };
     }
   };
 
   const handleDownload = (item) => {
     const link = document.createElement('a');
-    link.href = `${API_SERVER}/${item.url}`;
+    link.href = resolveMediaUrl(item?.url) || '';
     link.download = `${item.description || 'Video'}.mp4`;
     document.body.appendChild(link);
     link.click();
@@ -153,18 +165,49 @@ export default function SceneLibraryHome(props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {libraryData.map((item) => (
           <div key={item._id} className={`rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
-            {/* Video Thumbnail + Play/Pause Button */}
             <div className="relative">
-              <video
-                ref={(el) => {
-                  videoRefs.current[item._id] = el;
-                }}
-                src={`${API_SERVER}/${item.url}`}
-                className="w-full h-48 object-cover rounded-lg cursor-pointer"
-                controls={false}
-                preload="metadata"
-                onClick={() => handlePlayPause(item._id)}
-              />
+              {playingVideoId === item._id ? (
+                <video
+                  ref={(el) => {
+                    videoRefs.current[item._id] = el;
+                  }}
+                  src={resolveMediaUrl(item?.url) || undefined}
+                  poster={resolveMediaUrl(item?.thumbnailPath) || undefined}
+                  className="w-full h-48 object-cover rounded-lg cursor-pointer"
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  onEnded={() => setPlayingVideoId(null)}
+                />
+              ) : item?.thumbnailVideoPath || item?.thumbnailVideoRemoteUrl ? (
+                <video
+                  src={resolveMediaUrl(item?.thumbnailVideoPath || item?.thumbnailVideoRemoteUrl) || undefined}
+                  poster={resolveMediaUrl(item?.thumbnailPath) || undefined}
+                  className="w-full h-48 object-cover rounded-lg cursor-pointer"
+                  muted
+                  autoPlay
+                  loop
+                  playsInline
+                  preload="metadata"
+                  onClick={() => handlePlayPause(item._id)}
+                />
+              ) : item?.thumbnailPath ? (
+                <img
+                  src={resolveMediaUrl(item.thumbnailPath) || ''}
+                  alt={item.description || 'Video preview'}
+                  className="w-full h-48 object-cover rounded-lg cursor-pointer"
+                  onClick={() => handlePlayPause(item._id)}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="flex h-48 w-full items-center justify-center rounded-lg bg-slate-950/70 text-sm text-slate-200"
+                  onClick={() => handlePlayPause(item._id)}
+                >
+                  Preview unavailable
+                </button>
+              )}
               <button
                 className={`absolute bottom-2 right-2 px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
                 onClick={() => handlePlayPause(item._id)}

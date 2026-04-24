@@ -41,6 +41,7 @@ export default function AuthContainer(props) {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
     const params = new URLSearchParams({ origin, cookieConsent });
+    params.set('responseMode', 'redirect');
     if (normalizedRedirect) {
       params.set('redirect', normalizedRedirect);
     }
@@ -70,16 +71,7 @@ export default function AuthContainer(props) {
       setPostAuthRedirect(normalizedRedirect);
     }
 
-    axios.get(buildGoogleLoginUrl())
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        const googleAuthUrl = authPayload.loginUrl;
-        window.location.href = googleAuthUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        
-        setError('Unable to initiate Google login at this time.');
-      });
+    window.location.href = buildGoogleLoginUrl();
     closeAlertDialog();
   };
 
@@ -87,19 +79,8 @@ export default function AuthContainer(props) {
     if (normalizedRedirect) {
       setPostAuthRedirect(normalizedRedirect);
     }
-    axios.get(buildGoogleLoginUrl())
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        const googleAuthUrl = authPayload.loginUrl;
-
-        localStorage.setItem("setShowSetPaymentFlow", true);
-
-        window.location.href = googleAuthUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        
-        setError('Unable to initiate Google registration at this time.');
-      });
+    localStorage.setItem("setShowSetPaymentFlow", true);
+    window.location.href = buildGoogleLoginUrl();
     closeAlertDialog();
   };
 

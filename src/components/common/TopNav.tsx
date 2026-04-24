@@ -68,6 +68,7 @@ export default function TopNav(props) {
     location.pathname.includes('/iamge/') ||
     location.pathname.includes('/image_sessions');
   const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/') || location.pathname.includes('/infovidcreator/');
+  const isGenerationsView = location.pathname.startsWith('/generations');
 
   const {
     downloadCurrentFrame,
@@ -341,6 +342,15 @@ const showLicenseDialog = () => {
     createNewSession(defaultAspectRatio);
   };
 
+  const openStudioWorkspace = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/vidgenie/${storedSessionId}`);
+      return;
+    }
+    addNewVidGPTSession();
+  };
+
 
   const addNewExpressSession = () => {
     const headers = getHeaders();
@@ -456,6 +466,10 @@ const showLicenseDialog = () => {
   }
 
   const gotoHome = () => {
+    if (user && user._id && !isImageEditor && !isVideoEditor) {
+      navigate('/generations');
+      return;
+    }
 
     const currentPath = location.pathname;
     if (currentPath.includes('video')) {
@@ -682,8 +696,69 @@ const showLicenseDialog = () => {
         editorVariant={isImageEditor ? 'imageStudio' : 'videoStudio'}
       />
     );
+  } else if (isGenerationsView) {
+    const galleryShortcutActive = colorMode === 'dark'
+      ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300';
+    const galleryShortcutGroup = colorMode === 'dark'
+      ? 'rounded-full border border-white/10 bg-black/10 px-2 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.22)]'
+      : 'rounded-full border border-white/70 bg-white/80 px-2 py-2 shadow-[0_10px_20px_rgba(15,23,42,0.08)] backdrop-blur';
+    controlbarView = (
+      <div className={`flex flex-wrap items-center justify-center gap-3 ${galleryShortcutGroup}`}>
+        <button
+          type="button"
+          className={`inline-flex min-h-[46px] items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition ${galleryShortcutActive}`}
+          onClick={openVideoEditor}
+        >
+          Video Editor
+        </button>
+        <button
+          type="button"
+          className={`inline-flex min-h-[46px] items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition ${galleryShortcutActive}`}
+          onClick={openImageEditor}
+        >
+          Image Editor
+        </button>
+        <button
+          type="button"
+          className={`inline-flex min-h-[46px] items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition ${galleryShortcutActive}`}
+          onClick={openStudioWorkspace}
+        >
+          Studio
+        </button>
+      </div>
+    );
   } else if (location.pathname.includes('/vidgenie/')) {
     controlbarView = <div />;
+  }
+
+
+  if (isGenerationsView) {
+    return (
+      <div className={`${navShell} fixed top-0 inset-x-0 h-[76px] z-20`}>
+        <div className="grid h-full w-full grid-cols-[minmax(220px,1fr)_auto_minmax(220px,1fr)] items-center gap-4 px-4 sm:px-6">
+          <div className="flex h-full items-center justify-start">
+            <BrandLogo onClick={gotoHome} className="w-full max-w-[250px]" />
+          </div>
+          <div className="flex h-full items-center justify-center">
+            {controlbarView}
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-3 text-xs sm:text-sm">
+            {errorMessageDisplay}
+            <div className="flex items-center">
+              {addSessionButton}
+            </div>
+            <div className="hidden flex-col items-end text-xs leading-tight text-right xl:flex">
+              <div>{userCreditsDisplay}</div>
+              <div>{daysToUpdate}</div>
+            </div>
+            <div className="flex items-center justify-end">
+              {userProfile}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
 

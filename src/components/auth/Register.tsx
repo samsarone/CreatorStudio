@@ -22,14 +22,7 @@ export default function Register(props) {
   const [error, setError] = useState(null);
   const [isTermsChecked, setIsTermsChecked] = useState(true);
   const [is18Checked, setIs18Checked] = useState(true);
-  const [captchaQuestion, setCaptchaQuestion] = useState('');
-  const [captchaAnswer, setCaptchaAnswer] = useState('');
-  const [captchaInput, setCaptchaInput] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState(language || 'en');
-
-  useEffect(() => {
-    generateCaptcha();
-  }, []);
 
   useEffect(() => {
     if (language) {
@@ -37,23 +30,12 @@ export default function Register(props) {
     }
   }, [language]);
 
-  const generateCaptcha = () => {
-    const num1 = Math.floor(Math.random() * 10) + 1;
-    const num2 = Math.floor(Math.random() * 10) + 1;
-    const operator = ['+', '-'][Math.floor(Math.random() * 2)];
-    const question = `${num1} ${operator} ${num2}`;
-    const answer = operator === '+' ? num1 + num2 : num1 - num2;
-    setCaptchaQuestion(question);
-    setCaptchaAnswer(answer.toString());
-    setCaptchaInput('');
-  };
-
   const cardClasses =
     colorMode === 'light'
       ? 'bg-white text-slate-900 border border-slate-200 shadow-lg'
       : 'bg-slate-950 text-slate-100 border border-slate-800 shadow-xl';
   const tabBase =
-    'px-3 py-1.5 text-xs font-semibold rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500/40';
+    'rounded-md px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500/40';
   const tabActive = colorMode === 'light' ? 'bg-blue-600 text-white' : 'bg-blue-500/20 text-blue-200';
   const tabInactive =
     colorMode === 'light'
@@ -70,20 +52,13 @@ export default function Register(props) {
       ? 'bg-white text-slate-900 border border-slate-200 hover:border-blue-400/70 hover:bg-slate-50'
       : 'bg-slate-900 text-slate-100 border border-slate-700 hover:border-blue-400/60 hover:bg-slate-800';
 
-  const validateAgeAndCaptcha = () => {
+  const fieldClasses = 'space-y-1';
+  const labelClasses = 'block text-xs font-semibold';
+  const controlClasses = `w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`;
+
+  const validateRegistrationChecks = () => {
     if (!is18Checked) {
       setError('Please confirm you are 18 years or older.');
-      return false;
-    }
-
-    const normalizedCaptcha = captchaInput.trim();
-    if (
-      !normalizedCaptcha ||
-      Number.isNaN(Number(normalizedCaptcha)) ||
-      Number(normalizedCaptcha) !== Number(captchaAnswer)
-    ) {
-      setError('Captcha answer is incorrect.');
-      generateCaptcha();
       return false;
     }
 
@@ -97,7 +72,7 @@ export default function Register(props) {
       return;
     }
 
-    if (!validateAgeAndCaptcha()) {
+    if (!validateRegistrationChecks()) {
       return;
     }
 
@@ -115,6 +90,7 @@ export default function Register(props) {
       return;
     }
 
+    setError(null);
     const payload = { email, password, username, preferredLanguage };
 
     registerUserWithEmail(payload, (serverErrorMessage) => {
@@ -130,10 +106,11 @@ export default function Register(props) {
       return;
     }
 
-    if (!validateAgeAndCaptcha()) {
+    if (!validateRegistrationChecks()) {
       return;
     }
 
+    setError(null);
     registerWithGoogle();
   };
 
@@ -144,29 +121,26 @@ export default function Register(props) {
   );
 
   return (
-    <div className={`w-full max-w-md rounded-2xl p-6 space-y-5 ${cardClasses}`}>
-      <div className="text-center space-y-1">
-        <h2 className="text-2xl font-semibold">Create your account</h2>
-        <p className="text-xs text-slate-400">Join Samsar in minutes</p>
+    <div className={`w-full max-w-[440px] rounded-lg p-4 sm:p-5 space-y-4 ${cardClasses}`}>
+      <div className="text-center">
+        <h2 className="text-xl font-semibold">Create your account</h2>
       </div>
 
-      <div className="flex justify-center">
-        <div className="inline-flex items-center gap-1 rounded-full border border-slate-300/30 bg-black/5 p-1">
-          <button
-            type="button"
-            className={`${tabBase} ${tabInactive}`}
-            onClick={() => setCurrentLoginView('login')}
-          >
-            Login
-          </button>
-          <button type="button" className={`${tabBase} ${tabActive}`}>
-            Sign up
-          </button>
-        </div>
+      <div className="grid grid-cols-2 rounded-lg border border-slate-300/30 bg-black/5 p-1">
+        <button
+          type="button"
+          className={`${tabBase} ${tabInactive}`}
+          onClick={() => setCurrentLoginView('login')}
+        >
+          Login
+        </button>
+        <button type="button" className={`${tabBase} ${tabActive}`}>
+          Sign up
+        </button>
       </div>
 
       {error && (
-        <p className="text-red-500 text-center text-sm" role="alert">
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-center text-sm text-red-500" role="alert">
           {error}
         </p>
       )}
@@ -174,7 +148,7 @@ export default function Register(props) {
       <button
         type="button"
         onClick={handleRegisterWithGoogle}
-        className={`flex items-center justify-center w-full py-3 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${googleButtonClasses}`}
+        className={`flex items-center justify-center w-full rounded-md py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${googleButtonClasses}`}
         aria-label="Register with Google"
       >
         <FaGoogle className="mr-2 text-blue-500" />
@@ -187,61 +161,73 @@ export default function Register(props) {
         <span className="flex-1 h-px bg-slate-300/50" />
       </div>
 
-      <form onSubmit={submitUserRegister} className="space-y-4">
-        <div>
-          <label htmlFor="username" className="block mb-1 text-sm font-semibold">
-            Username
-          </label>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
-            placeholder="Your username"
-          />
+      <form onSubmit={submitUserRegister} className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className={fieldClasses}>
+            <label htmlFor="username" className={labelClasses}>
+              Username
+            </label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              autoComplete="username"
+              className={controlClasses}
+              placeholder="Your username"
+              required
+            />
+          </div>
+
+          <div className={fieldClasses}>
+            <label htmlFor="email" className={labelClasses}>
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              className={controlClasses}
+              placeholder="you@example.com"
+              required
+            />
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="email" className="block mb-1 text-sm font-semibold">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
-            placeholder="you@example.com"
-          />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className={fieldClasses}>
+            <label htmlFor="password" className={labelClasses}>
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              className={controlClasses}
+              placeholder="Password"
+              required
+            />
+          </div>
+
+          <div className={fieldClasses}>
+            <label htmlFor="confirmPassword" className={labelClasses}>
+              Confirm Password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              className={controlClasses}
+              placeholder="Confirm password"
+              required
+            />
+          </div>
         </div>
 
-        <div>
-          <label htmlFor="password" className="block mb-1 text-sm font-semibold">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
-            placeholder="••••••••"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="confirmPassword" className="block mb-1 text-sm font-semibold">
-            Confirm Password
-          </label>
-          <input
-            id="confirmPassword"
-            name="confirmPassword"
-            type="password"
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
-            placeholder="••••••••"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="preferredLanguage" className="block mb-1 text-sm font-semibold">
+        <div className={fieldClasses}>
+          <label htmlFor="preferredLanguage" className={labelClasses}>
             Preferred Language
           </label>
           <select
@@ -249,7 +235,7 @@ export default function Register(props) {
             name="preferredLanguage"
             value={preferredLanguage}
             onChange={(e) => setPreferredLanguage(e.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
+            className={controlClasses}
           >
             {SUPPORTED_LANGUAGES.map((lang) => (
               <option key={lang.code} value={lang.code}>
@@ -259,54 +245,40 @@ export default function Register(props) {
           </select>
         </div>
 
-        <div>
-          <label htmlFor="captcha" className="block mb-1 text-sm font-semibold">
-            Captcha
-          </label>
-          <div className="text-xs text-slate-400 mb-2">Solve: {captchaQuestion}</div>
-          <input
-            id="captcha"
-            name="captcha"
-            type="text"
-            value={captchaInput}
-            onChange={(e) => setCaptchaInput(e.target.value)}
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
-            placeholder="Answer"
-          />
-        </div>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2">
+            <input
+              id="age-checkbox"
+              type="checkbox"
+              checked={is18Checked}
+              onChange={() => setIs18Checked(!is18Checked)}
+              className="mt-0.5 h-4 w-4 outline outline-1 outline-neutral-300 focus:outline-2 focus:outline-blue-500"
+            />
+            <label htmlFor="age-checkbox" className="text-xs leading-snug">
+              {ageConfirmationLabel}
+            </label>
+          </div>
 
-        <div className="flex items-start gap-2 pt-1">
-          <input
-            id="age-checkbox"
-            type="checkbox"
-            checked={is18Checked}
-            onChange={() => setIs18Checked(!is18Checked)}
-            className="mt-1 w-4 h-4 outline outline-1 outline-neutral-300 focus:outline-2 focus:outline-blue-500"
-          />
-          <label htmlFor="age-checkbox" className="text-xs leading-snug">
-            {ageConfirmationLabel}
-          </label>
-        </div>
-
-        <div className="flex items-start gap-2 pt-1">
-          <input
-            id="terms-checkbox"
-            type="checkbox"
-            checked={isTermsChecked}
-            onChange={() => setIsTermsChecked(!isTermsChecked)}
-            className="mt-1 w-4 h-4 outline outline-1 outline-neutral-300 focus:outline-2 focus:outline-blue-500"
-          />
-          <label htmlFor="terms-checkbox" className="text-xs leading-snug">
-            I agree to the{' '}
-            <a href="https://samsar.one/terms" target="_blank" rel="noopener noreferrer" className="underline">
-              terms
-            </a>{' '}
-            &{' '}
-            <a href="https://samsar.one/privacy" target="_blank" rel="noopener noreferrer" className="underline">
-              privacy policy
-            </a>
-            .
-          </label>
+          <div className="flex items-start gap-2">
+            <input
+              id="terms-checkbox"
+              type="checkbox"
+              checked={isTermsChecked}
+              onChange={() => setIsTermsChecked(!isTermsChecked)}
+              className="mt-0.5 h-4 w-4 outline outline-1 outline-neutral-300 focus:outline-2 focus:outline-blue-500"
+            />
+            <label htmlFor="terms-checkbox" className="text-xs leading-snug">
+              I agree to the{' '}
+              <a href="https://samsar.one/terms" target="_blank" rel="noopener noreferrer" className="underline">
+                terms
+              </a>{' '}
+              &{' '}
+              <a href="https://samsar.one/privacy" target="_blank" rel="noopener noreferrer" className="underline">
+                privacy policy
+              </a>
+              .
+            </label>
+          </div>
         </div>
 
         <LoginButton type="submit" extraClasses="w-full">

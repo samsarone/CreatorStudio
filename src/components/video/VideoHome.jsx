@@ -2255,6 +2255,51 @@ export default function VideoHome(props) {
       });
   }
 
+  const restartExpressRenderFromCheckpoint = (checkpoint) => {
+    if (isUpdateLayerPending) {
+      toast.error('Please wait for the scene update to finish before restarting the render pipeline.', {
+        position: "bottom-center",
+        className: "custom-toast",
+      });
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    stopVideoRenderPoll();
+    setRenderCompletedThisSession(false);
+
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/restart_express_pipeline`, {
+      sessionId: id,
+      checkpoint,
+    }, headers).then((response) => {
+      const session = response?.data?.session;
+      if (session) {
+        setVideoSessionDetails(session);
+      }
+      setRenderedVideoPath(null);
+      setDownloadLink(null);
+      setDownloadVideoDisplay(false);
+      setIsCanvasDirty(false);
+      setIsVideoGenerating(true);
+      startVideoRenderPoll();
+
+      toast.success('Express pipeline restarted.', {
+        position: "bottom-center",
+        className: "custom-toast",
+      });
+    }).catch((error) => {
+      toast.error(error?.response?.data?.error || 'Unable to restart the express pipeline.', {
+        position: "bottom-center",
+        className: "custom-toast",
+      });
+    });
+  };
+
   const unpublishVideoSession = () => {
     const headers = getHeaders();
     if (!headers) {
@@ -2785,7 +2830,9 @@ export default function VideoHome(props) {
           isUpdateLayerPending={isUpdateLayerPending}
           isVideoPreviewPlaying={isVideoPreviewPlaying}
           requestRealignLayers={requestRealignLayers}
+          restartExpressRenderFromCheckpoint={restartExpressRenderFromCheckpoint}
           cancelPendingRender={cancelPendingRender}
+          isExpressSession={Boolean(videoSessionDetails?.isExpressGeneration)}
           framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
         />
       </div>
@@ -2891,7 +2938,9 @@ export default function VideoHome(props) {
                 isUpdateLayerPending={isUpdateLayerPending}
                 isVideoPreviewPlaying={isVideoPreviewPlaying}
                 requestRealignLayers={requestRealignLayers}
+                restartExpressRenderFromCheckpoint={restartExpressRenderFromCheckpoint}
                 cancelPendingRender={cancelPendingRender}
+                isExpressSession={Boolean(videoSessionDetails?.isExpressGeneration)}
                 framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
               />
             </div>

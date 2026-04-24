@@ -666,6 +666,7 @@ export default function FrameToolbar(props) {
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
     requestRealignLayers,
+    restartExpressRenderFromCheckpoint,
     cancelPendingRender,
     publishVideoSession,
     unpublishVideoSession,
@@ -681,6 +682,7 @@ export default function FrameToolbar(props) {
     isCanvasDirty,
     isUpdateLayerPending,
     isVideoPreviewPlaying = false,
+    isExpressSession = false,
     framesPerSecond = 16,
 
   } = props;
@@ -4802,6 +4804,31 @@ export default function FrameToolbar(props) {
         showPublishOptionsDialog();
       },
     });
+  }
+
+  const canRestartCompletedExpressRender = Boolean(
+    isExpressSession
+    && resolvedDownloadLink
+    && !canCancelPendingRender
+    && !isCanvasDirty
+    && typeof restartExpressRenderFromCheckpoint === 'function'
+  );
+
+  if (canRestartCompletedExpressRender) {
+    dropdownItems.push(
+      {
+        label: 'Restart after images',
+        onClick: () => restartExpressRenderFromCheckpoint('after_images'),
+      },
+      {
+        label: 'Restart after AI video',
+        onClick: () => restartExpressRenderFromCheckpoint('after_ai_video'),
+      },
+      {
+        label: 'Restart after frames',
+        onClick: () => restartExpressRenderFromCheckpoint('after_frames'),
+      }
+    );
   }
 
   let submitRenderDisplay = (

@@ -1,6 +1,6 @@
 import React from 'react';
 import axios from 'axios';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../../utils/web.jsx';
 import Register from '../Register.tsx';
@@ -27,16 +27,9 @@ export default function RegisterPage() {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
     const params = new URLSearchParams({ origin, cookieConsent });
-    axios
-      .get(`${PROCESSOR_SERVER}/users/google_login?${params.toString()}`)
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        localStorage.setItem('setShowSetPaymentFlow', true);
-        window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        
-      });
+    params.set('responseMode', 'redirect');
+    localStorage.setItem('setShowSetPaymentFlow', true);
+    window.location.href = `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
   };
 
   const getOrCreateUserSession = () => {
@@ -63,7 +56,7 @@ export default function RegisterPage() {
   };
 
   // Register with email, same as AuthContainer
-  const registerUserWithEmail = (payload) => {
+  const registerUserWithEmail = (payload, onError = () => {}) => {
     axios
       .post(`${PROCESSOR_SERVER}/users/register`, payload)
       .then((dataRes) => {
@@ -76,37 +69,26 @@ export default function RegisterPage() {
         localStorage.setItem('setShowSetPaymentFlow', 'true');
       })
       .catch((error) => {
-        
-        // If you need to handle the error inside <Register />, 
-        // you might consider setting some error state here or pass a callback.
+        if (error.response && error.response.data && error.response.data.message) {
+          onError(error.response.data.message);
+        } else {
+          onError('Unable to register user at this time. Please try again.');
+        }
       });
   };
 
   return (
     <OverflowContainer>
-
-
-      <div className="w-full flex flex-col items-center justify-center pt-20">
-        <div className="rounded-lg p-6 max-w-md w-full">
-          <Register
-            registerWithGoogle={registerWithGoogle}
-            registerUserWithEmail={registerUserWithEmail}
-            setUser={setUser}
-            getOrCreateUserSession={getOrCreateUserSession}
-            closeAlertDialog={closeAlertDialog}
-            setCurrentLoginView={handleViewChange}
-            showLoginButton={false}
-          />
-
-          <div className="text-center mt-4">
-            <p>
-              Already have an account?{' '}
-              <Link to="/login" className="underline">
-                Login
-              </Link>
-            </p>
-          </div>
-        </div>
+      <div className="flex min-h-[calc(100vh-96px)] w-full items-center justify-center px-4 py-6 sm:py-8">
+        <Register
+          registerWithGoogle={registerWithGoogle}
+          registerUserWithEmail={registerUserWithEmail}
+          setUser={setUser}
+          getOrCreateUserSession={getOrCreateUserSession}
+          closeAlertDialog={closeAlertDialog}
+          setCurrentLoginView={handleViewChange}
+          showLoginButton={false}
+        />
       </div>
     </OverflowContainer>
   );

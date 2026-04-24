@@ -19,7 +19,7 @@ const TEXT_MODELS = [
 
 const IMAGE_MODELS = [
   { label: 'Flux', value: 'FLUX' },
-  { label: 'GPT Image 1', value: 'GPTIMAGE1' },
+  { label: 'GPT Image 2', value: 'GPTIMAGE2' },
   { label: 'Hunyuan', value: 'HUNYUAN' },
 ];
 
@@ -470,9 +470,7 @@ export default function ExternalStudioDashboard() {
                     className="rounded-2xl border border-white/10 bg-[#0c1528] px-4 py-3 text-sm text-white"
                   >
                     <option value="VEO3.1I2V">Veo 3.1</option>
-                    <option value="VEO3.1I2VFAST">Veo 3.1 Fast</option>
-                    <option value="KLINGIMGTOVID3PRO">Kling Pro</option>
-                    <option value="KLINGIMGTOVIDTURBO">Kling Turbo</option>
+                    <option value="SEEDANCEI2V">Seedance 2.0</option>
                   </select>
                   <select
                     value={imageForm.duration}

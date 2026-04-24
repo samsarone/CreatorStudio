@@ -96,6 +96,11 @@ export default function OverlayPromptGenerator(props) {
   const checkboxChipClassName = isImageStudioPrompt
     ? "inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition-colors duration-150"
     : "inline-flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150";
+  const promptTextareaMaxRows = isImageStudioPrompt
+    ? 7
+    : isPortraitLayout
+    ? 5
+    : 4;
 
   useEffect(() => {
     const storedDefaultModel = localStorage.getItem("defaultModel");
@@ -166,12 +171,12 @@ export default function OverlayPromptGenerator(props) {
   };
 
   const errorDisplay = generationError ? (
-    <div className="text-center text-sm text-red-500">{generationError}</div>
+    <div className="shrink-0 text-center text-sm text-red-500">{generationError}</div>
   ) : null;
 
   return (
-    <div className="w-full space-y-3">
-      <div className={topControlRowClassName}>
+    <div className="flex min-h-0 w-full flex-col gap-3">
+      <div className={`shrink-0 ${topControlRowClassName}`}>
         <div className={selectControlGroupClassName}>
           <div
             className={`${labelClassName} flex shrink-0 items-center gap-1 whitespace-nowrap`}
@@ -281,7 +286,7 @@ export default function OverlayPromptGenerator(props) {
       </div>
 
       {showAspectRatioSelector ? (
-        <div className="w-full">
+        <div className="w-full shrink-0">
           <ImagePayloadAspectRatioSelector
             label="Generation ratio"
             value={aspectRatio}
@@ -296,13 +301,14 @@ export default function OverlayPromptGenerator(props) {
       <TextareaAutosize
         onChange={(event) => setPromptText(event.target.value)}
         placeholder="Describe your prompt to generate an image"
-        className={`${textareaShell} w-full ${isImageStudioPrompt ? "rounded-2xl px-4 py-3.5 text-sm" : "rounded-lg px-3 py-2"}`}
+        className={`${textareaShell} min-h-0 w-full resize-none overflow-y-auto ${isImageStudioPrompt ? "rounded-2xl px-4 py-3.5 text-sm leading-6" : "rounded-lg px-3 py-2"}`}
         minRows={isImageStudioPrompt ? 4 : isPortraitLayout ? 3 : 2}
+        maxRows={promptTextareaMaxRows}
         value={promptText}
       />
 
       <div
-        className={`flex pt-1 ${
+        className={`flex shrink-0 pt-1 ${
           isPortraitLayout ? "justify-stretch" : "justify-end"
         }`}
       >

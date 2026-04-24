@@ -32,6 +32,7 @@ export default function MobileTopNav(props) {
     location.pathname.includes('/iamge/') ||
     location.pathname.includes('/image_sessions');
   const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/') || location.pathname.includes('/infovidcreator/');
+  const isGenerationsView = location.pathname.startsWith('/generations');
 
   const navShell =
     colorMode === 'dark'
@@ -192,6 +193,15 @@ export default function MobileTopNav(props) {
     createNewSession();
   };
 
+  const openStudioWorkspace = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/vidgenie/${storedSessionId}`);
+      return;
+    }
+    addNewVidGPTSession();
+  };
+
   const createNewSessionDialog = () => {
     openAlertDialog(alertDialogComponent);
   };
@@ -262,6 +272,10 @@ export default function MobileTopNav(props) {
   }
 
   const gotoHome = () => {
+    if (user && user._id && !isImageEditor && !isVideoEditor) {
+      navigate('/generations');
+      return;
+    }
     openAlertDialog(alertDialogComponent);
   };
 
@@ -301,18 +315,54 @@ export default function MobileTopNav(props) {
 
 
   return (
-    <div className={`${navShell} h-[50px] fixed w-[100vw] z-10`}>
-      <div className="flex flex-basis items-center h-full">
-        <div className='basis-1/3 pl-2'>
-          <BrandLogo onClick={gotoHome} className="mt-1" />
+    <div className={`${navShell} fixed w-[100vw] z-10 ${isGenerationsView ? 'py-2' : 'h-[50px]'}`}>
+      <div className={`${isGenerationsView ? 'flex flex-col gap-3 px-3' : 'flex flex-basis items-center h-full'}`}>
+        <div className={isGenerationsView ? 'flex min-h-[44px] items-center justify-between' : 'basis-1/3 pl-2'}>
+          <BrandLogo onClick={gotoHome} className={isGenerationsView ? '' : 'mt-1'} />
         </div>
-        <div className="basis-2/3">
-          <div className="text-xs inline-flex">
+        <div className={isGenerationsView ? 'flex min-h-[40px] items-center justify-between' : 'basis-2/3'}>
+          <div className="text-xs inline-flex items-center">
             <div>{addSessionButton}</div>
           </div>
-          <div className=" inline-flex float-right mr-2">{userProfile}</div>
+          <div className={isGenerationsView ? 'inline-flex items-center' : ' inline-flex float-right mr-2'}>{userProfile}</div>
         </div>
-
+        {isGenerationsView && (
+          <div className={`flex items-center justify-center gap-2 rounded-full px-2 py-2 ${colorMode === 'dark'
+            ? 'border border-white/10 bg-black/10'
+            : 'border border-white/70 bg-white/80 shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur'
+          }`}>
+            <button
+              type="button"
+              className={`${colorMode === 'dark'
+                ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              } inline-flex min-h-[42px] items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition`}
+              onClick={openVideoEditor}
+            >
+              Video Editor
+            </button>
+            <button
+              type="button"
+              className={`${colorMode === 'dark'
+                ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              } inline-flex min-h-[42px] items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition`}
+              onClick={openImageEditor}
+            >
+              Image Editor
+            </button>
+            <button
+              type="button"
+              className={`${colorMode === 'dark'
+                ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              } inline-flex min-h-[42px] items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition`}
+              onClick={openStudioWorkspace}
+            >
+              Studio
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

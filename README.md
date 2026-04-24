@@ -63,7 +63,7 @@ These models are part of the current shared client-side image generation pool. S
 
 | Model | Key | 1:1 | 16:9 | 9:16 | VidGenie `T2V` |
 | --- | --- | ---: | ---: | ---: | --- |
-| GPT Image 1.5 | `GPTIMAGE1` | 23 | 23 | 23 | Yes |
+| GPT Image 2 | `GPTIMAGE2` | 46 | 46 | 46 | Yes |
 | Google Imagen4 | `IMAGEN4` | 8 | 8 | 8 | No |
 | Seedream | `SEEDREAM` | 15 | 23 | 23 | Yes |
 | Hunyuan | `HUNYUAN` | 60 | 60 | 60 | No |
@@ -76,11 +76,11 @@ These edit models are part of the current shared client-side image editing pipel
 | Model | Key | Edit mode | Prompt input | 1:1 | 16:9 | 9:16 |
 | --- | --- | --- | --- | ---: | ---: | ---: |
 | NanoBanana 2 Edit | `NANOBANANA2EDIT` | Prompt edit | Yes | 45 | 45 | 45 |
-| GPT Image 1.5 Edit | `GPTIMAGE1EDIT` | Inpaint | Yes | 45 | 45 | 45 |
+| GPT Image 2 Edit | `GPTIMAGE2EDIT` | Inpaint | Yes | 45 | 45 | 45 |
 
 Notes:
 
-- `GPTIMAGE1EDIT` uses the inpaint flow with a mask brush.
+- `GPTIMAGE2EDIT` uses the inpaint flow with a mask brush.
 - Image Studio also supports canvas preset changes and custom canvas sizes before generation or editing.
 
 ### Video Generation
@@ -95,7 +95,7 @@ Studio exposes the full video model list. VidGenie `T2V` exposes a curated subse
 | Kling 3 Pro Img2Vid | `KLINGIMGTOVID3PRO` | No | Yes | `16:9`, `9:16`, `1:1` | Yes |
 | Hailuo O2 Standard | `HAILUO` | Yes | Yes | `16:9` | No |
 | Hailuo O2 Pro | `HAILUOPRO` | Yes | Yes | `16:9` | No |
-| SeeDance Img2Vid | `SEEDANCEI2V` | No | Yes | `16:9`, `9:16` | Yes |
+| Seedance 2.0 | `SEEDANCEI2V` | No | Yes | `16:9`, `9:16` | Yes |
 | Veo 3.1 Img2Vid | `VEO3.1I2V` | Yes | Yes | `16:9`, `9:16` | Yes |
 | Veo 3.1 Fast Img2Vid | `VEO3.1I2VFAST` | Yes | Yes | `16:9`, `9:16` | Yes |
 
@@ -103,7 +103,7 @@ Studio exposes the full video model list. VidGenie `T2V` exposes a curated subse
 
 `T2V` currently exposes:
 
-- Image models: `GPTIMAGE1`, `NANOBANANA2`, `SEEDREAM`
+- Image models: `GPTIMAGE2`, `NANOBANANA2`, `SEEDREAM`
 - Video models: `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`, `RUNWAYML`, `SORA2PRO`
 - Aspect ratios: `16:9`, `9:16`
 - Durations: `10`, `30`, `60`, `90`, `120`, `180` seconds
@@ -172,7 +172,7 @@ yarn build
 
 | Key | 1:1 | 16:9 | 9:16 |
 | --- | ---: | ---: | ---: |
-| `GPTIMAGE1` | 23 | 23 | 23 |
+| `GPTIMAGE2` | 46 | 46 | 46 |
 | `IMAGEN4` | 8 | 8 | 8 |
 | `SEEDREAM` | 15 | 23 | 23 |
 | `HUNYUAN` | 60 | 60 | 60 |
@@ -183,7 +183,7 @@ yarn build
 | Key | 1:1 | 16:9 | 9:16 |
 | --- | ---: | ---: | ---: |
 | `NANOBANANA2EDIT` | 45 | 45 | 45 |
-| `GPTIMAGE1EDIT` | 45 | 45 | 45 |
+| `GPTIMAGE2EDIT` | 45 | 45 | 45 |
 
 ### Video Generation
 

@@ -61,16 +61,17 @@ const OFFLINE_POLL = 30_000;   // 30 s while offline
 const MAX_BACKOFF = 60_000;    // 1 min cap
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
-const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE1', 'NANOBANANA2', 'SEEDREAM'];
+const VIDGENIE_PROMPT_MAX_LENGTH = 4000;
+const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'SEEDREAM'];
 const VIDGENIE_IMAGE_MODEL_LABELS = {
-  GPTIMAGE1: 'GPT Image 1',
+  GPTIMAGE2: 'GPT Image 2',
   NANOBANANA2: 'Nano Banana 2',
   SEEDREAM: 'Seedream',
 };
 const VIDGENIE_VIDEO_MODEL_ORDER = [
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
-  'SEEDANCEI2V',
+  'SEEDANCE15I2V',
   'KLINGIMGTOVID3PRO',
   'RUNWAYML',
   'SORA2PRO',
@@ -78,11 +79,13 @@ const VIDGENIE_VIDEO_MODEL_ORDER = [
 const VIDGENIE_VIDEO_MODEL_LABELS = {
   'VEO3.1I2V': 'VEO3.1 I2V (Default)',
   'VEO3.1I2VFAST': 'VEO3.1 I2V Fast',
-  SEEDANCEI2V: 'Seedance I2V',
+  SEEDANCE15I2V: 'Seedance 1.5',
+  SEEDANCEI2V: 'Seedance 2.0',
   KLINGIMGTOVID3PRO: 'Kling 3 Pro',
   RUNWAYML: 'Runway Gen 4',
   SORA2PRO: 'Sora 2 Pro',
 };
+const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = ['VEO3.1I2V', 'SEEDANCEI2V'];
 
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
@@ -162,6 +165,26 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   const [sessionDetails, setSessionDetails] = useState(null);
   const [promptText, setPromptText] = useState('');
+  const clampPromptText = useCallback((value) => {
+    if (typeof value !== 'string') return '';
+    return value.length > VIDGENIE_PROMPT_MAX_LENGTH
+      ? value.slice(0, VIDGENIE_PROMPT_MAX_LENGTH)
+      : value;
+  }, []);
+  const updatePromptText = useCallback((value) => {
+    setPromptText(clampPromptText(value));
+  }, [clampPromptText]);
+  const handlePromptTextChange = useCallback((event) => {
+    updatePromptText(event.target.value);
+  }, [updatePromptText]);
+  const promptCharacterCount = promptText.length;
+  const promptCounterLabel = t(
+    "vidgenie.promptCharacterCount",
+    { count: promptCharacterCount, max: VIDGENIE_PROMPT_MAX_LENGTH },
+    "{count}/{max} characters"
+  );
+  const promptCounterClass =
+    promptCharacterCount >= VIDGENIE_PROMPT_MAX_LENGTH ? 'text-amber-500' : mutedText;
   const [generationMode, setGenerationMode] = useState('T2V');
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -358,9 +381,10 @@ export default function OneshotEditor() {
         .split(/\s+/)
         .slice(0, wordLimit)
         .join(' ');
-      voiceTranscriptRef.current = limitedTranscript;
-      setPromptText(`${base}${limitedTranscript}`);
-      voiceBasePromptRef.current = `${base}${limitedTranscript}`;
+      const nextPrompt = clampPromptText(`${base}${limitedTranscript}`);
+      voiceTranscriptRef.current = nextPrompt.slice(Math.min(base.length, nextPrompt.length));
+      setPromptText(nextPrompt);
+      voiceBasePromptRef.current = nextPrompt;
       setVoiceStatusMessage(null);
       setVoiceError(t("vidgenie.voiceTranscriptLimit", { count: wordLimit }));
       stopAllVoiceCaptureRef.current?.();
@@ -368,20 +392,22 @@ export default function OneshotEditor() {
     }
     voiceWordCountRef.current = totalWords;
 
-    if (cleanedTranscript === voiceTranscriptRef.current) {
+    const nextPrompt = clampPromptText(`${base}${cleanedTranscript}`);
+    const nextTranscript = nextPrompt.slice(Math.min(base.length, nextPrompt.length));
+    if (nextTranscript === voiceTranscriptRef.current) {
       return;
     }
-    voiceTranscriptRef.current = cleanedTranscript;
+    voiceTranscriptRef.current = nextTranscript;
 
-    setPromptText(`${base}${cleanedTranscript}`);
+    setPromptText(nextPrompt);
     if (isFinal) {
-      voiceBasePromptRef.current = `${base}${cleanedTranscript}`;
+      voiceBasePromptRef.current = nextPrompt;
     }
 
     setVoiceStatusMessage(
       isFinal ? t("vidgenie.voiceCaptured") : t("vidgenie.voiceTranscribing")
     );
-  }, [countWords, t]);
+  }, [clampPromptText, countWords, t]);
 
   const {
     startTranscription: startVoiceTranscription,
@@ -748,6 +774,31 @@ export default function OneshotEditor() {
       .filter(Boolean);
   }, [selectedAspectRatioOption.value]);
 
+  const imageListVideoModels = useMemo(() => {
+    const availableModelMap = new Map(
+      VIDEO_GENERATION_MODEL_TYPES
+        .filter(
+          (m) =>
+            m.isExpressModel &&
+            VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER.includes(m.key) &&
+            m.supportedAspectRatios?.includes(selectedAspectRatioOption.value)
+        )
+        .map((model) => [model.key, model])
+    );
+
+    return VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER
+      .map((modelKey) => {
+        const model = availableModelMap.get(modelKey);
+        if (!model) return null;
+        return {
+          label: VIDGENIE_VIDEO_MODEL_LABELS[modelKey] || model.name,
+          value: model.key,
+          ...model,
+        };
+      })
+      .filter(Boolean);
+  }, [selectedAspectRatioOption.value]);
+
   const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
     const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
     const found = expressVideoModels.find((m) => m.value === saved);
@@ -768,6 +819,18 @@ export default function OneshotEditor() {
       return found || expressVideoModels[0];
     });
   }, [expressVideoModels]);
+
+  useEffect(() => {
+    if (generationMode !== 'I2V' || !imageListVideoModels.length) return;
+
+    setSelectedVideoModel((prev) => {
+      if (prev?.value) {
+        const existing = imageListVideoModels.find((m) => m.value === prev.value);
+        if (existing) return existing;
+      }
+      return imageListVideoModels[0];
+    });
+  }, [generationMode, imageListVideoModels]);
 
   // Video-model subtype (Pixverse or otherwise)
   const [selectedVideoModelSubType, setSelectedVideoModelSubType] = useState(null);
@@ -1218,7 +1281,7 @@ export default function OneshotEditor() {
       setSessionDetails(data);
 
       if (data.inputPrompt) {
-        setPromptText(data.inputPrompt);
+        updatePromptText(data.inputPrompt);
       }
 
 
@@ -1303,7 +1366,18 @@ export default function OneshotEditor() {
       return;
     }
     const isTextToVideo = generationMode === 'T2V';
-    if (isTextToVideo && !promptText.trim()) {
+    const trimmedPromptText = promptText.trim();
+    if (trimmedPromptText.length > VIDGENIE_PROMPT_MAX_LENGTH) {
+      setErrorMessage({
+        error: t(
+          "vidgenie.promptTooLong",
+          { max: VIDGENIE_PROMPT_MAX_LENGTH },
+          "Prompt must be {max} characters or fewer."
+        ),
+      });
+      return;
+    }
+    if (isTextToVideo && !trimmedPromptText) {
       setErrorMessage({ error: 'Please enter some text before submitting.' });
       return;
     }
@@ -1331,7 +1405,7 @@ export default function OneshotEditor() {
 
     const requestInput = {};
     if (isTextToVideo) {
-      requestInput.prompt = promptText.trim();
+      requestInput.prompt = trimmedPromptText;
       requestInput.image_model = selectedImageModel.value;
       requestInput.video_model = selectedVideoModel.value;
       requestInput.duration = selectedDurationOption.value;
@@ -1376,8 +1450,11 @@ export default function OneshotEditor() {
           throw new Error('Image upload did not return any URLs.');
         }
         requestInput.image_urls = normalizedImageUrls;
-        if (promptText.trim()) {
-          requestInput.prompt = promptText.trim();
+        if (selectedVideoModel?.value) {
+          requestInput.video_model = selectedVideoModel.value;
+        }
+        if (trimmedPromptText) {
+          requestInput.prompt = trimmedPromptText;
         }
       }
 
@@ -1761,6 +1838,20 @@ export default function OneshotEditor() {
               </>
             )}
 
+            {generationMode === 'I2V' && (
+              <div className="group w-full">
+                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                  <SingleSelect
+                    value={selectedVideoModel}
+                    onChange={setSelectedVideoModel}
+                    options={imageListVideoModels}
+                    className="w-full"
+                  />
+                </div>
+                <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.videoModel")}</p>
+              </div>
+            )}
+
             {/* Duration */}
             {generationMode === 'T2V' && (
               <div className="group w-full">
@@ -1858,7 +1949,8 @@ export default function OneshotEditor() {
                 placeholder={t("vidgenie.promptPlaceholder")}
                 name="promptText"
                 value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
+                maxLength={VIDGENIE_PROMPT_MAX_LENGTH}
+                onChange={handlePromptTextChange}
               />
               <button
                 type="button"
@@ -1895,20 +1987,25 @@ export default function OneshotEditor() {
                 </span>
               </button>
             </div>
-            <div className="mt-2 text-xs">
-              {voiceError ? (
-                <span className="text-red-500">{voiceError}</span>
-              ) : voiceStatusMessage ? (
-                <span className={colorMode === 'dark' ? 'text-white/70' : 'text-slate-600'}>
-                  {voiceStatusMessage}
-                </span>
-              ) : (
-                <span className={colorMode === 'dark' ? 'text-white/50' : 'text-slate-400'}>
-                  {isBrowserSpeechSupported || isVoiceSupported
-                    ? t("vidgenie.voiceUseMic")
-                    : t("vidgenie.voiceUnavailable")}
-                </span>
-              )}
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div className="min-w-0">
+                {voiceError ? (
+                  <span className="text-red-500">{voiceError}</span>
+                ) : voiceStatusMessage ? (
+                  <span className={colorMode === 'dark' ? 'text-white/70' : 'text-slate-600'}>
+                    {voiceStatusMessage}
+                  </span>
+                ) : (
+                  <span className={colorMode === 'dark' ? 'text-white/50' : 'text-slate-400'}>
+                    {isBrowserSpeechSupported || isVoiceSupported
+                      ? t("vidgenie.voiceUseMic")
+                      : t("vidgenie.voiceUnavailable")}
+                  </span>
+                )}
+              </div>
+              <span className={`shrink-0 tabular-nums ${promptCounterClass}`}>
+                {promptCounterLabel}
+              </span>
             </div>
           </>
         ) : (
@@ -1928,8 +2025,12 @@ export default function OneshotEditor() {
               placeholder={t("vidgenie.promptPlaceholder")}
               name="promptText"
               value={promptText}
-              onChange={(e) => setPromptText(e.target.value)}
+              maxLength={VIDGENIE_PROMPT_MAX_LENGTH}
+              onChange={handlePromptTextChange}
             />
+            <div className={`text-right text-xs tabular-nums ${promptCounterClass}`}>
+              {promptCounterLabel}
+            </div>
             <div className="relative">
               <div className={`relative rounded-2xl ring-1 transition ${imagePickerShell}`}>
                 <label

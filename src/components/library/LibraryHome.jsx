@@ -3,21 +3,33 @@ import ImageLibraryHome from './image/ImageLibraryHome';
 import MusicLibraryHome from './audio/MusicLibraryHome';
 import SceneLibraryHome from './aivideo/SceneLibraryHome';
 import VideoLibraryHome from './video/VideoLibraryHome';
+import GenerationsGalleryPanel from '../generations/GenerationsGalleryPanel.jsx';
 import { FaChevronCircleLeft, FaSpinner } from 'react-icons/fa';
 import { useColorMode } from '../../contexts/ColorMode';
 import './library.css';
 
-const LIBRARY_TABS = ['Image', 'Audio', 'Video', 'Scenes'];
+const LIBRARY_TABS = ['Generations', 'Image', 'Audio', 'Video', 'Scenes'];
 
 export default function LibraryHome(props) {
   const { resetImageLibrary, onSelectVideo, isSelectButtonDisabled } = props;
-  const [selectedOption, setSelectedOption] = useState('Image');
+  const [selectedOption, setSelectedOption] = useState('Generations');
   const { colorMode } = useColorMode();
 
   const isLoading = isSelectButtonDisabled;
 
   const renderContent = () => {
     switch (selectedOption) {
+      case 'Generations':
+        return (
+          <GenerationsGalleryPanel
+            embedded
+            title="Generations"
+            subtitle="A panorama wall of image and video generations. Video tiles stay on preview clips until you open the render."
+            onSelectImage={props.selectImageFromLibrary}
+            onSelectVideo={onSelectVideo}
+            isSelectButtonDisabled={isSelectButtonDisabled}
+          />
+        );
       case 'Image':
         return <ImageLibraryHome {...props} />;
       case 'Audio':
@@ -36,6 +48,7 @@ export default function LibraryHome(props) {
   };
 
   const headings = {
+    Generations: 'Global Generations',
     Image: 'Image Library',
     Audio: 'Audio Library',
     Video: 'Video Library',

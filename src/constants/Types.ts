@@ -107,8 +107,8 @@ export const CURRENT_EDITOR_VIEW = {
 
 export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
-    name: 'GPT Image 1.5',
-    key: 'GPTIMAGE1',
+    name: 'GPT Image 2',
+    key: 'GPTIMAGE2',
     isExpressModel: true,
   },
   {
@@ -199,8 +199,18 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: true,
   },
   {
-    name: 'SeeDance Img2Vid',
+    name: 'Seedance 2.0',
     key: 'SEEDANCEI2V',
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    isExpressModel: false,
+    supportedAspectRatios: [
+      '16:9', '9:16',
+    ]
+  },
+  {
+    name: 'Seedance 1.5',
+    key: 'SEEDANCE15I2V',
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     isExpressModel: true,
@@ -246,8 +256,8 @@ export const IMAGE_EDIT_MODEL_TYPES = [
     isPromptEnabled: true
   },
   {
-    name: 'GPT Image 1.5 Edit',
-    key: 'GPTIMAGE1EDIT',
+    name: 'GPT Image 2 Edit',
+    key: 'GPTIMAGE2EDIT',
     editType: 'inpaint',
     isPromptEnabled: true,
   },

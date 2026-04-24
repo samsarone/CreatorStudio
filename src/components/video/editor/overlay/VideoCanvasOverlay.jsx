@@ -61,6 +61,9 @@ export default function VideoCanvasOverlay(props) {
     : isLandscapeCanvas
     ? Math.min(100, Math.max(24, canvasHeight * 0.13))
     : Math.min(120, Math.max(30, canvasHeight * 0.16));
+  const overlayCardMaxHeight = isImageStudioOverlay
+    ? `calc(100% - ${imageStudioTopOffset + 16}px)`
+    : "calc(100% - 24px)";
 
   const [selectedTab, setSelectedTab] = useState(activeTab || "image");
 
@@ -129,19 +132,20 @@ export default function VideoCanvasOverlay(props) {
       : "Generate media directly on canvas";
     return (
       <div
-        className={`absolute inset-0 z-10 flex justify-center px-3 pb-4 pointer-events-none ${
+        className={`absolute inset-0 z-[320] flex justify-center px-3 pb-4 pointer-events-none overflow-visible ${
           isImageStudioOverlay ? "items-start" : "items-center"
         }`}
         style={isImageStudioOverlay ? { paddingTop: `${imageStudioTopOffset}px` } : undefined}
       >
         <div
-          className={`pointer-events-auto ${overlaySurface} ${isImageStudioOverlay ? "rounded-[28px] px-5 py-5" : "rounded-2xl px-4 py-4"}`}
+          className={`pointer-events-auto relative z-[321] flex min-h-0 flex-col ${overlaySurface} ${isImageStudioOverlay ? "rounded-[28px] px-5 py-5" : "rounded-2xl px-4 py-4"}`}
           style={{
             width: `${overlayCardWidth}px`,
             maxWidth: isImageStudioOverlay ? "calc(100% - 24px)" : "calc(100% - 32px)",
+            maxHeight: overlayCardMaxHeight,
           }}
         >
-          <div className={`flex items-start justify-between gap-3 ${isImageStudioOverlay ? "mb-5" : "mb-4"}`}>
+          <div className={`flex shrink-0 items-start justify-between gap-3 ${isImageStudioOverlay ? "mb-5" : "mb-4"}`}>
             <div className={headerTextLayout}>
               <div className={isImageStudioOverlay ? "text-base font-semibold" : "text-sm font-semibold"}>{overlayTitle}</div>
               <div className={`${isImageStudioOverlay ? "text-sm" : "text-xs"} ${subText}`}>
@@ -161,7 +165,7 @@ export default function VideoCanvasOverlay(props) {
           </div>
 
           {!isImageStudioOverlay ? (
-            <div className="mb-4 grid grid-cols-2 gap-2">
+            <div className="mb-4 grid shrink-0 grid-cols-2 gap-2">
               <button
                 type="button"
                 className={`w-full rounded-full px-3 py-2 text-sm font-semibold transition-colors duration-150 ${selectedTab === "image" ? tabActive : tabBase}`}
@@ -179,27 +183,29 @@ export default function VideoCanvasOverlay(props) {
             </div>
           ) : null}
 
-          {selectedTab === "image" ? (
-            <OverlayPromptGenerator
-              promptText={promptText}
-              setPromptText={setPromptText}
-              submitGenerateRequest={submitGenerateRequest}
-              isGenerationPending={isGenerationPending}
-              selectedGenerationModel={selectedGenerationModel}
-              setSelectedGenerationModel={setSelectedGenerationModel}
-              generationError={generationError}
-              currentDefaultPrompt={currentDefaultPrompt}
-              submitGenerateNewRequest={submitGenerateNewRequest}
-              aspectRatio={aspectRatio}
-              setAspectRatio={setAspectRatio}
-              canvasDimensions={canvasDimensions}
-              layoutMode={overlayLayout}
-              showAspectRatioSelector={isImageStudioOverlay}
-              editorVariant={editorVariant}
-            />
-          ) : (
-            <div className="w-full">{overlayVidPrompt}</div>
-          )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+            {selectedTab === "image" ? (
+              <OverlayPromptGenerator
+                promptText={promptText}
+                setPromptText={setPromptText}
+                submitGenerateRequest={submitGenerateRequest}
+                isGenerationPending={isGenerationPending}
+                selectedGenerationModel={selectedGenerationModel}
+                setSelectedGenerationModel={setSelectedGenerationModel}
+                generationError={generationError}
+                currentDefaultPrompt={currentDefaultPrompt}
+                submitGenerateNewRequest={submitGenerateNewRequest}
+                aspectRatio={aspectRatio}
+                setAspectRatio={setAspectRatio}
+                canvasDimensions={canvasDimensions}
+                layoutMode={overlayLayout}
+                showAspectRatioSelector={isImageStudioOverlay}
+                editorVariant={editorVariant}
+              />
+            ) : (
+              <div className="w-full">{overlayVidPrompt}</div>
+            )}
+          </div>
         </div>
       </div>
     );

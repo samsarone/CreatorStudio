@@ -49,6 +49,7 @@ export default function OverlayPromptGenerateVideo(props) {
     ? "grid w-full grid-cols-3 gap-3"
     : "flex w-full flex-col gap-3";
   const controlGroupClassName = "flex w-full flex-col gap-1.5";
+  const promptTextareaMaxRows = isPortraitLayout ? 5 : 4;
 
   const {
     hasImageItem,
@@ -273,14 +274,14 @@ export default function OverlayPromptGenerateVideo(props) {
   }
 
   const errorDisplay = generationError ? (
-    <div className="mt-2 text-center text-sm text-red-500">
+    <div className="mt-2 shrink-0 text-center text-sm text-red-500">
       {generationError}
     </div>
   ) : null;
 
   return (
-    <div className="w-full space-y-3">
-      <div className={fieldLayoutClassName}>
+    <div className="flex min-h-0 w-full flex-col gap-3">
+      <div className={`shrink-0 ${fieldLayoutClassName}`}>
         <div className={controlGroupClassName}>
           <div className={`${fieldLabelClassName} flex items-center gap-1`}>
             <span>Model</span>
@@ -338,7 +339,7 @@ export default function OverlayPromptGenerateVideo(props) {
       </div>
 
       <div
-        className={`flex flex-wrap items-center gap-2.5 text-xs ${
+        className={`flex shrink-0 flex-wrap items-center gap-2.5 text-xs ${
           colorMode === "dark" ? "text-slate-200" : "text-slate-600"
         }`}
       >
@@ -450,14 +451,15 @@ export default function OverlayPromptGenerateVideo(props) {
         <TextareaAutosize
           onChange={(event) => setVideoPromptText(event.target.value)}
           placeholder="Describe the motion, pacing, and cinematic details you want..."
-          className={`${textareaShell} w-full rounded-lg px-3 py-2`}
+          className={`${textareaShell} min-h-0 w-full resize-none overflow-y-auto rounded-lg px-3 py-2`}
           minRows={isPortraitLayout ? 3 : 2}
+          maxRows={promptTextareaMaxRows}
           value={videoPromptText}
         />
       ) : null}
 
       <div
-        className={`flex pt-1 ${
+        className={`flex shrink-0 pt-1 ${
           isPortraitLayout ? "justify-stretch" : "justify-end"
         }`}
       >

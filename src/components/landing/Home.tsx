@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
+import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import axios from "axios";
 import 'react-tooltip/dist/react-tooltip.css';
@@ -44,6 +44,7 @@ import ImageStudioHome from "../image/ImageStudioHome.jsx";
 import ListImageSessions from "../image/sessions/ListImageSessions.jsx";
 import ImageStudioLandingHome from "../image/ImageStudioLandingHome.jsx";
 import ExternalStudioDashboard from "../external/ExternalStudioDashboard.jsx";
+import GenerationsHome from "../generations/GenerationsHome.jsx";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -96,6 +97,7 @@ export default function Home() {
       '/payment_success',
       '/payment_cancel',
       '/create_payment',
+      '/generations',
       '/image/studio',
       '/iamge/studio',
     ]);
@@ -129,7 +131,7 @@ export default function Home() {
         navigate(redirectTarget, { replace: true });
         return;
       }
-      getOrCreateUserSession();
+      navigateToDefaultAuthenticatedView();
     }
   };
 
@@ -175,28 +177,8 @@ export default function Home() {
     return paramsString ? `${url}?${paramsString}` : url;
   };
 
-  const getOrCreateUserSession = () => {
-    const headers = getHeaders();
-    axios.get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers).then((res) => {
-      const sessionData = res.data;
-      if (sessionData) {
-        localStorage.setItem('videoSessionId', sessionData._id);
-        let currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
-        if (currentMediaFlowPath && currentMediaFlowPath === 'vidgpt') {
-          const finalUrl = appendQueryParams(`/vidgenie/${sessionData._id}`);
-          navigate(finalUrl);
-        } else {
-          const finalUrl = appendQueryParams(`/vidgenie/${sessionData._id}`);
-          navigate(finalUrl);
-        }
-      } else {
-        navigate(appendQueryParams('/my_sessions'));
-      }
-    }).catch(function(err) {
-      clearAuthData();
-      localStorage.removeItem("videoSessionId");
-      navigate("/");
-    });
+  const navigateToDefaultAuthenticatedView = () => {
+    navigate(appendQueryParams('/generations'), { replace: true });
   };
 
   let bodyBGColor = "bg-stone-100";
@@ -209,7 +191,13 @@ export default function Home() {
   return (
     <div className={bodyBGColor}>
       <Routes>
-        <Route path="/" element={<VideoEditorLandingHome />} />
+        <Route
+          path="/"
+          element={user && user._id && userInitiated && !userFetching
+            ? <Navigate to="/generations" replace />
+            : <VideoEditorLandingHome />}
+        />
+        <Route path="/generations" element={<GenerationsHome />} />
         <Route path="/session/:id" element={<EditorHome />} />
         <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
         <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />

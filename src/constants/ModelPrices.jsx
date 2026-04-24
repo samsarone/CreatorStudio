@@ -2,12 +2,12 @@
 
 export const IMAGE_MODEL_PRICES = [
   {
-    key: 'GPTIMAGE1',
+    key: 'GPTIMAGE2',
     isExpressModel: true,
     prices: [
-      { aspectRatio: '1:1', price: 23 },
-      { aspectRatio: '16:9', price: 23 },
-      { aspectRatio: '9:16', price: 23 },
+      { aspectRatio: '1:1', price: 46 },
+      { aspectRatio: '16:9', price: 46 },
+      { aspectRatio: '9:16', price: 46 },
     ],
   },
   {
@@ -59,7 +59,7 @@ export const IMAGE_EDIT_MODEL_PRICES = [
     ],
   },
   {
-    key: 'GPTIMAGE1EDIT',
+    key: 'GPTIMAGE2EDIT',
     prices: [
       { aspectRatio: '1:1', price: 45 },
       { aspectRatio: '16:9', price: 45 },
@@ -137,6 +137,17 @@ export const VIDEO_MODEL_PRICES = [
   },
   {
     key: 'SEEDANCEI2V',
+    isExpressModel: false,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    prices: [
+      { aspectRatio: '16:9', price: 90 },
+      { aspectRatio: '9:16', price: 90 },
+    ],
+    units: [5, 10],
+  },
+  {
+    key: 'SEEDANCE15I2V',
     isExpressModel: true,
     isImageToVideoModel: true,
     isTextToVideoModel: false,

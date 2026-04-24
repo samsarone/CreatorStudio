@@ -42,6 +42,16 @@ function resolveThumbnailUrl(item = {}) {
   return resolveVideoUrl(thumbnailPath || '');
 }
 
+function resolvePreviewVideoUrl(item = {}) {
+  const previewVideoPath = [
+    item?.thumbnailVideoPath,
+    item?.previewVideoPath,
+    item?.thumbnailVideoRemoteUrl,
+  ].find((value) => typeof value === 'string' && value.trim());
+
+  return resolveVideoUrl(previewVideoPath || '');
+}
+
 function formatDuration(duration) {
   const numericDuration = Number(duration);
   if (!Number.isFinite(numericDuration) || numericDuration <= 0) {
@@ -258,6 +268,7 @@ export default function VideoLibraryHome(props) {
           const itemKey = getTrimKey(item) || `${sectionKey}-${index}`;
           const videoUrl = resolveVideoUrl(item?.assetPath || item?.url);
           const thumbnailUrl = resolveThumbnailUrl(item);
+          const previewVideoUrl = resolvePreviewVideoUrl(item);
           const durationLabel = formatDuration(item?.duration);
           const isPreviewing = previewingVideoId === itemKey;
 
@@ -280,6 +291,30 @@ export default function VideoLibraryHome(props) {
                       setPreviewingVideoId((currentValue) => (currentValue === itemKey ? null : currentValue));
                     }}
                   />
+                ) : previewVideoUrl ? (
+                  <button
+                    type="button"
+                    className="group relative block h-48 w-full overflow-hidden rounded-xl"
+                    onClick={() => handlePreviewToggle(itemKey)}
+                    disabled={!videoUrl}
+                  >
+                    <video
+                      src={previewVideoUrl}
+                      poster={thumbnailUrl || undefined}
+                      className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/65 text-white backdrop-blur">
+                        <FaPlay className="ml-0.5" />
+                      </span>
+                    </div>
+                  </button>
                 ) : thumbnailUrl ? (
                   <button
                     type="button"
