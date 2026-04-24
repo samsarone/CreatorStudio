@@ -3515,13 +3515,11 @@ export default function FrameToolbar(props) {
                   <div
                     {...provided.dragHandleProps}
                     data-layer-reorder-handle="true"
-                    className='absolute right-0 top-0 h-full w-[14px] flex items-center justify-center cursor-grab active:cursor-grabbing z-20 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100'
+                    className='absolute right-0 top-0 h-full w-[14px] cursor-grab active:cursor-grabbing z-20'
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                     title='Drag to reorder scene'
-                  >
-                    <div className='h-[32px] w-[4px] rounded-full bg-slate-400/60 shadow-[0_0_12px_rgba(148,163,184,0.35)]' />
-                  </div>
+                  />
                 </div>
               );
 
