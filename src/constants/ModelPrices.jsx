@@ -189,7 +189,7 @@ export const VIDEO_MODEL_PRICES = [
       { aspectRatio: '16:9', price: 700 },
       { aspectRatio: '9:16', price: 700 },
     ],
-    units: [8],
+    units: [4, 6, 8],
   },
   {
     key: 'VEO3.1FAST',
@@ -200,7 +200,7 @@ export const VIDEO_MODEL_PRICES = [
       { aspectRatio: '16:9', price: 300 },
       { aspectRatio: '9:16', price: 300 },
     ],
-    units: [8],
+    units: [4, 6, 8],
   },
   {
     key: 'VEO3.1I2V',
@@ -211,7 +211,7 @@ export const VIDEO_MODEL_PRICES = [
       { aspectRatio: '16:9', price: 700 },
       { aspectRatio: '9:16', price: 700 },
     ],
-    units: [8],
+    units: [4, 6, 8],
   },
   {
     key: 'VEO3.1FLIV',
@@ -223,7 +223,7 @@ export const VIDEO_MODEL_PRICES = [
       { aspectRatio: '16:9', price: 700 },
       { aspectRatio: '9:16', price: 700 },
     ],
-    units: [8],
+    units: [4, 6, 8],
   },
   {
     key: 'VEO3.1I2VFAST',
@@ -234,7 +234,7 @@ export const VIDEO_MODEL_PRICES = [
       { aspectRatio: '16:9', price: 300 },
       { aspectRatio: '9:16', price: 300 },
     ],
-    units: [8],
+    units: [4, 6, 8],
   },
 
   // AI post-processing models still used in studio workflows
