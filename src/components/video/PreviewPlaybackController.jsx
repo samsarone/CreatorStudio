@@ -15,17 +15,27 @@ import {
 } from './util/audioPreviewDucking.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
-const PREVIEW_FRAMES_PER_SECOND = 30;
+const DISPLAY_FRAMES_PER_SECOND = 30;
+const DEFAULT_PREVIEW_FRAMES_PER_SECOND = 16;
+const VALID_PREVIEW_FRAME_RATES = new Set([16, 24, 30]);
 const PREVIEW_AUDIO_READY_STATE = 3;
 const PREVIEW_AUDIO_PRIME_LOOKAHEAD_SECONDS = 0.75;
 const PREVIEW_AUDIO_PRIME_TIMEOUT_MS = 250;
 const PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS = 0.2;
+
+function resolvePreviewFramesPerSecond(value) {
+  const parsed = Math.round(Number(value));
+  return VALID_PREVIEW_FRAME_RATES.has(parsed)
+    ? parsed
+    : DEFAULT_PREVIEW_FRAMES_PER_SECOND;
+}
 
 export default function PreviewPlaybackController(props) {
   const {
     applyAudioDucking = true,
     audioLayers,
     currentLayerSeek,
+    framesPerSecond,
     isVideoPreviewPlaying,
     setCurrentLayerSeek,
     setIsVideoPreviewPlaying,
@@ -393,7 +403,9 @@ export default function PreviewPlaybackController(props) {
         await audioContextRef.current.resume().catch(() => {});
       }
 
-      const totalFrames = Math.floor((Number(totalDuration) || 0) * PREVIEW_FRAMES_PER_SECOND);
+      const previewFramesPerSecond = resolvePreviewFramesPerSecond(framesPerSecond);
+      const displayFrameStep = DISPLAY_FRAMES_PER_SECOND / previewFramesPerSecond;
+      const totalFrames = Math.floor((Number(totalDuration) || 0) * DISPLAY_FRAMES_PER_SECOND);
       if (totalFrames <= 0) {
         setIsVideoPreviewPlaying(false);
         return;
@@ -403,7 +415,7 @@ export default function PreviewPlaybackController(props) {
         0,
         Math.min(totalFrames - 1, Math.floor(currentLayerSeekRef.current))
       );
-      const initialPreviewTime = initialFrame / PREVIEW_FRAMES_PER_SECOND;
+      const initialPreviewTime = initialFrame / DISPLAY_FRAMES_PER_SECOND;
 
       currentLayerSeekRef.current = initialFrame;
       syncPreviewAudioPlayback(initialPreviewTime, false);
@@ -417,7 +429,7 @@ export default function PreviewPlaybackController(props) {
       clearPlaybackInterval();
 
       playbackIntervalRef.current = setInterval(() => {
-        const nextFrame = currentLayerSeekRef.current + 1;
+        const nextFrame = currentLayerSeekRef.current + displayFrameStep;
 
         if (nextFrame >= totalFrames) {
           clearPlaybackInterval();
@@ -427,8 +439,8 @@ export default function PreviewPlaybackController(props) {
 
         currentLayerSeekRef.current = nextFrame;
         setCurrentLayerSeek(nextFrame);
-        syncPreviewAudioPlayback(nextFrame / PREVIEW_FRAMES_PER_SECOND, true);
-      }, 1000 / PREVIEW_FRAMES_PER_SECOND);
+        syncPreviewAudioPlayback(nextFrame / DISPLAY_FRAMES_PER_SECOND, true);
+      }, 1000 / previewFramesPerSecond);
     };
 
     startPlayback();
@@ -444,6 +456,7 @@ export default function PreviewPlaybackController(props) {
     setCurrentLayerSeek,
     setIsVideoPreviewPlaying,
     syncPreviewAudioPlayback,
+    framesPerSecond,
     totalDuration,
     waitForPreviewAudioWindow,
   ]);

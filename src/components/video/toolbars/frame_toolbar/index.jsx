@@ -92,6 +92,27 @@ function resolveAudioTrackId(audioTrack) {
   return audioTrack?._id?.toString?.() || audioTrack?._id || audioTrack?.id || null;
 }
 
+function resolveLayerId(layer) {
+  return layer?._id?.toString?.() || layer?._id || layer?.id || null;
+}
+
+function resolveAudioTrackConnectedLayerId(audioTrack) {
+  return audioTrack?.connectedLayerId?.toString?.() || audioTrack?.connectedLayerId || null;
+}
+
+function isSpeechAudioTrack(audioTrack = {}) {
+  return normalizeAudioLayerType(audioTrack?.generationType) === 'speech';
+}
+
+function getLayerLabelById(layers = [], layerId) {
+  if (!layerId || !Array.isArray(layers)) {
+    return '';
+  }
+
+  const layerIndex = layers.findIndex((layer) => resolveLayerId(layer)?.toString() === layerId.toString());
+  return layerIndex >= 0 ? `Scene ${layerIndex + 1}` : '';
+}
+
 function sanitizeAudioTrackText(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -357,12 +378,17 @@ function getVisualTrackAssetLabel(item) {
   return 'Visual';
 }
 
-function buildVisualTrackDisplayList(layers, framesPerSecond) {
+function buildVisualTrackDisplayList(layers, displayFramesPerSecond, sourceFramesPerSecond = displayFramesPerSecond) {
   if (!Array.isArray(layers) || layers.length === 0) {
     return [];
   }
 
-  const resolvedFramesPerSecond = Number(framesPerSecond) || VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND;
+  const resolvedDisplayFramesPerSecond = Number(displayFramesPerSecond) || VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND;
+  const resolvedSourceFramesPerSecond = Number(sourceFramesPerSecond) || resolvedDisplayFramesPerSecond;
+  const sourceFramesToDisplayFrames = (value, sourceFrameRate = resolvedSourceFramesPerSecond) => Math.max(
+    0,
+    Math.round(((Number(value) || 0) / sourceFrameRate) * resolvedDisplayFramesPerSecond)
+  );
   const visualTrackItems = [];
 
   layers.forEach((layer, layerIndex) => {
@@ -372,11 +398,11 @@ function buildVisualTrackDisplayList(layers, framesPerSecond) {
 
     const parentLayerStartFrame = Math.max(
       0,
-      Math.round((Number(layer?.durationOffset) || 0) * resolvedFramesPerSecond)
+      Math.round((Number(layer?.durationOffset) || 0) * resolvedDisplayFramesPerSecond)
     );
     const parentLayerDurationFrames = Math.max(
       1,
-      Math.round((Number(layer?.duration) || 0) * resolvedFramesPerSecond)
+      Math.round((Number(layer?.duration) || 0) * resolvedDisplayFramesPerSecond)
     );
     const parentLayerEndFrame = parentLayerStartFrame + parentLayerDurationFrames;
 
@@ -387,12 +413,19 @@ function buildVisualTrackDisplayList(layers, framesPerSecond) {
 
       const configuredFrameOffset = Number(item?.config?.frameOffset);
       const configuredFrameDuration = Number(item?.config?.frameDuration);
+      const configuredFrameRate = Number(item?.config?.frameRate || item?.config?.framesPerSecond);
+      const itemSourceFramesPerSecond = Number.isFinite(configuredFrameRate) && configuredFrameRate > 0
+        ? configuredFrameRate
+        : resolvedSourceFramesPerSecond;
 
       const relativeStartFrame = Number.isFinite(configuredFrameOffset)
-        ? Math.max(0, Math.round(configuredFrameOffset))
+        ? Math.max(0, sourceFramesToDisplayFrames(configuredFrameOffset, itemSourceFramesPerSecond))
         : 0;
       const relativeEndFrame = Number.isFinite(configuredFrameDuration) && configuredFrameDuration > 0
-        ? relativeStartFrame + Math.round(configuredFrameDuration)
+        ? relativeStartFrame + Math.max(
+          1,
+          Math.round((configuredFrameDuration / itemSourceFramesPerSecond) * resolvedDisplayFramesPerSecond)
+        )
         : parentLayerDurationFrames;
       const clampedRelativeEndFrame = Math.max(
         relativeStartFrame + 1,
@@ -414,9 +447,9 @@ function buildVisualTrackDisplayList(layers, framesPerSecond) {
         parentLayerDurationFrames,
         startFrame,
         endFrame,
-        startTime: startFrame / resolvedFramesPerSecond,
-        endTime: endFrame / resolvedFramesPerSecond,
-        duration: (endFrame - startFrame) / resolvedFramesPerSecond,
+        startTime: startFrame / resolvedDisplayFramesPerSecond,
+        endTime: endFrame / resolvedDisplayFramesPerSecond,
+        duration: (endFrame - startFrame) / resolvedDisplayFramesPerSecond,
       });
     });
   });
@@ -546,10 +579,17 @@ function buildLayerFrameMetadata(layers = [], displayFramesPerSecond = 30) {
       1,
       Math.round((Number(layer?.duration) || 0) * displayFramesPerSecond)
     );
-    const configuredStartFrame = Number.isFinite(Number(layer?.durationOffset))
-      ? Math.max(0, Math.round(Number(layer.durationOffset) * displayFramesPerSecond))
+    const rawDurationOffset = layer?.durationOffset;
+    const hasConfiguredStartFrame = rawDurationOffset !== undefined
+      && rawDurationOffset !== null
+      && rawDurationOffset !== ''
+      && Number.isFinite(Number(rawDurationOffset));
+    const configuredStartFrame = hasConfiguredStartFrame
+      ? Math.max(0, Math.round(Number(rawDurationOffset) * displayFramesPerSecond))
       : null;
-    const startFrame = configuredStartFrame ?? fallbackStartFrame;
+    const startFrame = configuredStartFrame !== null && configuredStartFrame >= fallbackStartFrame
+      ? configuredStartFrame
+      : fallbackStartFrame;
     const endFrame = startFrame + durationFrames;
 
     fallbackStartFrame = endFrame;
@@ -562,6 +602,32 @@ function buildLayerFrameMetadata(layers = [], displayFramesPerSecond = 30) {
       durationFrames,
     };
   });
+}
+
+function getNearestFrameAtOrBefore(frames = [], targetFrame = 0, fallbackFrame = 0) {
+  let nearestFrame = fallbackFrame;
+
+  for (let index = 0; index < frames.length; index += 1) {
+    const frame = frames[index];
+    if (frame <= targetFrame) {
+      nearestFrame = frame;
+    } else {
+      break;
+    }
+  }
+
+  return nearestFrame;
+}
+
+function getNearestFrameAtOrAfter(frames = [], targetFrame = 0, fallbackFrame = 0) {
+  for (let index = 0; index < frames.length; index += 1) {
+    const frame = frames[index];
+    if (frame >= targetFrame) {
+      return frame;
+    }
+  }
+
+  return fallbackFrame;
 }
 
 function getLayerTopInsetFrame(layerFrameMeta, insetPixels = 8) {
@@ -690,7 +756,9 @@ export default function FrameToolbar(props) {
     selectedLayerIndex,
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
+    sessionSubtitlesEnabled = true,
     requestRealignLayers,
+    removeAllSubtitles,
     restartExpressRenderFromCheckpoint,
     cancelPendingRender,
     publishVideoSession,
@@ -1090,6 +1158,7 @@ export default function FrameToolbar(props) {
     const nextVisualTracks = buildVisualTrackDisplayList(
       layers,
       DISPLAY_FRAMES_PER_SECOND,
+      sessionFramesPerSecond,
     );
 
     setVisualTrackListDisplay((prevVisualTracks) => {
@@ -1128,7 +1197,7 @@ export default function FrameToolbar(props) {
         };
       });
     });
-  }, [layers, DISPLAY_FRAMES_PER_SECOND]);
+  }, [layers, DISPLAY_FRAMES_PER_SECOND, sessionFramesPerSecond]);
 
   useEffect(() => {
     const nextVideoTracks = buildVideoTrackDisplayList(
@@ -1287,6 +1356,34 @@ export default function FrameToolbar(props) {
 
     return metadataItems;
   }, [selectedAudioTrack]);
+  const selectedAudioTrackIsSpeech = useMemo(
+    () => isSpeechAudioTrack(selectedAudioTrack),
+    [selectedAudioTrack]
+  );
+  const selectedAudioTrackConnectedLayerId = useMemo(
+    () => resolveAudioTrackConnectedLayerId(selectedAudioTrack),
+    [selectedAudioTrack]
+  );
+  const selectedAudioTrackIsBound = Boolean(selectedAudioTrackConnectedLayerId);
+  const selectedAudioTrackBindingLabel = useMemo(() => {
+    if (!selectedAudioTrackIsSpeech) {
+      return '';
+    }
+
+    if (!selectedAudioTrackIsBound) {
+      return 'Unbound timeline speech';
+    }
+
+    const connectedLayerLabel = getLayerLabelById(layers, selectedAudioTrackConnectedLayerId);
+    return connectedLayerLabel
+      ? `Bound to ${connectedLayerLabel}`
+      : 'Bound to a scene';
+  }, [
+    layers,
+    selectedAudioTrackConnectedLayerId,
+    selectedAudioTrackIsBound,
+    selectedAudioTrackIsSpeech,
+  ]);
   const audioTrackById = useMemo(
     () => audioTrackListDisplay.reduce((trackMap, audioTrack) => {
       const trackId = resolveAudioTrackId(audioTrack);
@@ -1795,37 +1892,13 @@ export default function FrameToolbar(props) {
 
   useEffect(() => {
     setVisibleLayersStartIndex((previousIndex) => {
-      const maxStartIndex = Math.max(0, allVisibleLayerMetadata.length - MAX_VISIBLE_LAYERS);
-      const clampedPreviousIndex = Math.min(previousIndex, maxStartIndex);
-      const selectedVisibleIndex = allVisibleLayerMetadata.findIndex(
-        (layerMeta) => layerMeta.originalIndex === selectedLayerIndex
-      );
-
-      if (selectedVisibleIndex === -1) {
-        return clampedPreviousIndex;
-      }
-
-      if (selectedVisibleIndex < clampedPreviousIndex) {
-        return selectedVisibleIndex;
-      }
-
-      if (selectedVisibleIndex >= clampedPreviousIndex + MAX_VISIBLE_LAYERS) {
-        return Math.min(
-          maxStartIndex,
-          Math.max(0, selectedVisibleIndex - MAX_VISIBLE_LAYERS + 1)
-        );
-      }
-
-      return clampedPreviousIndex;
+      return previousIndex === 0 ? previousIndex : 0;
     });
-  }, [allVisibleLayerMetadata, selectedLayerIndex]);
+  }, [allVisibleLayerMetadata]);
 
   const displayedVisibleLayerMetadata = useMemo(() => (
-    allVisibleLayerMetadata.slice(
-      visibleLayersStartIndex,
-      visibleLayersStartIndex + MAX_VISIBLE_LAYERS,
-    )
-  ), [allVisibleLayerMetadata, visibleLayersStartIndex]);
+    allVisibleLayerMetadata
+  ), [allVisibleLayerMetadata]);
   const visibleLayers = useMemo(
     () => displayedVisibleLayerMetadata.map((layerMeta) => layerMeta.layer),
     [displayedVisibleLayerMetadata],
@@ -1972,8 +2045,8 @@ export default function FrameToolbar(props) {
   }, [computeScenePopupPosition, durationChanged]);
 
   // Compute whether we can navigate further
-  const canGoPrev = visibleLayersStartIndex > 0;
-  const canGoNext = visibleLayersStartIndex + MAX_VISIBLE_LAYERS < allVisibleLayerMetadata.length;
+  const canGoPrev = false;
+  const canGoNext = false;
 
   // Handle Previous Click
   const handlePrevClick = () => {
@@ -2282,8 +2355,55 @@ export default function FrameToolbar(props) {
     showAudioTrackView();
   }
 
+  const viewRangeSceneSnapFrames = useMemo(() => {
+    const startFrames = new Set([0]);
+    const endFrames = new Set([Math.max(1, totalDurationInFrames)]);
+
+    layerFrameMetadata.forEach((layerMeta) => {
+      const startFrame = Math.max(0, Math.round(Number(layerMeta?.startFrame) || 0));
+      const endFrame = Math.max(
+        startFrame + 1,
+        Math.round(Number(layerMeta?.endFrame) || startFrame + 1)
+      );
+
+      startFrames.add(startFrame);
+      endFrames.add(Math.min(Math.max(1, totalDurationInFrames), endFrame));
+    });
+
+    return {
+      startFrames: Array.from(startFrames).sort((leftFrame, rightFrame) => leftFrame - rightFrame),
+      endFrames: Array.from(endFrames).sort((leftFrame, rightFrame) => leftFrame - rightFrame),
+    };
+  }, [layerFrameMetadata, totalDurationInFrames]);
+
   const normalizeViewRangeSelection = (rangeValues) => {
-    return normalizeTimelineFrameRange(rangeValues);
+    const normalizedRange = normalizeTimelineFrameRange(rangeValues);
+
+    if (!Array.isArray(layerFrameMetadata) || layerFrameMetadata.length === 0) {
+      return normalizedRange;
+    }
+
+    const [rawStartFrame, rawEndFrame] = normalizedRange;
+    const snappedStartFrame = getNearestFrameAtOrBefore(
+      viewRangeSceneSnapFrames.startFrames,
+      rawStartFrame,
+      0
+    );
+    let snappedEndFrame = getNearestFrameAtOrAfter(
+      viewRangeSceneSnapFrames.endFrames,
+      rawEndFrame,
+      Math.max(1, totalDurationInFrames)
+    );
+
+    if (snappedEndFrame <= snappedStartFrame) {
+      snappedEndFrame = getNearestFrameAtOrAfter(
+        viewRangeSceneSnapFrames.endFrames,
+        snappedStartFrame + 1,
+        Math.max(snappedStartFrame + 1, totalDurationInFrames)
+      );
+    }
+
+    return normalizeTimelineFrameRange([snappedStartFrame, snappedEndFrame]);
   };
 
   const handleViewRangeSliderChange = (val) => {
@@ -2529,6 +2649,42 @@ export default function FrameToolbar(props) {
     }
 
     updateAudioTrackDraftById(selectedAudioTrackId, updater);
+  };
+
+  const handleSelectedAudioBindingChange = (shouldBindToSelectedLayer) => {
+    if (!selectedAudioTrackId || !selectedAudioTrackIsSpeech) {
+      return;
+    }
+
+    if (!shouldBindToSelectedLayer) {
+      updateSelectedAudioTrackDraft((track) => {
+        const nextTrack = { ...track };
+        delete nextTrack.connectedLayerId;
+        delete nextTrack.connectedLayerIndex;
+        delete nextTrack.connectedLayerStartTimeOffset;
+        return nextTrack;
+      });
+      return;
+    }
+
+    const selectedLayerId = resolveLayerId(selectedLayerData);
+    if (!selectedLayerId) {
+      return;
+    }
+
+    const layerIndex = Array.isArray(layers)
+      ? layers.findIndex((layer) => resolveLayerId(layer)?.toString() === selectedLayerId.toString())
+      : -1;
+    const connectedLayerStartTimeOffset = Number(selectedLayerData?.durationOffset);
+
+    updateSelectedAudioTrackDraft((track) => ({
+      ...track,
+      connectedLayerId: selectedLayerId.toString(),
+      connectedLayerIndex: layerIndex >= 0 ? layerIndex : selectedLayerIndex,
+      connectedLayerStartTimeOffset: Number.isFinite(connectedLayerStartTimeOffset)
+        ? connectedLayerStartTimeOffset
+        : 0,
+    }));
   };
 
   const toggleSelectedAudioAdvancedOptions = () => {
@@ -2967,6 +3123,36 @@ export default function FrameToolbar(props) {
                   title={selectedAudioTrackTypeLabel}
                 >
                   {selectedAudioTrackTypeLabel}
+                </div>
+              ) : null}
+
+              {selectedAudioTrackIsSpeech ? (
+                <div
+                  className={`inline-flex h-8 shrink-0 items-center overflow-hidden rounded-lg ${secondarySurfaceClassName}`}
+                  title={selectedAudioTrackBindingLabel}
+                >
+                  <span className={`${metadataLabelClassName} px-2`}>Link</span>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectedAudioBindingChange(false)}
+                    className={`inline-flex h-full items-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
+                      !selectedAudioTrackIsBound ? activePillClassName : ''
+                    }`}
+                    aria-pressed={!selectedAudioTrackIsBound}
+                  >
+                    Unbound
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectedAudioBindingChange(true)}
+                    disabled={!selectedLayerData}
+                    className={`inline-flex h-full items-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                      selectedAudioTrackIsBound ? activePillClassName : ''
+                    }`}
+                    aria-pressed={selectedAudioTrackIsBound}
+                  >
+                    Bound
+                  </button>
                 </div>
               ) : null}
 
@@ -4225,7 +4411,7 @@ export default function FrameToolbar(props) {
     const visibleAudioLayers = audioTrackListDisplay.filter((audioTrack) => {
       const audioStartFrame = audioTrack.startTime * 30;
       const audioEndFrame = audioTrack.endTime * 30;
-      const connectedLayerId = audioTrack?.connectedLayerId?.toString?.() || audioTrack?.connectedLayerId || null;
+      const connectedLayerId = resolveAudioTrackConnectedLayerId(audioTrack);
 
       if (connectedLayerId && !displayedVisibleLayerIdSet.has(connectedLayerId.toString())) {
         return false;
@@ -5093,6 +5279,8 @@ export default function FrameToolbar(props) {
         <AudioOptionsDialog
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
           requestRealignLayers={requestRealignLayers}
+          removeAllSubtitles={removeAllSubtitles}
+          sessionSubtitlesEnabled={sessionSubtitlesEnabled}
           applyAudioDucking={applyAudioDucking}
           onApplyAudioDuckingChange={onApplyAudioDuckingChange}
           closeDialog={closeAlertDialog}

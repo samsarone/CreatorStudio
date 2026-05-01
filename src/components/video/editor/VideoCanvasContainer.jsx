@@ -24,10 +24,21 @@ const SHAPE_CONFIG_SCALE_KEYS = [
 
 
 
-export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset) {
+const DISPLAY_FRAMES_PER_SECOND = 30;
+const DEFAULT_SESSION_FRAMES_PER_SECOND = 16;
+const VALID_SESSION_FRAME_RATES = new Set([16, 24, 30]);
+
+function normalizeSessionFramesPerSecond(value) {
+  const parsed = Math.round(Number(value));
+  return VALID_SESSION_FRAME_RATES.has(parsed)
+    ? parsed
+    : DEFAULT_SESSION_FRAMES_PER_SECOND;
+}
+
+export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset, framesPerSecond = DEFAULT_SESSION_FRAMES_PER_SECOND) {
   if (!item.animations) return;
 
-  const FPS = 30; // Frames per second, same as in backend
+  const sessionFramesPerSecond = normalizeSessionFramesPerSecond(framesPerSecond);
   const totalLayerDuration = duration * 1000; // Convert to milliseconds
 
   item.animations.forEach(animation => {
@@ -40,8 +51,8 @@ export function applyAnimationsToNode(node, item, elapsedTime, duration, duratio
 
     if (frameOffset !== undefined && frameDuration !== undefined) {
       const durationOffsetEffective = durationOffset * 1000;
-      startTime = durationOffsetEffective + (frameOffset * (1000 / FPS));
-      endTime = startTime + (frameDuration * (1000 / FPS));
+      startTime = durationOffsetEffective + (frameOffset * (1000 / sessionFramesPerSecond));
+      endTime = startTime + (frameDuration * (1000 / sessionFramesPerSecond));
     } else {
       // Use default layer duration
       startTime = durationOffset * 1000;
@@ -726,19 +737,18 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
   useEffect(() => {
-    const FPS = 30;
     const { duration, durationOffset } = currentLayer;
-    const elapsedTime = (currentLayerSeek / FPS) * 1000; // Convert to milliseconds
+    const elapsedTime = (currentLayerSeek / DISPLAY_FRAMES_PER_SECOND) * 1000; // Convert to milliseconds
     const stage = ref.current.getStage();
     const layer = stage.findOne("#baseGroup");
     if (!layer) return;
     activeItemList.forEach(item => {
       const node = layer.findOne(`#${item.id}`);
       if (node) {
-        applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset);
+        applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset, sessionDetails?.framesPerSecond);
       }
     });
-  }, [currentLayerSeek, currentLayer, activeItemList]);
+  }, [currentLayerSeek, currentLayer, activeItemList, sessionDetails?.framesPerSecond]);
   
 
 

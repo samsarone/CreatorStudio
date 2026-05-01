@@ -74,9 +74,9 @@ export default function LibraryHome(props) {
 
   return (
     <div className={`library-home mt-[60px] flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] ${panelSurface}`}>
-      <div className={`sticky top-0 z-10 px-4 py-4 backdrop-blur ${toolbarSurface}`}>
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+      <div className={`sticky top-0 z-30 px-3 py-3 backdrop-blur ${toolbarSurface}`}>
+        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
+          <div className="flex min-w-0 shrink-0 items-center gap-3">
             <button
               type="button"
               onClick={handleBack}
@@ -94,13 +94,13 @@ export default function LibraryHome(props) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-x-auto whitespace-nowrap pb-1">
             {LIBRARY_TABS.map((option) => (
               <button
                 key={option}
                 type="button"
                 onClick={() => setSelectedOption(option)}
-                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition ${
                   selectedOption === option ? activeTabSurface : inactiveTabSurface
                 }`}
               >

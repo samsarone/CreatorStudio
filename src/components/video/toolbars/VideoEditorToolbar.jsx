@@ -91,6 +91,22 @@ function buildMovieSpeakerOption(speaker = {}) {
   };
 }
 
+function resolveSessionSubtitlesEnabled(sessionDetails = {}) {
+  if (typeof sessionDetails?.hasSubtitles === 'boolean') {
+    return sessionDetails.hasSubtitles;
+  }
+
+  if (typeof sessionDetails?.has_subtitles === 'boolean') {
+    return sessionDetails.has_subtitles;
+  }
+
+  if (typeof sessionDetails?.enableSubtitles === 'boolean') {
+    return sessionDetails.enableSubtitles;
+  }
+
+  return true;
+}
+
 export default function VideoEditorToolbar(props) {
   const {
     sessionDetails,
@@ -181,8 +197,7 @@ export default function VideoEditorToolbar(props) {
   const [addText, setAddText] = useState('');
   const [animateAllLayersSelected, setAnimateAllLayersSelected] = useState(false);
 
-  // We only read this value; never update it, so we can just store `true`.
-  const addSubtitles = true;
+  const addSubtitles = resolveSessionSubtitlesEnabled(sessionDetails);
 
   const COLLAPSED_EDITOR_TOOLBAR_WIDTH = 'clamp(148px, 11vw, 168px)';
   const EXPANDED_EDITOR_TOOLBAR_WIDTH = 'min(48vw, 720px)';
@@ -284,6 +299,19 @@ export default function VideoEditorToolbar(props) {
     setCurrentlyPlayingSpeaker(null);
   };
 
+  const getStudioSpeechPlacementPayload = () => {
+    const currentLayerStartTime = Number(currentLayer?.durationOffset ?? currentLayer?.startTime ?? 0);
+
+    return {
+      startTime: Number.isFinite(currentLayerStartTime) && currentLayerStartTime >= 0
+        ? currentLayerStartTime
+        : 0,
+      audioBindingMode: 'unbounded',
+      bindToLayer: false,
+      studioSpeechGeneration: true,
+    };
+  };
+
   const handleAddAllSpeechLayers = () => {
     const speechAudioLayers = audioLayers.slice(-numberOfSpeechLayersRequested);
 
@@ -296,6 +324,9 @@ export default function VideoEditorToolbar(props) {
         addSubtitles: addSubtitles,
         selectedSubtitleOption: 'SUBTITLE_WORD',
         audioLayerId: layer._id.toString(),
+        audioBindingMode: 'unbounded',
+        bindToLayer: false,
+        studioSpeechGeneration: true,
       };
     });
 
@@ -987,16 +1018,21 @@ export default function VideoEditorToolbar(props) {
   };
 
   const submitGenerateSpeech = (payload) => {
-    payload.aspectRatio = aspectRatio;
-    const speechOptionValue = payload.speechOptionValue;
+    const studioSpeechPlacementPayload = getStudioSpeechPlacementPayload();
+    const speechPayload = {
+      ...payload,
+      ...studioSpeechPlacementPayload,
+      aspectRatio,
+    };
+    const speechOptionValue = speechPayload.speechOptionValue;
 
     // "SPEECH_LAYER_LINES" means multiple lines => multiple speech layers
     if (speechOptionValue === 'SPEECH_LAYER_LINES') {
-      const promptText = payload.promptText;
-      const speaker = payload.speaker;
-      const textAnimationOptions = payload.textAnimationOptions;
-      const subtitleOptionValue = payload.subtitleOptionValue;
-      const ttsProviderValue = payload.ttsProviderValue;
+      const promptText = speechPayload.promptText;
+      const speaker = speechPayload.speaker;
+      const textAnimationOptions = speechPayload.textAnimationOptions;
+      const subtitleOptionValue = speechPayload.subtitleOptionValue;
+      const ttsProviderValue = speechPayload.ttsProviderValue;
 
       const promptList = promptText
         .split('\n')
@@ -1011,18 +1047,21 @@ export default function VideoEditorToolbar(props) {
         textAnimationOptions: textAnimationOptions,
         subtitleOption: subtitleOptionValue,
         ttsProvider: ttsProviderValue,
-        aspectRatio: aspectRatio
+        aspectRatio: aspectRatio,
+        audioBindingMode: studioSpeechPlacementPayload.audioBindingMode,
+        bindToLayer: studioSpeechPlacementPayload.bindToLayer,
+        studioSpeechGeneration: studioSpeechPlacementPayload.studioSpeechGeneration,
       };
 
-      if (payload.generationMeta) {
-        layeredSpeechBody.generationMeta = payload.generationMeta;
+      if (speechPayload.generationMeta) {
+        layeredSpeechBody.generationMeta = speechPayload.generationMeta;
       }
 
 
       setNumberOfSpeechLayersRequested(promptList.length);
       submitGenerateLayeredSpeechRequest(layeredSpeechBody);
     } else {
-      submitGenerateMusicRequest(payload);
+      submitGenerateMusicRequest(speechPayload);
     }
   };
 
@@ -1247,6 +1286,7 @@ export default function VideoEditorToolbar(props) {
               submitAddTrackToProject={submitAddTrackToProject}
               setCurrentCanvasAction={setCurrentCanvasAction}
               currentLayer={currentLayer}
+              sessionDetails={sessionDetails}
             />
           );
         }
@@ -1264,6 +1304,7 @@ export default function VideoEditorToolbar(props) {
             onBack={handleBackFromPreview}
             submitAddTrackToProject={submitAddTrackToProject}
             colorMode={colorMode}
+            sessionDetails={sessionDetails}
           />
         );
         audioSubOptionsDisplay = <span />;

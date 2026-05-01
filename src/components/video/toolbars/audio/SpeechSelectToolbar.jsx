@@ -7,18 +7,55 @@ import SingleSelect from '../../../common/SingleSelect.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
+function resolveDefaultStartTime(currentLayer, audioLayer) {
+  const currentLayerStartTime = Number(currentLayer?.durationOffset ?? currentLayer?.startTime);
+  if (Number.isFinite(currentLayerStartTime) && currentLayerStartTime >= 0) {
+    return currentLayerStartTime;
+  }
+
+  const audioLayerStartTime = Number(audioLayer?.startTime);
+  return Number.isFinite(audioLayerStartTime) && audioLayerStartTime >= 0 ? audioLayerStartTime : 0;
+}
+
+function resolveSpeechDuration(audioLayer) {
+  const parsedOriginalDuration = Number(audioLayer?.originalDuration);
+  if (Number.isFinite(parsedOriginalDuration) && parsedOriginalDuration > 0) {
+    return parsedOriginalDuration;
+  }
+
+  const parsedDuration = Number(audioLayer?.duration);
+  return Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 5;
+}
+
+function resolveSessionSubtitlesEnabled(sessionDetails = {}) {
+  if (typeof sessionDetails?.hasSubtitles === 'boolean') {
+    return sessionDetails.hasSubtitles;
+  }
+
+  if (typeof sessionDetails?.has_subtitles === 'boolean') {
+    return sessionDetails.has_subtitles;
+  }
+
+  if (typeof sessionDetails?.enableSubtitles === 'boolean') {
+    return sessionDetails.enableSubtitles;
+  }
+
+  return true;
+}
+
 export default function SpeechSelectToolbar(props) {
   const {
     audioLayer,
     submitAddTrackToProject,
     setCurrentCanvasAction,
     currentLayer,
+    sessionDetails,
   } = props;
 
-  const [startTime, setStartTime] = useState(0);
-  const [duration, setDuration] = useState(audioLayer.duration || 5);
+  const [startTime, setStartTime] = useState(() => resolveDefaultStartTime(currentLayer, audioLayer));
+  const [duration, setDuration] = useState(() => resolveSpeechDuration(audioLayer));
   const [volume, setVolume] = useState(100);
-  const [addSubtitles, setAddSubtitles] = useState(true);
+  const sessionSubtitlesEnabled = resolveSessionSubtitlesEnabled(sessionDetails);
 
   const subtitleOptions = [
     { value: 'groupRows', label: 'Group Rows' },
@@ -29,8 +66,8 @@ export default function SpeechSelectToolbar(props) {
   const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOptions[0]);
 
   useEffect(() => {
-    setStartTime(currentLayer.durationOffset);
-    setDuration(audioLayer.duration);
+    setStartTime(resolveDefaultStartTime(currentLayer, audioLayer));
+    setDuration(resolveSpeechDuration(audioLayer));
   }, [currentLayer, audioLayer]);
 
   const { colorMode } = useColorMode();
@@ -49,14 +86,23 @@ export default function SpeechSelectToolbar(props) {
 
   const handleSubmit = (evt) => {
     evt.preventDefault();
+    const parsedStartTime = parseFloat(startTime);
+    const parsedDuration = parseFloat(duration);
     const payload = {
-      startTime: parseFloat(startTime),
-      duration: parseFloat(duration),
+      startTime: Number.isFinite(parsedStartTime) ? parsedStartTime : 0,
+      duration: Number.isFinite(parsedDuration) ? parsedDuration : resolveSpeechDuration(audioLayer),
       volume: parseFloat(volume),
-      endTime: parseFloat(startTime) + parseFloat(duration),
-      addSubtitles,
+      endTime: (
+        Number.isFinite(parsedStartTime) ? parsedStartTime : 0
+      ) + (
+        Number.isFinite(parsedDuration) ? parsedDuration : resolveSpeechDuration(audioLayer)
+      ),
+      addSubtitles: sessionSubtitlesEnabled,
       speakerCharacterName: audioLayer.speakerCharacterName,
       subtitleOption: selectedSubtitleOption?.value,
+      audioBindingMode: 'unbounded',
+      bindToLayer: false,
+      studioSpeechGeneration: true,
     };
 
     submitAddTrackToProject(0, payload);
@@ -108,19 +154,7 @@ export default function SpeechSelectToolbar(props) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <label className="inline-flex items-center text-xs">
-            <input
-              type="checkbox"
-              checked={addSubtitles}
-              onChange={(e) => setAddSubtitles(e.target.checked)}
-              className="mr-2"
-            />
-            <span className={textEmphasis}>Subtitles</span>
-          </label>
-        </div>
-
-        {addSubtitles && (
+        {sessionSubtitlesEnabled && (
           <div className="space-y-2 text-xs">
             <label htmlFor="subtitleOptionSelect" className={`block font-medium ${textEmphasis}`}>
               Subtitle Options

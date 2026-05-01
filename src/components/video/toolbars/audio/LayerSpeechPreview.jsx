@@ -11,6 +11,7 @@ export default function LayerSpeechPreview(props) {
     onBack,
     submitAddTrackToProject,
     colorMode,
+    sessionDetails,
   } = props;
 
   return (
@@ -33,6 +34,7 @@ export default function LayerSpeechPreview(props) {
             submitAddTrackToProject={submitAddTrackToProject}
             setCurrentCanvasAction={() => {}}
             colorMode={colorMode}
+            sessionDetails={sessionDetails}
           />
         </div>
       ))}

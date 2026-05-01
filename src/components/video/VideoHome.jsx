@@ -104,6 +104,30 @@ function shouldIgnoreCanvasHistoryShortcut(target) {
   );
 }
 
+function isSubtitleTranscriptItem(item) {
+  return item?.type === 'text' && item?.subType === 'subtitle';
+}
+
+function resolveSessionSubtitlesEnabled(sessionDetails = {}) {
+  if (typeof sessionDetails?.hasSubtitles === 'boolean') {
+    return sessionDetails.hasSubtitles;
+  }
+
+  if (typeof sessionDetails?.has_subtitles === 'boolean') {
+    return sessionDetails.has_subtitles;
+  }
+
+  if (typeof sessionDetails?.enableSubtitles === 'boolean') {
+    return sessionDetails.enableSubtitles;
+  }
+
+  return true;
+}
+
+function getSessionLayerId(layer) {
+  return layer?._id?.toString?.() || layer?._id || layer?.id || null;
+}
+
 export default function VideoHome(props) {
   const {
     setZoomCanvasIn,
@@ -2802,6 +2826,120 @@ export default function VideoHome(props) {
     });
   };
 
+  const removeAllSubtitles = () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    const subtitleSessionUpdates = {
+      enableSubtitles: false,
+      hasSubtitles: false,
+      has_subtitles: false,
+      transcriptGenerationPending: false,
+      frameGenerationPending: true,
+    };
+    const currentLayerId = getSessionLayerId(currentLayer);
+    const updatedLayers = layers.map((layer) => {
+      const activeItemList = Array.isArray(layer?.imageSession?.activeItemList)
+        ? layer.imageSession.activeItemList
+        : null;
+      const updatedLayer = {
+        ...layer,
+        frameGenerationPending: true,
+      };
+
+      if (activeItemList) {
+        updatedLayer.imageSession = {
+          ...layer.imageSession,
+          activeItemList: activeItemList.filter((item) => !isSubtitleTranscriptItem(item)),
+        };
+      }
+
+      return updatedLayer;
+    });
+    const updatedAudioLayers = Array.isArray(audioLayers)
+      ? audioLayers.map((audioLayer) => (
+        String(audioLayer?.generationType || '').toLowerCase() === 'speech'
+          ? { ...audioLayer, addSubtitles: false }
+          : audioLayer
+      ))
+      : audioLayers;
+
+    const selectedUpdatedLayer = updatedLayers.find(
+      (layer) => getSessionLayerId(layer) === currentLayerId
+    ) || updatedLayers[selectedLayerIndex];
+    const selectedUpdatedActiveItemList = selectedUpdatedLayer?.imageSession?.activeItemList || [];
+
+    setLayers(updatedLayers);
+    setAudioLayers(updatedAudioLayers);
+    setVideoSessionDetails((prevDetails) => (
+      prevDetails
+        ? {
+          ...prevDetails,
+          ...subtitleSessionUpdates,
+          layers: updatedLayers,
+          audioLayers: updatedAudioLayers,
+        }
+        : prevDetails
+    ));
+    if (selectedUpdatedLayer) {
+      setCurrentLayer(selectedUpdatedLayer);
+      activeItemListRef.current = selectedUpdatedActiveItemList;
+      syncActiveItemList(selectedUpdatedActiveItemList);
+    }
+    setIsLayerGenerationPending(false);
+    setIsCanvasDirty(true);
+
+    const reqPayload = {
+      sessionId: id,
+      layers: updatedLayers,
+      audioLayers: updatedAudioLayers,
+      sessionUpdates: subtitleSessionUpdates,
+    };
+
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_layers`, reqPayload, headers).then((response) => {
+      const videoSessionData = response.data;
+      const responseLayers = Array.isArray(videoSessionData?.layers)
+        ? videoSessionData.layers
+        : updatedLayers;
+      const responseAudioLayers = Array.isArray(videoSessionData?.audioLayers)
+        ? videoSessionData.audioLayers
+        : updatedAudioLayers;
+      const responseCurrentLayer = responseLayers.find(
+        (layer) => getSessionLayerId(layer) === currentLayerId
+      ) || responseLayers[selectedLayerIndex];
+
+      setVideoSessionDetails((prevDetails) => ({
+        ...(prevDetails || {}),
+        ...(videoSessionData || {}),
+        ...subtitleSessionUpdates,
+        layers: responseLayers,
+        audioLayers: responseAudioLayers,
+      }));
+      setLayers(responseLayers);
+      setAudioLayers(responseAudioLayers);
+      if (responseCurrentLayer) {
+        setCurrentLayer(responseCurrentLayer);
+        syncActiveItemList(responseCurrentLayer.imageSession?.activeItemList || []);
+      }
+      setIsLayerGenerationPending(false);
+      setIsCanvasDirty(true);
+      toast.success(
+        <div>
+          <FaCheck className='inline-flex mr-2' /> Removed all subtitles. Frames will regenerate on next render.
+        </div>,
+        {
+          position: "bottom-center",
+          className: "custom-toast",
+        }
+      );
+    }).catch((error) => {
+      toast.error(error?.response?.data?.error || 'Failed to remove subtitles');
+    });
+  };
+
   const submitRegenerateFrames = () => {
     const headers = getHeaders();
     if (!headers) {
@@ -3039,6 +3177,8 @@ export default function VideoHome(props) {
           updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
           isGuestSession={isGuestSession}
           regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+          sessionSubtitlesEnabled={resolveSessionSubtitlesEnabled(videoSessionDetails)}
+          removeAllSubtitles={removeAllSubtitles}
           updateLayerVisualItem={updateLayerVisualItem}
           deleteLayerVisualItem={deleteLayerVisualItem}
           duplicateAudioLayer={duplicateAudioLayer}
@@ -3085,6 +3225,7 @@ export default function VideoHome(props) {
         applyAudioDucking={applyAudioDucking}
         audioLayers={audioLayers}
         currentLayerSeek={currentLayerSeek}
+        framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setCurrentLayerSeek={setCurrentLayerSeek}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
@@ -3149,6 +3290,8 @@ export default function VideoHome(props) {
                 onLayersOrderChange={updateSessionLayersOrder}
                 updateSessionLayersOnServer={updateSessionLayersOnServer}
                 regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
+                sessionSubtitlesEnabled={resolveSessionSubtitlesEnabled(videoSessionDetails)}
+                removeAllSubtitles={removeAllSubtitles}
                 duplicateAudioLayer={duplicateAudioLayer}
                 publishVideoSession={publishVideoSession}
                 unpublishVideoSession={unpublishVideoSession}

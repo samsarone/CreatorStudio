@@ -25,6 +25,7 @@ import { FaTimes } from 'react-icons/fa';
 
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 import './videoCanvas.css';
+import { isItemVisibleAtDisplayFrame } from './CanvasUtils.jsx';
 
 
 const FPS = 30;
@@ -402,6 +403,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         durationOffset={currentLayer.durationOffset}
         stageZoomScale={stageZoomScale}
         aspectRatio={aspectRatio}
+        framesPerSecond={sessionDetails?.framesPerSecond}
         key={`item_${sessionId}_${selectedFrameId}_${itemId}`}
         createTextLayer={createTextLayer}
       />
@@ -786,15 +788,7 @@ const VideoCanvas = forwardRef((props, ref) => {
       if (!item || item.isHidden || item.type !== 'image') {
         return false;
       }
-      const frameDuration = item?.config?.frameDuration;
-      if (!frameDuration) {
-        return true;
-      }
-      const frameOffset = item?.config?.frameOffset;
-      if (!Number.isFinite(frameOffset)) {
-        return true;
-      }
-      return currentRelativeFrame >= frameOffset && currentRelativeFrame <= frameOffset + frameDuration;
+      return isItemVisibleAtDisplayFrame(item, currentRelativeFrame, sessionDetails?.framesPerSecond);
     });
   })();
   const overlayImageAspectRatio =

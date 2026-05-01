@@ -1,10 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { FaCheck, FaCopy, FaDownload, FaPause, FaPlay, FaUpload } from 'react-icons/fa';
+import {
+  FaCheck,
+  FaChevronLeft,
+  FaChevronRight,
+  FaCopy,
+  FaDownload,
+  FaPause,
+  FaPlay,
+  FaSearch,
+  FaUpload,
+} from 'react-icons/fa';
 import { getHeaders } from '../../../utils/web';
 import { useColorMode } from '../../../contexts/ColorMode';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const AUDIO_LIBRARY_PAGE_SIZE = 9;
 const LIBRARY_SCOPE_PROJECT = 'project';
 const LIBRARY_SCOPE_GLOBAL = 'global';
 const AUDIO_TYPE_MUSIC = 'music';
@@ -144,8 +155,32 @@ function getPromptText(item = {}) {
   return description;
 }
 
-function getDefaultDurationValue(item = {}) {
+function resolveLibraryItemDurationSeconds(item = {}) {
+  const libraryType = normalizeAudioLibraryType(item?.libraryType || item?.generationType);
+  const parsedOriginalDuration = Number(item.originalDuration ?? item.sourceDuration);
+
+  if (
+    libraryType === AUDIO_TYPE_SPEECH
+    && Number.isFinite(parsedOriginalDuration)
+    && parsedOriginalDuration > 0
+  ) {
+    return parsedOriginalDuration;
+  }
+
   const parsedDuration = Number(item.duration);
+  if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
+    return parsedDuration;
+  }
+
+  if (Number.isFinite(parsedOriginalDuration) && parsedOriginalDuration > 0) {
+    return parsedOriginalDuration;
+  }
+
+  return null;
+}
+
+function getDefaultDurationValue(item = {}) {
+  const parsedDuration = resolveLibraryItemDurationSeconds(item);
   if (Number.isFinite(parsedDuration) && parsedDuration > 0) {
     return `${parsedDuration}`;
   }
@@ -179,6 +214,60 @@ function formatTimelineValue(value) {
   return Number.isInteger(roundedValue) ? `${roundedValue}` : roundedValue.toFixed(1);
 }
 
+function getAudioItemTimestamp(item = {}) {
+  const candidates = [
+    item.updatedAt,
+    item.createdAt,
+    item.generationMeta?.completedAt,
+    item.generationMeta?.createdAt,
+  ];
+
+  for (const candidate of candidates) {
+    const timestamp = Date.parse(candidate || '');
+    if (Number.isFinite(timestamp)) {
+      return timestamp;
+    }
+  }
+
+  const idValue = typeof item._id === 'string' ? item._id : '';
+  const objectIdMatch = idValue.match(/[a-f0-9]{24}/i);
+  if (objectIdMatch) {
+    const objectIdSeconds = parseInt(objectIdMatch[0].slice(0, 8), 16);
+    if (Number.isFinite(objectIdSeconds)) {
+      return objectIdSeconds * 1000;
+    }
+  }
+
+  return 0;
+}
+
+function sortAudioItemsByRecency(items = []) {
+  return [...items].sort((leftItem, rightItem) => (
+    getAudioItemTimestamp(rightItem) - getAudioItemTimestamp(leftItem)
+  ));
+}
+
+function groupAudioItemsByProjectForDisplay(items = []) {
+  const groupsByProjectId = new Map();
+
+  items.forEach((item) => {
+    const projectId = normalizeSessionId(item?.projectId) || normalizeSessionId(item?.sessionId) || 'unknown_project';
+    const projectName = typeof item?.projectName === 'string' && item.projectName.trim()
+      ? item.projectName.trim()
+      : 'Untitled Project';
+    const group = groupsByProjectId.get(projectId) || {
+      projectId,
+      projectName,
+      items: [],
+    };
+
+    group.items.push(item);
+    groupsByProjectId.set(projectId, group);
+  });
+
+  return Array.from(groupsByProjectId.values());
+}
+
 function getItemTags(item, libraryType) {
   const tagSet = new Set();
 
@@ -209,6 +298,7 @@ function mapSessionAudioLayerToLibraryItem(audioLayer, index, sessionDetails) {
 
   const libraryType = normalizeAudioLibraryType(audioLayer?.generationType);
   const sessionId = sessionDetails?._id?.toString?.() || '';
+  const sourceDuration = resolveLibraryItemDurationSeconds({ ...audioLayer, libraryType });
 
   return {
     ...audioLayer,
@@ -220,6 +310,14 @@ function mapSessionAudioLayerToLibraryItem(audioLayer, index, sessionDetails) {
     title: getDisplayTitle(audioLayer, libraryType),
     description: typeof audioLayer?.prompt === 'string' ? audioLayer.prompt : '',
     url: audioPath,
+    duration: sourceDuration || audioLayer?.duration,
+    originalDuration: sourceDuration || audioLayer?.originalDuration,
+    createdAt: audioLayer?.updatedAt || audioLayer?.createdAt || sessionDetails?.updatedAt || sessionDetails?.createdAt || null,
+    connectedLayerId: libraryType === AUDIO_TYPE_SPEECH ? undefined : audioLayer?.connectedLayerId,
+    connectedLayerIndex: libraryType === AUDIO_TYPE_SPEECH ? undefined : audioLayer?.connectedLayerIndex,
+    connectedLayerStartTimeOffset: libraryType === AUDIO_TYPE_SPEECH
+      ? undefined
+      : audioLayer?.connectedLayerStartTimeOffset,
     tags: getItemTags(audioLayer, libraryType),
   };
 }
@@ -346,6 +444,7 @@ export default function MusicLibraryHome({
   const [copiedPromptId, setCopiedPromptId] = useState(null);
   const [isAudioUploadPending, setIsAudioUploadPending] = useState(false);
   const [audioUploadError, setAudioUploadError] = useState('');
+  const [currentAudioPage, setCurrentAudioPage] = useState(1);
 
   const audioRef = useRef(new Audio());
   const uploadInputRef = useRef(null);
@@ -452,9 +551,9 @@ export default function MusicLibraryHome({
     ...projectGeneratedMusicItems,
   ]);
 
-  const filteredProjectItems = projectItems.filter((item) => (
+  const filteredProjectItems = sortAudioItemsByRecency(projectItems.filter((item) => (
     item.libraryType === selectedAudioType && matchesAudioSearch(item, searchTerm)
-  ));
+  )));
 
   const selectedGlobalGroups = selectedAudioType === AUDIO_TYPE_MUSIC
     ? globalArtifacts.music
@@ -462,12 +561,38 @@ export default function MusicLibraryHome({
       ? globalArtifacts.speech
       : globalArtifacts.soundEffect;
 
-  const filteredGlobalGroups = (Array.isArray(selectedGlobalGroups) ? selectedGlobalGroups : [])
-    .map((group) => ({
-      ...group,
-      items: (Array.isArray(group.items) ? group.items : []).filter((item) => matchesAudioSearch(item, searchTerm)),
-    }))
-    .filter((group) => group.items.length > 0);
+  const filteredGlobalItems = sortAudioItemsByRecency(
+    (Array.isArray(selectedGlobalGroups) ? selectedGlobalGroups : []).flatMap((group) => (
+      (Array.isArray(group.items) ? group.items : [])
+        .filter((item) => matchesAudioSearch(item, searchTerm))
+        .map((item) => ({
+          ...item,
+          projectId: item?.projectId || group.projectId,
+          projectName: item?.projectName || group.projectName,
+        }))
+    ))
+  );
+  const activeAudioItems = selectedScope === LIBRARY_SCOPE_PROJECT
+    ? filteredProjectItems
+    : filteredGlobalItems;
+  const totalAudioPages = Math.max(1, Math.ceil(activeAudioItems.length / AUDIO_LIBRARY_PAGE_SIZE));
+  const normalizedAudioPage = Math.min(currentAudioPage, totalAudioPages);
+  const paginatedAudioItems = activeAudioItems.slice(
+    (normalizedAudioPage - 1) * AUDIO_LIBRARY_PAGE_SIZE,
+    normalizedAudioPage * AUDIO_LIBRARY_PAGE_SIZE
+  );
+  const paginatedProjectItems = selectedScope === LIBRARY_SCOPE_PROJECT ? paginatedAudioItems : [];
+  const paginatedGlobalGroups = selectedScope === LIBRARY_SCOPE_GLOBAL
+    ? groupAudioItemsByProjectForDisplay(paginatedAudioItems)
+    : [];
+
+  useEffect(() => {
+    setCurrentAudioPage(1);
+  }, [searchTerm, selectedAudioType, selectedScope]);
+
+  useEffect(() => {
+    setCurrentAudioPage((currentPage) => Math.min(Math.max(currentPage, 1), totalAudioPages));
+  }, [totalAudioPages]);
 
   const openUploadPicker = () => {
     if (uploadInputRef.current) {
@@ -660,6 +785,8 @@ export default function MusicLibraryHome({
       startTime: validatedConfig.parsedStartTime,
       duration: validatedConfig.parsedDuration,
       loopOverEntireSession: validatedConfig.loopOverEntireSession,
+      audioBindingMode: item.libraryType === AUDIO_TYPE_SPEECH ? 'unbounded' : undefined,
+      bindToLayer: item.libraryType === AUDIO_TYPE_SPEECH ? false : undefined,
     });
   };
 
@@ -683,6 +810,8 @@ export default function MusicLibraryHome({
       addSubtitles: true,
       selectedSubtitleOption: 'SUBTITLE',
       connectedLayerId: currentLayerId,
+      audioBindingMode: 'bound',
+      bindToLayer: true,
     });
   };
 
@@ -708,6 +837,42 @@ export default function MusicLibraryHome({
     audioRef.current.currentTime = nextTime;
     setCurrentTime(nextTime);
   };
+
+  const handlePreviousAudioPage = () => {
+    setCurrentAudioPage((currentPage) => Math.max(currentPage - 1, 1));
+  };
+
+  const handleNextAudioPage = () => {
+    setCurrentAudioPage((currentPage) => Math.min(currentPage + 1, totalAudioPages));
+  };
+
+  const renderAudioPaginationControls = () => (
+    <div className={`flex shrink-0 items-center overflow-hidden rounded-lg border ${borderColor}`}>
+      <button
+        type="button"
+        onClick={handlePreviousAudioPage}
+        disabled={normalizedAudioPage <= 1}
+        className={`inline-flex h-10 w-10 items-center justify-center border-r ${borderColor} ${surfaceButton} disabled:cursor-not-allowed disabled:opacity-50`}
+        aria-label="Previous audio page"
+        title="Previous audio page"
+      >
+        <FaChevronLeft className="text-xs" />
+      </button>
+      <span className={`flex h-10 shrink-0 items-center px-3 text-xs font-semibold ${headerBg}`}>
+        Page {normalizedAudioPage} of {totalAudioPages}
+      </span>
+      <button
+        type="button"
+        onClick={handleNextAudioPage}
+        disabled={normalizedAudioPage >= totalAudioPages}
+        className={`inline-flex h-10 w-10 items-center justify-center border-l ${borderColor} ${surfaceButton} disabled:cursor-not-allowed disabled:opacity-50`}
+        aria-label="Next audio page"
+        title="Next audio page"
+      >
+        <FaChevronRight className="text-xs" />
+      </button>
+    </div>
+  );
 
   const renderAudioCard = (item) => {
     const isPlaying = playingSongId === item._id;
@@ -908,7 +1073,7 @@ export default function MusicLibraryHome({
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredProjectItems.map((item) => renderAudioCard(item))}
+        {paginatedProjectItems.map((item) => renderAudioCard(item))}
       </div>
     );
   };
@@ -930,7 +1095,7 @@ export default function MusicLibraryHome({
       );
     }
 
-    if (filteredGlobalGroups.length === 0) {
+    if (filteredGlobalItems.length === 0) {
       return (
         <div className={`rounded-2xl border ${borderColor} ${cardBg} p-6 text-sm ${mutedText}`}>
           No global {getAudioTypeLabel(selectedAudioType).toLowerCase()} artefacts found.
@@ -940,7 +1105,7 @@ export default function MusicLibraryHome({
 
     return (
       <div className="space-y-6">
-        {filteredGlobalGroups.map((group) => (
+        {paginatedGlobalGroups.map((group) => (
           <section key={`${selectedAudioType}-${group.projectId}`} className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -1005,61 +1170,66 @@ export default function MusicLibraryHome({
   };
 
   return (
-    <div className={`space-y-4 pb-40 lg:pb-48 ${textColor}`}>
-      <div className={`rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm space-y-4`}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">Audio Library</h1>
-            <p className={`mt-1 text-sm ${mutedText}`}>
-              {getScopeLabel(selectedScope)} {getAudioTypeLabel(selectedAudioType)} artefacts
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 lg:min-w-0 lg:flex-row lg:items-center lg:justify-end lg:gap-2">
-            <input
-              type="text"
-              placeholder="Search audio"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className={`w-full min-w-0 sm:min-w-[220px] lg:w-[220px] xl:w-[280px] px-3 py-2 text-sm rounded-lg border ${borderColor} ${surfaceButton} focus:outline-none`}
-            />
-
-            <div className="flex flex-wrap items-center gap-3 lg:flex-nowrap lg:justify-end">
-              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
-                {[LIBRARY_SCOPE_PROJECT, LIBRARY_SCOPE_GLOBAL].map((scope) => (
-                  <button
-                    key={scope}
-                    onClick={() => setSelectedScope(scope)}
-                    className={`px-3 py-2 text-sm rounded-lg border ${borderColor} ${
-                      selectedScope === scope ? activeButton : surfaceButton
-                    }`}
-                  >
-                    {getScopeLabel(scope)}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
-                {[AUDIO_TYPE_MUSIC, AUDIO_TYPE_SPEECH, AUDIO_TYPE_SOUND_EFFECT].map((audioType) => (
-                  <button
-                    key={audioType}
-                    onClick={() => setSelectedAudioType(audioType)}
-                    className={`px-3 py-2 text-sm rounded-lg border ${borderColor} ${
-                      selectedAudioType === audioType ? activeButton : `${surfaceButton} ${headerBg}`
-                    }`}
-                  >
-                    {getAudioTypeLabel(audioType)}
-                  </button>
-                ))}
-              </div>
+    <div className={`h-full min-h-0 w-full overflow-y-auto px-3 pt-3 pb-40 lg:pb-48 ${textColor}`}>
+      <div className="space-y-4">
+        <div className={`sticky top-0 z-20 rounded-2xl border ${borderColor} ${cardBg} p-3 shadow-sm`}>
+          <div className="flex min-w-0 items-center gap-3 overflow-x-auto pb-1">
+            <div className="min-w-[150px] shrink-0">
+              <h1 className="text-lg font-bold">Audio Library</h1>
+              <p className={`mt-0.5 text-xs ${mutedText}`}>
+                {getScopeLabel(selectedScope)} {getAudioTypeLabel(selectedAudioType)} artefacts - {activeAudioItems.length} items
+              </p>
             </div>
+
+            <div className={`flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-lg border ${borderColor} ${surfaceButton} px-3`}>
+              <FaSearch className={`shrink-0 text-sm ${mutedText}`} />
+              <input
+                type="text"
+                placeholder="Search audio"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full min-w-0 bg-transparent text-sm focus:outline-none"
+              />
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {[LIBRARY_SCOPE_PROJECT, LIBRARY_SCOPE_GLOBAL].map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  onClick={() => setSelectedScope(scope)}
+                  className={`h-10 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold ${borderColor} ${
+                    selectedScope === scope ? activeButton : surfaceButton
+                  }`}
+                >
+                  {getScopeLabel(scope)}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              {[AUDIO_TYPE_MUSIC, AUDIO_TYPE_SPEECH, AUDIO_TYPE_SOUND_EFFECT].map((audioType) => (
+                <button
+                  key={audioType}
+                  type="button"
+                  onClick={() => setSelectedAudioType(audioType)}
+                  className={`h-10 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold ${borderColor} ${
+                    selectedAudioType === audioType ? activeButton : `${surfaceButton} ${headerBg}`
+                  }`}
+                >
+                  {getAudioTypeLabel(audioType)}
+                </button>
+              ))}
+            </div>
+
+            {renderAudioPaginationControls()}
           </div>
         </div>
+
+        {renderUploadPanel()}
+
+        {selectedScope === LIBRARY_SCOPE_PROJECT ? renderProjectContent() : renderGlobalContent()}
       </div>
-
-      {renderUploadPanel()}
-
-      {selectedScope === LIBRARY_SCOPE_PROJECT ? renderProjectContent() : renderGlobalContent()}
     </div>
   );
 }
