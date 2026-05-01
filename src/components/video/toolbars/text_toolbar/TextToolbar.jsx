@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import { FaCheck, FaSlidersH, FaTrash } from 'react-icons/fa';
+import { FaCheck, FaEye, FaEyeSlash, FaSlidersH, FaTrash } from 'react-icons/fa';
 
 import TextStylePanel, {
   buildTextStyleDraft,
@@ -11,6 +11,97 @@ import TextStylePanel, {
 } from '../../../common/TextStylePanel.jsx';
 import CanvasActionOptionsDialog from '../../../editor/utils/CanvasActionOptionsDialog.jsx';
 import { useAlertDialog } from '../../../../contexts/AlertDialogContext.jsx';
+
+const TOOLBAR_GAP = 12;
+const TOOLBAR_MIN_TOP = 8;
+
+function getNumber(value, fallback = 0) {
+  const parsedValue = Number(value);
+  return Number.isFinite(parsedValue) ? parsedValue : fallback;
+}
+
+function clamp(value, min, max) {
+  if (max < min) {
+    return value;
+  }
+  return Math.max(min, Math.min(value, max));
+}
+
+function getTextItemBounds(activeTextItem, pos, stageZoomScale) {
+  const config = activeTextItem?.config || {};
+  const scale = Number.isFinite(Number(stageZoomScale)) ? Number(stageZoomScale) : 1;
+  const width = Math.max(24, getNumber(config.width, 280)) * scale;
+  const height = Math.max(24, getNumber(config.height, 120)) * scale;
+  const positionLeft = Number.isFinite(Number(pos?.x)) ? Number(pos.x) - 30 : null;
+  const positionTop = Number.isFinite(Number(pos?.y)) ? Number(pos.y) - 30 : null;
+  const configLeft = getNumber(config.x, width / 2 / scale) * scale - width / 2;
+  const configTop = getNumber(config.y, height / 2 / scale) * scale - height / 2;
+  const left = positionLeft ?? configLeft;
+  const top = positionTop ?? configTop;
+
+  return {
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    centerX: left + width / 2,
+    centerY: top + height / 2,
+  };
+}
+
+function getToolbarPlacement(bounds, canvasDimensions, toolbarWidth, toolbarHeight) {
+  const canvasWidth = getNumber(canvasDimensions?.width, 1024);
+  const canvasHeight = getNumber(canvasDimensions?.height, 1024);
+  const candidates = [
+    {
+      side: 'right',
+      space: canvasWidth - bounds.right,
+      left: bounds.right + TOOLBAR_GAP,
+      top: clamp(bounds.centerY - toolbarHeight / 2, TOOLBAR_MIN_TOP, canvasHeight - toolbarHeight - TOOLBAR_MIN_TOP),
+    },
+    {
+      side: 'left',
+      space: bounds.left,
+      left: bounds.left - toolbarWidth - TOOLBAR_GAP,
+      top: clamp(bounds.centerY - toolbarHeight / 2, TOOLBAR_MIN_TOP, canvasHeight - toolbarHeight - TOOLBAR_MIN_TOP),
+    },
+    {
+      side: 'bottom',
+      space: canvasHeight - bounds.bottom,
+      left: clamp(bounds.centerX - toolbarWidth / 2, TOOLBAR_MIN_TOP, canvasWidth - toolbarWidth - TOOLBAR_MIN_TOP),
+      top: bounds.bottom + TOOLBAR_GAP,
+    },
+    {
+      side: 'top',
+      space: bounds.top,
+      left: clamp(bounds.centerX - toolbarWidth / 2, TOOLBAR_MIN_TOP, canvasWidth - toolbarWidth - TOOLBAR_MIN_TOP),
+      top: bounds.top - toolbarHeight - TOOLBAR_GAP,
+    },
+  ];
+  const candidatesWithFit = candidates.map((candidate) => ({
+    ...candidate,
+    fits:
+      candidate.side === 'left' || candidate.side === 'right'
+        ? candidate.space >= toolbarWidth + TOOLBAR_GAP
+        : candidate.space >= toolbarHeight + TOOLBAR_GAP,
+  }));
+  const fittingCandidates = candidatesWithFit.filter((candidate) => candidate.fits);
+  const sortedCandidates = (fittingCandidates.length ? fittingCandidates : candidatesWithFit)
+    .sort((a, b) => b.space - a.space);
+
+  return sortedCandidates[0];
+}
+
+function getHiddenTogglePlacement(bounds, canvasDimensions) {
+  const canvasWidth = getNumber(canvasDimensions?.width, 1024);
+  const topCandidate = bounds.top - 46;
+  return {
+    left: clamp(bounds.centerX - 18, TOOLBAR_MIN_TOP, canvasWidth - 44),
+    top: topCandidate >= TOOLBAR_MIN_TOP ? topCandidate : bounds.top + TOOLBAR_GAP,
+  };
+}
 
 function EditTextOptionsDialog({
   initialDraft,
@@ -36,24 +127,26 @@ function EditTextOptionsDialog({
       onClose={onClose}
       maxWidth="820px"
     >
-      <TextStylePanel
-        value={dialogDraft}
-        onChange={handleDialogDraftChange}
-        onSubmit={() => onSubmit(dialogDraft)}
-        submitLabel="Update"
-        submitDisabled={!`${dialogDraft.text || ''}`.trim()}
-        editorVariant={editorVariant}
-        header="Text"
-        density="comfortable"
-        layerActions={[
-          {
-            label: 'Delete',
-            icon: 'trash',
-            intent: 'danger',
-            onClick: onDelete,
-          },
-        ]}
-      />
+      <div className="max-h-[68vh] overflow-y-auto pr-1">
+        <TextStylePanel
+          value={dialogDraft}
+          onChange={handleDialogDraftChange}
+          onSubmit={() => onSubmit(dialogDraft)}
+          submitLabel="Update"
+          submitDisabled={!`${dialogDraft.text || ''}`.trim()}
+          editorVariant={editorVariant}
+          header="Text"
+          density="comfortable"
+          layerActions={[
+            {
+              label: 'Delete',
+              icon: 'trash',
+              intent: 'danger',
+              onClick: onDelete,
+            },
+          ]}
+        />
+      </div>
     </CanvasActionOptionsDialog>
   );
 }
@@ -67,6 +160,8 @@ export default function TextToolbar(props) {
     updateTargetTextActiveLayerConfig,
     activeItemList,
     onPersistTextStyle,
+    stageZoomScale = 1,
+    canvasDimensions,
     editorVariant = 'videoStudio',
   } = props;
 
@@ -83,17 +178,23 @@ export default function TextToolbar(props) {
 
   const [draft, setDraft] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [isToolbarHidden, setIsToolbarHidden] = useState(false);
 
   useEffect(() => {
     if (!activeTextItem) {
       setDraft(null);
       setIsDirty(false);
+      setIsToolbarHidden(false);
       return;
     }
 
     setDraft(mapTextItemToDraft(activeTextItem));
     setIsDirty(false);
   }, [activeTextItem, activeTextItemSignature]);
+
+  useEffect(() => {
+    setIsToolbarHidden(false);
+  }, [itemId]);
 
   const persistSharedStyle = useCallback(
     (draftToPersist) => {
@@ -122,6 +223,7 @@ export default function TextToolbar(props) {
       persistSharedStyle(normalizedDraft);
       setDraft(normalizedDraft);
       setIsDirty(false);
+      setIsToolbarHidden(true);
 
       if (options.closeDialog) {
         closeAlertDialog();
@@ -175,14 +277,16 @@ export default function TextToolbar(props) {
   const wrapButtonClass = draft.autoWrap
     ? 'bg-blue-600 text-white hover:bg-blue-500'
     : secondaryButtonClass;
-  const toolbarWidth = isImageStudio ? 360 : 340;
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1440;
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900;
-  const toolbarLeft = Math.max(
-    12,
-    Math.min(Number(pos?.x) || 12, viewportWidth - toolbarWidth - 24)
+  const toolbarWidth = isImageStudio ? 330 : 310;
+  const toolbarHeight = 205;
+  const textBounds = getTextItemBounds(activeTextItem, pos, stageZoomScale);
+  const toolbarPlacement = getToolbarPlacement(
+    textBounds,
+    canvasDimensions,
+    toolbarWidth,
+    toolbarHeight
   );
-  const toolbarTop = Math.max(12, Math.min(Number(pos?.y) || 12, viewportHeight - 260));
+  const hiddenTogglePlacement = getHiddenTogglePlacement(textBounds, canvasDimensions);
 
   const showTextOptionsDialog = () => {
     openAlertDialog(
@@ -200,16 +304,35 @@ export default function TextToolbar(props) {
     );
   };
 
+  if (isToolbarHidden) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsToolbarHidden(false)}
+        className={`absolute inline-flex h-9 w-9 items-center justify-center rounded-full border text-sm shadow-lg transition ${secondaryButtonClass}`}
+        style={{
+          left: hiddenTogglePlacement.left,
+          top: hiddenTogglePlacement.top,
+          zIndex: 100,
+        }}
+        title="Show text toolbar"
+        aria-label="Show text toolbar"
+      >
+        <FaEye />
+      </button>
+    );
+  }
+
   return (
     <div
       key={`toolbar_${pos.id}`}
       className={`${toolbarSurface} absolute rounded-[20px] p-3`}
       style={{
-        left: toolbarLeft,
-        top: toolbarTop,
+        left: toolbarPlacement.left,
+        top: toolbarPlacement.top,
         width: `${toolbarWidth}px`,
         maxWidth: 'calc(100vw - 24px)',
-        maxHeight: 'min(72vh, 420px)',
+        maxHeight: 'min(62vh, 360px)',
         overflowY: 'auto',
         zIndex: 100,
       }}
@@ -223,15 +346,6 @@ export default function TextToolbar(props) {
             {draft.autoWrap ? 'Wrap on' : 'Wrap off'} · {draft.width} x {draft.height}
           </div>
         </div>
-
-        <button
-          type="button"
-          onClick={handleDelete}
-          className={`inline-flex h-9 w-9 items-center justify-center rounded-xl transition ${deleteButtonClass}`}
-          title="Delete text"
-        >
-          <FaTrash />
-        </button>
       </div>
 
       <TextareaAutosize
@@ -242,14 +356,25 @@ export default function TextToolbar(props) {
         placeholder="Edit text"
       />
 
-      <div className="grid grid-cols-3 gap-2">
+      <button
+        type="button"
+        onClick={() => updateDraft({ autoWrap: !draft.autoWrap })}
+        className={`mb-2 flex h-9 w-full items-center justify-between rounded-xl px-3 text-sm font-semibold transition ${wrapButtonClass}`}
+        title="Toggle word wrap"
+      >
+        <span>Word Wrap</span>
+        <span className="text-xs">{draft.autoWrap ? 'On' : 'Off'}</span>
+      </button>
+
+      <div className="grid grid-cols-[40px_minmax(0,1fr)_minmax(0,1fr)_40px] gap-2">
         <button
           type="button"
-          onClick={() => updateDraft({ autoWrap: !draft.autoWrap })}
-          className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition ${wrapButtonClass}`}
-          title="Toggle word wrap"
+          onClick={() => setIsToolbarHidden(true)}
+          className={`inline-flex h-10 items-center justify-center rounded-xl text-sm transition ${secondaryButtonClass}`}
+          title="Hide text toolbar"
+          aria-label="Hide text toolbar"
         >
-          Wrap
+          <FaEyeSlash />
         </button>
         <button
           type="button"
@@ -269,6 +394,15 @@ export default function TextToolbar(props) {
         >
           <FaCheck />
           <span>Update</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          className={`inline-flex h-10 items-center justify-center rounded-xl text-sm transition ${deleteButtonClass}`}
+          title="Delete text"
+          aria-label="Delete text"
+        >
+          <FaTrash />
         </button>
       </div>
     </div>

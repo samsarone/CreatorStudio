@@ -28,6 +28,8 @@ export default function VideoCanvasOverlay(props) {
     aiVideoGenerationPending,
     selectedVideoGenerationModel,
     setSelectedVideoGenerationModel,
+    currentLayer,
+    sessionDetails,
     editorVariant = "videoStudio",
   } = props;
 
@@ -99,6 +101,8 @@ export default function VideoCanvasOverlay(props) {
       aspectRatio={aspectRatio}
       onCloseOverlay={onCloseOverlay}
       activeItemList={activeItemList}
+      currentLayer={currentLayer}
+      sessionDetails={sessionDetails}
       layoutMode={overlayLayout}
     />
   );

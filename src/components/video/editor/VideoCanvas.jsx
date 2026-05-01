@@ -112,6 +112,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     selectedEditModelValue,
     onPersistTextStyle,
     openUploadDialog,
+    sessionDetails,
     rightPanelView,
     isRightPanelExpanded = false,
     promptAspectRatio,
@@ -811,6 +812,8 @@ const VideoCanvas = forwardRef((props, ref) => {
   ) {
 
     canvasActionOverlay = <VideoCanvasOverlay activeItemList={activeItemList}
+      currentLayer={currentLayer}
+      sessionDetails={sessionDetails}
       activeTab={overlayGenerateTab}
       promptText={promptText}
       setPromptText={setPromptText}
@@ -1042,6 +1045,8 @@ const VideoCanvas = forwardRef((props, ref) => {
         updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
         updateTargetTextActiveLayerConfig={updateTargetTextActiveLayerConfig}
         onPersistTextStyle={onPersistTextStyle}
+        stageZoomScale={stageZoomScale}
+        canvasDimensions={canvasDimensions}
         editorVariant={editorVariant}
       />
       {showAddRemoveMaskedItemButton && (

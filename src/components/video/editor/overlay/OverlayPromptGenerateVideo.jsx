@@ -18,6 +18,7 @@ const NATIVE_AUDIO_VIDEO_MODELS = new Set([
   "VEO3.1",
   "VEO3.1FAST",
   "VEO3.1I2V",
+  "VEO3.1FLIV",
   "VEO3.1I2VFAST",
 ]);
 
@@ -33,6 +34,8 @@ export default function OverlayPromptGenerateVideo(props) {
     aspectRatio,
     onCloseOverlay,
     activeItemList,
+    currentLayer,
+    sessionDetails,
     layoutMode = "square",
   } = props;
 
@@ -68,6 +71,8 @@ export default function OverlayPromptGenerateVideo(props) {
     availableModelKeysSignature,
   } = getVideoGenerationModelDropdownData({
     activeItemList,
+    currentLayer,
+    sessionDetails,
   });
 
   const modelOptions = availableModels.map((model) => (
@@ -81,6 +86,7 @@ export default function OverlayPromptGenerateVideo(props) {
     pricing: selectedModelPricing,
     supportsImageToVideo: isImageToVideoModel,
     supportsTextToVideo: isTextToVideoModel,
+    supportsFirstLastFrameToVideo: isFirstLastFrameToVideoModel,
   } = getVideoGenerationModelMeta(selectedVideoGenerationModel);
   const useImgToVidSettings = isImageToVideoModel && hasImageItem;
   const useImgOnlySettings =
@@ -249,13 +255,17 @@ export default function OverlayPromptGenerateVideo(props) {
 
     const payload = {
       useStartFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? true
           : useImgOnlySettings
           ? useStartFrame
           : false,
       useEndFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? false
           : useImgOnlySettings
           ? useEndFrame
@@ -367,7 +377,7 @@ export default function OverlayPromptGenerateVideo(props) {
           colorMode === "dark" ? "text-slate-200" : "text-slate-600"
         }`}
       >
-        {useImgOnlySettings ? (
+        {useImgOnlySettings && !isFirstLastFrameToVideoModel ? (
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               useStartFrame
@@ -387,7 +397,7 @@ export default function OverlayPromptGenerateVideo(props) {
           </label>
         ) : null}
 
-        {useImgOnlySettings ? (
+        {useImgOnlySettings && !isFirstLastFrameToVideoModel ? (
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               useEndFrame

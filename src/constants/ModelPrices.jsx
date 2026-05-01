@@ -214,6 +214,18 @@ export const VIDEO_MODEL_PRICES = [
     units: [8],
   },
   {
+    key: 'VEO3.1FLIV',
+    isExpressModel: false,
+    isImageToVideoModel: true,
+    isFirstLastFrameToVideoModel: true,
+    isTextToVideoModel: false,
+    prices: [
+      { aspectRatio: '16:9', price: 700 },
+      { aspectRatio: '9:16', price: 700 },
+    ],
+    units: [8],
+  },
+  {
     key: 'VEO3.1I2VFAST',
     isExpressModel: true,
     isImageToVideoModel: true,

@@ -564,6 +564,31 @@ function buildLayerFrameMetadata(layers = [], displayFramesPerSecond = 30) {
   });
 }
 
+function getLayerTopInsetFrame(layerFrameMeta, insetPixels = 8) {
+  if (!layerFrameMeta) {
+    return null;
+  }
+
+  const startFrame = Number(layerFrameMeta.frameStart ?? layerFrameMeta.startFrame);
+  const endFrame = Number(layerFrameMeta.frameEnd ?? layerFrameMeta.endFrame);
+  const pixelHeight = Number(layerFrameMeta.pixelHeight);
+
+  if (!Number.isFinite(startFrame) || !Number.isFinite(endFrame)) {
+    return null;
+  }
+
+  const safeStartFrame = Math.max(0, Math.round(startFrame));
+  const frameSpan = Math.max(1, Math.round(endFrame) - safeStartFrame);
+  const insetFrames = Number.isFinite(pixelHeight) && pixelHeight > 0
+    ? Math.round((Math.max(0, insetPixels) / pixelHeight) * frameSpan)
+    : 6;
+
+  return safeStartFrame + Math.min(
+    Math.max(1, insetFrames),
+    Math.floor(frameSpan / 2)
+  );
+}
+
 function clampVideoEditRange(rawRange, durationFrames) {
   const safeDurationFrames = Math.max(1, Math.round(durationFrames) || 1);
   const rawStartFrame = Array.isArray(rawRange) ? Math.round(Number(rawRange[0]) || 0) : 0;
@@ -2104,9 +2129,13 @@ export default function FrameToolbar(props) {
           setSelectedLayer(nextSelectedLayerMeta.layer);
         }
 
-        // Adjust currentLayerSeek to the start of the new visible range
+        // Keep the seek handle inside the newly selected scene without dropping deep into it.
         if (!isLayerSeeking && nextSelectedLayerMeta) {
-          setCurrentLayerSeek(nextSelectedLayerMeta.startFrame);
+          const nextLayerSeekFrame = getLayerTopInsetFrame(nextSelectedLayerMeta);
+
+          if (Number.isFinite(nextLayerSeekFrame)) {
+            setCurrentLayerSeek(nextLayerSeekFrame);
+          }
         }
       }, 500); // Duration should match CSS transition duration
 
@@ -2365,6 +2394,7 @@ export default function FrameToolbar(props) {
 
   const onClosePopup = () => {
     openPopupLayerIdRef.current = null;
+    setShowUpdateLayerPortal(false);
     clearTrimDragBaseline();
     setPendingDuration(null);
     setDurationChanged(false);
@@ -3526,12 +3556,12 @@ export default function FrameToolbar(props) {
     const renderedLayerSegment = displayedLayerViewportGeometry.segments.find(
       (segment) => segment.layerId === nextLayerId
     );
-    const fallbackLayerStartFrame = layerFrameMetadata.find(
+    const fallbackLayerMeta = layerFrameMetadata.find(
       (layerMeta) => layerMeta.originalIndex === originalIndex
-    )?.startFrame;
-    const nextLayerSeekFrame = Number.isFinite(renderedLayerSegment?.frameStart)
-      ? renderedLayerSegment.frameStart
-      : fallbackLayerStartFrame;
+    );
+    const nextLayerSeekFrame = getLayerTopInsetFrame(
+      renderedLayerSegment || fallbackLayerMeta
+    );
 
     setSelectedLayerIndex(originalIndex);
     setSelectedLayer(layer);
@@ -4654,7 +4684,30 @@ export default function FrameToolbar(props) {
   const [showUpdateLayerPortal, setShowUpdateLayerPortal] = useState(true);
 
   const toggleViewSceneUpdate = () => {
-    setShowUpdateLayerPortal(!showUpdateLayerPortal);
+    if (showUpdateLayerPortal) {
+      openPopupLayerIdRef.current = null;
+      setOpenPopupLayerIndex(null);
+      setShowUpdateLayerPortal(false);
+      return;
+    }
+
+    const nextPopupLayerIndex = openPopupLayerIndex ?? (
+      selectedLayerIndex >= 0 ? selectedLayerIndex : null
+    );
+    const nextPopupLayer = nextPopupLayerIndex !== null
+      ? layers[nextPopupLayerIndex]
+      : null;
+    const nextPopupLayerId = nextPopupLayer?._id?.toString?.() || null;
+
+    if (nextPopupLayerId) {
+      openPopupLayerIdRef.current = nextPopupLayerId;
+      setOpenPopupLayerIndex(nextPopupLayerIndex);
+      requestAnimationFrame(() => {
+        updateScenePopupPosition(nextPopupLayerId);
+      });
+    }
+
+    setShowUpdateLayerPortal(true);
   };
 
   if (isExpandedToolbarView) {
@@ -4670,9 +4723,6 @@ export default function FrameToolbar(props) {
     );
   }
 
-  const textActiveColor = showUpdateLayerPortal
-    ? (colorMode === 'dark' ? 'text-slate-100' : 'text-indigo-600')
-    : (colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500');
   const sceneCardClassName = colorMode === 'dark'
     ? 'bg-[#0f172a]/70 border border-[#1f2a3d]/90 text-slate-100'
     : 'bg-white/70 border border-slate-200/90 text-slate-700 shadow-sm';
@@ -4682,6 +4732,13 @@ export default function FrameToolbar(props) {
   const sceneButtonClassName = colorMode === 'dark'
     ? 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-200 transition hover:bg-slate-800/80 disabled:opacity-50'
     : 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-600 transition hover:bg-slate-200/80 disabled:opacity-50';
+  const sceneQuickEditorToggleClassName = `${colorMode === 'dark'
+    ? 'border border-[#22314d]/90 bg-[#10192e]/84 hover:bg-[#16213a]'
+    : 'border border-slate-200 bg-white/92 hover:bg-slate-50'
+    } ${showUpdateLayerPortal
+      ? (colorMode === 'dark' ? 'text-cyan-100' : 'text-sky-600')
+      : (colorMode === 'dark' ? 'text-slate-500' : 'text-slate-400')
+    } inline-flex h-[34px] w-[26px] shrink-0 items-center justify-center rounded-lg text-[11px] shadow-sm transition-colors duration-150`;
   const gridToggleClassName = colorMode === 'dark'
     ? 'inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200 shadow-[0_12px_28px_rgba(2,6,23,0.34)] backdrop-blur-md transition hover:border-cyan-400/30'
     : 'inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 shadow-sm backdrop-blur-md transition hover:border-sky-300/70';
@@ -4695,9 +4752,10 @@ export default function FrameToolbar(props) {
       showBatchLayerDialog={showBatchLayerDialog}
       buttonLabel="Layer"
       compact={true}
+      iconOnly={!isExpandedToolbarView}
       menuAlign={isExpandedToolbarView ? 'right' : 'left'}
       fullWidth={true}
-      fitMenuToTrigger={true}
+      fitMenuToTrigger={isExpandedToolbarView}
     />
   );
 
@@ -4709,6 +4767,16 @@ export default function FrameToolbar(props) {
       <div className={`min-w-0 flex-1 ${disabledMenuClass}`}>
         {dropdownButtonDisplay}
       </div>
+      <button
+        type="button"
+        className={sceneQuickEditorToggleClassName}
+        onClick={toggleViewSceneUpdate}
+        aria-label={showUpdateLayerPortal ? 'Hide scene quick editor' : 'Show scene quick editor'}
+        aria-pressed={showUpdateLayerPortal}
+        title={showUpdateLayerPortal ? 'Hide scene quick editor' : 'Show scene quick editor'}
+      >
+        <FaEye />
+      </button>
       <div className='shrink-0'>
         {expandButtonLabel}
       </div>
@@ -5341,14 +5409,6 @@ export default function FrameToolbar(props) {
             >
               <FaChevronDown />
             </button>
-            <button
-              type="button"
-              className={`${sceneButtonClassName} ${textActiveColor}`}
-              onClick={toggleViewSceneUpdate}
-              aria-label="Toggle scene portal"
-            >
-              <FaEye />
-            </button>
           </div>
 
           {showGridsView}
@@ -5634,10 +5694,10 @@ export default function FrameToolbar(props) {
             </div>
           )}
 
-          <div className='relative z-[2] text-xs font-bold basis-1/4 min-h-0'>
+          <div className='relative z-[6] text-xs font-bold basis-1/4 min-h-0'>
             <div className='relative h-full min-h-0'>
               {/* Previous and Next buttons */}
-              <div className='relative h-full min-h-0 w-full overflow-hidden' ref={parentRef}>
+              <div className='relative h-full min-h-0 w-full overflow-visible' ref={parentRef}>
                 {layersList}
                 {layerSelectOverlay}
               </div>

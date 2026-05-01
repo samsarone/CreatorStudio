@@ -272,6 +272,18 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
+    name: 'VEO3.1 Frame to Video',
+    key: 'VEO3.1FLIV',
+    isImageToVideoModel: true,
+    isFirstLastFrameToVideoModel: true,
+    isExpressModel: false,
+    isTextToVideoModel: false,
+    supportedAspectRatios: [
+      '16:9',
+      '9:16'
+    ]
+  },
+  {
     name: 'VEO3.1 Fast Img2Vid',
     key: 'VEO3.1I2VFAST',
     isImageToVideoModel: true,

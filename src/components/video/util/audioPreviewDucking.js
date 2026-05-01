@@ -83,9 +83,7 @@ export function resolvePreviewVolumeGainFromVolumeValue(volumeValue, generationT
     return 1;
   }
 
-  const normalizedAudioType = normalizeAudioLayerType(generationType);
-  const multiplier = isSpeechLikeAudioType(normalizedAudioType) ? 8 : 2;
-  return roundAudioNumber((rawVolume * multiplier) / 100);
+  return roundAudioNumber(rawVolume / 100);
 }
 
 export function isManualAudioVolumeAdjustmentEnabled(audioLayer = {}) {

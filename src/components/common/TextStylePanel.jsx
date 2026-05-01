@@ -424,17 +424,18 @@ export default function TextStylePanel(props) {
     helperText = null,
     layerActions = [],
     density = 'comfortable',
+    advancedInitiallyOpen = false,
   } = props;
 
   const { colorMode } = useColorMode();
   const isImageStudio = editorVariant === 'imageStudio';
   const isCompact = density === 'compact';
   const draft = buildTextStyleDraft(value);
-  const [isAdvancedOpen, setIsAdvancedOpen] = React.useState(!isCompact);
+  const [isAdvancedOpen, setIsAdvancedOpen] = React.useState(Boolean(advancedInitiallyOpen));
 
   React.useEffect(() => {
-    setIsAdvancedOpen(!isCompact);
-  }, [isCompact]);
+    setIsAdvancedOpen(Boolean(advancedInitiallyOpen));
+  }, [advancedInitiallyOpen]);
 
   const fieldSurface =
     colorMode === 'dark'
@@ -725,7 +726,7 @@ export default function TextStylePanel(props) {
         <summary className={`cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>
           Advanced Layout
         </summary>
-        <div className={`mt-3 grid ${isCompact ? 'grid-cols-2' : 'grid-cols-3'} ${isCompact ? 'gap-2' : 'gap-3'}`}>
+        <div className={`mt-3 grid max-h-[min(38vh,360px)] overflow-y-auto pr-1 ${isCompact ? 'grid-cols-2' : 'grid-cols-3'} ${isCompact ? 'gap-2' : 'gap-3'}`}>
           {advancedNumberFields.map((fieldConfig) => (
             <div key={fieldConfig.field}>
               <div className={sectionTitleClass}>{fieldConfig.label}</div>

@@ -19,6 +19,7 @@ const NATIVE_AUDIO_VIDEO_MODELS = new Set([
   "VEO3.1",
   "VEO3.1FAST",
   "VEO3.1I2V",
+  "VEO3.1FLIV",
   "VEO3.1I2VFAST",
 ]);
 
@@ -33,6 +34,8 @@ export default function VideoPromptGenerator(props) {
     generationError,
     aspectRatio,
     activeItemList,
+    currentLayer,
+    sessionDetails,
     sizeVariant = "default",
   } = props;
   const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
@@ -72,6 +75,8 @@ export default function VideoPromptGenerator(props) {
     availableModelKeysSignature,
   } = getVideoGenerationModelDropdownData({
     activeItemList,
+    currentLayer,
+    sessionDetails,
   });
 
   const modelOptionMap = availableModels.map((model) => (
@@ -87,6 +92,7 @@ export default function VideoPromptGenerator(props) {
     pricing: selectedModelPricing,
     supportsImageToVideo: isImageToVideoModel,
     supportsTextToVideo: isTextToVideoModel,
+    supportsFirstLastFrameToVideo: isFirstLastFrameToVideoModel,
   } = getVideoGenerationModelMeta(selectedVideoGenerationModel);
 
   const requiresImageButNone =
@@ -311,13 +317,17 @@ export default function VideoPromptGenerator(props) {
     // Build a payload to pass to your generation request
     const payload = {
       useStartFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? true
           : useImgToVidSettings
           ? useStartFrame
           : false,
       useEndFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? false
           : useImgToVidSettings
           ? useEndFrame
@@ -384,7 +394,7 @@ export default function VideoPromptGenerator(props) {
 
         {/* Start / End Frame & Trim Scene Checkboxes (only if we have an image to drive img-to-vid) */}
         <div className={`${controlGridFullSpanClass} flex w-full items-center mt-2 flex-wrap`}>
-          {useImgToVidSettings && (
+          {useImgToVidSettings && !isFirstLastFrameToVideoModel && (
             <>
               {/* Start Frame Checkbox */}
               <label className="inline-flex items-center text-sm mr-4">

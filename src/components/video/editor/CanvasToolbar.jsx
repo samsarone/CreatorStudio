@@ -52,6 +52,8 @@ export default function CanvasToolbar(props) {
     updateTargetShapeActiveLayerConfigNoScale,
     updateTargetTextActiveLayerConfig,
     onPersistTextStyle,
+    stageZoomScale = 1,
+    canvasDimensions,
     editorVariant = 'videoStudio',
   } = props;
 
@@ -112,6 +114,8 @@ export default function CanvasToolbar(props) {
             updateTargetTextActiveLayerConfig={updateTargetTextActiveLayerConfig}
             activeItemList={activeItemList}
             onPersistTextStyle={onPersistTextStyle}
+            stageZoomScale={stageZoomScale}
+            canvasDimensions={canvasDimensions}
             editorVariant={editorVariant}
             />
           )
