@@ -47,10 +47,21 @@ export const TEXT_STYLE_STORAGE_KEYS = {
   underline: 'selected_text_config_underline',
   textAlign: 'selected_text_config_textAlign',
   lineHeight: 'selected_text_config_lineHeight',
+  width: 'selected_text_config_width',
+  height: 'selected_text_config_height',
+  autoWrap: 'selected_text_config_autoWrap',
+  letterSpacing: 'selected_text_config_letterSpacing',
+  shadowBlur: 'selected_text_config_shadowBlur',
+  shadowOffsetX: 'selected_text_config_shadowOffsetX',
+  shadowOffsetY: 'selected_text_config_shadowOffsetY',
+  rotationAngle: 'selected_text_config_rotationAngle',
+  capitalizeLetters: 'selected_text_config_capitalizeLetters',
 };
 
 export const DEFAULT_TEXT_STYLE_DRAFT = {
   text: '',
+  width: 600,
+  height: 200,
   fontSize: 32,
   fontFamily: 'Arial',
   fillColor: '#ffffff',
@@ -61,9 +72,18 @@ export const DEFAULT_TEXT_STYLE_DRAFT = {
   underline: false,
   textAlign: 'center',
   lineHeight: 1.2,
+  autoWrap: true,
+  letterSpacing: 0,
+  shadowBlur: 8,
+  shadowOffsetX: 0,
+  shadowOffsetY: 2,
+  rotationAngle: 0,
+  capitalizeLetters: false,
 };
 
 const SHARED_TEXT_STYLE_FIELDS = [
+  'width',
+  'height',
   'fontSize',
   'fontFamily',
   'fillColor',
@@ -74,6 +94,13 @@ const SHARED_TEXT_STYLE_FIELDS = [
   'underline',
   'textAlign',
   'lineHeight',
+  'autoWrap',
+  'letterSpacing',
+  'shadowBlur',
+  'shadowOffsetX',
+  'shadowOffsetY',
+  'rotationAngle',
+  'capitalizeLetters',
 ];
 
 const HEX_COLOR_PATTERN = /^#(?:[0-9a-f]{3}){1,2}$/i;
@@ -119,6 +146,16 @@ export function buildTextStyleDraft(value = {}) {
       max: 240,
       integer: true,
     }),
+    width: normalizeNumericField(nextDraft.width, DEFAULT_TEXT_STYLE_DRAFT.width, {
+      min: 24,
+      max: 4096,
+      integer: true,
+    }),
+    height: normalizeNumericField(nextDraft.height, DEFAULT_TEXT_STYLE_DRAFT.height, {
+      min: 24,
+      max: 4096,
+      integer: true,
+    }),
     fillColor: getSafeColorValue(nextDraft.fillColor, DEFAULT_TEXT_STYLE_DRAFT.fillColor),
     strokeColor: getSafeColorValue(nextDraft.strokeColor, DEFAULT_TEXT_STYLE_DRAFT.strokeColor),
     strokeWidth: normalizeNumericField(nextDraft.strokeWidth, DEFAULT_TEXT_STYLE_DRAFT.strokeWidth, {
@@ -136,6 +173,44 @@ export function buildTextStyleDraft(value = {}) {
       min: 0.6,
       max: 3,
     }),
+    autoWrap: nextDraft.autoWrap !== false,
+    letterSpacing: normalizeNumericField(
+      nextDraft.letterSpacing,
+      DEFAULT_TEXT_STYLE_DRAFT.letterSpacing,
+      {
+        min: -20,
+        max: 100,
+      }
+    ),
+    shadowBlur: normalizeNumericField(nextDraft.shadowBlur, DEFAULT_TEXT_STYLE_DRAFT.shadowBlur, {
+      min: 0,
+      max: 100,
+    }),
+    shadowOffsetX: normalizeNumericField(
+      nextDraft.shadowOffsetX,
+      DEFAULT_TEXT_STYLE_DRAFT.shadowOffsetX,
+      {
+        min: -200,
+        max: 200,
+      }
+    ),
+    shadowOffsetY: normalizeNumericField(
+      nextDraft.shadowOffsetY,
+      DEFAULT_TEXT_STYLE_DRAFT.shadowOffsetY,
+      {
+        min: -200,
+        max: 200,
+      }
+    ),
+    rotationAngle: normalizeNumericField(
+      nextDraft.rotationAngle,
+      DEFAULT_TEXT_STYLE_DRAFT.rotationAngle,
+      {
+        min: -360,
+        max: 360,
+      }
+    ),
+    capitalizeLetters: Boolean(nextDraft.capitalizeLetters),
   };
 }
 
@@ -177,9 +252,32 @@ export function loadStoredTextStyleConfig(storage) {
   const storedUnderline = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.underline);
   const storedTextAlign = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.textAlign);
   const storedLineHeight = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.lineHeight);
+  const storedWidth = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.width);
+  const storedHeight = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.height);
+  const storedAutoWrap = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.autoWrap);
+  const storedLetterSpacing = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.letterSpacing);
+  const storedShadowBlur = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.shadowBlur);
+  const storedShadowOffsetX = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.shadowOffsetX);
+  const storedShadowOffsetY = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.shadowOffsetY);
+  const storedRotationAngle = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.rotationAngle);
+  const storedCapitalizeLetters = resolvedStorage.getItem(TEXT_STYLE_STORAGE_KEYS.capitalizeLetters);
 
   return Object.fromEntries(
     Object.entries({
+      width: storedWidth
+        ? normalizeNumericField(storedWidth, DEFAULT_TEXT_STYLE_DRAFT.width, {
+            min: 24,
+            max: 4096,
+            integer: true,
+          })
+        : undefined,
+      height: storedHeight
+        ? normalizeNumericField(storedHeight, DEFAULT_TEXT_STYLE_DRAFT.height, {
+            min: 24,
+            max: 4096,
+            integer: true,
+          })
+        : undefined,
       fontSize: storedFontSize
         ? normalizeNumericField(storedFontSize, DEFAULT_TEXT_STYLE_DRAFT.fontSize, {
             min: 1,
@@ -211,6 +309,44 @@ export function loadStoredTextStyleConfig(storage) {
             max: 3,
           })
         : undefined,
+      autoWrap:
+        storedAutoWrap === 'true' ? true : storedAutoWrap === 'false' ? false : undefined,
+      letterSpacing: storedLetterSpacing
+        ? normalizeNumericField(storedLetterSpacing, DEFAULT_TEXT_STYLE_DRAFT.letterSpacing, {
+            min: -20,
+            max: 100,
+          })
+        : undefined,
+      shadowBlur: storedShadowBlur
+        ? normalizeNumericField(storedShadowBlur, DEFAULT_TEXT_STYLE_DRAFT.shadowBlur, {
+            min: 0,
+            max: 100,
+          })
+        : undefined,
+      shadowOffsetX: storedShadowOffsetX
+        ? normalizeNumericField(storedShadowOffsetX, DEFAULT_TEXT_STYLE_DRAFT.shadowOffsetX, {
+            min: -200,
+            max: 200,
+          })
+        : undefined,
+      shadowOffsetY: storedShadowOffsetY
+        ? normalizeNumericField(storedShadowOffsetY, DEFAULT_TEXT_STYLE_DRAFT.shadowOffsetY, {
+            min: -200,
+            max: 200,
+          })
+        : undefined,
+      rotationAngle: storedRotationAngle
+        ? normalizeNumericField(storedRotationAngle, DEFAULT_TEXT_STYLE_DRAFT.rotationAngle, {
+            min: -360,
+            max: 360,
+          })
+        : undefined,
+      capitalizeLetters:
+        storedCapitalizeLetters === 'true'
+          ? true
+          : storedCapitalizeLetters === 'false'
+            ? false
+            : undefined,
     }).filter(([, value]) => value !== undefined)
   );
 }
@@ -225,6 +361,8 @@ export function persistTextStyleConfig(value, storage) {
   const draft = buildTextStyleDraft(value);
   const sharedStyle = mapTextDraftToStyleConfig(draft);
 
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.width, `${sharedStyle.width}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.height, `${sharedStyle.height}`);
   resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.fontSize, `${sharedStyle.fontSize}`);
   resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.fontFamily, sharedStyle.fontFamily);
   resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.fillColor, sharedStyle.fillColor);
@@ -235,6 +373,16 @@ export function persistTextStyleConfig(value, storage) {
   resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.underline, `${sharedStyle.underline}`);
   resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.textAlign, sharedStyle.textAlign);
   resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.lineHeight, `${sharedStyle.lineHeight}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.autoWrap, `${sharedStyle.autoWrap}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.letterSpacing, `${sharedStyle.letterSpacing}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.shadowBlur, `${sharedStyle.shadowBlur}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.shadowOffsetX, `${sharedStyle.shadowOffsetX}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.shadowOffsetY, `${sharedStyle.shadowOffsetY}`);
+  resolvedStorage.setItem(TEXT_STYLE_STORAGE_KEYS.rotationAngle, `${sharedStyle.rotationAngle}`);
+  resolvedStorage.setItem(
+    TEXT_STYLE_STORAGE_KEYS.capitalizeLetters,
+    `${sharedStyle.capitalizeLetters}`
+  );
 }
 
 function IconToggleButton({ active, onClick, children, title, className = '' }) {
@@ -282,6 +430,11 @@ export default function TextStylePanel(props) {
   const isImageStudio = editorVariant === 'imageStudio';
   const isCompact = density === 'compact';
   const draft = buildTextStyleDraft(value);
+  const [isAdvancedOpen, setIsAdvancedOpen] = React.useState(!isCompact);
+
+  React.useEffect(() => {
+    setIsAdvancedOpen(!isCompact);
+  }, [isCompact]);
 
   const fieldSurface =
     colorMode === 'dark'
@@ -357,6 +510,62 @@ export default function TextStylePanel(props) {
 
   const safeFillColor = getSafeColorValue(draft.fillColor, '#ffffff');
   const safeStrokeColor = getSafeColorValue(draft.strokeColor, '#ffffff');
+  const advancedNumberFields = [
+    {
+      field: 'width',
+      label: 'Box Width',
+      min: 24,
+      max: 4096,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.width,
+    },
+    {
+      field: 'height',
+      label: 'Box Height',
+      min: 24,
+      max: 4096,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.height,
+    },
+    {
+      field: 'letterSpacing',
+      label: 'Letter Space',
+      min: -20,
+      max: 100,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.letterSpacing,
+      step: 0.5,
+    },
+    {
+      field: 'rotationAngle',
+      label: 'Rotation',
+      min: -360,
+      max: 360,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.rotationAngle,
+      step: 1,
+    },
+    {
+      field: 'shadowBlur',
+      label: 'Shadow Blur',
+      min: 0,
+      max: 100,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.shadowBlur,
+      step: 0.5,
+    },
+    {
+      field: 'shadowOffsetX',
+      label: 'Shadow X',
+      min: -200,
+      max: 200,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.shadowOffsetX,
+      step: 1,
+    },
+    {
+      field: 'shadowOffsetY',
+      label: 'Shadow Y',
+      min: -200,
+      max: 200,
+      fallback: DEFAULT_TEXT_STYLE_DRAFT.shadowOffsetY,
+      step: 1,
+    },
+  ];
 
   return (
     <div className={`flex flex-col ${isCompact ? 'gap-2.5' : isImageStudio ? 'gap-4' : 'gap-3'}`}>
@@ -495,31 +704,97 @@ export default function TextStylePanel(props) {
           />
         </div>
 
-        {!isCompact ? (
-          <div className={`${cardSurface} rounded-2xl ${isCompact ? 'p-2.5' : 'p-3'}`}>
-            <div className={sectionTitleClass}>Preview</div>
-            <div
-              className={`rounded-xl px-3 py-3 text-sm ${fieldSurface}`}
-              style={{
-                fontFamily: draft.fontFamily,
-                fontSize: `${Math.max(14, Math.min(draft.fontSize, 28))}px`,
-                color: safeFillColor,
-                WebkitTextStroke:
-                  draft.strokeWidth > 0
-                    ? `${Math.max(0.4, Math.min(draft.strokeWidth, 3))}px ${safeStrokeColor}`
-                    : '0 transparent',
-                fontWeight: draft.bold ? 700 : 400,
-                fontStyle: draft.italic ? 'italic' : 'normal',
-                textDecoration: draft.underline ? 'underline' : 'none',
-                textAlign: draft.textAlign,
-                lineHeight: draft.lineHeight,
-              }}
-            >
-              {draft.text || 'Sample text'}
-            </div>
-          </div>
-        ) : null}
+        <div>
+          <div className={sectionTitleClass}>Wrap</div>
+          <button
+            type="button"
+            onClick={() => updateDraft({ autoWrap: !draft.autoWrap })}
+            className={`flex min-h-[42px] w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm font-semibold transition ${draft.autoWrap ? activeToggle : inactiveToggle}`}
+          >
+            <span>Word Wrap</span>
+            <span className="text-xs">{draft.autoWrap ? 'On' : 'Off'}</span>
+          </button>
+        </div>
       </div>
+
+      <details
+        open={isAdvancedOpen}
+        onToggle={(event) => setIsAdvancedOpen(event.currentTarget.open)}
+        className={`${cardSurface} rounded-2xl ${isCompact ? 'p-2.5' : 'p-3'}`}
+      >
+        <summary className={`cursor-pointer list-none text-[11px] font-semibold uppercase tracking-[0.18em] ${mutedText}`}>
+          Advanced Layout
+        </summary>
+        <div className={`mt-3 grid ${isCompact ? 'grid-cols-2' : 'grid-cols-3'} ${isCompact ? 'gap-2' : 'gap-3'}`}>
+          {advancedNumberFields.map((fieldConfig) => (
+            <div key={fieldConfig.field}>
+              <div className={sectionTitleClass}>{fieldConfig.label}</div>
+              <input
+                type="number"
+                min={fieldConfig.min}
+                max={fieldConfig.max}
+                step={fieldConfig.step || 1}
+                value={draft[fieldConfig.field]}
+                onChange={(event) =>
+                  updateNumericField(
+                    fieldConfig.field,
+                    event.target.value,
+                    fieldConfig.fallback,
+                    {
+                      min: fieldConfig.min,
+                      max: fieldConfig.max,
+                      step: fieldConfig.step || 1,
+                    }
+                  )
+                }
+                className={inputClassName}
+              />
+            </div>
+          ))}
+
+          <div>
+            <div className={sectionTitleClass}>Uppercase</div>
+            <button
+              type="button"
+              onClick={() => updateDraft({ capitalizeLetters: !draft.capitalizeLetters })}
+              className={`flex min-h-[42px] w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm font-semibold transition ${draft.capitalizeLetters ? activeToggle : inactiveToggle}`}
+            >
+              <span>Caps</span>
+              <span className="text-xs">{draft.capitalizeLetters ? 'On' : 'Off'}</span>
+            </button>
+          </div>
+        </div>
+      </details>
+
+      {!isCompact ? (
+        <div className={`${cardSurface} rounded-2xl ${isCompact ? 'p-2.5' : 'p-3'}`}>
+          <div className={sectionTitleClass}>Preview</div>
+          <div
+            className={`rounded-xl px-3 py-3 text-sm ${fieldSurface}`}
+            style={{
+              fontFamily: draft.fontFamily,
+              fontSize: `${Math.max(14, Math.min(draft.fontSize, 28))}px`,
+              color: safeFillColor,
+              WebkitTextStroke:
+                draft.strokeWidth > 0
+                  ? `${Math.max(0.4, Math.min(draft.strokeWidth, 3))}px ${safeStrokeColor}`
+                  : '0 transparent',
+              fontWeight: draft.bold ? 700 : 400,
+              fontStyle: draft.italic ? 'italic' : 'normal',
+              textDecoration: draft.underline ? 'underline' : 'none',
+              textAlign: draft.textAlign,
+              lineHeight: draft.lineHeight,
+              letterSpacing: `${draft.letterSpacing}px`,
+              textTransform: draft.capitalizeLetters ? 'uppercase' : 'none',
+              whiteSpace: draft.autoWrap ? 'normal' : 'pre',
+              overflowWrap: draft.autoWrap ? 'break-word' : 'normal',
+              overflowX: draft.autoWrap ? 'hidden' : 'auto',
+            }}
+          >
+            {draft.text || 'Sample text'}
+          </div>
+        </div>
+      ) : null}
 
       {layerActions.length > 0 ? (
         <div>

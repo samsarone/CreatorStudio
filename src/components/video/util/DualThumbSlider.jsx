@@ -42,12 +42,10 @@ export default function DualThumbSlider({ min, max, value, onChange, onAfterChan
 
   useEffect(() => {
     if (Array.isArray(value)) {
-      const sanitizedValues = value.map((val) => (
-        Number.isFinite(val) ? val : min
-      ));
+      const sanitizedValues = sanitizeValues(value);
       setSliderValues(sanitizedValues);
     }
-  }, [value, min]);
+  }, [value, min, max]);
 
   const displayValues = useMemo(() => {
     if (!Array.isArray(sliderValues)) return sliderValues;

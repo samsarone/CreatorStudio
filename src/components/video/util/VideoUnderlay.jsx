@@ -1,15 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { FaTimes } from 'react-icons/fa';
-
-const PROCESSOR_API_URL = import.meta.env['VITE_PROCESSOR_API'];
 
 export default function VideoUnderlay(props) {
   const {
     aiVideoLayer,
     currentLayerSeek = 0,
-    removeVideoLayer,
     canvasDimensions,
-    requestLipSyncToSpeech,
     aiVideoLayerType,
   } = props;
 
@@ -179,22 +174,6 @@ export default function VideoUnderlay(props) {
     }
   }, [currentLayerSeek, isVideoReady]);
 
-  // Helper to determine label text
-  const getVideoTypeLabel = (type) => {
-    switch (type) {
-      case 'lip_sync':
-        return 'Lip Synced video';
-      case 'sound_effect':
-        return 'Sound Effect video';
-      case 'ai_video':
-        return 'Base AI Video';
-      case 'user_video':
-        return 'Uploaded Video';
-      default:
-        return 'Unknown Video Type';
-    }
-  };
-  
   return (
     <div
       style={{
@@ -229,26 +208,6 @@ export default function VideoUnderlay(props) {
           }}
         />
       </div>
-
-      {aiVideoLayer && (
-        <div
-          className="absolute top-0 left-0 z-10"
-          style={{ pointerEvents: 'auto' }}
-        >
-          <div className="bg-[#0f1629] border border-[#1f2a3d] rounded-lg px-2 py-1 m-auto relative flex items-center space-x-2 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
-            <span className="text-slate-100 font-semibold">Video Layer</span>
-            {/* The “Delete Layer” button (FaTimes) */}
-            <FaTimes
-              className="cursor-pointer hover:text-rose-300 text-slate-200"
-              onClick={removeVideoLayer}
-            />
-            {/* New pill showing the current video type */}
-            <span className="text-sm bg-[#e45a26]/20 text-orange-100 border border-[#e45a26]/30 rounded-full px-2 py-1">
-              {getVideoTypeLabel(aiVideoLayerType)}
-            </span>
-          </div>
-        </div>
-      )}
 
       {isVideoReady === false && aiVideoLayer && (
         <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50">

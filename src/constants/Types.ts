@@ -179,6 +179,16 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
+    name: 'Kling 3 Pro Text2Vid',
+    key: 'KLINGTXTTOVID3PRO',
+    isExpressModel: false,
+    isImageToVideoModel: false,
+    isTextToVideoModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1',
+    ]
+  },
+  {
     name: 'Hailuo O2 Standard',
     key: 'HAILUO',
     isImageToVideoModel: true,
@@ -209,6 +219,16 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
+    name: 'Seedance 2.0 Text2Vid',
+    key: 'SEEDANCET2V',
+    isImageToVideoModel: false,
+    isTextToVideoModel: true,
+    isExpressModel: false,
+    supportedAspectRatios: [
+      '16:9', '9:16',
+    ]
+  },
+  {
     name: 'Seedance 1.5',
     key: 'SEEDANCE15I2V',
     isImageToVideoModel: true,
@@ -219,11 +239,33 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     ]
   },
   {
+    name: 'VEO3.1 Text2Vid',
+    key: 'VEO3.1',
+    isImageToVideoModel: false,
+    isExpressModel: false,
+    isTextToVideoModel: true,
+    supportedAspectRatios: [
+      '16:9',
+      '9:16'
+    ]
+  },
+  {
+    name: 'VEO3.1 Fast Text2Vid',
+    key: 'VEO3.1FAST',
+    isImageToVideoModel: false,
+    isExpressModel: false,
+    isTextToVideoModel: true,
+    supportedAspectRatios: [
+      '16:9',
+      '9:16'
+    ]
+  },
+  {
     name: 'VEO3.1 Img2Vid',
     key: 'VEO3.1I2V',
     isImageToVideoModel: true,
     isExpressModel: true,
-    isTextToVideoModel: true,
+    isTextToVideoModel: false,
     supportedAspectRatios: [
       '16:9',
       '9:16'
@@ -234,7 +276,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     key: 'VEO3.1I2VFAST',
     isImageToVideoModel: true,
     isExpressModel: true,
-    isTextToVideoModel: true,
+    isTextToVideoModel: false,
     supportedAspectRatios: [
       '16:9',
       '9:16'
@@ -268,40 +310,8 @@ export const IMAGE_EDIT_MODEL_TYPES = [
 
 export const ASSISTANT_MODEL_TYPES = [
   {
-    label: 'Grok 3',
-    value: 'GROK3'
-  },
-  {
-    label: 'GPT 4.1',
-    value: 'GPT4.1',
-  },
-
-  {
-    label: 'GPT O3 Mini (H)',
-    value: 'GPTO3MINI',
-  },
-
-  {
-    label: 'GPT O3',
-    value: 'GPTO3',
-  },
-
-  {
-    label: 'GPT 5',
-    value: 'GPT5',
-  },
-
-    {
-    label: 'GPT 5.1',
-    value: 'GPT5.1',
-  },
-  {
-    label: 'GPT 5.2',
-    value: 'GPT5.2',
-  },
-  {
-    label: 'GPT 5.4',
-    value: 'GPT5.4',
+    label: 'GPT 5.5',
+    value: 'gpt-5.5',
   },
 
 
@@ -311,28 +321,8 @@ export const INFERENCE_MODEL_TYPES = [
 
 
   {
-    label: 'GPT O3',
-    value: 'GPTO3',
-  },
-  {
-    label: 'GPT 5 High',
-    value: 'GPT5',
-  },
-  {
-    label: 'GPT 5 Mini',
-    value: 'GPT5MINI',
-  },
-  {
-    label: 'GPT 5.1',
-    value: 'GPT5.1',
-  },
-  {
-    label: 'GPT 5.2',
-    value: 'GPT5.2',
-  },
-  {
-    label: 'GPT 5.4',
-    value: 'GPT5.4',
+    label: 'GPT 5.5',
+    value: 'gpt-5.5',
   },
 
 

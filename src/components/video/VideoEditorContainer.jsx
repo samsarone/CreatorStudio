@@ -1690,32 +1690,49 @@ export default function VideoEditorContainer(props) {
     setActiveItemList(newActiveItemList);
   };
 
-  const setSelectedShape = (shapeKey) => {
+  const setSelectedShape = (shapeKey, shapeConfigOverride = null) => {
     let shapeConfig;
-    if (shapeKey === 'dialog') {
+    const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+    const canvasCenterX = canvasDimensions.width / 2;
+    const canvasCenterY = canvasDimensions.height / 2;
+    const commonShapeConfig = {
+      fillColor: fillColor,
+      strokeColor: strokeColor,
+      strokeWidth: strokeWidthValue,
+    };
+
+    if (shapeConfigOverride && typeof shapeConfigOverride === 'object') {
       shapeConfig = {
-        x: 512,
-        y: 200,
-        width: 100,
-        height: 50,
-        fillColor: fillColor,
-        strokeColor: strokeColor,
-        strokeWidth: strokeWidthValue,
-        pointerX: 512,
-        pointerY: 270,
-        xRadius: 50,
-        yRadius: 20,
+        ...commonShapeConfig,
+        ...shapeConfigOverride,
+      };
+    } else if (shapeKey === 'dialog') {
+      const width = Math.min(canvasDimensions.width * 0.5, 420);
+      const height = Math.min(canvasDimensions.height * 0.22, 180);
+      shapeConfig = {
+        ...commonShapeConfig,
+        x: Math.round(canvasCenterX),
+        y: Math.round(canvasCenterY),
+        width: Math.round(width),
+        height: Math.round(height),
+        pointerX: Math.round(canvasCenterX),
+        pointerY: Math.round(canvasCenterY + height / 2),
+        xRadius: width / 2,
+        yRadius: height / 2,
       };
     } else {
+      const shortSide = Math.min(canvasDimensions.width, canvasDimensions.height);
+      const radius = Math.round(shortSide * 0.18);
+      const width = Math.min(canvasDimensions.width * 0.42, 420);
+      const height = Math.min(canvasDimensions.height * 0.28, 280);
       shapeConfig = {
-        x: 512,
-        y: 200,
-        width: 200,
-        height: 200,
-        fillColor: fillColor,
-        radius: 70,
-        strokeColor: strokeColor,
-        strokeWidth: strokeWidthValue,
+        ...commonShapeConfig,
+        x: shapeKey === 'rectangle' ? Math.round((canvasDimensions.width - width) / 2) : Math.round(canvasCenterX),
+        y: shapeKey === 'rectangle' ? Math.round((canvasDimensions.height - height) / 2) : Math.round(canvasCenterY),
+        width: shapeKey === 'rectangle' ? Math.round(width) : radius * 2,
+        height: shapeKey === 'rectangle' ? Math.round(height) : radius * 2,
+        radius,
+        ...(shapeKey === 'polygon' ? { sides: 6 } : {}),
       };
     }
     const newId = `item_${activeItemList.length}`;
@@ -2285,6 +2302,7 @@ export default function VideoEditorContainer(props) {
       const sessionDetails = response.sessionDetails;
       if (sessionDetails) {
         setVideoSessionDetails(sessionDetails);
+        setAudioLayers(sessionDetails.audioLayers || []);
         toast.success(
           <div>
             <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioAddedToProject")}
@@ -2849,6 +2867,7 @@ export default function VideoEditorContainer(props) {
             isSelectButtonDisabled={isSelectButtonDisabled}
             sessionDetails={videoSessionDetails}
             sessionId={id}
+            currentLayer={currentLayer}
           />
         );
       } else {

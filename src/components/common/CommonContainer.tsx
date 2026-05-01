@@ -24,6 +24,7 @@ export default function CommonContainer(props) {
     unpublishVideoSession,
     renderCompletedThisSession,
     sessionId,
+    openAdvancedVideoEditDialog,
   } = props;
   const { colorMode } = useColorMode();
 
@@ -100,6 +101,7 @@ export default function CommonContainer(props) {
         unpublishVideoSession={unpublishVideoSession}
         renderCompletedThisSession={renderCompletedThisSession}
         sessionId={sessionId}
+        openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
       />
       <div>
         <AlertDialog />

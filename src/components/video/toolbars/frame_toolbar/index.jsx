@@ -1644,6 +1644,7 @@ export default function FrameToolbar(props) {
 
 
   const [selectedFrameRange, setSelectedFrameRange] = useState([0, totalDurationInFrames]);
+  const previousTotalDurationInFramesRef = useRef(totalDurationInFrames);
   const [gridSnapPoints, setGridSnapPoints] = useState([]);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -1652,6 +1653,26 @@ export default function FrameToolbar(props) {
   // State for grid visibility
   const [isGridVisible, setIsGridVisible] = useState(false);
   const openPopupLayerIdRef = useRef(null);
+
+  const normalizeTimelineFrameRange = useCallback((rangeValues, maxFrame = totalDurationInFrames) => {
+    const safeMaximumFrame = Math.max(1, maxFrame);
+    const rawStartFrame = Array.isArray(rangeValues) ? Math.round(Number(rangeValues[0]) || 0) : 0;
+    const rawEndFrame = Array.isArray(rangeValues)
+      ? Math.round(Number(rangeValues[1]) || safeMaximumFrame)
+      : safeMaximumFrame;
+    const nextStartFrame = Math.min(Math.max(rawStartFrame, 0), Math.max(0, safeMaximumFrame - 1));
+    const nextEndFrame = Math.max(nextStartFrame + 1, Math.min(rawEndFrame, safeMaximumFrame));
+
+    return [nextStartFrame, nextEndFrame];
+  }, [totalDurationInFrames]);
+
+  const selectedLayerFrameMeta = useMemo(() => {
+    if (typeof selectedLayerIndex !== 'number' || selectedLayerIndex < 0) {
+      return null;
+    }
+
+    return layerFrameMetadata.find((layerMeta) => layerMeta.originalIndex === selectedLayerIndex) || null;
+  }, [layerFrameMetadata, selectedLayerIndex]);
 
   const restoreSelectedLayerChrome = (preferredLayerId = null) => {
     const fallbackLayerId =
@@ -1750,9 +1771,29 @@ export default function FrameToolbar(props) {
   useEffect(() => {
     setVisibleLayersStartIndex((previousIndex) => {
       const maxStartIndex = Math.max(0, allVisibleLayerMetadata.length - MAX_VISIBLE_LAYERS);
-      return Math.min(previousIndex, maxStartIndex);
+      const clampedPreviousIndex = Math.min(previousIndex, maxStartIndex);
+      const selectedVisibleIndex = allVisibleLayerMetadata.findIndex(
+        (layerMeta) => layerMeta.originalIndex === selectedLayerIndex
+      );
+
+      if (selectedVisibleIndex === -1) {
+        return clampedPreviousIndex;
+      }
+
+      if (selectedVisibleIndex < clampedPreviousIndex) {
+        return selectedVisibleIndex;
+      }
+
+      if (selectedVisibleIndex >= clampedPreviousIndex + MAX_VISIBLE_LAYERS) {
+        return Math.min(
+          maxStartIndex,
+          Math.max(0, selectedVisibleIndex - MAX_VISIBLE_LAYERS + 1)
+        );
+      }
+
+      return clampedPreviousIndex;
     });
-  }, [allVisibleLayerMetadata.length]);
+  }, [allVisibleLayerMetadata, selectedLayerIndex]);
 
   const displayedVisibleLayerMetadata = useMemo(() => (
     allVisibleLayerMetadata.slice(
@@ -2085,14 +2126,98 @@ export default function FrameToolbar(props) {
   ]);
 
   useEffect(() => {
+    const previousTotalDurationInFrames = previousTotalDurationInFramesRef.current;
+
+    if (totalDurationInFrames <= 0) {
+      previousTotalDurationInFramesRef.current = totalDurationInFrames;
+      return;
+    }
+
+    setSelectedFrameRange((previousRange) => {
+      const normalizedRange = normalizeTimelineFrameRange(previousRange, totalDurationInFrames);
+      let [nextStartFrame, nextEndFrame] = normalizedRange;
+      const previousEndFrame = Array.isArray(previousRange) ? Number(previousRange[1]) : nextEndFrame;
+      const wasPinnedToTimelineEnd =
+        previousTotalDurationInFrames <= 0 ||
+        previousEndFrame >= previousTotalDurationInFrames - 1;
+      const timelineExpanded = totalDurationInFrames > previousTotalDurationInFrames;
+
+      if (timelineExpanded && wasPinnedToTimelineEnd) {
+        nextEndFrame = totalDurationInFrames;
+      }
+
+      if (selectedLayerFrameMeta) {
+        const layerStartFrame = Math.max(0, selectedLayerFrameMeta.startFrame);
+        const layerEndFrame = Math.min(
+          totalDurationInFrames,
+          Math.max(layerStartFrame + 1, selectedLayerFrameMeta.endFrame)
+        );
+
+        if (layerStartFrame < nextStartFrame || layerEndFrame > nextEndFrame) {
+          const currentSpan = Math.max(1, nextEndFrame - nextStartFrame);
+          const selectedLayerSpan = Math.max(1, layerEndFrame - layerStartFrame);
+          const nextSpan = Math.max(currentSpan, selectedLayerSpan);
+
+          if (layerEndFrame > nextEndFrame) {
+            nextEndFrame = Math.min(totalDurationInFrames, layerEndFrame);
+
+            if (!(timelineExpanded && wasPinnedToTimelineEnd)) {
+              nextStartFrame = Math.max(0, Math.min(layerStartFrame, nextEndFrame - nextSpan));
+            }
+          }
+
+          if (layerStartFrame < nextStartFrame) {
+            nextStartFrame = Math.max(0, layerStartFrame);
+            nextEndFrame = Math.min(totalDurationInFrames, Math.max(layerEndFrame, nextStartFrame + nextSpan));
+          }
+        }
+      }
+
+      const nextRange = normalizeTimelineFrameRange(
+        [nextStartFrame, nextEndFrame],
+        totalDurationInFrames
+      );
+
+      return previousRange[0] === nextRange[0] && previousRange[1] === nextRange[1]
+        ? previousRange
+        : nextRange;
+    });
+
+    previousTotalDurationInFramesRef.current = totalDurationInFrames;
+  }, [
+    normalizeTimelineFrameRange,
+    selectedLayerFrameMeta,
+    totalDurationInFrames,
+  ]);
+
+  useEffect(() => {
     const [startFrame, endFrame] = selectedFrameRange;
+    const selectedLayerOutsideView = Boolean(
+      selectedLayerFrameMeta &&
+      (selectedLayerFrameMeta.startFrame < startFrame || selectedLayerFrameMeta.endFrame > endFrame)
+    );
+    const seekIsInSelectedLayer = Boolean(
+      selectedLayerFrameMeta &&
+      currentLayerSeek >= selectedLayerFrameMeta.startFrame &&
+      currentLayerSeek < selectedLayerFrameMeta.endFrame
+    );
 
     // Adjust currentLayerSeek if it moves out of the new visible range
-    if (!isLayerSeeking && (currentLayerSeek < startFrame || currentLayerSeek > endFrame)) {
+    if (
+      !isLayerSeeking &&
+      (currentLayerSeek < startFrame || currentLayerSeek > endFrame) &&
+      !(selectedLayerOutsideView && seekIsInSelectedLayer)
+    ) {
       setCurrentLayerSeek(startFrame);
     }
 
-  }, [selectedFrameRange, currentLayerSeek, isLayerSeeking, setCurrentLayerSeek]);
+  }, [
+    currentLayerSeek,
+    isLayerSeeking,
+    selectedFrameRange,
+    selectedLayerFrameMeta,
+    setCurrentLayerSeek,
+  ]);
 
 
 
@@ -2129,15 +2254,7 @@ export default function FrameToolbar(props) {
   }
 
   const normalizeViewRangeSelection = (rangeValues) => {
-    const safeMaximumFrame = Math.max(1, totalDurationInFrames);
-    const rawStartFrame = Array.isArray(rangeValues) ? Math.round(Number(rangeValues[0]) || 0) : 0;
-    const rawEndFrame = Array.isArray(rangeValues)
-      ? Math.round(Number(rangeValues[1]) || safeMaximumFrame)
-      : safeMaximumFrame;
-    const nextStartFrame = Math.min(Math.max(rawStartFrame, 0), Math.max(0, safeMaximumFrame - 1));
-    const nextEndFrame = Math.max(nextStartFrame + 1, Math.min(rawEndFrame, safeMaximumFrame));
-
-    return [nextStartFrame, nextEndFrame];
+    return normalizeTimelineFrameRange(rangeValues);
   };
 
   const handleViewRangeSliderChange = (val) => {
@@ -3478,6 +3595,7 @@ export default function FrameToolbar(props) {
                     provided.innerRef(el);
                   }}
                   {...provided.draggableProps}
+                  {...provided.dragHandleProps}
                   data-scene-layer-body="true"
                   className={`layer-scene-item group ${layerSurfaceClass} ${index > 0 ? '-mt-px' : ''} ml-1 mr-1 cursor-pointer border relative overflow-hidden rounded-[3px] shadow-none`}
                   style={{
@@ -3512,14 +3630,6 @@ export default function FrameToolbar(props) {
                     <div className='text-xs font-bold mb-4'>{originalIndex + 1}</div>
                     <div>{layerDuration ? layerDuration.toFixed(1) : '3'}s</div>
                   </div>
-                  <div
-                    {...provided.dragHandleProps}
-                    data-layer-reorder-handle="true"
-                    className='absolute right-0 top-0 h-full w-[14px] cursor-grab active:cursor-grabbing z-20'
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    title='Drag to reorder scene'
-                  />
                 </div>
               );
 
@@ -4586,8 +4696,8 @@ export default function FrameToolbar(props) {
       buttonLabel="Layer"
       compact={true}
       menuAlign={isExpandedToolbarView ? 'right' : 'left'}
-      fullWidth={!isExpandedToolbarView}
-      fitMenuToTrigger={!isExpandedToolbarView}
+      fullWidth={true}
+      fitMenuToTrigger={true}
     />
   );
 
@@ -4596,7 +4706,7 @@ export default function FrameToolbar(props) {
       className='flex w-full items-center gap-1.5'
       onClick={(event) => event.stopPropagation()}
     >
-      <div className={`min-w-0 ${isExpandedToolbarView ? 'shrink-0' : 'flex-1'} ${disabledMenuClass}`}>
+      <div className={`min-w-0 flex-1 ${disabledMenuClass}`}>
         {dropdownButtonDisplay}
       </div>
       <div className='shrink-0'>
@@ -5436,8 +5546,8 @@ export default function FrameToolbar(props) {
                 </div>
               </div>
 
-              <div className='grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2'>
-                <div className='min-w-0 shrink-0'>
+              <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2'>
+                <div className='min-w-0'>
                   {toolbarHeaderControls}
                 </div>
                 <div className='min-w-0 overflow-visible'>

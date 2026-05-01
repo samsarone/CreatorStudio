@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { CURRENT_EDITOR_VIEW, FRAME_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import { getHeaders, clearAuthData } from '../../utils/web.jsx';
@@ -20,12 +20,14 @@ import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 import { normalizeActiveTextItemListForCanvas } from '../../constants/TextConfig.jsx';
+import useUndoRedoState from '../../hooks/useUndoRedoState.js';
 
 
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
 
 import ScreenLoader from './util/ScreenLoader.jsx';
 import StudioSkeletonLoader from './util/StudioSkeletonLoader.jsx';
+import VideoEditAdvancedDialog from './advanced/VideoEditAdvancedDialog.jsx';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -39,6 +41,14 @@ const VIDEO_CANVAS_ZOOM_SCALE_STORAGE_KEY = 'videoCanvasZoomScale';
 const CANVAS_ZOOM_STEP_RATIO = 0.25;
 const MIN_CANVAS_ZOOM_RATIO = 0.5;
 const MAX_CANVAS_ZOOM_RATIO = 4;
+const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
+
+function isSessionRenderPending(sessionDetails) {
+  return Boolean(
+    sessionDetails?.videoGenerationPending ||
+    (sessionDetails?.isExpressGeneration && sessionDetails?.expressGenerationPending)
+  );
+}
 
 function clampCanvasZoomScale(nextScale, fitZoomScale = 1) {
   const safeBaseScale = Math.max(Number(fitZoomScale) || 1, 0.01);
@@ -84,6 +94,16 @@ function getLayerDisplayFrameRange(layer) {
   };
 }
 
+function shouldIgnoreCanvasHistoryShortcut(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return Boolean(
+    target.closest('input, textarea, select, button, [contenteditable="true"], [role="textbox"]')
+  );
+}
+
 export default function VideoHome(props) {
   const {
     setZoomCanvasIn,
@@ -106,7 +126,15 @@ export default function VideoHome(props) {
   const [currentEditorView, setCurrentEditorView] = useState(CURRENT_EDITOR_VIEW.VIEW);
   const [downloadVideoDisplay, setDownloadVideoDisplay] = useState(false);
   const [renderedVideoPath, setRenderedVideoPath] = useState(null);
-  const [activeItemList, setActiveItemList] = useState([]);
+  const {
+    state: activeItemList,
+    setState: setActiveItemList,
+    syncState: syncActiveItemList,
+    undo: undoActiveItemList,
+    redo: redoActiveItemList,
+    canUndo: canUndoActiveItemList,
+    canRedo: canRedoActiveItemList,
+  } = useUndoRedoState([], { limit: 5 });
   const [isLayerSeeking, setIsLayerSeeking] = useState(false);
   const [isVideoGenerating, setIsVideoGenerating] = useState(false);
   const [frameToolbarView, setFrameToolbarView] = useState(FRAME_TOOLBAR_VIEW.DEFAULT);
@@ -155,6 +183,7 @@ export default function VideoHome(props) {
   const assistantFrameCaptureRef = useRef(null);
 
   let { id } = useParams();
+  const navigate = useNavigate();
 
   const { user, getUserAPI } = useUser();
   const { t } = useLocalization();
@@ -166,6 +195,42 @@ export default function VideoHome(props) {
 
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
   const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
+
+  const setAdvancedVideoEditPendingSession = (nextSessionId) => {
+    if (!nextSessionId || typeof window === 'undefined') return;
+    sessionStorage.setItem(
+      ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY,
+      JSON.stringify({ sessionId: nextSessionId, startedAt: Date.now() })
+    );
+  };
+
+  const shouldForceAdvancedVideoEditPolling = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return false;
+    try {
+      const rawValue = sessionStorage.getItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      if (!rawValue) return false;
+      const parsedValue = JSON.parse(rawValue);
+      const startedAt = Number(parsedValue?.startedAt);
+      const isFresh = Number.isFinite(startedAt) && Date.now() - startedAt < 10 * 60 * 1000;
+      return parsedValue?.sessionId === candidateSessionId && isFresh;
+    } catch {
+      return false;
+    }
+  };
+
+  const clearAdvancedVideoEditPendingSession = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return;
+    try {
+      const rawValue = sessionStorage.getItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      if (!rawValue) return;
+      const parsedValue = JSON.parse(rawValue);
+      if (parsedValue?.sessionId === candidateSessionId) {
+        sessionStorage.removeItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      }
+    } catch {
+      sessionStorage.removeItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+    }
+  };
 
   const hasPendingFrameOrLayerGeneration = (sessionData) => {
     if (!sessionData) {
@@ -248,7 +313,7 @@ export default function VideoHome(props) {
     setCurrentEditorView(CURRENT_EDITOR_VIEW.VIEW);
     setDownloadVideoDisplay(false);
     setRenderedVideoPath(null);
-    setActiveItemList([]);
+    syncActiveItemList([], { resetHistory: true });
     setIsLayerSeeking(false);
     setIsVideoGenerating(false);
     setFrameToolbarView(FRAME_TOOLBAR_VIEW.DEFAULT);
@@ -614,7 +679,7 @@ export default function VideoHome(props) {
     setCurrentEditorView(CURRENT_EDITOR_VIEW.VIEW);
     setDownloadVideoDisplay(false);
     setRenderedVideoPath(null);
-    setActiveItemList([]);
+    syncActiveItemList([], { resetHistory: true });
     setIsLayerSeeking(false);
     setIsVideoGenerating(false);
     setFrameToolbarView(FRAME_TOOLBAR_VIEW.DEFAULT);
@@ -816,6 +881,7 @@ export default function VideoHome(props) {
 
     axios.get(`${PROCESSOR_API_URL}/video_sessions/session_details?id=${id}`, headers).then((dataRes) => {
       const sessionDetails = dataRes.data;
+      const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
 
 
       if (sessionDetails.audio) {
@@ -839,7 +905,7 @@ export default function VideoHome(props) {
       setAspectRatio(sessionDetails.aspectRatio);
       setAudioLayers(sessionDetails.audioLayers || []);
 
-      if (sessionDetails.videoGenerationPending) {
+      if (isSessionRenderPending(sessionDetails) || forceAdvancedEditPoll) {
         setIsVideoGenerating(true);
         startVideoRenderPoll();
       }
@@ -855,6 +921,7 @@ export default function VideoHome(props) {
         setRenderedVideoPath(downloadLink);
         setDownloadVideoDisplay(true);
         setRenderCompletedThisSession(false);
+        clearAdvancedVideoEditPendingSession(id);
       }
 
       let totalDuration = 0;
@@ -933,15 +1000,15 @@ export default function VideoHome(props) {
         return { ...item, isHidden: false };
       });
       activeItemListRef.current = activeList;
-      setActiveItemList(activeList);
+      syncActiveItemList(activeList, { resetHistory: !shouldReuseLocalTextConfig });
       // const newLayerSeek = Math.floor(currentLayer.durationOffset * 30);
       //setCurrentLayerSeek(newLayerSeek);
     } else {
       activeItemListRef.current = [];
-      setActiveItemList([]);
+      syncActiveItemList([], { resetHistory: true });
     }
     previousSyncedLayerIdRef.current = currentLayerId;
-  }, [currentLayer]);
+  }, [currentLayer, syncActiveItemList, videoSessionDetails?.aspectRatio]);
 
   // Image Preloading Worker Setup
   useEffect(() => {
@@ -1153,6 +1220,11 @@ export default function VideoHome(props) {
           return;
         }
 
+        if (renderStatus === 'IDLE' && shouldForceAdvancedVideoEditPolling(id)) {
+          setIsVideoGenerating(true);
+          return;
+        }
+
         clearInterval(timer);
         renderPollTimerRef.current = null;
         setIsVideoGenerating(false);
@@ -1167,6 +1239,7 @@ export default function VideoHome(props) {
           setIsCanvasDirty(false);
           setDownloadLink(videoLink);
           setRenderCompletedThisSession(true);
+          clearAdvancedVideoEditPendingSession(id);
           toast.success(<div>{t("studio.notifications.renderFinished")}</div>, {
             position: "bottom-center",
             className: "custom-toast",
@@ -1175,6 +1248,7 @@ export default function VideoHome(props) {
         }
 
         if (renderStatus === 'FAILED') {
+          clearAdvancedVideoEditPendingSession(id);
           toast.error(renderData.generationError || sessionData?.generationError || 'Video render failed.', {
             position: "bottom-center",
             className: "custom-toast",
@@ -1638,7 +1712,7 @@ export default function VideoHome(props) {
             );
             activeItemListRef.current = normalizedItemList;
             setCurrentLayer(layer);
-            setActiveItemList(normalizedItemList);
+            syncActiveItemList(normalizedItemList);
           }
 
           setIsCanvasDirty(true);
@@ -1665,7 +1739,7 @@ export default function VideoHome(props) {
 
     if (currentLayer?._id?.toString?.() === updatedLayer._id.toString()) {
       setCurrentLayer(updatedLayer);
-      setActiveItemList(updatedLayer.imageSession?.activeItemList || []);
+      syncActiveItemList(updatedLayer.imageSession?.activeItemList || []);
       return;
     }
 
@@ -1693,6 +1767,90 @@ export default function VideoHome(props) {
       debouncedUpdateSessionLayerActiveItemListRef.current?.(newActiveItemList);
     }
   };
+
+  const handleUndoCanvasHistory = useCallback(() => {
+    if (!canUndoActiveItemList) {
+      return;
+    }
+
+    const nextActiveItemList = undoActiveItemList();
+    activeItemListRef.current = nextActiveItemList;
+    updateSessionLayerActiveItemList(nextActiveItemList);
+  }, [canUndoActiveItemList, undoActiveItemList, updateSessionLayerActiveItemList]);
+
+  const handleRedoCanvasHistory = useCallback(() => {
+    if (!canRedoActiveItemList) {
+      return;
+    }
+
+    const nextActiveItemList = redoActiveItemList();
+    activeItemListRef.current = nextActiveItemList;
+    updateSessionLayerActiveItemList(nextActiveItemList);
+  }, [canRedoActiveItemList, redoActiveItemList, updateSessionLayerActiveItemList]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+        return;
+      }
+
+      if (shouldIgnoreCanvasHistoryShortcut(event.target)) {
+        return;
+      }
+
+      const key = `${event.key || ''}`.toLowerCase();
+      if (key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          handleRedoCanvasHistory();
+        } else {
+          handleUndoCanvasHistory();
+        }
+        return;
+      }
+
+      if (key === 'y') {
+        event.preventDefault();
+        handleRedoCanvasHistory();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleRedoCanvasHistory, handleUndoCanvasHistory]);
+
+  const handleSceneActionApplied = useCallback((responseData = {}) => {
+    const sessionData = responseData.sessionDetails || responseData.session;
+    const updatedLayer = responseData.layer;
+
+    if (sessionData) {
+      const updatedLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
+      setVideoSessionDetails(sessionData);
+      setLayers(updatedLayers);
+      setIsLayerGenerationPending(hasPendingFrameOrLayerGeneration(sessionData));
+      if (Array.isArray(sessionData.sessionMessages)) {
+        setSessionMessages(sessionData.sessionMessages);
+      }
+    }
+
+    if (updatedLayer?._id && currentLayerRef.current?._id?.toString?.() === updatedLayer._id.toString()) {
+      const resolvedCanvasDimensions = getCanvasDimensionsForAspectRatio(
+        sessionData?.aspectRatio || videoSessionDetailsRef.current?.aspectRatio
+      );
+      const normalizedItemList = normalizeActiveTextItemListForCanvas(
+        updatedLayer.imageSession?.activeItemList || [],
+        resolvedCanvasDimensions,
+        activeItemListRef.current,
+        { preferFallbackTextConfig: true }
+      ).map((item) => ({ ...item, isHidden: false }));
+
+      activeItemListRef.current = normalizedItemList;
+      setCurrentLayer(updatedLayer);
+      setActiveItemList(normalizedItemList);
+    }
+
+    setIsCanvasDirty(true);
+  }, [setActiveItemList]);
 
   const updateLayerVisualItem = async ({ layerId, itemId, startFrame, endFrame }) => {
     const headers = getHeaders();
@@ -2300,6 +2458,64 @@ export default function VideoHome(props) {
     });
   };
 
+  const handleAdvancedVideoEditAccepted = useCallback((requestInfo) => {
+    const nextSessionId = requestInfo?.sessionId || requestInfo?.requestId;
+    closeAlertDialog();
+
+    if (requestInfo?.status === 'CANCELLED') {
+      stopVideoRenderPoll();
+      setIsVideoGenerating(false);
+      setVideoSessionDetails((prevDetails) => {
+        if (!prevDetails) {
+          return prevDetails;
+        }
+
+        return {
+          ...prevDetails,
+          videoGenerationPending: false,
+          expressGenerationPending: false,
+          expressGenerationCancelled: true,
+        };
+      });
+      toast.success('Render cancelled', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      return;
+    }
+
+    setRenderCompletedThisSession(false);
+    setRenderedVideoPath(null);
+    setDownloadLink(null);
+    setDownloadVideoDisplay(false);
+    setIsCanvasDirty(false);
+    setIsVideoGenerating(true);
+
+    if (nextSessionId && nextSessionId !== id) {
+      setAdvancedVideoEditPendingSession(nextSessionId);
+      localStorage.setItem('sessionId', nextSessionId);
+      localStorage.setItem('videoSessionId', nextSessionId);
+      navigate(`/video/${nextSessionId}`);
+      return;
+    }
+
+    startVideoRenderPoll();
+  }, [closeAlertDialog, id, navigate]);
+
+  const openAdvancedVideoEditDialog = useCallback(() => {
+    openAlertDialog(
+      <VideoEditAdvancedDialog
+        sessionId={id}
+        currentSession={videoSessionDetails}
+        onClose={closeAlertDialog}
+        onRequestAccepted={handleAdvancedVideoEditAccepted}
+      />,
+      undefined,
+      true,
+      { hideBorder: true, hideCloseButton: true, centerContent: true }
+    );
+  }, [closeAlertDialog, handleAdvancedVideoEditAccepted, id, openAlertDialog, videoSessionDetails]);
+
   const unpublishVideoSession = () => {
     const headers = getHeaders();
     if (!headers) {
@@ -2398,7 +2614,7 @@ export default function VideoHome(props) {
       setLayers(updatedLayers);
       setLayerListRequestAdded(true);
       setSelectedLayerIndex(previousLength); // Set selected index to the first item of the new prompt list
-      setCurrentLayer(updatedLayers[previousLength + 1]);
+      setCurrentLayer(updatedLayers[previousLength]);
       setIsCanvasDirty(true);
     });
   }
@@ -2514,6 +2730,11 @@ export default function VideoHome(props) {
       frameImage: options?.frameImage || null,
     }, headers).then((response) => {
       const assistantResponse = response.data;
+      if (assistantResponse?.status === 'COMPLETED' && assistantResponse?.sessionDetails) {
+        setSessionMessages(assistantResponse.sessionDetails.sessionMessages || []);
+        setIsAssistantQueryGenerating(false);
+        return;
+      }
       startAssistantQueryPoll();
     }).catch(function (err) {
       setIsAssistantQueryGenerating(false);
@@ -2671,7 +2892,10 @@ export default function VideoHome(props) {
       });
   }
 
-  const isVideoRenderPending = Boolean(isVideoGenerating || videoSessionDetails?.videoGenerationPending);
+  const isVideoRenderPending = Boolean(
+    isVideoGenerating ||
+    isSessionRenderPending(videoSessionDetails)
+  );
   const collapsedFrameToolbarWidth = 'min(10vw, 128px)';
   const collapsedRightPanelWidth = 'clamp(148px, 11vw, 168px)';
   const studioInsetPx = 16;
@@ -2855,6 +3079,7 @@ export default function VideoHome(props) {
       unpublishVideoSession={unpublishVideoSession}
       renderCompletedThisSession={renderCompletedThisSession}
       sessionId={id}
+      openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
     >
       <PreviewPlaybackController
         applyAudioDucking={applyAudioDucking}
@@ -2965,6 +3190,12 @@ export default function VideoHome(props) {
               onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
               isAssistantQueryGenerating={isAssistantQueryGenerating}
               getFrameImageData={getAssistantFrameImageData}
+              currentLayerId={currentLayer?._id?.toString?.()}
+              onSceneActionApplied={handleSceneActionApplied}
+              canUndoCanvasHistory={canUndoActiveItemList}
+              canRedoCanvasHistory={canRedoActiveItemList}
+              onUndoCanvasHistory={handleUndoCanvasHistory}
+              onRedoCanvasHistory={handleRedoCanvasHistory}
             />
           </div>
           <div className='flex items-end gap-4'>

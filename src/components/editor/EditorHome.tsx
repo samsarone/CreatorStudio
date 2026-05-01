@@ -585,12 +585,27 @@ export default function EditorHome(props) {
     openAlertDialog(<UploadImageDialog setUploadURL={setUploadURL} />);
   }
 
-  const setSelectedShape = (shapeKey) => {
+  const setSelectedShape = (shapeKey, shapeConfigOverride = null) => {
     let currentLayerList: any = Object.assign([], activeItemList);
-    const shapeConfig = {
-      x: 512, y: 200, width: 200, height: 200, fill: fillColor, radius: 70,
-      stroke: strokeColor, strokeWidth: strokeWidthValue
+    const defaultShapeSize = Math.min(STAGE_DIMENSIONS.width, STAGE_DIMENSIONS.height) * 0.25;
+    const fallbackShapeConfig = {
+      x: Math.round((STAGE_DIMENSIONS.width - defaultShapeSize) / 2),
+      y: Math.round((STAGE_DIMENSIONS.height - defaultShapeSize) / 2),
+      width: Math.round(defaultShapeSize),
+      height: Math.round(defaultShapeSize),
+      fillColor: fillColor,
+      radius: Math.round(defaultShapeSize / 2),
+      strokeColor: strokeColor,
+      strokeWidth: strokeWidthValue
     }
+    const shapeConfig = shapeConfigOverride && typeof shapeConfigOverride === 'object'
+      ? {
+        fillColor: fillColor,
+        strokeColor: strokeColor,
+        strokeWidth: strokeWidthValue,
+        ...shapeConfigOverride,
+      }
+      : fallbackShapeConfig;
     const newItem = {
       'type': 'shape',
       'shape': shapeKey,

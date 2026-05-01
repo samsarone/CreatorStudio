@@ -69,8 +69,9 @@ export default function RegisterPage() {
         localStorage.setItem('setShowSetPaymentFlow', 'true');
       })
       .catch((error) => {
-        if (error.response && error.response.data && error.response.data.message) {
-          onError(error.response.data.message);
+        const serverMessage = error.response?.data?.message || error.response?.data?.error;
+        if (serverMessage) {
+          onError(serverMessage);
         } else {
           onError('Unable to register user at this time. Please try again.');
         }

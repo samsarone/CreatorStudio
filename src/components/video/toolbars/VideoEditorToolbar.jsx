@@ -58,6 +58,39 @@ import VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.jsx'
 import VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.jsx';
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 
+function resolveSpeakerProvider(speaker = {}) {
+  const explicitProvider =
+    typeof speaker?.provider === 'string'
+      ? speaker.provider.trim().toUpperCase()
+      : '';
+
+  if (explicitProvider === 'OPENAI' || explicitProvider === 'ELEVENLABS') {
+    return explicitProvider;
+  }
+
+  const speakerValue = typeof speaker?.speaker === 'string' ? speaker.speaker.trim() : '';
+  const matchedSpeaker = TTS_COMBINED_SPEAKER_TYPES.find((item) => item.value === speakerValue);
+  return matchedSpeaker?.provider || 'OPENAI';
+}
+
+function buildMovieSpeakerOption(speaker = {}) {
+  const speakerValue = typeof speaker?.speaker === 'string' ? speaker.speaker.trim() : '';
+  const speakerLabel =
+    typeof speaker?.speakerCharacterName === 'string' && speaker.speakerCharacterName.trim()
+      ? speaker.speakerCharacterName.trim()
+      : typeof speaker?.actor === 'string' && speaker.actor.trim()
+        ? speaker.actor.trim()
+        : speakerValue;
+
+  return {
+    value: speakerValue,
+    label: speakerLabel,
+    provider: resolveSpeakerProvider(speaker),
+    speaker: speakerValue,
+    speakerCharacterName: speakerLabel,
+  };
+}
+
 export default function VideoEditorToolbar(props) {
   const {
     sessionDetails,
@@ -193,18 +226,10 @@ export default function VideoEditorToolbar(props) {
       const storedSpeaker = movieGenSpeakers.find(speaker => speaker.speakerCharacterName === storedSpeakerName);
 
       if (storedSpeaker) {
-        setSpeakerType({
-          value: storedSpeaker.speaker,
-          label: storedSpeaker.speakerCharacterName,
-          provider: storedSpeaker.provider
-        });
+        setSpeakerType(buildMovieSpeakerOption(storedSpeaker));
       }
       else {
-        setSpeakerType({
-          value: movieGenSpeakers[0].speaker,
-          label: movieGenSpeakers[0].speakerCharacterName,
-          provider: movieGenSpeakers[0].provider
-        });
+        setSpeakerType(buildMovieSpeakerOption(movieGenSpeakers[0]));
       }
 
     }
@@ -635,6 +660,7 @@ export default function VideoEditorToolbar(props) {
         textConfig={textConfig}
         addText={addText}
         setTextConfig={setTextConfig}
+        isExpandedView={isExpandedView}
       />
     );
   }
@@ -722,6 +748,8 @@ export default function VideoEditorToolbar(props) {
         strokeColor={strokeColor}
         strokeWidthValue={strokeWidthValue}
         setStrokeWidthValue={setStrokeWidthValue}
+        isExpandedView={isExpandedView}
+        aspectRatio={aspectRatio}
       />
     );
   }
@@ -756,9 +784,7 @@ export default function VideoEditorToolbar(props) {
   const compactTextareaClass = `${compactInputClass} min-h-[96px]`;
   const compactActionGridClass = 'grid w-full gap-2';
   const compactActionGridStyle = {
-    gridTemplateColumns: isExpandedView
-      ? 'repeat(2, minmax(0, 1fr))'
-      : 'repeat(auto-fit, minmax(96px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
   };
   const compactActionLabelClass = isExpandedView
     ? 'w-full whitespace-normal break-words text-center text-[11px] font-medium leading-tight tracking-tight'
@@ -1004,40 +1030,65 @@ export default function VideoEditorToolbar(props) {
   let audioSubOptionsDisplay = <span />;
 
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_AUDIO_DISPLAY) {
+    const audioActionOptions = [
+      {
+        value: TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY,
+        label: 'Speech',
+        icon: <RiSpeakLine />,
+      },
+      {
+        value: TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY,
+        label: 'Music',
+        icon: <FaMusic />,
+      },
+      {
+        value: TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY,
+        label: 'Effects',
+        icon: <AiOutlineSound />,
+      },
+    ];
+    const selectedAudioActionOption =
+      audioActionOptions.find((option) => option.value === currentCanvasAction) || null;
     const isAudioOptionSelected = (option) => currentCanvasAction === option;
+    const handleAudioActionChange = (selectedOption) => {
+      if (selectedOption?.value) {
+        setCurrentCanvasAction(selectedOption.value);
+      }
+    };
 
-    audioOptionsDisplay = (
-      <div className={compactActionGridClass} style={compactActionGridStyle}>
-        {renderToolbarActionTile({
-          key: 'speech',
-          icon: <RiSpeakLine />,
-          label: 'Speech',
-          onClick: () => {
-            setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY);
-          },
-          isActive: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY),
-          ariaPressed: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY),
-        })}
-        {renderToolbarActionTile({
-          key: 'music',
-          icon: <FaMusic />,
-          label: 'Music',
-          onClick: () => {
-            setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY);
-          },
-          isActive: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY),
-          ariaPressed: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_MUSIC_GENERATE_DISPLAY),
-        })}
-        {renderToolbarActionTile({
-          key: 'effect',
-          icon: <AiOutlineSound />,
-          label: 'Effect',
-          onClick: () => {
-            setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY);
-          },
-          isActive: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY),
-          ariaPressed: isAudioOptionSelected(TOOLBAR_ACTION_VIEW.SHOW_SOUND_GENERATE_DISPLAY),
-        })}
+    audioOptionsDisplay = isCollapsedSidebarView ? (
+      <div className="mb-3">
+        <label className={compactFieldLabelClass} htmlFor="audioGenerateType">
+          Type
+        </label>
+        <SingleSelect
+          name="audioGenerateType"
+          placeholder="Select audio type..."
+          options={audioActionOptions.map(({ value, label }) => ({ value, label }))}
+          value={
+            selectedAudioActionOption
+              ? { value: selectedAudioActionOption.value, label: selectedAudioActionOption.label }
+              : null
+          }
+          onChange={handleAudioActionChange}
+          isSearchable={false}
+          truncateLabels
+        />
+      </div>
+    ) : (
+      <div className={compactActionGridClass} style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+        {audioActionOptions.map((option) => (
+          renderToolbarActionTile({
+            key: option.value,
+            icon: option.icon,
+            label: option.label,
+            onClick: () => {
+              setCurrentCanvasAction(option.value);
+            },
+            isActive: isAudioOptionSelected(option.value),
+            ariaPressed: isAudioOptionSelected(option.value),
+          })
+        ))}
       </div>
     );
 

@@ -160,8 +160,9 @@ export default function AuthContainer(props) {
       
 
       // Attempt to bubble server error back to <Register />
-      if (error.response && error.response.data && error.response.data.message) {
-        onError(error.response.data.message);
+      const serverMessage = error.response?.data?.message || error.response?.data?.error;
+      if (serverMessage) {
+        onError(serverMessage);
       } else {
         onError('Unable to register user at this time. Please try again.');
       }

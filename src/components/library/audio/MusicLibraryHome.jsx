@@ -330,6 +330,7 @@ export default function MusicLibraryHome({
   hideSelectButton,
   sessionDetails,
   sessionId,
+  currentLayer,
 }) {
   const [globalArtifacts, setGlobalArtifacts] = useState(EMPTY_GLOBAL_ARTIFACTS);
   const [projectGeneratedMusicItems, setProjectGeneratedMusicItems] = useState([]);
@@ -366,6 +367,10 @@ export default function MusicLibraryHome({
   const sliderAccent = colorMode === 'dark' ? '#6366f1' : '#2563eb';
   const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
   const sessionEndTime = getSessionEndTime(sessionDetails);
+  const currentLayerId = currentLayer?._id?.toString?.() || currentLayer?._id || null;
+  const currentLayerStartTime = Number(currentLayer?.durationOffset ?? currentLayer?.startTime ?? 0);
+  const currentLayerDuration = Number(currentLayer?.duration);
+  const hasCurrentLayer = Boolean(currentLayerId) && Number.isFinite(currentLayerStartTime);
 
   const fetchLibraryData = useCallback(async () => {
     const headers = getHeaders();
@@ -658,6 +663,29 @@ export default function MusicLibraryHome({
     });
   };
 
+  const handleAddSpeechToCurrentLayer = (item) => {
+    if (!onSelectMusic || item.libraryType !== AUDIO_TYPE_SPEECH || !hasCurrentLayer) {
+      return;
+    }
+
+    const itemDuration = Number(item.duration);
+    const fallbackDuration = Number.isFinite(currentLayerDuration) && currentLayerDuration > 0
+      ? currentLayerDuration
+      : Number(getDefaultDurationValue(item));
+    const durationValue = Number.isFinite(itemDuration) && itemDuration > 0
+      ? itemDuration
+      : fallbackDuration;
+
+    onSelectMusic(item, {
+      startTime: currentLayerStartTime,
+      duration: durationValue,
+      volume: Number.isFinite(Number(item.volume)) ? Number(item.volume) : 100,
+      addSubtitles: true,
+      selectedSubtitleOption: 'SUBTITLE',
+      connectedLayerId: currentLayerId,
+    });
+  };
+
   const handleCopyPrompt = async (item) => {
     const promptText = getPromptText(item);
     if (!promptText || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -736,6 +764,19 @@ export default function MusicLibraryHome({
           >
             <FaDownload className={iconColor} />
           </button>
+
+          {!hideSelectButton && item.libraryType === AUDIO_TYPE_SPEECH && (
+            <button
+              type="button"
+              className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton} disabled:cursor-not-allowed disabled:opacity-50`}
+              onClick={() => handleAddSpeechToCurrentLayer(item)}
+              disabled={!hasCurrentLayer}
+              title={hasCurrentLayer ? 'Add speech to current layer' : 'Select a layer before adding speech'}
+              aria-label={hasCurrentLayer ? 'Add speech to current layer' : 'Select a layer before adding speech'}
+            >
+              <FaCheck className={iconColor} />
+            </button>
+          )}
         </div>
 
         <div className="flex items-start justify-between gap-3">

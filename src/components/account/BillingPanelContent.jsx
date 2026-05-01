@@ -99,11 +99,6 @@ export default function BillingPanelContent() {
     if (params.get("setup") === "success") {
       getUserAPI();
     }
-    const couponFromQuery = params.get("couponCode");
-    if (couponFromQuery) {
-      setCouponCode(couponFromQuery.trim());
-      setIsCouponOpen(true);
-    }
   }, [location.search, getUserAPI]);
 
   const creditsPerCharge = useMemo(
@@ -279,26 +274,18 @@ export default function BillingPanelContent() {
     try {
       purchaseWindow = allowPopupNavigation ? window.open("", "_blank") : null;
       const purchaseAmountRequest = parseInt(amountToPurchase, 10);
-      const trimmedCouponCode = couponCode.trim();
       const purchasePayload = {
         amount: purchaseAmountRequest,
       };
-      if (trimmedCouponCode.length > 0) {
-        purchasePayload.couponCode = trimmedCouponCode;
-      }
       const res = await axios.post(
         `${PROCESSOR_SERVER}/users/purchase_credits`,
         purchasePayload,
         getHeaders()
       );
-      const { url, couponApplied, discountPercent } = res.data || {};
+      const { url } = res.data || {};
       if (url) {
         navigationHandled = openNavigationTarget(purchaseWindow, url);
-        if (couponApplied && discountPercent) {
-          toast.success(`Coupon applied (${discountPercent}% off). Redirecting to Stripe checkout...`, { position: "bottom-center" });
-        } else {
-          toast.success("Redirecting to Stripe checkout...", { position: "bottom-center" });
-        }
+        toast.success("Redirecting to Stripe checkout...", { position: "bottom-center" });
       } else {
         toast.error("Failed to generate payment URL", { position: "bottom-center" });
       }

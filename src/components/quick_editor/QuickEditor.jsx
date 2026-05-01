@@ -920,7 +920,6 @@ export default function QuickEditor() {
   const calculateCredits = () => {
     let credits = 0;
 
-    const selectedInferenceModel = user ? user.selectedInferenceModel : 'GPT5.4';
     const lineItems = promptList.split('\n').map((prompt) => prompt.trim()).filter(Boolean);
     const numImages = lineItems.length; // Scenes = # lines
 
@@ -1007,9 +1006,6 @@ export default function QuickEditor() {
 
     // Prompt Enhancement credits
     let promptEnhancementPricePerUnit = 2;
-    if (selectedInferenceModel === 'GPTO1') {
-      promptEnhancementPricePerUnit = 9;
-    }
     let totalPromptEnhancementCredits = 0;
     lineItems.forEach((line) => {
       const lineLength = line.length;
@@ -1022,9 +1018,6 @@ export default function QuickEditor() {
 
     // Theming credits
     let themePricePerUnit = 2;
-    if (selectedInferenceModel === 'GPTO1') {
-      themePricePerUnit = 9;
-    }
     let totalThemeCredits = 0;
     lineItems.forEach((line) => {
       const lineLength = line.length;

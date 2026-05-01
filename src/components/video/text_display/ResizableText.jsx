@@ -36,9 +36,10 @@ function buildShapeState(config = {}) {
     shadowOffsetX: config.shadowOffsetX ?? 0,
     shadowOffsetY: config.shadowOffsetY ?? 0,
     rotationAngle: config.rotationAngle ?? 0,
-    autoWrap: config.autoWrap || false,
-    capitalizeLetters: config.capitalizeLetters || false,
+    autoWrap: config.autoWrap !== false,
+    capitalizeLetters: Boolean(config.capitalizeLetters),
     lineHeight: config.lineHeight ?? 1.2,
+    letterSpacing: config.letterSpacing ?? 0,
   };
 }
 
@@ -67,7 +68,8 @@ function areShapeStatesEqual(currentState, nextState) {
     currentState.rotationAngle === nextState.rotationAngle &&
     currentState.autoWrap === nextState.autoWrap &&
     currentState.capitalizeLetters === nextState.capitalizeLetters &&
-    currentState.lineHeight === nextState.lineHeight
+    currentState.lineHeight === nextState.lineHeight &&
+    currentState.letterSpacing === nextState.letterSpacing
   );
 }
 
@@ -137,6 +139,7 @@ const ResizableText = ({
     config?.autoWrap,
     config?.capitalizeLetters,
     config?.lineHeight,
+    config?.letterSpacing,
   ]);
 
   useEffect(() => {
@@ -152,6 +155,13 @@ const ResizableText = ({
 
   useEffect(() => {
     if (!textRef.current) return;
+    if (shapeState.autoWrap) {
+      previousMeasuredSizeRef.current = {
+        width: shapeState.width,
+        height: shapeState.height,
+      };
+      return;
+    }
 
     const node = textRef.current;
     const measuredWidth = node.width();
@@ -183,6 +193,7 @@ const ResizableText = ({
     shapeState.fillColor,
     shapeState.autoWrap,
     shapeState.lineHeight,
+    shapeState.letterSpacing,
   ]);
 
   const displayText = useMemo(
@@ -369,7 +380,9 @@ const ResizableText = ({
             rotation={shapeState.rotationAngle}
             wrap={shapeState.autoWrap ? 'word' : 'none'}
             lineHeight={shapeState.lineHeight}
+            letterSpacing={shapeState.letterSpacing}
             width={shapeState.autoWrap ? shapeState.width : undefined}
+            height={shapeState.autoWrap ? shapeState.height : undefined}
             listening={false}
           />
         ) : null}
@@ -392,8 +405,11 @@ const ResizableText = ({
           rotation={shapeState.rotationAngle}
           wrap={shapeState.autoWrap ? 'word' : 'none'}
           lineHeight={shapeState.lineHeight}
+          letterSpacing={shapeState.letterSpacing}
           width={shapeState.autoWrap ? shapeState.width : undefined}
+          height={shapeState.autoWrap ? shapeState.height : undefined}
           ref={textRef}
+          listening={false}
         />
       </Group>
 

@@ -17,7 +17,17 @@ function buildCanvasFont(config) {
   return fontTokens.join(' ');
 }
 
-function wrapTextToWidth(ctx, text, maxWidth) {
+function measureTextLine(ctx, line, letterSpacing = 0) {
+  const text = `${line || ''}`;
+  if (!text) {
+    return 0;
+  }
+
+  const baseWidth = ctx.measureText(text).width;
+  return baseWidth + Math.max(0, Array.from(text).length - 1) * letterSpacing;
+}
+
+function wrapTextToWidth(ctx, text, maxWidth, letterSpacing = 0) {
   if (!text) {
     return [''];
   }
@@ -40,7 +50,7 @@ function wrapTextToWidth(ctx, text, maxWidth) {
     let currentLine = words[0];
     for (let index = 1; index < words.length; index += 1) {
       const nextLine = `${currentLine} ${words[index]}`;
-      if (ctx.measureText(nextLine).width <= maxWidth) {
+      if (measureTextLine(ctx, nextLine, letterSpacing) <= maxWidth) {
         currentLine = nextLine;
       } else {
         wrappedLines.push(currentLine);
@@ -66,8 +76,35 @@ function getTextAnchorX(width, textAlign) {
   return 0;
 }
 
-function drawUnderline(ctx, line, x, y, textAlign, fontSize) {
-  const measuredWidth = ctx.measureText(line).width;
+function drawTextLine(ctx, line, x, y, textAlign, letterSpacing, drawMode) {
+  if (!letterSpacing) {
+    ctx[drawMode](line, x, y);
+    return;
+  }
+
+  const measuredWidth = measureTextLine(ctx, line, letterSpacing);
+  let startX = x;
+
+  if (textAlign === 'center') {
+    startX = x - measuredWidth / 2;
+  } else if (textAlign === 'right') {
+    startX = x - measuredWidth;
+  }
+
+  const previousTextAlign = ctx.textAlign;
+  ctx.textAlign = 'left';
+  let cursorX = startX;
+
+  for (const character of Array.from(`${line || ''}`)) {
+    ctx[drawMode](character, cursorX, y);
+    cursorX += ctx.measureText(character).width + letterSpacing;
+  }
+
+  ctx.textAlign = previousTextAlign;
+}
+
+function drawUnderline(ctx, line, x, y, textAlign, fontSize, letterSpacing = 0) {
+  const measuredWidth = measureTextLine(ctx, line, letterSpacing);
   let startX = x;
 
   if (textAlign === 'center') {
@@ -106,6 +143,7 @@ export function drawCanvasTextItem(ctx, item, canvasDimensions) {
   const rotationAngle = Number(config.rotationAngle) || 0;
   const textAlign = config.textAlign || 'left';
   const lineHeight = Math.max(0.1, Number(config.lineHeight) || 1.2);
+  const letterSpacing = Number(config.letterSpacing) || 0;
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -114,6 +152,10 @@ export function drawCanvasTextItem(ctx, item, canvasDimensions) {
   if (rotationAngle) {
     ctx.rotate((rotationAngle * Math.PI) / 180);
   }
+
+  ctx.beginPath();
+  ctx.rect(0, 0, width, height);
+  ctx.clip();
 
   ctx.font = buildCanvasFont(config);
   ctx.fillStyle = config.fillColor || '#ffffff';
@@ -125,7 +167,7 @@ export function drawCanvasTextItem(ctx, item, canvasDimensions) {
   ctx.shadowOffsetY = Number(config.shadowOffsetY) || 0;
 
   const lines = config.autoWrap
-    ? wrapTextToWidth(ctx, displayText, width)
+    ? wrapTextToWidth(ctx, displayText, width, letterSpacing)
     : displayText.split('\n');
   const textAnchorX = getTextAnchorX(width, textAlign);
   const lineHeightPx = config.fontSize * lineHeight;
@@ -137,13 +179,13 @@ export function drawCanvasTextItem(ctx, item, canvasDimensions) {
     if ((config.strokeWidth || 0) > 0) {
       ctx.strokeStyle = config.strokeColor || '#ffffff';
       ctx.lineWidth = config.strokeWidth || 0;
-      ctx.strokeText(line, textAnchorX, lineY);
+      drawTextLine(ctx, line, textAnchorX, lineY, textAlign, letterSpacing, 'strokeText');
     }
 
-    ctx.fillText(line, textAnchorX, lineY);
+    drawTextLine(ctx, line, textAnchorX, lineY, textAlign, letterSpacing, 'fillText');
 
     if (config.underline) {
-      drawUnderline(ctx, line, textAnchorX, lineY, textAlign, config.fontSize);
+      drawUnderline(ctx, line, textAnchorX, lineY, textAlign, config.fontSize, letterSpacing);
     }
   }
 

@@ -1,9 +1,52 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FaChevronDown } from 'react-icons/fa';
 import TextareaAutosize from 'react-textarea-autosize';
 import SingleSelect from '../../../common/SingleSelect.jsx';
 import CommonButton from '../../../common/CommonButton.tsx';
 import AddSpeaker from './AddSpeaker';
+import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';
+
+function normalizeProvider(provider, speakerValue = '') {
+  const rawProvider =
+    typeof provider === 'string'
+      ? provider
+      : typeof provider?.value === 'string'
+        ? provider.value
+        : '';
+  const normalizedProvider = rawProvider.trim().toUpperCase();
+
+  if (normalizedProvider === 'OPENAI' || normalizedProvider === 'ELEVENLABS') {
+    return normalizedProvider;
+  }
+
+  const matchedSpeaker = TTS_COMBINED_SPEAKER_TYPES.find((speaker) => speaker.value === speakerValue);
+  return matchedSpeaker?.provider || 'OPENAI';
+}
+
+function normalizeMovieGenSpeaker(speaker = {}) {
+  const speakerValue = typeof speaker?.speaker === 'string' ? speaker.speaker.trim() : '';
+  const actor =
+    typeof speaker?.actor === 'string' && speaker.actor.trim()
+      ? speaker.actor.trim()
+      : typeof speaker?.speakerCharacterName === 'string' && speaker.speakerCharacterName.trim()
+        ? speaker.speakerCharacterName.trim()
+        : speakerValue;
+
+  return {
+    ...speaker,
+    speaker: speakerValue,
+    actor,
+    speakerCharacterName:
+      typeof speaker?.speakerCharacterName === 'string' && speaker.speakerCharacterName.trim()
+        ? speaker.speakerCharacterName.trim()
+        : actor,
+    provider: normalizeProvider(speaker?.provider, speakerValue),
+  };
+}
+
+function normalizeMovieGenSpeakers(speakers = []) {
+  return Array.isArray(speakers) ? speakers.map(normalizeMovieGenSpeaker) : [];
+}
 
 export default function MovieSpeechProviderSelect(props) {
   const {
@@ -19,17 +62,18 @@ export default function MovieSpeechProviderSelect(props) {
     text2Color,
     colorMode,
     playMusicPreviewForSpeaker,
+    currentlyPlayingSpeaker,
     sizeVariant = "default",
   } = props;
   const isSidebarPanel =
     sizeVariant === "sidebarCollapsed" || sizeVariant === "sidebarExpanded";
   const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
   const headerRowClass = isSidebarPanel
-    ? "mb-2 flex flex-col gap-2"
-    : "mb-2 flex items-center justify-between";
+    ? "mb-3 flex flex-col gap-2"
+    : "mb-3 flex items-center justify-between gap-3";
   const addSpeakerButtonClass = isSidebarPanel
-    ? "w-full rounded-md bg-neutral-700 px-3 py-2 text-center text-xs font-semibold text-white transition hover:bg-neutral-600"
-    : "px-2 py-1 bg-neutral-700 text-white text-xs rounded hover:bg-neutral-600";
+    ? "!m-0 !min-h-[38px] !w-full !px-4 !py-2 text-xs"
+    : "!m-0 !min-h-[38px] !px-4 !py-2 text-xs";
   const submitContainerClass = isSidebarPanel
     ? "mt-3"
     : "flex justify-center mt-3";
@@ -38,7 +82,13 @@ export default function MovieSpeechProviderSelect(props) {
   const [showAddSpeakerForm, setShowAddSpeakerForm] = useState(false);
 
   // Local copy of speakers to handle additions
-  const [localSpeakers, setLocalSpeakers] = useState(movieGenSpeakers);
+  const [localSpeakers, setLocalSpeakers] = useState(() =>
+    normalizeMovieGenSpeakers(movieGenSpeakers)
+  );
+
+  useEffect(() => {
+    setLocalSpeakers(normalizeMovieGenSpeakers(movieGenSpeakers));
+  }, [movieGenSpeakers]);
 
   // Toggle "Add Speaker" form
   const handleAddSpeakerClick = () => {
@@ -47,18 +97,52 @@ export default function MovieSpeechProviderSelect(props) {
 
   // Called when user finishes AddSpeaker form successfully
   const handleSaveNewSpeaker = (newSpeaker) => {
-    const updated = [...localSpeakers, newSpeaker];
+    const normalizedNewSpeaker = normalizeMovieGenSpeaker(newSpeaker);
+    const updated = [...localSpeakers, normalizedNewSpeaker];
     updateMovieGenSpeakers(updated);
     setLocalSpeakers(updated);
+    handleSpeakerChange({
+      value: normalizedNewSpeaker.speaker,
+      label: normalizedNewSpeaker.actor,
+      provider: normalizedNewSpeaker.provider,
+      speaker: normalizedNewSpeaker.speaker,
+      actor: normalizedNewSpeaker.actor,
+      speakerCharacterName: normalizedNewSpeaker.speakerCharacterName,
+    });
     setShowAddSpeakerForm(false);
   };
 
   // Build SingleSelect options from localSpeakers
-  const speakerOptions = localSpeakers.map((item) => ({
-    value: item.speaker,       // e.g., "emma"
-    label: item.actor,         // e.g., "Emma (English)"
-    provider: item.provider,   // e.g., "OPENAI"
-  }));
+  const speakerOptions = localSpeakers.map((item, index) => {
+    const optionKey = `${item.provider}:${item.speaker}:${item.speakerCharacterName || item.actor}:${index}`;
+    return {
+      value: optionKey,
+      label: item.actor,
+      provider: item.provider,
+      speaker: item.speaker,
+      actor: item.actor,
+      speakerCharacterName: item.speakerCharacterName,
+    };
+  });
+  const selectedSpeakerOption = useMemo(() => {
+    if (!speakerType) {
+      return null;
+    }
+
+    const speakerValue = speakerType.speaker || speakerType.value;
+    const providerValue = normalizeProvider(speakerType.provider, speakerValue);
+    const speakerName = speakerType.speakerCharacterName || speakerType.label || speakerType.actor;
+
+    return (
+      speakerOptions.find((option) => (
+        option.speaker === speakerValue
+        && option.provider === providerValue
+        && (!speakerName || option.speakerCharacterName === speakerName || option.actor === speakerName)
+      ))
+      || speakerOptions.find((option) => option.speaker === speakerValue && option.provider === providerValue)
+      || null
+    );
+  }, [speakerOptions, speakerType]);
 
   // Submit handle
   const createSubmitGenerateSpeechRequest = (evt) => {
@@ -66,10 +150,18 @@ export default function MovieSpeechProviderSelect(props) {
 
     const formData = new FormData(evt.target);
     const promptText = formData.get('promptText');
-    const speakerValue = speakerType?.value;
+    const speakerValue = speakerType?.speaker || speakerType?.value;
+    const providerValue = normalizeProvider(speakerType?.provider, speakerValue);
+    const speakerName = speakerType?.speakerCharacterName || speakerType?.label || speakerType?.actor;
 
     // Find matching speaker object
-    const speakerData = localSpeakers.find((item) => item.speaker === speakerValue);
+    const speakerData =
+      localSpeakers.find((item) => (
+        item.speaker === speakerValue
+        && item.provider === providerValue
+        && (!speakerName || item.speakerCharacterName === speakerName || item.actor === speakerName)
+      ))
+      || localSpeakers.find((item) => item.speaker === speakerValue && item.provider === providerValue);
     if (!speakerData) {
       
       return;
@@ -81,7 +173,7 @@ export default function MovieSpeechProviderSelect(props) {
       generationType: 'speech',
       speaker: speakerValue,
       addSubtitles: true,
-      ttsProvider: speakerData.provider, // The TTS provider (OpenAI, etc.)
+      ttsProvider: speakerData.provider,
       subtitleOption: 'SUBTITLE_WORD_HIGHLIGHT',
       speakerCharacterName: speakerData.speakerCharacterName,
     };
@@ -110,7 +202,9 @@ export default function MovieSpeechProviderSelect(props) {
   };
 
   // Identify if the speaker's provider is OpenAI
-  const isOpenAI = speakerType?.provider === 'OPENAI';
+  const isOpenAI =
+    Boolean(speakerType) &&
+    normalizeProvider(speakerType?.provider, speakerType?.speaker || speakerType?.value) === 'OPENAI';
 
   const noSpeakersYet = localSpeakers.length === 0;
 
@@ -121,21 +215,22 @@ export default function MovieSpeechProviderSelect(props) {
       {/* Header row with Add Speaker button */}
       <div className={headerRowClass}>
         <label className={`text-sm font-bold ${text2Color}`}>Speakers</label>
-        <button
+        <CommonButton
           type="button"
           onClick={handleAddSpeakerClick}
-          className={addSpeakerButtonClass}
+          extraClasses={addSpeakerButtonClass}
         >
-          {showAddSpeakerForm ? 'Close' : 'Add Speaker'}
-        </button>
+          {showAddSpeakerForm ? 'Back' : 'Add Speaker'}
+        </CommonButton>
       </div>
 
       {showAddSpeakerForm ? (
         <AddSpeaker
           onAddNewSpeaker={handleSaveNewSpeaker}
           onCancel={() => setShowAddSpeakerForm(false)}
-          existingSpeakers={localSpeakers.map((s) => s.speaker)}
+          existingSpeakers={localSpeakers.map((s) => s.speakerCharacterName || s.actor || s.speaker)}
           playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
+          currentlyPlayingSpeaker={currentlyPlayingSpeaker}
           bgColor={bgColor}
           text2Color={text2Color}
           colorMode={colorMode}
@@ -272,9 +367,7 @@ export default function MovieSpeechProviderSelect(props) {
               placeholder="Select speaker..."
               options={speakerOptions}
               value={
-                speakerType
-                  ? { value: speakerType.value, label: speakerType.label }
-                  : null
+                selectedSpeakerOption
               }
               onChange={handleSpeakerChange}
               compactLayout={!isSidebarCollapsed && isSidebarPanel}

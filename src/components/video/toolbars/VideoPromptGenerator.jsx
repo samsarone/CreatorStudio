@@ -12,6 +12,16 @@ import {
   getVideoGenerationModelMeta,
 } from "../util/videoGenerationModelOptions.js";
 
+const NATIVE_AUDIO_VIDEO_MODELS = new Set([
+  "KLINGIMGTOVID3PRO",
+  "KLINGTXTTOVID3PRO",
+  "SEEDANCET2V",
+  "VEO3.1",
+  "VEO3.1FAST",
+  "VEO3.1I2V",
+  "VEO3.1I2VFAST",
+]);
+
 export default function VideoPromptGenerator(props) {
   const {
     videoPromptText,
@@ -82,6 +92,9 @@ export default function VideoPromptGenerator(props) {
   const requiresImageButNone =
     isImageToVideoModel && !isTextToVideoModel && !hasImageItem;
   const useImgToVidSettings = isImageToVideoModel && hasImageItem;
+  const supportsNativeAudio = NATIVE_AUDIO_VIDEO_MODELS.has(
+    selectedVideoGenerationModel
+  );
 
 
 
@@ -114,8 +127,9 @@ export default function VideoPromptGenerator(props) {
   /**
    * NEW: We also want to show sub-styles if the model is Pixverse.
    * If the model has `modelSubTypes` (for others like "HAIPER2.0") we show those.
-   **/
+  **/
   const [selectedModelSubType, setSelectedModelSubType] = useState("");
+  const [generateAudio, setGenerateAudio] = useState(false);
 
   // ------------------
   //  useEffect for initial values
@@ -149,6 +163,8 @@ export default function VideoPromptGenerator(props) {
   //  Whenever `selectedVideoGenerationModel` changes
   // ------------------
   useEffect(() => {
+    setGenerateAudio(false);
+
     // If new model is "SDVIDEO", we turn off end frame
     if (selectedVideoGenerationModel === "SDVIDEO") {
       setUseEndFrame(false);
@@ -270,6 +286,10 @@ export default function VideoPromptGenerator(props) {
     localStorage.setItem("defaultOptimizePrompt", checked.toString());
   };
 
+  const handleGenerateAudioChange = (e) => {
+    setGenerateAudio(e.target.checked);
+  };
+
   // Save the sub-type to local storage whenever changed
   const handleModelSubTypeChange = (e) => {
     const subType = e.target.value;
@@ -317,6 +337,10 @@ export default function VideoPromptGenerator(props) {
     // Add selectedDuration if it exists
     if (selectedDuration !== null) {
       payload.duration = selectedDuration;
+    }
+
+    if (supportsNativeAudio) {
+      payload.generateAudio = generateAudio === true;
     }
 
     // Add model sub-type if any
@@ -387,6 +411,18 @@ export default function VideoPromptGenerator(props) {
                 className="form-checkbox h-4 w-4 text-blue-600"
               />
               <span className="ml-2 text-xs">Optimize Prompt</span>
+            </label>
+          )}
+
+          {supportsNativeAudio && (
+            <label className="inline-flex items-center text-xs mr-4">
+              <input
+                type="checkbox"
+                checked={generateAudio}
+                onChange={handleGenerateAudioChange}
+                className="form-checkbox h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2 text-xs">Generate audio</span>
             </label>
           )}
         </div>

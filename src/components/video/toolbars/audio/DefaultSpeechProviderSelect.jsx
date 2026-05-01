@@ -65,7 +65,7 @@ export default function DefaultSpeechProviderSelect(props) {
     };
 
     // If the ttsProvider is OpenAI, gather advanced fields from the form
-    if (ttsProviderValue === 'OpenAI') {
+    if (ttsProviderValue === 'OPENAI') {
       const identity = formData.get('identity');
       const affect = formData.get('affect');
       const tone = formData.get('tone');
@@ -104,7 +104,7 @@ export default function DefaultSpeechProviderSelect(props) {
           Show the "Advanced" toggle only if ttsProvider is "OpenAI"
           If you want to show advanced settings for all providers, remove the condition
         */}
-        {ttsProvider === 'OpenAI' && (
+        {speakerType?.provider === 'OPENAI' && (
           <div className="text-xs block text-white w-full text-right">
             <div
               className="cursor-pointer hover:text-neutral-200 mb-1"
@@ -125,7 +125,7 @@ export default function DefaultSpeechProviderSelect(props) {
           Show additional text boxes ONLY if ttsProvider is "OpenAI" 
           and if advanced options are toggled on 
         */}
-        {ttsProvider === 'OpenAI' && showAdvancedOptions && (
+        {speakerType?.provider === 'OPENAI' && showAdvancedOptions && (
           <div className="mb-2 border border-gray-500 p-2 rounded">
             <div className="text-sm font-bold mb-2">OpenAI Advanced Options</div>
             <div className="mb-1">

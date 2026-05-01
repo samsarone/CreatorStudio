@@ -46,10 +46,6 @@ function DropdownButton(props) {
     colorMode === 'dark'
       ? 'border-cyan-400/45 bg-cyan-500/12 text-cyan-100'
       : 'border-sky-300 bg-sky-50 text-sky-700';
-  const defaultBadgeClassName =
-    colorMode === 'dark'
-      ? 'bg-cyan-400/18 text-cyan-100'
-      : 'bg-sky-100 text-sky-700';
   const triggerSizeClassName = iconOnly
     ? (compact ? 'h-[34px] w-[34px] px-0 text-[11px]' : 'h-10 w-10 px-0 text-sm')
     : (compact ? 'min-h-[34px] px-3 text-[11px]' : 'px-4 py-2 text-sm');
@@ -164,11 +160,6 @@ function DropdownButton(props) {
                     onClick={() => handleAddLayerClick(option.value)}
                   >
                     <span>{option.label}</span>
-                    {isDefault ? (
-                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${defaultBadgeClassName}`}>
-                        Default
-                      </span>
-                    ) : null}
                   </button>
                 );
               })}

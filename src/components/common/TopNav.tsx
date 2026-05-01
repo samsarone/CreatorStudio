@@ -54,6 +54,7 @@ export default function TopNav(props) {
     unpublishVideoSession,
     renderCompletedThisSession,
     sessionId: sessionIdOverride,
+    openAdvancedVideoEditDialog,
   } = props;
   const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
@@ -694,6 +695,7 @@ const showLicenseDialog = () => {
         unpublishVideoSession={unpublishVideoSession}
         renderCompletedThisSession={renderCompletedThisSession}
         editorVariant={isImageEditor ? 'imageStudio' : 'videoStudio'}
+        openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
       />
     );
   } else if (isGenerationsView) {

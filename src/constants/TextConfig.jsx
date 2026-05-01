@@ -21,8 +21,8 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
   const { width, height } = canvasDimensions;
 
 
-  const textBoxWidth = 600;
-  const textBoxHeight = 200;
+  const textBoxWidth = Math.min(600, Math.max(240, width * 0.72));
+  const textBoxHeight = Math.min(220, Math.max(120, height * 0.22));
 
   const defaultX = width / 2;
   const defaultY = height / 2;
@@ -49,9 +49,10 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
     shadowOffsetX: 0,
     shadowOffsetY: 2,
     rotationAngle: 0,
-    autoWrap: false,
+    autoWrap: true,
     capitalizeLetters: false,
     lineHeight: 1.2,
+    letterSpacing: 0,
 
     textBaseline: 'alphabetic', // for backend parity
     verticalAlign: 'middle', // conceptually, if you implement it
@@ -80,10 +81,16 @@ export function getTextConfigForCanvas(textConfig, canvasDimensions = { width: 1
       ? mergedTextConfig.textAlign
       : defaultTextConfig.textAlign,
     lineHeight: normalizeFiniteNumber(mergedTextConfig.lineHeight, defaultTextConfig.lineHeight, { min: 0.1 }),
+    letterSpacing: normalizeFiniteNumber(
+      mergedTextConfig.letterSpacing,
+      defaultTextConfig.letterSpacing
+    ),
     shadowBlur: normalizeFiniteNumber(mergedTextConfig.shadowBlur, defaultTextConfig.shadowBlur, { min: 0 }),
     shadowOffsetX: normalizeFiniteNumber(mergedTextConfig.shadowOffsetX, defaultTextConfig.shadowOffsetX),
     shadowOffsetY: normalizeFiniteNumber(mergedTextConfig.shadowOffsetY, defaultTextConfig.shadowOffsetY),
     rotationAngle: normalizeFiniteNumber(mergedTextConfig.rotationAngle, defaultTextConfig.rotationAngle),
+    autoWrap: mergedTextConfig.autoWrap !== false,
+    capitalizeLetters: Boolean(mergedTextConfig.capitalizeLetters),
   };
 }
 

@@ -24,6 +24,7 @@ import SingleSelect from "../common/SingleSelect.jsx";
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const DEFAULT_TEXT_MODEL = "gpt-5.5";
 const VIDEO_FPS_OPTIONS = [
   { value: 16, label: "16 FPS" },
   { value: 30, label: "30 FPS" },
@@ -69,10 +70,10 @@ export default function UserAccount() {
 
   const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
   const [inferenceModel, setInferenceModel] = useState(
-    INFERENCE_MODEL_TYPES.find((m) => m.value === "GPT5.4") || INFERENCE_MODEL_TYPES[0]
+    INFERENCE_MODEL_TYPES.find((m) => m.value === DEFAULT_TEXT_MODEL) || INFERENCE_MODEL_TYPES[0]
   );
   const [assistantModel, setAssistantModel] = useState(
-    ASSISTANT_MODEL_TYPES.find((m) => m.value === "GPT5.4") || ASSISTANT_MODEL_TYPES[0]
+    ASSISTANT_MODEL_TYPES.find((m) => m.value === DEFAULT_TEXT_MODEL) || ASSISTANT_MODEL_TYPES[0]
   );
   const [videoFps, setVideoFps] = useState(VIDEO_FPS_OPTIONS[0]);
 
@@ -80,11 +81,11 @@ export default function UserAccount() {
     if (!user) return;
 
     setInferenceModel(
-      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT5.4")) ||
+      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || DEFAULT_TEXT_MODEL)) ||
         INFERENCE_MODEL_TYPES[0]
     );
     setAssistantModel(
-      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT5.4")) ||
+      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || DEFAULT_TEXT_MODEL)) ||
         ASSISTANT_MODEL_TYPES[0]
     );
     setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);

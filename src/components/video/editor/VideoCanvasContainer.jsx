@@ -11,6 +11,17 @@ import { applyBloomEffect } from '../../../utils/frame_animation/BloomUtils.jsx'
 import { createLayerBoundImageItem } from '../util/layerBoundImageItem.js';
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 
+const SHAPE_CONFIG_SCALE_KEYS = [
+  'width',
+  'height',
+  'radius',
+  'strokeWidth',
+  'pointerX',
+  'pointerY',
+  'xRadius',
+  'yRadius',
+];
+
 
 
 export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset) {
@@ -1458,22 +1469,16 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
 
-    const newWidth = newConfig.width / stageZoomScale;
-
     let scaledNewConfig = {
       ...newConfig,
       x: newConfig.x / stageZoomScale,
       y: newConfig.y / stageZoomScale,
     }
-    if (newConfig.width) {
-      scaledNewConfig.width = newConfig.width / stageZoomScale;
-    }
-    if (newConfig.height) {
-      scaledNewConfig.height = newConfig.height / stageZoomScale;
-    }
-    if (newConfig.fontSize) {
-      scaledNewConfig.fontSize = newConfig.fontSize / stageZoomScale;
-    }
+    SHAPE_CONFIG_SCALE_KEYS.forEach((key) => {
+      if (typeof newConfig[key] === 'number') {
+        scaledNewConfig[key] = newConfig[key] / stageZoomScale;
+      }
+    });
 
     const newActiveItemList = activeItemList.map((item) => {
       if (item.id === id) {
@@ -1552,12 +1557,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   
     let centerX = boundingBox ? boundingBox.x + boundingBox.width / 2 : 0;
     let centerY = boundingBox ? boundingBox.y + boundingBox.height / 2 : 0;
-  
-    const newWidth =
-      typeof configChanges.width === 'number' ? configChanges.width / stageZoomScale : undefined;
-  
-    const newHeight =
-      typeof configChanges.height === 'number' ? configChanges.height / stageZoomScale : undefined;
+    const useRawStyleValues = styleValueSpace === 'raw';
 
   
     let scaledNewConfig = {
@@ -1566,23 +1566,34 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       y: useExplicitCenterPosition ? configChanges.y : centerY / stageZoomScale,
     };
     if (typeof configChanges.width === 'number') {
-      scaledNewConfig.width = configChanges.width / stageZoomScale;
+      scaledNewConfig.width = useRawStyleValues
+        ? configChanges.width
+        : configChanges.width / stageZoomScale;
     }
     if (typeof configChanges.height === 'number') {
-      scaledNewConfig.height = configChanges.height / stageZoomScale;
+      scaledNewConfig.height = useRawStyleValues
+        ? configChanges.height
+        : configChanges.height / stageZoomScale;
     }
     if (typeof configChanges.fontSize === 'number') {
       scaledNewConfig.fontSize =
-        styleValueSpace === 'raw'
+        useRawStyleValues
           ? configChanges.fontSize
           : configChanges.fontSize / stageZoomScale;
     }
     if (typeof configChanges.strokeWidth === 'number') {
       scaledNewConfig.strokeWidth =
-        styleValueSpace === 'raw'
+        useRawStyleValues
           ? configChanges.strokeWidth
           : configChanges.strokeWidth / stageZoomScale;
     }
+    ['letterSpacing', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY'].forEach((key) => {
+      if (typeof configChanges[key] === 'number') {
+        scaledNewConfig[key] = useRawStyleValues
+          ? configChanges[key]
+          : configChanges[key] / stageZoomScale;
+      }
+    });
   
 
     const newActiveItemList = activeItemList.map((item) => {

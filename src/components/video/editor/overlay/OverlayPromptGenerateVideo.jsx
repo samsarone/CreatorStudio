@@ -11,6 +11,16 @@ import {
 } from "../../util/videoGenerationModelOptions.js";
 import "react-tooltip/dist/react-tooltip.css";
 
+const NATIVE_AUDIO_VIDEO_MODELS = new Set([
+  "KLINGIMGTOVID3PRO",
+  "KLINGTXTTOVID3PRO",
+  "SEEDANCET2V",
+  "VEO3.1",
+  "VEO3.1FAST",
+  "VEO3.1I2V",
+  "VEO3.1I2VFAST",
+]);
+
 export default function OverlayPromptGenerateVideo(props) {
   const {
     videoPromptText,
@@ -75,6 +85,9 @@ export default function OverlayPromptGenerateVideo(props) {
   const useImgToVidSettings = isImageToVideoModel && hasImageItem;
   const useImgOnlySettings =
     isImageToVideoModel && !isTextToVideoModel && hasImageItem;
+  const supportsNativeAudio = NATIVE_AUDIO_VIDEO_MODELS.has(
+    selectedVideoGenerationModel
+  );
 
   const [useStartFrame, setUseStartFrame] = useState(() => {
     const stored = localStorage.getItem("defaultVideoStartFrame");
@@ -95,6 +108,7 @@ export default function OverlayPromptGenerateVideo(props) {
   const [optimizePrompt, setOptimizePrompt] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState(null);
   const [selectedModelSubType, setSelectedModelSubType] = useState("");
+  const [generateAudio, setGenerateAudio] = useState(false);
 
   useEffect(() => {
     if (availableModelKeys.length === 0) return;
@@ -123,6 +137,8 @@ export default function OverlayPromptGenerateVideo(props) {
   ]);
 
   useEffect(() => {
+    setGenerateAudio(false);
+
     if (selectedVideoGenerationModel === "SDVIDEO") {
       setUseEndFrame(false);
     }
@@ -215,6 +231,10 @@ export default function OverlayPromptGenerateVideo(props) {
     localStorage.setItem("defaultOptimizePrompt", String(checked));
   };
 
+  const handleGenerateAudioChange = (event) => {
+    setGenerateAudio(event.target.checked);
+  };
+
   const handleModelSubTypeChange = (event) => {
     const subType = event.target.value;
     setSelectedModelSubType(subType);
@@ -253,6 +273,10 @@ export default function OverlayPromptGenerateVideo(props) {
 
     if (selectedDuration !== null) {
       payload.duration = selectedDuration;
+    }
+
+    if (supportsNativeAudio) {
+      payload.generateAudio = generateAudio === true;
     }
 
     if (selectedModelDef?.modelSubTypes?.length > 0) {
@@ -443,6 +467,26 @@ export default function OverlayPromptGenerateVideo(props) {
               }
             />
             <span>Optimize prompt</span>
+          </label>
+        ) : null}
+
+        {supportsNativeAudio ? (
+          <label
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              generateAudio
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={generateAudio}
+              onChange={handleGenerateAudioChange}
+            />
+            <span>Generate audio</span>
           </label>
         ) : null}
       </div>

@@ -22,13 +22,17 @@ const ResizableDialogBubble = ({
     if (!isConfigSet) {
       setIsConfigSet(true);
 
+      const nextX = config.x ?? 0;
+      const nextY = config.y ?? 0;
+      const nextWidth = config.width ?? 100;
+      const nextHeight = config.height ?? 50;
       const newState = {
-        x: config.x || 0,
-        y: config.y || 0,
-        width: config.width || 100,
-        height: config.height || 50,
-        pointerX: config.pointerX || (config.x + (config.width / 2)) || 0,
-        pointerY: config.pointerY || (config.y + config.height) || 0,
+        x: nextX,
+        y: nextY,
+        width: nextWidth,
+        height: nextHeight,
+        pointerX: config.pointerX ?? nextX,
+        pointerY: config.pointerY ?? (nextY + (nextHeight / 2)),
       };
       setShapeState(newState);
     }
@@ -97,6 +101,9 @@ const ResizableDialogBubble = ({
   const { x, y, width, height, pointerX, pointerY } = shapeState;
   const pointerWidth = 20;
   const pointerHeight = 20;
+  const fillColor = config.fillColor || config.fill || 'white';
+  const strokeColor = config.strokeColor || config.stroke || 'black';
+  const strokeWidth = config.strokeWidth ?? 2;
 
   return (
     <Group
@@ -113,9 +120,9 @@ const ResizableDialogBubble = ({
         y={y}
         width={width}
         height={height}
-        fill="white"
-        stroke="black"
-        strokeWidth={2}
+        fill={fillColor}
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
         ref={shapeRef}
         onTransformEnd={handleTransformEnd}
       />
@@ -128,9 +135,9 @@ const ResizableDialogBubble = ({
           context.closePath();
           context.fillStrokeShape(shape);
         }}
-        fill="white"
-        stroke="black"
-        strokeWidth={2}
+        fill={fillColor}
+        stroke={strokeColor}
+        strokeWidth={strokeWidth}
         draggable
       />
       {isSelected && (

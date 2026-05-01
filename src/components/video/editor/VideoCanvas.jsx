@@ -21,6 +21,7 @@ import MinimalTaskSkeleton from '../../common/MinimalTaskSkeleton.jsx';
 import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.jsx';
 import VideoCanvasGridOverlay from './overlay/VideoCanvasGridOverlay.jsx'; // Make sure the path is correct
 import { createLayerBoundImageItem } from '../util/layerBoundImageItem.js';
+import { FaTimes } from 'react-icons/fa';
 
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 import './videoCanvas.css';
@@ -38,6 +39,21 @@ const SELECTABLE_TYPES = ['SHOW_DEFAULT_DISPLAY',
   'SHOW_SELECT_DISPLAY'];
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const IMAGE_SERVER_API_URL = import.meta.env.VITE_IMAGE_SERVER_API;
+
+function getVideoTypeLabel(type) {
+  switch (type) {
+    case 'lip_sync':
+      return 'Lip Synced video';
+    case 'sound_effect':
+      return 'Sound Effect video';
+    case 'ai_video':
+      return 'Base AI Video';
+    case 'user_video':
+      return 'Uploaded Video';
+    default:
+      return 'Video Layer';
+  }
+}
 
 function canDragCanvasItems({
   editorVariant,
@@ -86,7 +102,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     updateTargetTextActiveLayerConfig, createTextLayer, updateTargetImageActiveLayerConfig,
     downloadCurrentFrame, requestRealignToAiVideoAndLayers,
     promptText, setPromptText, selectedGenerationModel, setSelectedGenerationModel,
-    requestLipSyncToSpeech, aiVideoLayerType,
+    aiVideoLayerType,
     generationError, currentDefaultPrompt, submitGenerateNewRequest,
     isGenerationPending, isUpdateLayerPending,
     submitGenerateNewVideoRequest, aiVideoGenerationPending,
@@ -710,11 +726,33 @@ const VideoCanvas = forwardRef((props, ref) => {
   let canvasVideoUnderlay = (
     <div className='absolute inset-0'>
       <VideoUnderlay aiVideoLayer={aiVideoLayer} currentLayerSeek={currentRelateiveTimeStamp}
-        removeVideoLayer={removeVideoLayer} canvasDimensions={canvasDimensions}
-        requestLipSyncToSpeech={requestLipSyncToSpeech}
+        canvasDimensions={canvasDimensions}
         aiVideoLayerType={aiVideoLayerType} />
     </div>
   )
+
+  const handleRemoveVideoLayerClick = (event) => {
+    event.stopPropagation();
+    removeVideoLayer?.();
+  };
+
+  const videoLayerRemoveControl = aiVideoLayer ? (
+    <div className="absolute left-3 top-3 z-[80] flex max-w-[calc(100%-24px)] items-center gap-2 rounded-lg border border-[#1f2a3d] bg-[#0f1629]/95 px-2 py-1 text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
+      <button
+        type="button"
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/25 hover:text-white"
+        onClick={handleRemoveVideoLayerClick}
+        aria-label="Remove video from layer"
+        title="Remove video from layer"
+      >
+        <FaTimes className="text-[11px]" aria-hidden="true" />
+        <span>Remove from layer</span>
+      </button>
+      <span className="min-w-0 truncate rounded-full border border-[#e45a26]/30 bg-[#e45a26]/20 px-2 py-1 text-xs font-semibold text-orange-100">
+        {getVideoTypeLabel(aiVideoLayerType)}
+      </span>
+    </div>
+  ) : null;
 
 
   const overlayView = rightPanelView || currentView;
@@ -961,6 +999,7 @@ const VideoCanvas = forwardRef((props, ref) => {
             {currentShapeSelectDisplay}
           </Layer>
         </Stage>
+        {videoLayerRemoveControl}
       </div>
 
       <CanvasToolbar

@@ -11,6 +11,7 @@ import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaChevronCircleDown,
+  FaCog,
   FaSpinner,
   FaTimes,
   FaImage,
@@ -31,6 +32,7 @@ import AssistantHome from '../assistant/AssistantHome.jsx';
 import PrimaryPublicButton from '../common/buttons/PrimaryPublicButton.tsx';
 import PublishOptionsDialog from '../video/toolbars/frame_toolbar/PublishOptionsDialog.jsx';
 import VidgenieSkeletonLoader from './VidgenieSkeletonLoader.jsx';
+import VideoEditAdvancedDialog from '../video/advanced/VideoEditAdvancedDialog.jsx';
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
@@ -52,6 +54,7 @@ const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
 const VIDEO_API_BASE = `${API_SERVER}/v1/video`;
 const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v1/status`;
+const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 
 // ───────────────────────────────────────────────────────────
 //  Polling constants
@@ -85,7 +88,20 @@ const VIDGENIE_VIDEO_MODEL_LABELS = {
   RUNWAYML: 'Runway Gen 4',
   SORA2PRO: 'Sora 2 Pro',
 };
-const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = ['VEO3.1I2V', 'SEEDANCEI2V'];
+const VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY = 'defaultVIdGPTVideoGenerationModel';
+const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY = 'defaultVidgenieImageListVideoGenerationModel';
+const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
+  'VEO3.1I2V',
+  'SEEDANCEI2V',
+  'KLINGIMGTOVID3PRO',
+  'RUNWAYML',
+];
+const VIDGENIE_IMAGE_LIST_VIDEO_CREDITS_PER_SECOND_BY_MODEL = {
+  'VEO3.1I2V': 50,
+  SEEDANCEI2V: 50,
+  KLINGIMGTOVID3PRO: 34,
+  RUNWAYML: 17,
+};
 
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
@@ -286,6 +302,42 @@ export default function OneshotEditor() {
     return window.SpeechRecognition || window.webkitSpeechRecognition || null;
   }, []);
   const isBrowserSpeechSupported = Boolean(speechRecognitionCtor);
+
+  const setAdvancedVideoEditPendingSession = (nextSessionId) => {
+    if (!nextSessionId || typeof window === 'undefined') return;
+    sessionStorage.setItem(
+      ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY,
+      JSON.stringify({ sessionId: nextSessionId, startedAt: Date.now() })
+    );
+  };
+
+  const shouldForceAdvancedVideoEditPolling = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return false;
+    try {
+      const rawValue = sessionStorage.getItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      if (!rawValue) return false;
+      const parsedValue = JSON.parse(rawValue);
+      const startedAt = Number(parsedValue?.startedAt);
+      const isFresh = Number.isFinite(startedAt) && Date.now() - startedAt < 10 * 60 * 1000;
+      return parsedValue?.sessionId === candidateSessionId && isFresh;
+    } catch {
+      return false;
+    }
+  };
+
+  const clearAdvancedVideoEditPendingSession = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return;
+    try {
+      const rawValue = sessionStorage.getItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      if (!rawValue) return;
+      const parsedValue = JSON.parse(rawValue);
+      if (parsedValue?.sessionId === candidateSessionId) {
+        sessionStorage.removeItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      }
+    } catch {
+      sessionStorage.removeItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+    }
+  };
 
   const handleVoiceSessionStarted = useCallback((sessionInfo) => {
     setVoiceError(null);
@@ -779,7 +831,6 @@ export default function OneshotEditor() {
       VIDEO_GENERATION_MODEL_TYPES
         .filter(
           (m) =>
-            m.isExpressModel &&
             VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER.includes(m.key) &&
             m.supportedAspectRatios?.includes(selectedAspectRatioOption.value)
         )
@@ -800,13 +851,13 @@ export default function OneshotEditor() {
   }, [selectedAspectRatioOption.value]);
 
   const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
-    const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
+    const saved = localStorage.getItem(VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY);
     const found = expressVideoModels.find((m) => m.value === saved);
     return found || expressVideoModels[0];
   });
 
   useEffect(() => {
-    if (!expressVideoModels.length) return;
+    if (generationMode !== 'T2V' || !expressVideoModels.length) return;
 
     setSelectedVideoModel((prev) => {
       if (prev?.value) {
@@ -814,11 +865,11 @@ export default function OneshotEditor() {
         if (existing) return existing;
       }
 
-      const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
+      const saved = localStorage.getItem(VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY);
       const found = expressVideoModels.find((m) => m.value === saved);
       return found || expressVideoModels[0];
     });
-  }, [expressVideoModels]);
+  }, [generationMode, expressVideoModels]);
 
   useEffect(() => {
     if (generationMode !== 'I2V' || !imageListVideoModels.length) return;
@@ -828,7 +879,10 @@ export default function OneshotEditor() {
         const existing = imageListVideoModels.find((m) => m.value === prev.value);
         if (existing) return existing;
       }
-      return imageListVideoModels[0];
+
+      const saved = localStorage.getItem(VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY);
+      const found = imageListVideoModels.find((m) => m.value === saved);
+      return found || imageListVideoModels[0];
     });
   }, [generationMode, imageListVideoModels]);
 
@@ -892,10 +946,13 @@ export default function OneshotEditor() {
 
   useEffect(() => {
     if (selectedVideoModel?.value) {
-      localStorage.setItem('defaultVIdGPTVideoGenerationModel', selectedVideoModel.value);
+      const storageKey = generationMode === 'I2V'
+        ? VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY
+        : VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY;
+      localStorage.setItem(storageKey, selectedVideoModel.value);
       localStorage.setItem('defaultVideoModel', selectedVideoModel.value);
     }
-  }, [selectedVideoModel]);
+  }, [generationMode, selectedVideoModel]);
 
   useEffect(() => {
     if (selectedAspectRatioOption?.value) {
@@ -961,7 +1018,7 @@ export default function OneshotEditor() {
     if (id) {
       // Fetch session, and ONLY trigger polling if still pending
       getSessionDetails().then((data) => {
-        if (data?.videoGenerationPending && !activeRequestIdRef.current) {
+        if ((data?.videoGenerationPending || data?.expressGenerationPending) && !activeRequestIdRef.current) {
           pollGenerationStatus(id);
         } else {
           // clear any existing pending polls
@@ -1165,6 +1222,7 @@ export default function OneshotEditor() {
         if (data.status === 'COMPLETED') {
           continuePolling = false;
           setIsGenerationPending(false);
+          clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           const videoActualLink = normalizeVideoUrl(
             data.result_url
               || (Array.isArray(data.result_urls) ? data.result_urls[0] : null)
@@ -1178,6 +1236,7 @@ export default function OneshotEditor() {
         if (data.status === 'FAILED' || data.status === 'ERROR') {
           continuePolling = false;
           setIsGenerationPending(false);
+          clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           const errorText = data.expressGenerationError || data.message || 'Video generation failed.';
           const normalizedError = errorText.startsWith('Video generation failed')
             ? errorText
@@ -1279,6 +1338,7 @@ export default function OneshotEditor() {
         headers
       );
       setSessionDetails(data);
+      const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
 
       if (data.inputPrompt) {
         updatePromptText(data.inputPrompt);
@@ -1286,9 +1346,10 @@ export default function OneshotEditor() {
 
 
       if (!activeRequestIdRef.current) {
-        if (data.videoGenerationPending) {
+        if (data.videoGenerationPending || data.expressGenerationPending || forceAdvancedEditPoll) {
           setIsGenerationPending(true);
           setShowResultDisplay(true);
+          setExpressGenerationStatus(data.expressGenerationStatus);
           pollGenerationStatus(id);
         } else if (data.videoLink) {
           const linkCandidate = data.remoteURL?.length ? data.remoteURL : data.videoLink || null;
@@ -1296,6 +1357,7 @@ export default function OneshotEditor() {
           setIsGenerationPending(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
+          clearAdvancedVideoEditPendingSession(id);
         }
       }
 
@@ -1417,6 +1479,8 @@ export default function OneshotEditor() {
       if (selectedImageStyle?.value) {
         requestInput.image_style = selectedImageStyle.value;
       }
+    } else {
+      requestInput.aspect_ratio = selectedAspectRatioOption.value;
     }
 
     const selectedLanguageValue =
@@ -1518,6 +1582,45 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   const viewInStudio = () => navigate(`/video/${id}`);
 
+  const handleAdvancedVideoEditAccepted = useCallback((requestInfo) => {
+    const nextSessionId = requestInfo?.sessionId || requestInfo?.requestId;
+    const nextRequestId = requestInfo?.requestId || nextSessionId;
+    closeAlertDialog();
+
+    if (!nextRequestId) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setVideoLink(null);
+    setShowResultDisplay(true);
+    setIsGenerationPending(requestInfo?.status !== 'CANCELLED');
+    setActiveRequestId(nextRequestId);
+    activeRequestIdRef.current = nextRequestId;
+
+    if (nextSessionId && nextSessionId !== id) {
+      setAdvancedVideoEditPendingSession(nextSessionId);
+      navigate(`/vidgenie/${nextSessionId}`);
+      return;
+    }
+
+    pollGenerationStatus(nextRequestId, true);
+  }, [closeAlertDialog, id, navigate]);
+
+  const openAdvancedVideoEditDialog = useCallback(() => {
+    openAlertDialog(
+      <VideoEditAdvancedDialog
+        sessionId={id}
+        currentSession={sessionDetails}
+        onClose={closeAlertDialog}
+        onRequestAccepted={handleAdvancedVideoEditAccepted}
+      />,
+      undefined,
+      true,
+      { hideBorder: true, hideCloseButton: true, centerContent: true }
+    );
+  }, [closeAlertDialog, handleAdvancedVideoEditAccepted, id, openAlertDialog, sessionDetails]);
+
   // ─────────────────────────────────────────────────────────
   //  Placeholder: purchase credits
   // ─────────────────────────────────────────────────────────
@@ -1529,18 +1632,16 @@ export default function OneshotEditor() {
   const [pricingDetailsDisplay, setPricingDetailsDisplay] = useState(false);
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
-  const IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND = 75;
-
   const creditsPerSecondVideo = useMemo(() => {
     if (generationMode === 'I2V') {
-      return IMAGE_LIST_TO_VIDEO_CREDITS_PER_SECOND;
+      return VIDGENIE_IMAGE_LIST_VIDEO_CREDITS_PER_SECOND_BY_MODEL[selectedVideoModel?.value] ?? 50;
     }
     const key = selectedVideoModel?.value || '';
-    if (key === 'KLINGIMGTOVID3PRO') return 23;
-    if (key === 'VEO3.1I2VFAST') return 45;
-    if (key === 'VEO3.1I2V') return 90;
-    if (key === 'SORA2PRO') return 105;
-    return 15; // default
+    if (key === 'KLINGIMGTOVID3PRO') return 15;
+    if (key === 'VEO3.1I2VFAST') return 30;
+    if (key === 'VEO3.1I2V') return 60;
+    if (key === 'SORA2PRO') return 70;
+    return 10; // default
   }, [generationMode, selectedVideoModel]);
 
 
@@ -1590,6 +1691,7 @@ export default function OneshotEditor() {
   }, [isGenerationPending, videoLink]);
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
+  const isModeToggleDisabled = renderState === 'pending' || isSubmitting;
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
   const toggleShell =
     colorMode === 'dark'
@@ -1635,7 +1737,7 @@ export default function OneshotEditor() {
             <div className={`inline-flex items-center gap-1 rounded-full p-1 ${toggleShell}`}>
               <button
                 type="button"
-                disabled={isFormDisabled}
+                disabled={isModeToggleDisabled}
                 onClick={() => setGenerationMode('T2V')}
                 aria-pressed={generationMode === 'T2V'}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'T2V' ? toggleActive : toggleInactive}`}
@@ -1644,7 +1746,7 @@ export default function OneshotEditor() {
               </button>
               <button
                 type="button"
-                disabled={isFormDisabled}
+                disabled={isModeToggleDisabled}
                 onClick={() => setGenerationMode('I2V')}
                 aria-pressed={generationMode === 'I2V'}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'I2V' ? toggleActive : toggleInactive}`}
@@ -1666,6 +1768,37 @@ export default function OneshotEditor() {
             >
               {pricingInfoDisplay}
             </div>
+
+            {sessionDetails?.isExpressGeneration && (
+              <>
+                <span
+                  className={`
+                    inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold
+                    ${colorMode === 'dark'
+                      ? 'bg-cyan-400/12 text-cyan-200 ring-1 ring-cyan-300/25'
+                      : 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200'
+                    }
+                  `}
+                >
+                  Express
+                </span>
+                <button
+                  type="button"
+                  onClick={openAdvancedVideoEditDialog}
+                  title="Advanced video edits"
+                  aria-label="Advanced video edits"
+                  className={`
+                    inline-flex h-9 w-9 items-center justify-center rounded-full transition
+                    ${colorMode === 'dark'
+                      ? 'border border-white/10 text-slate-100 hover:border-white/20 hover:bg-white/5'
+                      : 'border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                    }
+                  `}
+                >
+                  <FaCog />
+                </button>
+              </>
+            )}
 
             {renderState !== 'complete' && (
               <button

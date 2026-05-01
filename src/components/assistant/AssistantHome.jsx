@@ -20,6 +20,7 @@ import { ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 import { getHeaders } from "../../utils/web.jsx";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const DEFAULT_TEXT_MODEL = 'gpt-5.5';
 const ASSISTANT_SIDEBAR_SAFE_GAP_PX = 24;
 
 function normalizeMessageText(content) {
@@ -130,6 +131,12 @@ export default function AssistantHome(props) {
     onDeleteMessage,
     onResetMessages,
     getFrameImageData,
+    currentLayerId,
+    onSceneActionApplied,
+    canUndoCanvasHistory = false,
+    canRedoCanvasHistory = false,
+    onUndoCanvasHistory,
+    onRedoCanvasHistory,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -141,16 +148,17 @@ export default function AssistantHome(props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [assistantModel, setAssistantModel] = useState(
-    ASSISTANT_MODEL_TYPES.find((model) => model.value === 'GPT5.4') || ASSISTANT_MODEL_TYPES[0]
+    ASSISTANT_MODEL_TYPES.find((model) => model.value === DEFAULT_TEXT_MODEL) || ASSISTANT_MODEL_TYPES[0]
   );
   const [deletingMessageId, setDeletingMessageId] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
   const [includeFrameImage, setIncludeFrameImage] = useState(false);
   const [isPreparingFrameImage, setIsPreparingFrameImage] = useState(false);
+  const [applyingSceneActionId, setApplyingSceneActionId] = useState(null);
 
   useEffect(() => {
     if (!user) return;
-    const userAssistantModel = user.selectedAssistantModel || 'GPT5.4';
+    const userAssistantModel = user.selectedAssistantModel || DEFAULT_TEXT_MODEL;
     const userAssistantModelOption = ASSISTANT_MODEL_TYPES.find(
       (model) => model.value === userAssistantModel
     );
@@ -281,6 +289,36 @@ export default function AssistantHome(props) {
     }
   };
 
+  const handleSceneActionClick = async (actionId) => {
+    if (!actionId || !sessionId || !currentLayerId || applyingSceneActionId) {
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) return;
+
+    try {
+      setApplyingSceneActionId(actionId);
+      const response = await axios.post(
+        `${PROCESSOR_SERVER}/assistants/apply_scene_action`,
+        {
+          id: sessionId,
+          layerId: currentLayerId,
+          actionId,
+        },
+        headers
+      );
+      const responseData = response?.data || {};
+      onSessionMessagesChange?.(responseData?.sessionDetails?.sessionMessages || []);
+      onAssistantQueryGeneratingChange?.(false);
+      onSceneActionApplied?.(responseData);
+    } catch (error) {
+      window.alert(error?.response?.data?.error || 'Unable to apply scene action.');
+    } finally {
+      setApplyingSceneActionId(null);
+    }
+  };
+
   const messageList = useMemo(
     () =>
       (sessionMessages || []).map((message, index) => ({
@@ -288,13 +326,16 @@ export default function AssistantHome(props) {
         clientKey: `${message?.id || 'message'}-${message?.role || 'unknown'}-${index}`,
         normalizedText: normalizeMessageText(message?.content),
         hasImageAttachment: hasMessageImageAttachment(message?.content),
+        sceneActions: Array.isArray(message?.sceneActions) ? message.sceneActions : [],
+        sceneActionApplied: message?.sceneActionApplied || null,
       })),
     [sessionMessages]
   );
 
   const hasConversationActivity =
     messageList.length > 0 || isAssistantQueryGenerating || isPreparingFrameImage;
-  const shouldShowConversationArea = isExpanded || hasConversationActivity;
+  const shouldShowWelcomeOptions = isOpen && !hasConversationActivity;
+  const shouldShowConversationArea = isExpanded || hasConversationActivity || shouldShowWelcomeOptions;
 
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') {
@@ -379,10 +420,30 @@ export default function AssistantHome(props) {
       : 'border border-dashed border-slate-200 bg-slate-50 text-slate-500';
   const panelDimensions = isExpanded
     ? 'fixed inset-4 md:inset-6'
-    : hasConversationActivity
+    : hasConversationActivity || shouldShowWelcomeOptions
     ? 'fixed bottom-20 right-4 w-[min(92vw,420px)] h-[min(72vh,680px)]'
     : 'fixed bottom-20 right-4 w-[min(92vw,420px)]';
   const canIncludeFrameImage = typeof getFrameImageData === 'function';
+  const assistantInputPlaceholder = canIncludeFrameImage
+    ? 'Ask about this session...\nTry /scene_actions for canvas animations.\nUse Include frame image for visual feedback.'
+    : 'Ask about this session...\nTry /scene_actions for canvas animations.';
+  const welcomeOptionList = [
+    {
+      title: '/scene_actions',
+      description: 'Show static canvas animation actions for the current layer.',
+      onClick: () => setUserInput('/scene_actions'),
+    },
+    {
+      title: 'Ask about the session',
+      description: 'Get help with prompts, captions, titles, descriptions, or edits.',
+    },
+    ...(canIncludeFrameImage
+      ? [{
+        title: 'Include frame image',
+        description: 'Attach the current frame when you need visual feedback.',
+      }]
+      : []),
+  ];
 
   return (
     <div className="fixed bottom-4 right-4 z-40">
@@ -406,7 +467,7 @@ export default function AssistantHome(props) {
           className={`${panelDimensions} ${isExpanded ? 'right-4 bottom-4' : ''}`}
         >
           <div
-            className={`flex ${isExpanded || hasConversationActivity ? 'h-full' : ''} flex-col overflow-hidden rounded-3xl shadow-[0_28px_80px_rgba(15,23,42,0.3)] ${panelShell}`}
+            className={`flex ${isExpanded || hasConversationActivity || shouldShowWelcomeOptions ? 'h-full' : ''} flex-col overflow-hidden rounded-3xl shadow-[0_28px_80px_rgba(15,23,42,0.3)] ${panelShell}`}
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-200/10 px-4 py-4">
               <div className="min-w-0">
@@ -528,6 +589,50 @@ export default function AssistantHome(props) {
                           <div className="text-sm leading-6 break-words whitespace-pre-wrap">
                             {renderMessageContent(message.normalizedText)}
                           </div>
+                          {message.sceneActions.length > 0 ? (
+                            <div className="mt-3 grid gap-2">
+                              {message.sceneActions.map((action) => {
+                                const isApplying = applyingSceneActionId === action.id;
+                                return (
+                                  <button
+                                    key={action.id}
+                                    type="button"
+                                    onClick={() => handleSceneActionClick(action.id)}
+                                    disabled={!currentLayerId || Boolean(applyingSceneActionId)}
+                                    className={`rounded-xl border px-3 py-2 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                                      colorMode === 'dark'
+                                        ? 'border-slate-700 bg-slate-900 hover:bg-slate-800'
+                                        : 'border-slate-200 bg-slate-50 hover:bg-slate-100'
+                                    }`}
+                                    title={!currentLayerId ? 'Select a layer before applying a scene action' : action.description}
+                                  >
+                                    <span className="block font-semibold">{isApplying ? 'Applying...' : action.label}</span>
+                                    <span className={subtleText}>{action.description}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                          {message.sceneActionApplied ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={onUndoCanvasHistory}
+                                disabled={!canUndoCanvasHistory}
+                                className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${headerButtonShell}`}
+                              >
+                                Undo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={onRedoCanvasHistory}
+                                disabled={!canRedoCanvasHistory}
+                                className={`rounded-full px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${headerButtonShell}`}
+                              >
+                                Redo
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     );
@@ -535,15 +640,57 @@ export default function AssistantHome(props) {
                   <div ref={messagesEndRef} />
                 </div>
               ) : (
-                  <div className={`flex h-full min-h-[88px] items-center justify-center rounded-2xl ${emptyStateShell}`}>
+                  <div className={`flex h-full min-h-[88px] flex-col items-stretch justify-center rounded-2xl p-3 ${emptyStateShell}`}>
                     {isAssistantQueryGenerating || isPreparingFrameImage ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#46bfff]" />
                         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#39d881] [animation-delay:120ms]" />
                         <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#f97316] [animation-delay:240ms]" />
                       </div>
                     ) : (
-                      <MdChatBubbleOutline className="text-[24px] opacity-40" />
+                      <div className="grid gap-2">
+                        <div className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                          Assistant options
+                        </div>
+                        {welcomeOptionList.map((option) => {
+                          const content = (
+                            <>
+                              <span className="block text-sm font-semibold">{option.title}</span>
+                              <span className={`block text-xs leading-5 ${subtleText}`}>{option.description}</span>
+                            </>
+                          );
+
+                          if (option.onClick) {
+                            return (
+                              <button
+                                key={option.title}
+                                type="button"
+                                onClick={option.onClick}
+                                className={`rounded-xl border px-3 py-2 text-left transition ${
+                                  colorMode === 'dark'
+                                    ? 'border-slate-700 bg-slate-900 hover:bg-slate-800'
+                                    : 'border-slate-200 bg-white hover:bg-slate-100'
+                                }`}
+                              >
+                                {content}
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <div
+                              key={option.title}
+                              className={`rounded-xl border px-3 py-2 ${
+                                colorMode === 'dark'
+                                  ? 'border-slate-800 bg-slate-950/60'
+                                  : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              {content}
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 )}
@@ -561,9 +708,9 @@ export default function AssistantHome(props) {
                   }
                 }}
                 className={`mb-3 w-full resize-none rounded-2xl px-3 py-3 focus:outline-none ${inputShell}`}
-                minRows={2}
+                minRows={3}
                 maxRows={10}
-                placeholder="Ask the assistant about this session..."
+                placeholder={assistantInputPlaceholder}
               />
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">

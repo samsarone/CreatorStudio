@@ -327,6 +327,7 @@ export default function ListVideoSessions() {
             const sessionPreviewImage = session.thumbnail
               ? `${PROCESSOR_API}/${session.thumbnail}`
               : '/q2.png';
+            const isExpressSession = Boolean(session.isExpressGeneration);
 
             return (
               <div
@@ -334,8 +335,21 @@ export default function ListVideoSessions() {
                 className={`cursor-pointer group ${cardSurface} rounded-2xl overflow-hidden transition-transform duration-200 hover:-translate-y-1`}
                 onClick={(event) => gotoPage(event, session)}
               >
-                <div className="text-sm font-medium text-center mb-2 px-4 pt-4">
-                  {session.name}
+                <div className="flex min-h-[48px] items-start justify-between gap-2 px-4 pt-4">
+                  <div className="min-w-0 flex-1 text-sm font-medium text-center">
+                    {session.name}
+                  </div>
+                  {isExpressSession && (
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        colorMode === 'dark'
+                          ? 'bg-cyan-400/12 text-cyan-200 ring-1 ring-cyan-300/25'
+                          : 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200'
+                      }`}
+                    >
+                      Express
+                    </span>
+                  )}
                 </div>
                 <img
                   src={sessionPreviewImage}

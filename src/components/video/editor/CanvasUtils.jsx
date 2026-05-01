@@ -6,6 +6,27 @@ import ResizableCircle from "../../editor/shapes/ResizableCircle.tsx";
 import ResizableDialogBubble from "../../editor/shapes/ResizableDialogBubble.tsx";
 
 const FPS = 30;
+const SHAPE_CONFIG_SCALE_KEYS = [
+  'x',
+  'y',
+  'width',
+  'height',
+  'radius',
+  'strokeWidth',
+  'pointerX',
+  'pointerY',
+  'xRadius',
+  'yRadius',
+];
+
+function scaleShapeConfig(config = {}, scale = 1) {
+  return SHAPE_CONFIG_SCALE_KEYS.reduce((scaledConfig, key) => {
+    if (typeof config[key] === 'number') {
+      scaledConfig[key] = config[key] * scale;
+    }
+    return scaledConfig;
+  }, {});
+}
 
 export function ActiveRenderItem(props) {
   const {
@@ -87,6 +108,10 @@ export function ActiveRenderItem(props) {
         height: item.config.height * stageZoomScale,
         fontSize: item.config.fontSize * stageZoomScale,
         strokeWidth: item.config.strokeWidth * stageZoomScale,
+        letterSpacing: (item.config.letterSpacing || 0) * stageZoomScale,
+        shadowBlur: (item.config.shadowBlur || 0) * stageZoomScale,
+        shadowOffsetX: (item.config.shadowOffsetX || 0) * stageZoomScale,
+        shadowOffsetY: (item.config.shadowOffsetY || 0) * stageZoomScale,
         
       }
 
@@ -130,10 +155,7 @@ export function ActiveRenderItem(props) {
       ...item,
       config: {
         ...item.config,
-        x: item.config.x * stageZoomScale,
-        y: item.config.y * stageZoomScale,
-        width: item.config.width * stageZoomScale,
-        height: item.config.height * stageZoomScale
+        ...scaleShapeConfig(item.config, stageZoomScale),
       }
     }
     if (item.config && item.config.frameDuration) {

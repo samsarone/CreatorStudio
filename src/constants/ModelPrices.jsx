@@ -76,8 +76,8 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
-      { aspectRatio: '16:9', price: 90 },
-      { aspectRatio: '9:16', price: 90 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
     ],
     units: [5, 10],
   },
@@ -87,8 +87,8 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
-      { aspectRatio: '16:9', price: 150 },
-      { aspectRatio: '9:16', price: 150 },
+      { aspectRatio: '16:9', price: 100 },
+      { aspectRatio: '9:16', price: 100 },
     ],
     units: [8],
   },
@@ -98,8 +98,8 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
-      { aspectRatio: '16:9', price: 450 },
-      { aspectRatio: '9:16', price: 450 },
+      { aspectRatio: '16:9', price: 300 },
+      { aspectRatio: '9:16', price: 300 },
     ],
     units: [8],
   },
@@ -109,11 +109,23 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '1:1', price: 90 },
-      { aspectRatio: '16:9', price: 90 },
-      { aspectRatio: '9:16', price: 90 },
+      { aspectRatio: '1:1', price: 60 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
     ],
     units: [5, 10],
+  },
+  {
+    key: 'KLINGTXTTOVID3PRO',
+    isExpressModel: false,
+    isImageToVideoModel: false,
+    isTextToVideoModel: true,
+    prices: [
+      { aspectRatio: '1:1', price: 60 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
+    ],
+    units: [5, 10, 15],
   },
   {
     key: 'HAILUO',
@@ -121,7 +133,7 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
-      { aspectRatio: '16:9', price: 90 },
+      { aspectRatio: '16:9', price: 60 },
     ],
     units: [6, 10],
   },
@@ -131,7 +143,7 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
-      { aspectRatio: '16:9', price: 150 },
+      { aspectRatio: '16:9', price: 100 },
     ],
     units: [6],
   },
@@ -141,10 +153,21 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 90 },
-      { aspectRatio: '9:16', price: 90 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
     ],
     units: [5, 10],
+  },
+  {
+    key: 'SEEDANCET2V',
+    isExpressModel: false,
+    isImageToVideoModel: false,
+    isTextToVideoModel: true,
+    prices: [
+      { aspectRatio: '16:9', price: 437.5 },
+      { aspectRatio: '9:16', price: 437.5 },
+    ],
+    units: [5, 10, 15],
   },
   {
     key: 'SEEDANCE15I2V',
@@ -152,19 +175,41 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 90 },
-      { aspectRatio: '9:16', price: 90 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
     ],
     units: [5, 10],
+  },
+  {
+    key: 'VEO3.1',
+    isExpressModel: false,
+    isImageToVideoModel: false,
+    isTextToVideoModel: true,
+    prices: [
+      { aspectRatio: '16:9', price: 700 },
+      { aspectRatio: '9:16', price: 700 },
+    ],
+    units: [8],
+  },
+  {
+    key: 'VEO3.1FAST',
+    isExpressModel: false,
+    isImageToVideoModel: false,
+    isTextToVideoModel: true,
+    prices: [
+      { aspectRatio: '16:9', price: 300 },
+      { aspectRatio: '9:16', price: 300 },
+    ],
+    units: [8],
   },
   {
     key: 'VEO3.1I2V',
     isExpressModel: true,
     isImageToVideoModel: true,
-    isTextToVideoModel: true,
+    isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 1050 },
-      { aspectRatio: '9:16', price: 1050 },
+      { aspectRatio: '16:9', price: 700 },
+      { aspectRatio: '9:16', price: 700 },
     ],
     units: [8],
   },
@@ -172,10 +217,10 @@ export const VIDEO_MODEL_PRICES = [
     key: 'VEO3.1I2VFAST',
     isExpressModel: true,
     isImageToVideoModel: true,
-    isTextToVideoModel: true,
+    isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 450 },
-      { aspectRatio: '9:16', price: 450 },
+      { aspectRatio: '16:9', price: 300 },
+      { aspectRatio: '9:16', price: 300 },
     ],
     units: [8],
   },
@@ -252,47 +297,7 @@ export const TTS_TYPES = [
 
 export const ASSISTANT_MODEL_PRICES = [
   {
-    key: "GPT4O",
-    prices: [
-      {
-        operationType: "words",
-        tokens: 1000,
-        price: 2
-      },
-    ]
-  },
-  {
-    key: "GROK3",
-    prices: [
-      {
-        operationType: "words",
-        tokens: 1000,
-        price: 2
-      },
-    ]
-  },
-  {
-    key: "GPTO3",
-    prices: [
-      {
-        operationType: "words",
-        tokens: 1000,
-        price: 9
-      },
-    ]
-  },
-  {
-    key: "GPT5",
-    prices: [
-      {
-        operationType: "words",
-        tokens: 1000,
-        price: 9
-      },
-    ]
-  },
-  {
-    key: "GPT5MINI",
+    key: "gpt-5.5",
     prices: [
       {
         operationType: "words",

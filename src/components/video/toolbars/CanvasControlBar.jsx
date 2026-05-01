@@ -3,7 +3,7 @@ import SecondaryButton from "../../common/SecondaryButton.tsx";
 import SecondaryPublicButton from "../../common/buttons/SecondaryPublicButton.tsx";
 import RenderActionButton from "./RenderActionButton.jsx";
 import { useNavigate } from "react-router-dom";
-import { FaDownload, FaPause, FaPlay, FaSearch, FaSearchMinus, FaSearchPlus, FaTimes, FaUndo } from "react-icons/fa";
+import { FaCog, FaDownload, FaPause, FaPlay, FaSearch, FaSearchMinus, FaSearchPlus, FaTimes, FaUndo } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 import SingleSelect from "../../common/SingleSelect.jsx";
 import { IoMdGrid } from "react-icons/io";
@@ -40,6 +40,7 @@ export default function CanvasControlBar(props) {
     unpublishVideoSession,
     renderCompletedThisSession,
     editorVariant = 'videoStudio',
+    openAdvancedVideoEditDialog,
   } = props;
 
   const {
@@ -113,6 +114,9 @@ export default function CanvasControlBar(props) {
   const activeIconButtonClassName = colorMode === 'dark'
     ? 'bg-[#132341] text-cyan-100'
     : 'bg-sky-50 text-sky-700';
+  const expressBadgeClassName = colorMode === 'dark'
+    ? 'inline-flex items-center rounded-xl bg-cyan-400/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200 ring-1 ring-cyan-300/25'
+    : 'inline-flex items-center rounded-xl bg-cyan-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-700 ring-1 ring-cyan-200';
 
   const IconActionButton = ({ title, onClick, disabled = false, isActive = false, children }) => (
     <button
@@ -148,6 +152,18 @@ export default function CanvasControlBar(props) {
               {t("common.duration")}
             </div>
           </div>
+        )}
+      </div>
+    );
+  }
+  if (isExpressGeneration && !isImageStudio) {
+    expressGenerationLink = (
+      <div className={sectionSurfaceClassName}>
+        <span className={expressBadgeClassName}>Express</span>
+        {typeof openAdvancedVideoEditDialog === 'function' && (
+          <IconActionButton title="Advanced video edits" onClick={openAdvancedVideoEditDialog}>
+            <FaCog className="text-[13px]" />
+          </IconActionButton>
         )}
       </div>
     );
