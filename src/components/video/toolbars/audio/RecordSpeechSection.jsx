@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
   FaCompress,
@@ -17,6 +18,7 @@ import { getHeaders } from '../../../../utils/web';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DISPLAY_FRAMES_PER_SECOND = 30;
+const DEBUG_RECORD_SPEECH = true;
 
 const RECORDER_MIME_TYPES = [
   'audio/webm;codecs=opus',
@@ -137,6 +139,22 @@ function parseTimestampedTranscript(text = '') {
     .sort((leftCue, rightCue) => leftCue.startTime - rightCue.startTime);
 }
 
+function logRecordSpeechDebug(message, payload = {}) {
+  if (!DEBUG_RECORD_SPEECH || typeof console === 'undefined') {
+    return;
+  }
+
+  console.debug(`[RecordSpeech] ${message}`, payload);
+}
+
+function warnRecordSpeech(message, payload = {}) {
+  if (typeof console === 'undefined') {
+    return;
+  }
+
+  console.warn(`[RecordSpeech] ${message}`, payload);
+}
+
 export default function RecordSpeechSection({
   bgColor,
   text2Color,
@@ -179,18 +197,22 @@ export default function RecordSpeechSection({
   const recordedChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
   const recordingTimerRef = useRef(null);
+  const chunkFlushTimerRef = useRef(null);
   const levelTimerRef = useRef(null);
   const levelSamplesRef = useRef(null);
   const previewAudioRef = useRef(null);
   const recordingUrlRef = useRef('');
   const transcriptInputRef = useRef(null);
   const discardStoppedRecordingRef = useRef(false);
+  const recorderStopReasonRef = useRef('idle');
   const currentLayerSeekRef = useRef(0);
   const isStartingRecordingRef = useRef(false);
   const isRecordingRef = useRef(false);
   const isImmersiveActiveRef = useRef(false);
   const lastLevelUpdateRef = useRef(0);
   const levelValueRef = useRef(0);
+  const lastTranscriptDebugBucketRef = useRef(null);
+  const lastTranscriptDebugCueRef = useRef('');
 
   const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
   const panelBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-50';
@@ -207,41 +229,58 @@ export default function RecordSpeechSection({
     ? Number(recordingDuration)
     : recordingSeconds;
   const layerRelativePreviewTime = Math.max(0, currentPreviewTime - currentLayerStartTime);
-  const layerOffsetPreviewTime = currentLayerStartTime + currentPreviewTime;
 
   const selectedMicLabel = useMemo(() => {
     const selectedMic = microphones.find((device) => device.deviceId === selectedMicId);
     return selectedMic?.label || 'Default microphone';
   }, [microphones, selectedMicId]);
+  const transcriptCandidateTimes = useMemo(() => {
+    const candidates = [
+      { source: 'sessionTime', value: currentPreviewTime },
+      { source: 'layerRelativeTime', value: layerRelativePreviewTime },
+      { source: 'durationOffsetAdjustedTime', value: currentPreviewTime + currentLayerStartTime },
+    ];
+    if (Number.isFinite(Number(recordingPreviewStartSeconds))) {
+      candidates.push({
+        source: 'recordingElapsedTime',
+        value: Math.max(0, currentPreviewTime - Number(recordingPreviewStartSeconds)),
+      });
+    }
+
+    const seenTimes = new Set();
+    return candidates
+      .filter(({ value }) => Number.isFinite(value))
+      .filter(({ value }) => {
+        const roundedValue = Math.round(value * 1000) / 1000;
+        if (seenTimes.has(roundedValue)) {
+          return false;
+        }
+        seenTimes.add(roundedValue);
+        return true;
+      });
+  }, [
+    currentLayerStartTime,
+    currentPreviewTime,
+    layerRelativePreviewTime,
+    recordingPreviewStartSeconds,
+  ]);
   const activeTranscriptCue = useMemo(() => {
     if (!isImmersiveActive || !isRecordingPreviewActive || transcriptCues.length === 0) {
       return null;
     }
 
-    const candidateTimes = currentLayerStartTime > 0 && currentPreviewTime < currentLayerStartTime
-      ? [layerOffsetPreviewTime, currentPreviewTime, layerRelativePreviewTime]
-      : [currentPreviewTime, layerOffsetPreviewTime, layerRelativePreviewTime];
-
-    if (Number.isFinite(Number(recordingPreviewStartSeconds))) {
-      candidateTimes.push(Math.max(0, currentPreviewTime - Number(recordingPreviewStartSeconds)));
-    }
-
-    return candidateTimes
-      .filter((candidateTime, index, allTimes) => (
-        Number.isFinite(candidateTime) && allTimes.indexOf(candidateTime) === index
-      ))
-      .map((candidateTime) => transcriptCues.find((cue) => (
-        candidateTime >= cue.startTime && candidateTime < cue.endTime
-      )))
+    return transcriptCandidateTimes
+      .map(({ source, value }) => {
+        const cue = transcriptCues.find((candidateCue) => (
+          value >= candidateCue.startTime && value < candidateCue.endTime
+        ));
+        return cue ? { ...cue, matchSource: source, matchTime: value } : null;
+      })
       .find(Boolean) || null;
   }, [
-    currentPreviewTime,
-    currentLayerStartTime,
-    layerOffsetPreviewTime,
-    layerRelativePreviewTime,
     isImmersiveActive,
     isRecordingPreviewActive,
-    recordingPreviewStartSeconds,
+    transcriptCandidateTimes,
     transcriptCues,
   ]);
 
@@ -304,9 +343,7 @@ export default function RecordSpeechSection({
   useEffect(() => {
     return () => {
       stopRecorderStream();
-      if (recordingTimerRef.current) {
-        window.clearInterval(recordingTimerRef.current);
-      }
+      clearRecordingTimers();
       if (levelTimerRef.current) {
         window.clearTimeout(levelTimerRef.current);
       }
@@ -318,6 +355,17 @@ export default function RecordSpeechSection({
       }
     };
   }, []);
+
+  const clearRecordingTimers = () => {
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    if (chunkFlushTimerRef.current) {
+      window.clearInterval(chunkFlushTimerRef.current);
+      chunkFlushTimerRef.current = null;
+    }
+  };
 
   const stopRecorderStream = () => {
     if (levelTimerRef.current) {
@@ -414,6 +462,22 @@ export default function RecordSpeechSection({
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
+      stream.getAudioTracks().forEach((track) => {
+        track.onended = () => {
+          recorderStopReasonRef.current = 'microphone_track_ended';
+          warnRecordSpeech('microphone track ended while recording', {
+            label: track.label,
+            readyState: track.readyState,
+            muted: track.muted,
+          });
+        };
+        track.onmute = () => {
+          warnRecordSpeech('microphone track muted', {
+            label: track.label,
+            readyState: track.readyState,
+          });
+        };
+      });
       refreshMicrophones().catch(() => {});
 
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -443,6 +507,7 @@ export default function RecordSpeechSection({
       mediaRecorderRef.current = recorder;
       recordedChunksRef.current = [];
       discardStoppedRecordingRef.current = false;
+      recorderStopReasonRef.current = 'unexpected_stop';
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -450,10 +515,29 @@ export default function RecordSpeechSection({
         }
       };
 
+      recorder.onerror = (event) => {
+        recorderStopReasonRef.current = 'recorder_error';
+        warnRecordSpeech('media recorder error', {
+          error: event?.error?.message || event?.message || String(event),
+          state: recorder.state,
+          mimeType: recorder.mimeType,
+        });
+      };
+
       recorder.onstop = async () => {
+        const stopReason = recorderStopReasonRef.current;
+        clearRecordingTimers();
+        logRecordSpeechDebug('media recorder stopped', {
+          reason: stopReason,
+          chunks: recordedChunksRef.current.length,
+          seconds: Math.floor((Date.now() - recordingStartedAtRef.current) / 1000),
+          discarded: discardStoppedRecordingRef.current,
+        });
+
         if (discardStoppedRecordingRef.current) {
           discardStoppedRecordingRef.current = false;
           recordedChunksRef.current = [];
+          recorderStopReasonRef.current = 'idle';
           setIsRecording(false);
           stopRecorderStream();
           return;
@@ -468,10 +552,10 @@ export default function RecordSpeechSection({
         setRecordingDuration(duration);
         setIsRecording(false);
         stopRecorderStream();
+        recorderStopReasonRef.current = 'idle';
       };
 
-      // Flush chunks periodically so long recordings do not sit in one browser-managed buffer.
-      recorder.start(1000);
+      recorder.start();
       recordingStartedAtRef.current = Date.now();
       setRecordingSeconds(0);
       isRecordingRef.current = true;
@@ -482,12 +566,27 @@ export default function RecordSpeechSection({
       recordingTimerRef.current = window.setInterval(() => {
         setRecordingSeconds(Math.floor((Date.now() - recordingStartedAtRef.current) / 1000));
       }, 250);
+      chunkFlushTimerRef.current = window.setInterval(() => {
+        if (recorder.state !== 'recording' || typeof recorder.requestData !== 'function') {
+          return;
+        }
+
+        try {
+          recorder.requestData();
+        } catch (error) {
+          warnRecordSpeech('failed to flush recorder chunk', {
+            error: error?.message || String(error),
+            state: recorder.state,
+          });
+        }
+      }, 1000);
       updateLevel();
       return true;
     } catch (error) {
       setRecorderError(error?.message || 'Unable to start microphone recording.');
       isRecordingRef.current = false;
       setIsRecording(false);
+      clearRecordingTimers();
       stopRecorderStream();
       return false;
     } finally {
@@ -504,11 +603,9 @@ export default function RecordSpeechSection({
     if (discard) {
       discardStoppedRecordingRef.current = true;
     }
+    recorderStopReasonRef.current = discard ? 'discard' : 'user_stop';
 
-    if (recordingTimerRef.current) {
-      window.clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
+    clearRecordingTimers();
     setRecordingSeconds(Math.max(1, Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)));
     mediaRecorderRef.current.stop();
     isRecordingRef.current = false;
@@ -666,10 +763,20 @@ export default function RecordSpeechSection({
 
       setTranscriptCues(parsedCues);
       setTranscriptFileName(file.name);
+      logRecordSpeechDebug('transcript parsed', {
+        fileName: file.name,
+        cues: parsedCues.length,
+        firstCue: parsedCues[0],
+        lastCue: parsedCues[parsedCues.length - 1],
+      });
     } catch (error) {
       setTranscriptCues([]);
       setTranscriptFileName('');
       setTranscriptError(error?.message || 'Unable to read transcript file.');
+      warnRecordSpeech('transcript parse failed', {
+        fileName: file.name,
+        error: error?.message || String(error),
+      });
     } finally {
       event.target.value = '';
     }
@@ -693,13 +800,7 @@ export default function RecordSpeechSection({
       return;
     }
 
-    setIsVideoPreviewPlaying((previousValue) => {
-      if (previousValue) {
-        return previousValue;
-      }
-
-      return !previousValue;
-    });
+    setIsVideoPreviewPlaying(true);
   };
 
   const startSessionPreviewFromCurrentSeek = () => {
@@ -713,7 +814,7 @@ export default function RecordSpeechSection({
     startNormalVideoPlayback();
   };
 
-  const handleImmersiveStartRecording = async () => {
+  const handleStartRecordingWithPreview = async () => {
     startSessionPreviewFromCurrentSeek();
     const didStartRecording = await startRecording({ preserveRecordingPreview: true }).catch(() => false);
     if (!didStartRecording) {
@@ -726,12 +827,7 @@ export default function RecordSpeechSection({
   };
 
   const handleStartRecordingClick = () => {
-    if (isImmersiveActive) {
-      handleImmersiveStartRecording();
-      return;
-    }
-
-    startRecording().catch(() => {});
+    handleStartRecordingWithPreview();
   };
 
   const requestImmersiveFullscreen = async () => {
@@ -811,6 +907,46 @@ export default function RecordSpeechSection({
     }
   }, [isImmersiveActive, isRecording, isVideoPreviewPlaying]);
 
+  useEffect(() => {
+    if (!isImmersiveActive || !isRecordingPreviewActive || transcriptCues.length === 0) {
+      return;
+    }
+
+    const debugBucket = Math.floor(currentPreviewTime * 2);
+    const cueKey = activeTranscriptCue
+      ? `${activeTranscriptCue.startTime}-${activeTranscriptCue.endTime}-${activeTranscriptCue.text}`
+      : '';
+    const shouldLog = activeTranscriptCue
+      ? cueKey !== lastTranscriptDebugCueRef.current
+      : debugBucket !== lastTranscriptDebugBucketRef.current;
+
+    if (!shouldLog) {
+      return;
+    }
+
+    lastTranscriptDebugBucketRef.current = debugBucket;
+    lastTranscriptDebugCueRef.current = cueKey;
+    logRecordSpeechDebug('transcript cue lookup', {
+      currentPreviewTime,
+      currentLayerStartTime,
+      recordingPreviewStartSeconds,
+      candidates: transcriptCandidateTimes.map(({ source, value }) => ({
+        source,
+        value: Math.round(value * 1000) / 1000,
+      })),
+      matchedCue: activeTranscriptCue,
+    });
+  }, [
+    activeTranscriptCue,
+    currentLayerStartTime,
+    currentPreviewTime,
+    isImmersiveActive,
+    isRecordingPreviewActive,
+    recordingPreviewStartSeconds,
+    transcriptCandidateTimes,
+    transcriptCues.length,
+  ]);
+
   const iconButtonBaseClass = 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
   const primaryIconButtonClass = `${iconButtonBaseClass} border-blue-500 bg-blue-600 text-white hover:bg-blue-500`;
   const recordPrimaryButtonClass = 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-500 bg-blue-600 text-sm text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50';
@@ -818,7 +954,18 @@ export default function RecordSpeechSection({
     ? `${iconButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
     : `${iconButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
   const dangerIconButtonClass = `${iconButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
+  const helperTranscriptOverlay = isImmersiveActive && activeTranscriptCue ? (
+    <div className="pointer-events-none fixed inset-0 z-[10000]">
+      <div className="absolute bottom-[12vh] left-1/2 w-[min(92vw,900px)] -translate-x-1/2 text-center">
+        <div className="rounded-2xl bg-black/70 px-6 py-4 text-xl font-semibold leading-relaxed text-white shadow-2xl backdrop-blur">
+          {activeTranscriptCue.text}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
+    <>
     <section className={`mb-4 rounded-xl border ${borderColor} ${panelBg} p-3`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className={`flex items-center gap-2 text-sm font-bold ${text2Color}`}>
@@ -886,8 +1033,8 @@ export default function RecordSpeechSection({
             onClick={handleStartRecordingClick}
             disabled={!canUseRecorder || isRecording || isStartingRecording}
             className={recordPrimaryButtonClass}
-            title={isStartingRecording ? 'Starting recording' : (isImmersiveActive ? 'Start recording and play session preview' : 'Start recording')}
-            aria-label={isStartingRecording ? 'Starting recording' : (isImmersiveActive ? 'Start recording and play session preview' : 'Start recording')}
+            title={isStartingRecording ? 'Starting recording' : 'Start recording and play session preview'}
+            aria-label={isStartingRecording ? 'Starting recording' : 'Start recording and play session preview'}
           >
             <FaMicrophone aria-hidden="true" />
           </button>
@@ -1003,15 +1150,10 @@ export default function RecordSpeechSection({
         )}
       </div>
 
-      {isImmersiveActive && activeTranscriptCue && (
-        <div className="pointer-events-none fixed inset-0 z-[10000]">
-          <div className="absolute bottom-[12vh] left-1/2 w-[min(92vw,900px)] -translate-x-1/2 text-center">
-            <div className="rounded-2xl bg-black/70 px-6 py-4 text-xl font-semibold leading-relaxed text-white shadow-2xl backdrop-blur">
-              {activeTranscriptCue.text}
-            </div>
-          </div>
-        </div>
-      )}
     </section>
+    {helperTranscriptOverlay && typeof document !== 'undefined'
+      ? createPortal(helperTranscriptOverlay, document.body)
+      : helperTranscriptOverlay}
+    </>
   );
 }

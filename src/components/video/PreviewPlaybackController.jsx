@@ -23,6 +23,23 @@ const PREVIEW_AUDIO_PRIME_LOOKAHEAD_SECONDS = 0.75;
 const PREVIEW_AUDIO_PRIME_TIMEOUT_MS = 250;
 const PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS = 0.2;
 
+function markPreviewAudioFailed(audioEntry, reason = 'media_error') {
+  if (!audioEntry || audioEntry.hasPlaybackError) {
+    return;
+  }
+
+  audioEntry.hasPlaybackError = true;
+  audioEntry.failedSourceSet?.add?.(audioEntry.url);
+  if (typeof console !== 'undefined') {
+    console.warn('[PreviewPlayback] skipping failed audio source', {
+      reason,
+      url: audioEntry.url,
+      errorCode: audioEntry.audio?.error?.code,
+      errorMessage: audioEntry.audio?.error?.message,
+    });
+  }
+}
+
 function resolvePreviewFramesPerSecond(value) {
   const parsed = Math.round(Number(value));
   return VALID_PREVIEW_FRAME_RATES.has(parsed)
@@ -46,6 +63,7 @@ export default function PreviewPlaybackController(props) {
   const audioContextRef = useRef(null);
   const playbackIntervalRef = useRef(null);
   const currentLayerSeekRef = useRef(0);
+  const failedAudioSourceRef = useRef(new Set());
 
   useEffect(() => {
     const resolvedSeek = Number(currentLayerSeek);
@@ -145,6 +163,10 @@ export default function PreviewPlaybackController(props) {
 
   const primePreviewAudioWindow = useCallback((previewTime) => {
     return audioRefs.current.filter((audioEntry) => {
+      if (audioEntry.hasPlaybackError) {
+        return false;
+      }
+
       const shouldPrime = audioEntry.endTime > previewTime
         && audioEntry.startTime <= previewTime + PREVIEW_AUDIO_PRIME_LOOKAHEAD_SECONDS;
 
@@ -211,7 +233,18 @@ export default function PreviewPlaybackController(props) {
   const syncPreviewAudioPlayback = useCallback((previewTime, shouldAutoPlay = true) => {
     primePreviewAudioWindow(previewTime);
 
-    audioRefs.current.forEach(({ audio, startTime, endTime, sourceTrimStartTime = 0 }) => {
+    audioRefs.current.forEach((audioEntry) => {
+      if (audioEntry.hasPlaybackError) {
+        return;
+      }
+
+      const {
+        audio,
+        startTime,
+        endTime,
+        sourceTrimStartTime = 0,
+      } = audioEntry;
+
       if (previewTime >= startTime && previewTime < endTime) {
         const nextCurrentTime = Math.max(0, sourceTrimStartTime + (previewTime - startTime));
         if (Math.abs(audio.currentTime - nextCurrentTime) > PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS) {
@@ -221,7 +254,11 @@ export default function PreviewPlaybackController(props) {
         if (shouldAutoPlay && audio.paused) {
           const playPromise = audio.play();
           if (playPromise?.catch) {
-            playPromise.catch(() => {});
+            playPromise.catch((error) => {
+              if (audio.error) {
+                markPreviewAudioFailed(audioEntry, error?.name || 'playback_error');
+              }
+            });
           }
         }
       } else if (!audio.paused) {
@@ -274,12 +311,6 @@ export default function PreviewPlaybackController(props) {
         audioEl.crossOrigin = 'anonymous';
         audioEl.volume = mediaElementVolume;
 
-        try {
-          audioEl.load();
-        } catch (err) {
-          // Ignore best-effort preload failures.
-        }
-
         const manualVolumeAdjustmentEnabled = hasManualAudioVolumeAutomation(layer);
         const manualVolumeAutomationPoints = manualVolumeAdjustmentEnabled
           ? buildResolvedPreviewAudioVolumeAutomationPoints(layer)
@@ -300,7 +331,22 @@ export default function PreviewPlaybackController(props) {
           duckGainNode: null,
           manualVolumeAdjustmentEnabled,
           manualVolumeAutomationPoints,
+          hasPlaybackError: failedAudioSourceRef.current.has(resolvedAudioUrl),
+          failedSourceSet: failedAudioSourceRef.current,
+          url: resolvedAudioUrl,
         };
+
+        audioEl.addEventListener('error', () => {
+          markPreviewAudioFailed(audioEntry, 'media_error');
+        });
+
+        if (!audioEntry.hasPlaybackError) {
+          try {
+            audioEl.load();
+          } catch (err) {
+            markPreviewAudioFailed(audioEntry, 'load_error');
+          }
+        }
 
         if (audioContext) {
           try {

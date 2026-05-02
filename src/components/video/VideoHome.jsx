@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -3241,7 +3241,10 @@ export default function VideoHome(props) {
   const studioTopInsetPx = 56;
   const reservedLeftRailWidth = `calc(${collapsedFrameToolbarWidth} + ${studioInsetPx * 2}px)`;
   const reservedRightRailWidth = `calc(${collapsedRightPanelWidth} + ${studioInsetPx}px)`;
-  const previewAudioLayers = mergePreviewAudioLayers(videoSessionDetails?.audioLayers, audioLayers);
+  const previewAudioLayers = useMemo(
+    () => mergePreviewAudioLayers(videoSessionDetails?.audioLayers, audioLayers),
+    [videoSessionDetails?.audioLayers, audioLayers]
+  );
 
 
   const editorContainerDisplay = (
