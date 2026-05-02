@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useRef } from 'react';
 import { FaGripLines } from 'react-icons/fa6';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
+import { frameToViewportValue, viewportValueToFrame } from '../../../util/viewportGeometry.js';
 
 const DISPLAY_FRAMES_PER_SECOND = 30;
 const MIN_HINT_FRAME_DISTANCE = 1;
@@ -21,21 +22,37 @@ export default function HintTrackDisplay({
   isDisplaySelected = false,
   onUpdate,
   setHintTrackDisplayAsSelected,
+  viewportGeometry = null,
 }) {
   const { colorMode } = useColorMode();
   const railRef = useRef(null);
   const hintId = hint?.id || hint?._id;
   const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
-  const visibleFrameRange = Math.max(1, visibleEndFrame - visibleStartFrame);
+  const hasViewportGeometry = Array.isArray(viewportGeometry?.segments) && viewportGeometry.segments.length > 0;
+  const minimumValue = hasViewportGeometry ? 0 : visibleStartFrame;
+  const maximumValue = hasViewportGeometry
+    ? Math.max(1, Math.round(Number(viewportGeometry?.totalPixels) || 1))
+    : visibleEndFrame;
+  const visibleValueRange = Math.max(1, maximumValue - minimumValue);
+  const frameToDisplayValue = useCallback((frame) => (
+    hasViewportGeometry
+      ? frameToViewportValue(frame, viewportGeometry)
+      : Number(frame) || 0
+  ), [hasViewportGeometry, viewportGeometry]);
+  const displayValueToFrame = useCallback((value) => (
+    hasViewportGeometry
+      ? viewportValueToFrame(value, viewportGeometry)
+      : Number(value) || 0
+  ), [hasViewportGeometry, viewportGeometry]);
   const startFrame = Math.max(0, Math.round(Number(hint?.startFrame) || 0));
   const endFrame = Math.max(startFrame + 1, Math.round(Number(hint?.endFrame) || startFrame + 1));
-  const clippedStartFrame = clamp(startFrame, visibleStartFrame, visibleEndFrame);
-  const clippedEndFrame = clamp(endFrame, clippedStartFrame + 1, visibleEndFrame);
+  const clippedStartValue = clamp(frameToDisplayValue(startFrame), minimumValue, maximumValue);
+  const clippedEndValue = clamp(frameToDisplayValue(endFrame), clippedStartValue + 1, maximumValue);
   const trackTopPercent = clampPercent(
-    ((clippedStartFrame - visibleStartFrame) / visibleFrameRange) * 100,
+    ((clippedStartValue - minimumValue) / visibleValueRange) * 100,
   );
   const trackBottomPercent = clampPercent(
-    ((clippedEndFrame - visibleStartFrame) / visibleFrameRange) * 100,
+    ((clippedEndValue - minimumValue) / visibleValueRange) * 100,
   );
   const trackHeightPercent = Math.max(0.5, trackBottomPercent - trackTopPercent);
   const railSurfaceClassName = colorMode === 'dark'
@@ -60,7 +77,7 @@ export default function HintTrackDisplay({
   const bottomEdgeClassName = isDisplaySelected
     ? (colorMode === 'dark' ? 'bg-cyan-200/80' : 'bg-sky-600/80')
     : (colorMode === 'dark' ? 'bg-[#6b7d95]' : 'bg-slate-500/70');
-  const thumbClassName = `absolute left-1/2 z-[5] flex h-[10px] w-[18px] -translate-x-1/2 items-center justify-center rounded-full border shadow ${
+  const thumbClassName = `absolute left-1/2 z-[5] flex h-[10px] w-[18px] items-center justify-center rounded-full border shadow ${
     colorMode === 'dark'
       ? 'border-white/40 bg-white text-slate-800'
       : 'border-slate-300 bg-slate-100 text-slate-700'
@@ -78,8 +95,8 @@ export default function HintTrackDisplay({
     }
 
     const y = clamp(clientY - rect.top, 0, rect.height);
-    return visibleStartFrame + ((y / rect.height) * visibleFrameRange);
-  }, [visibleFrameRange, visibleStartFrame]);
+    return displayValueToFrame(minimumValue + ((y / rect.height) * visibleValueRange));
+  }, [displayValueToFrame, minimumValue, visibleStartFrame, visibleValueRange]);
 
   const updateFrames = useCallback((nextStartFrame, nextEndFrame) => {
     const normalizedStartFrame = clamp(
@@ -172,12 +189,13 @@ export default function HintTrackDisplay({
       >
         <button
           type="button"
-          className="absolute left-1/2 w-[16px] -translate-x-1/2 cursor-grab overflow-hidden rounded-full p-0 outline-none active:cursor-grabbing"
+          className="absolute left-1/2 w-[16px] cursor-grab overflow-hidden rounded-full p-0 outline-none active:cursor-grabbing"
           style={{
             ...activeTrackStyle,
             top: `${trackTopPercent}%`,
             height: `${trackHeightPercent}%`,
             minHeight: '4px',
+            transform: 'translateX(-50%)',
           }}
           onMouseDown={(event) => beginDrag(event, 'move')}
           onClick={selectHint}

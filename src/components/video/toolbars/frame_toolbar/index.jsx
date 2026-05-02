@@ -1080,6 +1080,22 @@ export default function FrameToolbar(props) {
 
     return matchingIndex >= 0 ? matchingIndex : selectedLayerIndex;
   }, [layers, selectedHintLayerData, selectedLayerIndex]);
+  const selectedHintLayerFrameMeta = useMemo(() => {
+    const normalizedHintLayerId = resolveLayerId(selectedHintLayerData)?.toString?.()
+      || resolveLayerId(selectedHintLayerData);
+
+    if (!normalizedHintLayerId) {
+      return null;
+    }
+
+    return layerFrameMetadata.find((layerMeta) => (
+      resolveLayerId(layerMeta.layer)?.toString?.() === normalizedHintLayerId.toString()
+    )) || null;
+  }, [layerFrameMetadata, selectedHintLayerData]);
+  const resetAddHintForm = useCallback((options = {}) => {
+    setNewHintText('');
+    setShowAddHintForm(Boolean(options.keepOpen));
+  }, []);
   const persistedClipStartDisplayFrames = useMemo(
     () => actualFramesToDisplayFrames(
       selectedLayerData?.clipStart ? selectedLayerData?.clipStartFrames : 0
@@ -1454,8 +1470,11 @@ export default function FrameToolbar(props) {
     }
 
     setSelectedHintLayerId(selectedLayerId || null);
+    setSelectedHintId(null);
+    resetAddHintForm();
   }, [
     currentLayerActionSuperView,
+    resetAddHintForm,
     selectedLayerId,
   ]);
 
@@ -2251,6 +2270,18 @@ export default function FrameToolbar(props) {
       layerMeta.layer?._id?.toString?.() || layerMeta.layer?._id || null
     )).filter(Boolean)
   ), [displayedVisibleLayerMetadata]);
+  const selectedHintLayerViewportSegment = useMemo(() => {
+    const normalizedHintLayerId = resolveLayerId(selectedHintLayerData)?.toString?.()
+      || resolveLayerId(selectedHintLayerData);
+
+    if (!normalizedHintLayerId) {
+      return null;
+    }
+
+    return displayedLayerViewportGeometry.segments.find((segment) => (
+      segment.layerId?.toString?.() === normalizedHintLayerId.toString()
+    )) || null;
+  }, [displayedLayerViewportGeometry, selectedHintLayerData]);
   const visibleLayerLayoutById = useMemo(() => (
     displayedLayerViewportGeometry.segments.reduce((accumulator, segment) => {
       accumulator[segment.layerId] = {
@@ -3243,30 +3274,45 @@ export default function FrameToolbar(props) {
       return;
     }
 
-    const startTime = Math.max(0, Number(selectedHintLayerData.durationOffset ?? selectedHintLayerData.startTime) || 0);
+    const visibleLayerFrameStart = Number(selectedHintLayerViewportSegment?.frameStart);
+    const visibleLayerFrameEnd = Number(selectedHintLayerViewportSegment?.frameEnd);
+    const layerFrameStart = Number(selectedHintLayerFrameMeta?.startFrame);
+    const layerFrameDuration = Number(selectedHintLayerFrameMeta?.durationFrames);
+    const hintStartFrame = Number.isFinite(visibleLayerFrameStart)
+      ? visibleLayerFrameStart
+      : layerFrameStart;
+    const hintDurationFrames = Number.isFinite(visibleLayerFrameStart) && Number.isFinite(visibleLayerFrameEnd)
+      ? Math.max(1, visibleLayerFrameEnd - visibleLayerFrameStart)
+      : layerFrameDuration;
+    const startTime = Number.isFinite(hintStartFrame)
+      ? Math.max(0, hintStartFrame / DISPLAY_FRAMES_PER_SECOND)
+      : Math.max(0, Number(selectedHintLayerData.durationOffset ?? selectedHintLayerData.startTime) || 0);
     const duration = Math.max(
       1 / DISPLAY_FRAMES_PER_SECOND,
-      Number(selectedHintLayerData.duration) || 1,
+      Number.isFinite(hintDurationFrames)
+        ? hintDurationFrames / DISPLAY_FRAMES_PER_SECOND
+        : Number(selectedHintLayerData.duration) || 1,
     );
+    const hintLayerId = resolveLayerId(selectedHintLayerData);
     const hintId = `hint_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const nextHint = {
       id: hintId,
       text,
+      layerId: hintLayerId?.toString?.() || hintLayerId || null,
       startTime,
       endTime: startTime + duration,
       duration,
     };
 
     const saveResult = await persistTimelineHints([...timelineHintsDraft, nextHint], {
-      selectedHintId: hintId,
+      selectedHintId: null,
       pendingMessage: 'Adding hint...',
       successMessage: 'Hint added.',
       failureMessage: 'Unable to add hint.',
     });
 
     if (saveResult.success) {
-      setNewHintText('');
-      setShowAddHintForm(false);
+      resetAddHintForm();
     }
   };
 
@@ -4605,6 +4651,10 @@ export default function FrameToolbar(props) {
     setSelectedLayer(layer);
     if (currentLayerActionSuperView === 'HINTS') {
       setSelectedHintLayerId(nextLayerId);
+      if (!isSameLayerSelection) {
+        setSelectedHintId(null);
+        resetAddHintForm();
+      }
     }
     if (Number.isFinite(nextLayerSeekFrame)) {
       setCurrentLayerSeek(nextLayerSeekFrame);
@@ -5508,6 +5558,7 @@ export default function FrameToolbar(props) {
           isDisplaySelected={selectedHintId === hint.id}
           setHintTrackDisplayAsSelected={setHintTrackDisplayAsSelected}
           onUpdate={updateHintFromSlider}
+          viewportGeometry={displayedLayerViewportGeometry}
         />
       );
     });

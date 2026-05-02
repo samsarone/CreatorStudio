@@ -1561,7 +1561,9 @@ export default function VideoHome(props) {
           ? {
             ...previousSessionDetails,
             ...(sessionDetails || {}),
-            layers: previousSessionDetails.layers,
+            layers: Array.isArray(layersRef.current)
+              ? layersRef.current
+              : previousSessionDetails.layers,
             audioLayers: previousSessionDetails.audioLayers,
             timelineHints: returnedHints,
           }
@@ -2416,9 +2418,14 @@ export default function VideoHome(props) {
       showLoginDialog();
       return;
     }
+    if (!Array.isArray(layers) || !layers[layerIndex]) {
+      return;
+    }
     setCanvasProcessLoading(true);
 
     const layerId = layers[layerIndex]._id.toString();
+    const selectedLayerIdBeforeDelete = getSessionLayerId(currentLayerRef.current)
+      || getSessionLayerId(layers[selectedLayerIndex]);
     const reqPayload = {
       sessionId: id,
       layerId: layerId
@@ -2426,10 +2433,24 @@ export default function VideoHome(props) {
     axios.post(`${PROCESSOR_API_URL}/video_sessions/remove_layer`, reqPayload, headers).then((response) => {
       const videoSessionDataResponse = response.data;
       const videoSessionData = videoSessionDataResponse.videoSession;
-      const updatedLayers = videoSessionData.layers;
-      let newLayerIndex = layerIndex > 0 ? layerIndex - 1 : 0;
+      const updatedLayers = Array.isArray(videoSessionData?.layers) ? videoSessionData.layers : [];
+      const updatedAudioLayers = Array.isArray(videoSessionData?.audioLayers) ? videoSessionData.audioLayers : [];
+      let newLayerIndex = -1;
+
+      if (selectedLayerIdBeforeDelete && selectedLayerIdBeforeDelete !== layerId) {
+        newLayerIndex = updatedLayers.findIndex(
+          (layer) => getSessionLayerId(layer) === selectedLayerIdBeforeDelete
+        );
+      }
+
+      if (newLayerIndex < 0 && updatedLayers.length > 0) {
+        newLayerIndex = Math.min(layerIndex, updatedLayers.length - 1);
+      }
+
+      setVideoSessionDetails(videoSessionData);
       setLayers(updatedLayers);
-      setCurrentLayer(updatedLayers[newLayerIndex]);
+      setAudioLayers(updatedAudioLayers);
+      setCurrentLayer(newLayerIndex >= 0 ? updatedLayers[newLayerIndex] : null);
       setSelectedLayerIndex(newLayerIndex);
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);

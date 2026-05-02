@@ -20,6 +20,10 @@ import { normalizeTimelineHints } from '../../../../utils/sessionTimelineText.js
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DISPLAY_FRAMES_PER_SECOND = 30;
 const DEBUG_RECORD_SPEECH = true;
+const FACECAM_VIDEO_BITS_PER_SECOND = 1_500_000;
+const FACECAM_RECORDER_TIMESLICE_MS = 1000;
+const FACECAM_GLOBAL_VIDEO_POLL_INTERVAL_MS = 2000;
+const FACECAM_GLOBAL_VIDEO_POLL_TIMEOUT_MS = 10 * 60 * 1000;
 
 const RECORDER_MIME_TYPES = [
   'audio/webm;codecs=opus',
@@ -75,6 +79,73 @@ function getVideoRecordingExtension(mimeType = '') {
     return 'mov';
   }
   return 'webm';
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function getGlobalVideoId(globalVideo = {}) {
+  return globalVideo?._id?.toString?.()
+    || globalVideo?._id
+    || globalVideo?.id?.toString?.()
+    || globalVideo?.id
+    || globalVideo?.globalVideoId?.toString?.()
+    || globalVideo?.globalVideoId
+    || '';
+}
+
+function normalizeGlobalVideoProcessingStatus(value = '') {
+  return typeof value === 'string' ? value.trim().toUpperCase() : '';
+}
+
+function shouldPollGlobalVideoProcessing(responseData = {}, globalVideo = {}) {
+  const status = normalizeGlobalVideoProcessingStatus(
+    responseData?.status
+      || globalVideo?.framesGenerationStatus
+      || globalVideo?.frameGenerationStatus
+  );
+
+  return status === 'PROCESSING'
+    || status === 'INIT'
+    || Boolean(globalVideo?.framesGenerationPending);
+}
+
+async function pollGlobalVideoProcessing({ sessionId, globalVideo, headers }) {
+  const globalVideoId = getGlobalVideoId(globalVideo);
+  if (!sessionId || !globalVideoId) {
+    return globalVideo;
+  }
+
+  const startedAt = Date.now();
+  let latestGlobalVideo = globalVideo;
+  while (Date.now() - startedAt < FACECAM_GLOBAL_VIDEO_POLL_TIMEOUT_MS) {
+    await wait(FACECAM_GLOBAL_VIDEO_POLL_INTERVAL_MS);
+    const response = await axios.get(`${PROCESSOR_API_URL}/video_sessions/global_video_status`, {
+      ...headers,
+      params: {
+        sessionId,
+        globalVideoId,
+      },
+    });
+    latestGlobalVideo = response?.data?.globalVideo || latestGlobalVideo;
+    const status = normalizeGlobalVideoProcessingStatus(
+      response?.data?.status
+        || latestGlobalVideo?.framesGenerationStatus
+        || latestGlobalVideo?.frameGenerationStatus
+    );
+
+    if (response?.data?.complete || status === 'COMPLETED') {
+      return latestGlobalVideo;
+    }
+    if (response?.data?.failed || status === 'FAILED') {
+      throw new Error(latestGlobalVideo?.framesGenerationError || 'Unable to process recorded facecam.');
+    }
+  }
+
+  throw new Error('Facecam was uploaded, but processing is still running. Please try again in a moment.');
 }
 
 function formatRecordingTime(seconds) {
@@ -597,7 +668,16 @@ export default function RecordSpeechSection({
     }
 
     const mimeType = getSupportedVideoRecorderMimeType();
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    const recorderOptions = {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: FACECAM_VIDEO_BITS_PER_SECOND,
+    };
+    let recorder;
+    try {
+      recorder = new MediaRecorder(stream, recorderOptions);
+    } catch {
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    }
     facecamMediaRecorderRef.current = recorder;
     facecamChunksRef.current = [];
     facecamDiscardStoppedRef.current = false;
@@ -643,7 +723,7 @@ export default function RecordSpeechSection({
       };
     });
 
-    recorder.start();
+    recorder.start(FACECAM_RECORDER_TIMESLICE_MS);
     setIsFacecamRecording(true);
     return true;
   };
@@ -967,12 +1047,21 @@ export default function RecordSpeechSection({
 
   const handleAddToLibrary = async () => {
     const uploadedItem = await uploadRecording();
-    if (uploadedItem) {
-      toast.success('Recorded speech added to library.', {
-        position: 'bottom-center',
-        className: 'custom-toast',
-      });
+    if (!uploadedItem) {
+      return;
     }
+
+    if (shouldRecordFacecam && (facecamBlob || facecamStopPromiseRef.current)) {
+      const globalVideo = await uploadFacecamRecording();
+      if (!globalVideo) {
+        return;
+      }
+    }
+
+    toast.success('Recorded speech added to library.', {
+      position: 'bottom-center',
+      className: 'custom-toast',
+    });
   };
 
   const uploadFacecamRecording = async () => {
@@ -1029,13 +1118,27 @@ export default function RecordSpeechSection({
           },
         }
       );
-      const globalVideo = response?.data?.globalVideo || null;
+      let globalVideo = response?.data?.globalVideo || null;
+      if (globalVideo && shouldPollGlobalVideoProcessing(response?.data, globalVideo)) {
+        globalVideo = await pollGlobalVideoProcessing({
+          sessionId: sessionDetails._id.toString(),
+          globalVideo,
+          headers,
+        });
+      }
       if (globalVideo) {
         setUploadedGlobalVideo(globalVideo);
       }
       return globalVideo;
     } catch (error) {
-      setFacecamError(error?.response?.data?.error || 'Unable to save recorded facecam.');
+      const statusCode = error?.response?.status;
+      const serverError = error?.response?.data?.error || error?.response?.data?.message;
+      setFacecamError(
+        (statusCode === 504 ? 'Facecam processing timed out. Please try again.' : '')
+        || serverError
+        || error?.message
+        || 'Unable to save recorded facecam.'
+      );
       return null;
     } finally {
       setIsUploadPending(false);
@@ -1347,6 +1450,9 @@ export default function RecordSpeechSection({
       </div>
     </div>
   ) : null;
+  const libraryActionComplete = Boolean(uploadedLibraryItem)
+    && (!shouldRecordFacecam || Boolean(uploadedGlobalVideo));
+
   return (
     <>
     <section className={`mb-4 rounded-xl border ${borderColor} ${panelBg} p-3`}>
@@ -1542,10 +1648,10 @@ export default function RecordSpeechSection({
               <button
                 type="button"
                 onClick={handleAddToLibrary}
-                disabled={isUploadPending || Boolean(uploadedLibraryItem)}
+                disabled={isUploadPending || libraryActionComplete}
                 className={resultSecondaryIconButtonClass}
-                title={uploadedLibraryItem ? 'Already in library' : 'Add to library'}
-                aria-label={uploadedLibraryItem ? 'Already in library' : 'Add to library'}
+                title={libraryActionComplete ? 'Already in library' : 'Add to library'}
+                aria-label={libraryActionComplete ? 'Already in library' : 'Add to library'}
               >
                 <FaHome aria-hidden="true" />
               </button>
