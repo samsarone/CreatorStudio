@@ -128,6 +128,56 @@ function getSessionLayerId(layer) {
   return layer?._id?.toString?.() || layer?._id || layer?.id || null;
 }
 
+function getAudioLayerId(layer) {
+  return layer?._id?.toString?.() || layer?._id || layer?.id || null;
+}
+
+function mergePreviewAudioLayers(sessionAudioLayers, workingAudioLayers) {
+  const sessionLayers = Array.isArray(sessionAudioLayers)
+    ? sessionAudioLayers.filter(Boolean)
+    : [];
+  const workingLayers = Array.isArray(workingAudioLayers)
+    ? workingAudioLayers.filter(Boolean)
+    : [];
+
+  if (sessionLayers.length === 0) {
+    return workingLayers;
+  }
+
+  if (workingLayers.length === 0) {
+    return sessionLayers;
+  }
+
+  const workingLayerById = new Map();
+  workingLayers.forEach((audioLayer) => {
+    const layerId = getAudioLayerId(audioLayer);
+    if (layerId) {
+      workingLayerById.set(layerId.toString(), audioLayer);
+    }
+  });
+
+  const sessionLayerIds = new Set();
+  const mergedLayers = sessionLayers.map((sessionLayer) => {
+    const layerId = getAudioLayerId(sessionLayer);
+    if (layerId) {
+      sessionLayerIds.add(layerId.toString());
+    }
+
+    const workingLayer = layerId ? workingLayerById.get(layerId.toString()) : null;
+    return workingLayer ? { ...sessionLayer, ...workingLayer } : sessionLayer;
+  });
+
+  workingLayers.forEach((workingLayer) => {
+    const layerId = getAudioLayerId(workingLayer);
+    if (!layerId || sessionLayerIds.has(layerId.toString())) {
+      return;
+    }
+    mergedLayers.push(workingLayer);
+  });
+
+  return mergedLayers;
+}
+
 export default function VideoHome(props) {
   const {
     setZoomCanvasIn,
@@ -179,6 +229,7 @@ export default function VideoHome(props) {
   const [aspectRatio, setAspectRatio] = useState(null);
 
   const [applyAudioDucking, setApplyAudioDucking] = useState(true);
+  const [regenerateFramesBeforeRender, setRegenerateFramesBeforeRender] = useState(false);
   const [sceneTransitionPreset, setSceneTransitionPreset] = useState(DEFAULT_SCENE_TRANSITION_PRESET);
 
   const [isGuestSession, setIsGuestSession] = useState(false);
@@ -352,6 +403,7 @@ export default function VideoHome(props) {
     setMinimalToolbarDisplay(true);
     setAspectRatio(null);
     setApplyAudioDucking(true);
+    setRegenerateFramesBeforeRender(false);
     setSceneTransitionPreset(DEFAULT_SCENE_TRANSITION_PRESET);
     setToggleUpdateCurrentLayer(false);
     setCurrentLayerToBeUpdated(-1);
@@ -802,7 +854,7 @@ export default function VideoHome(props) {
   }
 
   useEffect(() => {
-    if (isLayerSeeking || !currentLayer) {
+    if (isLayerSeeking || isVideoPreviewPlaying || !currentLayer) {
       return;
     }
 
@@ -818,7 +870,7 @@ export default function VideoHome(props) {
     if (!isSeekWithinCurrentLayer) {
       setCurrentLayerSeek(newLayerSeek);
     }
-  }, [currentLayer, currentLayerSeek, isLayerSeeking]);
+  }, [currentLayer, currentLayerSeek, isLayerSeeking, isVideoPreviewPlaying]);
 
 
 
@@ -866,6 +918,11 @@ export default function VideoHome(props) {
         applyAudioDucking: resolvedValue,
       },
     }, headers).catch(() => {});
+  };
+
+  const handleRegenerateFramesBeforeRenderChange = (nextValue) => {
+    setRegenerateFramesBeforeRender(Boolean(nextValue));
+    setIsCanvasDirty(true);
   };
 
   const handleSceneTransitionPresetChange = (nextValue) => {
@@ -1003,7 +1060,7 @@ export default function VideoHome(props) {
     // Update the ref with the current value
     prevCurrentLayerSeekRef.current = currentLayerSeek;
 
-  }, [currentLayerSeek, layers]);
+  }, [currentLayer, currentLayerSeek, layers]);
 
 
 
@@ -1390,47 +1447,89 @@ export default function VideoHome(props) {
     }
   };
 
-  const submitRenderVideo = () => {
+  const requestFrameRegenerationForRender = async (headers) => {
+    const response = await axios.post(
+      `${PROCESSOR_API_URL}/video_sessions/regenerate_frames`,
+      { sessionId: id },
+      headers
+    );
+    const videoSessionData = response.data;
+    if (videoSessionData?.layers) {
+      setLayers(videoSessionData.layers);
+      setVideoSessionDetails(videoSessionData);
+    }
+    setIsCanvasDirty(true);
+    return videoSessionData;
+  };
+
+  const submitRenderVideo = async (renderOptions = {}) => {
     if (isUpdateLayerPending) {
       toast.error('Please wait for the scene update to finish before rendering.', {
         position: "bottom-center",
         className: "custom-toast",
       });
-      return;
+      return false;
     }
     if (hasBlockingLayerGenerationForRender(videoSessionDetails)) {
       toast.error('Wait for the current layer processing to finish before rendering.', {
         position: "bottom-center",
         className: "custom-toast",
       });
-      return;
+      return false;
     }
 
-    setRenderCompletedThisSession(false);
+    const headers = isGuestSession ? undefined : getHeaders();
+    if (!isGuestSession && !headers) {
+      showLoginDialog();
+      return false;
+    }
+
+    const resolvedApplyAudioDucking = typeof renderOptions?.applyAudioDucking === 'boolean'
+      ? renderOptions.applyAudioDucking
+      : applyAudioDucking;
+    const resolvedRegenerateFramesBeforeRender = typeof renderOptions?.regenerateFramesBeforeRender === 'boolean'
+      ? renderOptions.regenerateFramesBeforeRender
+      : regenerateFramesBeforeRender;
+    const resolvedSceneTransitionPreset = renderOptions?.sceneTransitionPreset || sceneTransitionPreset;
+
     const renderPayload = {
       id,
-      applyAudioDucking,
-      sceneTransitionPreset,
+      applyAudioDucking: resolvedApplyAudioDucking,
+      sceneTransitionPreset: resolvedSceneTransitionPreset,
     };
 
-    if (isGuestSession) {
-      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, renderPayload).then((dataRes) => {
-        setIsVideoGenerating(true);
-        startVideoRenderPoll();
-      });
+    setRenderCompletedThisSession(false);
 
-    } else {
-      const headers = getHeaders();
-      if (!headers) {
-        showLoginDialog();
-        return;
+    if (resolvedRegenerateFramesBeforeRender) {
+      setIsVideoGenerating(true);
+      try {
+        await requestFrameRegenerationForRender(headers);
+      } catch (error) {
+        setIsVideoGenerating(false);
+        toast.error(error?.response?.data?.error || 'Failed to regenerate frames before render', {
+          position: "bottom-center",
+          className: "custom-toast",
+        });
+        return false;
       }
+    }
 
-
-      axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, renderPayload, headers).then((dataRes) => {
-        setIsVideoGenerating(true);
-        startVideoRenderPoll();
+    try {
+      if (isGuestSession) {
+        await axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, renderPayload);
+      } else {
+        await axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, renderPayload, headers);
+      }
+      setIsVideoGenerating(true);
+      startVideoRenderPoll();
+      return true;
+    } catch (error) {
+      setIsVideoGenerating(false);
+      toast.error(error?.response?.data?.error || 'Failed to request video render', {
+        position: "bottom-center",
+        className: "custom-toast",
       });
+      return false;
     }
   }
 
@@ -2508,6 +2607,25 @@ export default function VideoHome(props) {
       return;
     }
 
+    if (requestInfo?.operation === 'copy_session') {
+      if (nextSessionId && nextSessionId !== id) {
+        localStorage.setItem('sessionId', nextSessionId);
+        localStorage.setItem('videoSessionId', nextSessionId);
+        toast.success('Session copied', {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        });
+        navigate(`/video/${nextSessionId}`);
+        return;
+      }
+
+      toast.success('Session copied', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      return;
+    }
+
     setRenderCompletedThisSession(false);
     setRenderedVideoPath(null);
     setDownloadLink(null);
@@ -3040,6 +3158,7 @@ export default function VideoHome(props) {
   const studioTopInsetPx = 56;
   const reservedLeftRailWidth = `calc(${collapsedFrameToolbarWidth} + ${studioInsetPx * 2}px)`;
   const reservedRightRailWidth = `calc(${collapsedRightPanelWidth} + ${studioInsetPx}px)`;
+  const previewAudioLayers = mergePreviewAudioLayers(videoSessionDetails?.audioLayers, audioLayers);
 
 
   const editorContainerDisplay = (
@@ -3166,9 +3285,11 @@ export default function VideoHome(props) {
           submitRegenerateFrames={submitRegenerateFrames}
           applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
           applyAudioDucking={applyAudioDucking}
+          regenerateFramesBeforeRender={regenerateFramesBeforeRender}
           sceneTransitionPreset={sceneTransitionPreset}
           onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
           onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
+          onRegenerateFramesBeforeRenderChange={handleRegenerateFramesBeforeRenderChange}
           applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
           applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
           applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
@@ -3223,7 +3344,7 @@ export default function VideoHome(props) {
     >
       <PreviewPlaybackController
         applyAudioDucking={applyAudioDucking}
-        audioLayers={audioLayers}
+        audioLayers={previewAudioLayers}
         currentLayerSeek={currentLayerSeek}
         framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
@@ -3281,9 +3402,11 @@ export default function VideoHome(props) {
                 submitRegenerateFrames={submitRegenerateFrames}
                 applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
                 applyAudioDucking={applyAudioDucking}
+                regenerateFramesBeforeRender={regenerateFramesBeforeRender}
                 sceneTransitionPreset={sceneTransitionPreset}
                 onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
                 onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
+                onRegenerateFramesBeforeRenderChange={handleRegenerateFramesBeforeRenderChange}
                 applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
                 applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
                 applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}

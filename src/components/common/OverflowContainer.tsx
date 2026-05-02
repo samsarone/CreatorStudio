@@ -24,11 +24,6 @@ export default function OverflowContainer(props) {
     }
   }
 
-  const addCustodyAddress = (address) => {
-    // Function to add custody address
-  }
-
-
     const addNewVidGPTSession = () => {
       const headers = getHeaders();
       const payload = {
@@ -55,13 +50,11 @@ export default function OverflowContainer(props) {
       {isMobile ? (
         <MobileTopNav
           resetCurrentSession={resetCurrentSession}
-          addCustodyAddress={addCustodyAddress}
           addNewVidGPTSession={addNewVidGPTSession}
         />
       ) : (
         <TopNav
           resetCurrentSession={resetCurrentSession}
-          addCustodyAddress={addCustodyAddress}
 
 
         />

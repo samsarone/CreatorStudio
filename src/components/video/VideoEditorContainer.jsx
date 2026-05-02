@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
@@ -312,6 +312,28 @@ export default function VideoEditorContainer(props) {
       setAiVideoPollType(null);
     }
   }, [currentLayer, layerHasPendingVideoTask, resolveLayerVideoState]);
+
+  const nextVideoLayerState = useMemo(() => {
+    if (!isVideoPreviewPlaying || !currentLayer || !Array.isArray(layers)) {
+      return { url: null, type: null };
+    }
+
+    const currentLayerId = currentLayer?._id?.toString?.() || currentLayer?._id || null;
+    if (!currentLayerId) {
+      return { url: null, type: null };
+    }
+
+    const currentLayerIndex = layers.findIndex((layer) => {
+      const layerId = layer?._id?.toString?.() || layer?._id || null;
+      return layerId && layerId.toString() === currentLayerId.toString();
+    });
+
+    if (currentLayerIndex < 0 || currentLayerIndex >= layers.length - 1) {
+      return { url: null, type: null };
+    }
+
+    return resolveLayerVideoState(layers[currentLayerIndex + 1]);
+  }, [currentLayer, isVideoPreviewPlaying, layers, resolveLayerVideoState]);
 
 
   useEffect(() => {
@@ -2914,6 +2936,7 @@ export default function VideoEditorContainer(props) {
               selectedLayerId={selectedLayerId}
               exportAnimationFrames={() => { }}
               currentLayerSeek={currentLayerSeek}
+              isVideoPreviewPlaying={isVideoPreviewPlaying}
               currentLayer={currentLayer}
               updateSessionActiveItemList={updateSessionLayerActiveItemList}
               selectedLayerSelectShape={selectedLayerSelectShape}
@@ -2933,6 +2956,8 @@ export default function VideoEditorContainer(props) {
               displayZoomType={displayZoomType}
               aiVideoLayer={aiVideoLayer}
               aiVideoLayerType={aiVideoLayerType}
+              nextAiVideoLayer={nextVideoLayerState.url}
+              nextAiVideoLayerType={nextVideoLayerState.type}
               requestRegenerateAnimations={requestRegenerateAnimations}
               requestRealignLayers={requestReAlignLayersToSpeechAndRegenerateSubtitles}
               totalDuration={totalDuration}
@@ -3072,6 +3097,10 @@ export default function VideoEditorContainer(props) {
       aspectRatio={aspectRatio}
       setAdvancedSessionTheme={setAdvancedSessionTheme}
       requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
+      currentLayerSeek={currentLayerSeek}
+      setCurrentLayerSeek={setCurrentLayerSeek}
+      isVideoPreviewPlaying={isVideoPreviewPlaying}
+      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       selectedEditModelValue={selectedEditModelValue}
       submitAddBatchTrackToProject={submitAddBatchTrackToProject}
       currentLayer={currentLayer}

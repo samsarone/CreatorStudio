@@ -32,7 +32,11 @@ export default function LayerSpeechPreview(props) {
           <SpeechSelectToolbar
             audioLayer={layer}
             submitAddTrackToProject={submitAddTrackToProject}
-            setCurrentCanvasAction={() => {}}
+            setCurrentCanvasAction={() => {
+              if (typeof onBack === 'function') {
+                onBack();
+              }
+            }}
             colorMode={colorMode}
             sessionDetails={sessionDetails}
           />

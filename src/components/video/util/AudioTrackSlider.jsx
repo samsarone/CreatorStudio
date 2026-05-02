@@ -6,6 +6,7 @@ import AudioLevelsTrackSlider from './AudioLevelsTrackSlider';
 import AudioTrackWaveformOverlay from './AudioTrackWaveformOverlay.jsx';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { frameToViewportValue, viewportValueToFrame } from './viewportGeometry.js';
+import { getAudioTrackFrameBounds } from './audioTrackTiming.js';
 
 const DISPLAY_FRAMES_PER_SECOND = 30;
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
@@ -21,27 +22,6 @@ function addStyleValueOffset(styleValue, offsetPixels) {
   }
 
   return offsetPixels;
-}
-
-function getAudioTrackFrameBounds(audioTrack) {
-  const parsedStartTime = Number(audioTrack?.startTime);
-  const parsedEndTime = Number(audioTrack?.endTime);
-  const parsedDuration = Number(audioTrack?.duration);
-
-  const startTime = Number.isFinite(parsedStartTime) ? parsedStartTime : 0;
-  const fallbackEndTime = startTime + (
-    Number.isFinite(parsedDuration) && parsedDuration > 0
-      ? parsedDuration
-      : 0
-  );
-  const endTime = Number.isFinite(parsedEndTime) && parsedEndTime >= startTime
-    ? parsedEndTime
-    : fallbackEndTime;
-
-  return {
-    startFrame: startTime * DISPLAY_FRAMES_PER_SECOND,
-    endFrame: endTime * DISPLAY_FRAMES_PER_SECOND,
-  };
 }
 
 function resolveAudioTrackUrl(audioTrack = {}) {
@@ -116,6 +96,13 @@ const AudioTrackSlider = (props) => {
   const resolvedSourceTrimStartTime = Number.isFinite(Number(audioTrack?.sourceTrimStartTime))
     ? Math.max(0, Number(audioTrack.sourceTrimStartTime))
     : 0;
+  const sliderRange = Math.max(1, max - min);
+  const visibleTrackStartPercent = Math.max(0, Math.min(100, ((sliderValues[0] - min) / sliderRange) * 100));
+  const visibleTrackEndPercent = Math.max(visibleTrackStartPercent, Math.min(100, ((sliderValues[1] - min) / sliderRange) * 100));
+  const visibleTrackInsetStyle = {
+    top: `${visibleTrackStartPercent}%`,
+    bottom: `${Math.max(0, 100 - visibleTrackEndPercent)}%`,
+  };
   const visibleTrackStartFrame = sliderValueToFrame(sliderValues[0]);
   const visibleTrackEndFrame = sliderValueToFrame(sliderValues[1]);
   const visibleLayerStartSeconds = Math.max(0, (visibleTrackStartFrame / DISPLAY_FRAMES_PER_SECOND) - resolvedTrackStartTime);
@@ -174,7 +161,7 @@ const AudioTrackSlider = (props) => {
 
   useEffect(() => {
     const { startFrame: resolvedStartFrame, endFrame: resolvedEndFrame } =
-      getAudioTrackFrameBounds(audioTrack);
+      getAudioTrackFrameBounds(audioTrack, DISPLAY_FRAMES_PER_SECOND);
     const startValue = Math.max(min, Math.min(max, frameToSliderValue(resolvedStartFrame)));
     const endValue = Math.max(
       startValue,
@@ -413,24 +400,29 @@ const AudioTrackSlider = (props) => {
       </div>
 
       {canShowWaveformOverlay ? (
-        <div className={`relative flex h-full min-h-0 flex-1 overflow-hidden rounded-[20px] border ${waveformSurfaceClassName}`}>
-          <AudioTrackWaveformOverlay
-            audioUrl={resolvedAudioUrl}
-            visualizationMode={visualizationMode}
-            manualVolumeAdjustmentEnabled={manualVolumeAdjustmentEnabled}
-            volumeAutomationPoints={volumeAutomationPoints}
-            selectedVolumePointId={selectedVolumePointId}
-            onSelectVolumePoint={onSelectVolumePoint}
-            onCreateVolumePoint={onCreateVolumePoint}
-            onActivate={() => setAudioRangeSliderDisplayAsSelected(audioTrackId)}
-            trackDurationSeconds={resolvedTrackDuration}
-            visibleLayerStartSeconds={visibleLayerStartSeconds}
-            visibleLayerDurationSeconds={visibleLayerDurationSeconds}
-            sourceWindowStartSeconds={sourceWindowStartSeconds}
-            sourceWindowDurationSeconds={visibleLayerDurationSeconds}
-            volumeScaleMax={volumeScaleMax}
-            isSelected={Boolean(audioTrack.isDisplaySelected)}
-          />
+        <div className="relative h-full min-h-0 flex-1">
+          <div
+            className={`absolute inset-x-0 overflow-hidden rounded-[20px] border ${waveformSurfaceClassName}`}
+            style={visibleTrackInsetStyle}
+          >
+            <AudioTrackWaveformOverlay
+              audioUrl={resolvedAudioUrl}
+              visualizationMode={visualizationMode}
+              manualVolumeAdjustmentEnabled={manualVolumeAdjustmentEnabled}
+              volumeAutomationPoints={volumeAutomationPoints}
+              selectedVolumePointId={selectedVolumePointId}
+              onSelectVolumePoint={onSelectVolumePoint}
+              onCreateVolumePoint={onCreateVolumePoint}
+              onActivate={() => setAudioRangeSliderDisplayAsSelected(audioTrackId)}
+              trackDurationSeconds={resolvedTrackDuration}
+              visibleLayerStartSeconds={visibleLayerStartSeconds}
+              visibleLayerDurationSeconds={visibleLayerDurationSeconds}
+              sourceWindowStartSeconds={sourceWindowStartSeconds}
+              sourceWindowDurationSeconds={visibleLayerDurationSeconds}
+              volumeScaleMax={volumeScaleMax}
+              isSelected={Boolean(audioTrack.isDisplaySelected)}
+            />
+          </div>
         </div>
       ) : null}
     </div>

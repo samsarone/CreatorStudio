@@ -1,23 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+const VIDEO_SYNC_SEEK_TOLERANCE_SECONDS = 0.2;
+const VIDEO_END_EPSILON_SECONDS = 0.05;
+
+function getDefaultVideoLayout(videoType) {
+  return {
+    width: '100%',
+    height: '100%',
+    left: '0px',
+    top: '0px',
+    objectFit: videoType === 'user_video' ? 'contain' : 'cover',
+  };
+}
+
 export default function VideoUnderlay(props) {
   const {
     aiVideoLayer,
     currentLayerSeek = 0,
     canvasDimensions,
     aiVideoLayerType,
+    nextAiVideoLayer,
+    nextAiVideoLayerType,
+    isVideoPreviewPlaying = false,
   } = props;
 
   const videoRef = useRef(null);
+  const nextVideoRef = useRef(null);
   const [videoSrc, setVideoSrc] = useState('');
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [videoLayout, setVideoLayout] = useState({
-    width: '100%',
-    height: '100%',
-    left: '0px',
-    top: '0px',
-    objectFit: 'cover',
-  });
+  const [videoLayout, setVideoLayout] = useState(getDefaultVideoLayout(aiVideoLayerType));
+  const normalizedNextVideoSrc = typeof nextAiVideoLayer === 'string' && nextAiVideoLayer.trim()
+    ? nextAiVideoLayer.trim()
+    : '';
 
   const resolveVideoLayout = (videoElement) => {
     if (aiVideoLayerType !== 'user_video') {
@@ -60,119 +74,163 @@ export default function VideoUnderlay(props) {
     };
   };
 
-  // Preload video when aiVideoLayer changes
   useEffect(() => {
-    if (aiVideoLayer) {
-       
-      const newVideoSrc = `${aiVideoLayer}`;
+    const newVideoSrc = typeof aiVideoLayer === 'string' && aiVideoLayer.trim()
+      ? aiVideoLayer.trim()
+      : '';
 
-      // If the video source is different, preload it
-      if (videoSrc !== newVideoSrc) {
-        setIsVideoReady(false);
-        setVideoLayout({
-          width: '100%',
-          height: '100%',
-          left: '0px',
-          top: '0px',
-          objectFit: aiVideoLayerType === 'user_video' ? 'contain' : 'cover',
-        });
+    if (videoSrc === newVideoSrc) {
+      return;
+    }
 
-        // Preload the new video
-        const video = document.createElement('video');
-        video.src = newVideoSrc;
-        video.preload = 'auto';
+    setVideoSrc(newVideoSrc);
+    setIsVideoReady(false);
+    setVideoLayout(getDefaultVideoLayout(aiVideoLayerType));
 
-        const handleLoadedMetadata = () => {
-          setVideoLayout(resolveVideoLayout(video));
-        };
-
-        const handleCanPlayThrough = () => {
-          setIsVideoReady(true);
-          setVideoSrc(newVideoSrc);
-
-          // Update the video element's src if it's mounted
-          if (videoRef.current) {
-            const targetVideo = videoRef.current;
-            targetVideo.pause();
-            targetVideo.src = newVideoSrc;
-
-            const playAttempt = targetVideo.play();
-            if (playAttempt && typeof playAttempt.catch === 'function') {
-              playAttempt.catch((error) => {
-                if (error?.name !== 'AbortError') {
-                  
-                }
-              });
-            }
-          }
-        };
-
-        video.addEventListener('loadedmetadata', handleLoadedMetadata);
-        video.addEventListener('canplaythrough', handleCanPlayThrough);
-
-        video.onerror = () => {
-          
-        };
-
-        // Clean up event listener
-        return () => {
-          video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-          video.removeEventListener('canplaythrough', handleCanPlayThrough);
-        };
-      }
-    } else {
-      // No aiVideoLayer, clear the video
-      if (videoSrc !== '') {
-        setVideoSrc('');
-        setIsVideoReady(false);
-        setVideoLayout({
-          width: '100%',
-          height: '100%',
-          left: '0px',
-          top: '0px',
-          objectFit: 'cover',
-        });
-
-        if (videoRef.current) {
-          videoRef.current.pause();
-          videoRef.current.src = '';
-        }
-      }
+    if (!newVideoSrc && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.removeAttribute('src');
+      videoRef.current.load();
     }
   }, [aiVideoLayer, aiVideoLayerType, videoSrc]);
 
   useEffect(() => {
-    if (!videoRef.current || !videoSrc) {
+    const video = videoRef.current;
+    if (!video || !videoSrc) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const markReady = () => {
+      if (isCancelled) {
+        return;
+      }
+      setVideoLayout(resolveVideoLayout(video));
+      setIsVideoReady(true);
+    };
+
+    const handleLoadedMetadata = () => {
+      if (!isCancelled) {
+        setVideoLayout(resolveVideoLayout(video));
+      }
+    };
+
+    const handleError = () => {
+      if (!isCancelled) {
+        setIsVideoReady(false);
+      }
+    };
+
+    video.preload = 'auto';
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('loadeddata', markReady);
+    video.addEventListener('canplay', markReady);
+    video.addEventListener('canplaythrough', markReady);
+    video.addEventListener('error', handleError);
+
+    if (video.readyState >= 2) {
+      markReady();
+    } else {
+      try {
+        video.load();
+      } catch (err) {
+        // Ignore best-effort preload failures; the video element will emit an error if needed.
+      }
+    }
+
+    return () => {
+      isCancelled = true;
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('loadeddata', markReady);
+      video.removeEventListener('canplay', markReady);
+      video.removeEventListener('canplaythrough', markReady);
+      video.removeEventListener('error', handleError);
+    };
+  }, [aiVideoLayerType, canvasDimensions, videoSrc]);
+
+  useEffect(() => {
+    const nextVideo = nextVideoRef.current;
+
+    if (!nextVideo || !normalizedNextVideoSrc || normalizedNextVideoSrc === videoSrc) {
       return;
     }
 
-    setVideoLayout(resolveVideoLayout(videoRef.current));
-  }, [aiVideoLayerType, canvasDimensions, videoSrc]);
+    nextVideo.preload = 'auto';
+    nextVideo.muted = true;
+    nextVideo.playsInline = true;
+    try {
+      nextVideo.load();
+    } catch (err) {
+      // Ignore best-effort preloading failures; playback still falls back to normal loading.
+    }
+  }, [normalizedNextVideoSrc, nextAiVideoLayerType, videoSrc]);
 
   // Seek to currentLayerSeek when video is ready or when currentLayerSeek changes
   useEffect(() => {
-    if (videoRef.current && !isNaN(currentLayerSeek)) {
-      const video = videoRef.current;
-
-      const seekToTime = () => {
-        video.currentTime = currentLayerSeek;
-      };
-
-      if (isVideoReady) {
-        seekToTime();
-      } else {
-        const handleLoadedData = () => {
-          seekToTime();
-        };
-
-        video.addEventListener('loadeddata', handleLoadedData, { once: true });
-
-        return () => {
-          video.removeEventListener('loadeddata', handleLoadedData);
-        };
-      }
+    const video = videoRef.current;
+    if (!video || Number.isNaN(Number(currentLayerSeek))) {
+      return undefined;
     }
-  }, [currentLayerSeek, isVideoReady]);
+
+    const syncToCurrentSeek = () => {
+      const rawSeekTime = Math.max(0, Number(currentLayerSeek) || 0);
+      const hasKnownDuration = Number.isFinite(video.duration) && video.duration > 0;
+      const maxSeekTime = hasKnownDuration
+        ? Math.max(0, video.duration - VIDEO_END_EPSILON_SECONDS)
+        : rawSeekTime;
+      const nextSeekTime = hasKnownDuration
+        ? Math.min(rawSeekTime, maxSeekTime)
+        : rawSeekTime;
+
+      if (!isVideoPreviewPlaying) {
+        if (!video.paused) {
+          video.pause();
+        }
+        if (Math.abs(video.currentTime - nextSeekTime) > 0.01) {
+          video.currentTime = nextSeekTime;
+        }
+        return;
+      }
+
+      const shouldCorrectDrift =
+        Math.abs(video.currentTime - nextSeekTime) > VIDEO_SYNC_SEEK_TOLERANCE_SECONDS
+        || (video.ended && (!hasKnownDuration || nextSeekTime < maxSeekTime));
+
+      if (shouldCorrectDrift) {
+        video.currentTime = nextSeekTime;
+      }
+
+      if (hasKnownDuration && rawSeekTime >= video.duration - VIDEO_END_EPSILON_SECONDS) {
+        video.pause();
+        return;
+      }
+
+      if (video.paused) {
+        const playAttempt = video.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') {
+          playAttempt.catch(() => {});
+        }
+      }
+    };
+
+    if (isVideoReady) {
+      syncToCurrentSeek();
+      return undefined;
+    }
+
+    const handleLoadedData = () => {
+      syncToCurrentSeek();
+    };
+
+    video.addEventListener('loadeddata', handleLoadedData, { once: true });
+
+    return () => {
+      video.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, [currentLayerSeek, isVideoPreviewPlaying, isVideoReady]);
 
   return (
     <div
@@ -198,6 +256,8 @@ export default function VideoUnderlay(props) {
           ref={videoRef}
           src={videoSrc}
           muted
+          preload="auto"
+          playsInline
           style={{
             position: 'absolute',
             width: videoLayout.width,
@@ -207,6 +267,23 @@ export default function VideoUnderlay(props) {
             objectFit: videoLayout.objectFit,
           }}
         />
+        {normalizedNextVideoSrc && normalizedNextVideoSrc !== videoSrc && (
+          <video
+            ref={nextVideoRef}
+            src={normalizedNextVideoSrc}
+            muted
+            preload="auto"
+            playsInline
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              width: '1px',
+              height: '1px',
+              opacity: 0,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
       </div>
 
       {isVideoReady === false && aiVideoLayer && (

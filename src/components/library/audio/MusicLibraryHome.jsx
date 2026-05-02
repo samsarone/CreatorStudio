@@ -52,7 +52,12 @@ function normalizeAudioLibraryType(generationType) {
     return AUDIO_TYPE_MUSIC;
   }
 
-  if (normalizedGenerationType === 'speech' || normalizedGenerationType === 'lip_sync') {
+  if (
+    normalizedGenerationType === 'speech' ||
+    normalizedGenerationType === 'lip_sync' ||
+    normalizedGenerationType === 'custom_speech' ||
+    normalizedGenerationType === 'recorded_speech'
+  ) {
     return AUDIO_TYPE_SPEECH;
   }
 
@@ -329,9 +334,14 @@ function mapGeneratedMusicToProjectLibraryItem(generatedMusic, projectName, fall
   }
 
   const sessionId = normalizeSessionId(generatedMusic?.sessionId) || normalizeSessionId(fallbackSessionId);
+  const generationType = typeof generatedMusic?.generationType === 'string' && generatedMusic.generationType.trim()
+    ? generatedMusic.generationType.trim()
+    : AUDIO_TYPE_MUSIC;
+  const libraryType = normalizeAudioLibraryType(generatedMusic?.libraryType || generationType);
   const generatedMusicItem = {
     ...generatedMusic,
-    generationType: AUDIO_TYPE_MUSIC,
+    generationType,
+    libraryType,
   };
 
   return {
@@ -340,8 +350,8 @@ function mapGeneratedMusicToProjectLibraryItem(generatedMusic, projectName, fall
     sessionId,
     projectId: sessionId,
     projectName: projectName || 'Current Project',
-    libraryType: AUDIO_TYPE_MUSIC,
-    title: getDisplayTitle(generatedMusicItem, AUDIO_TYPE_MUSIC),
+    libraryType,
+    title: getDisplayTitle(generatedMusicItem, libraryType),
     description: typeof generatedMusic?.description === 'string' ? generatedMusic.description : '',
     prompt: typeof generatedMusic?.prompt === 'string' ? generatedMusic.prompt : '',
     url: audioPath,
@@ -349,7 +359,7 @@ function mapGeneratedMusicToProjectLibraryItem(generatedMusic, projectName, fall
       ? generatedMusic.localAudioLinks
       : [audioPath],
     selectedLocalAudioLink: generatedMusic?.selectedLocalAudioLink || audioPath,
-    tags: getItemTags(generatedMusicItem, AUDIO_TYPE_MUSIC),
+    tags: getItemTags(generatedMusicItem, libraryType),
   };
 }
 
@@ -809,9 +819,9 @@ export default function MusicLibraryHome({
       volume: Number.isFinite(Number(item.volume)) ? Number(item.volume) : 100,
       addSubtitles: true,
       selectedSubtitleOption: 'SUBTITLE',
-      connectedLayerId: currentLayerId,
-      audioBindingMode: 'bound',
-      bindToLayer: true,
+      audioBindingMode: 'unbounded',
+      bindToLayer: false,
+      studioSpeechGeneration: true,
     });
   };
 

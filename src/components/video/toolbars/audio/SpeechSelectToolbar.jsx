@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import { TOOLBAR_ACTION_VIEW } from '../../../../constants/Types.ts';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
-import SingleSelect from '../../../common/SingleSelect.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
@@ -54,16 +53,8 @@ export default function SpeechSelectToolbar(props) {
 
   const [startTime, setStartTime] = useState(() => resolveDefaultStartTime(currentLayer, audioLayer));
   const [duration, setDuration] = useState(() => resolveSpeechDuration(audioLayer));
-  const [volume, setVolume] = useState(100);
+  const [volume] = useState(100);
   const sessionSubtitlesEnabled = resolveSessionSubtitlesEnabled(sessionDetails);
-
-  const subtitleOptions = [
-    { value: 'groupRows', label: 'Group Rows' },
-    { value: 'groupWords', label: 'Group Words' },
-    { value: 'highlightWords', label: 'Highlight Words' },
-  ];
-
-  const [selectedSubtitleOption, setSelectedSubtitleOption] = useState(subtitleOptions[0]);
 
   useEffect(() => {
     setStartTime(resolveDefaultStartTime(currentLayer, audioLayer));
@@ -76,16 +67,9 @@ export default function SpeechSelectToolbar(props) {
     colorMode === 'dark'
       ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
-  const inputSurface =
-    colorMode === 'dark'
-      ? 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d]'
-      : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
-  const textEmphasis = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
-
   const audioUrl = `${PROCESSOR_API_URL}/${audioLayer.localAudioLinks[0]}`;
 
-  const handleSubmit = (evt) => {
-    evt.preventDefault();
+  const handleAccept = () => {
     const parsedStartTime = parseFloat(startTime);
     const parsedDuration = parseFloat(duration);
     const payload = {
@@ -99,7 +83,7 @@ export default function SpeechSelectToolbar(props) {
       ),
       addSubtitles: sessionSubtitlesEnabled,
       speakerCharacterName: audioLayer.speakerCharacterName,
-      subtitleOption: selectedSubtitleOption?.value,
+      audioLayerId: audioLayer._id?.toString?.() || audioLayer._id,
       audioBindingMode: 'unbounded',
       bindToLayer: false,
       studioSpeechGeneration: true,
@@ -117,64 +101,12 @@ export default function SpeechSelectToolbar(props) {
         </audio>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-3 gap-3 items-center">
-          <div>
-            <input
-              type="number"
-              name="startTime"
-              placeholder="Start Time (secs)"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
-            />
-            <div className="text-xs text-center mt-1">Start</div>
-          </div>
-          <div>
-            <input
-              type="number"
-              name="duration"
-              placeholder="Duration (secs)"
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
-            />
-            <div className="text-xs text-center mt-1">Duration</div>
-          </div>
-          <div>
-            <input
-              type="number"
-              name="volume"
-              placeholder="Volume"
-              value={volume}
-              onChange={(e) => setVolume(e.target.value)}
-              className={`${inputSurface} h-10 w-full rounded-md px-3 py-2 bg-transparent`}
-            />
-            <div className="text-xs text-center mt-1">Volume</div>
-          </div>
-        </div>
-
-        {sessionSubtitlesEnabled && (
-          <div className="space-y-2 text-xs">
-            <label htmlFor="subtitleOptionSelect" className={`block font-medium ${textEmphasis}`}>
-              Subtitle Options
-            </label>
-            <SingleSelect
-              id="subtitleOptionSelect"
-              options={subtitleOptions}
-              value={selectedSubtitleOption}
-              onChange={(option) => setSelectedSubtitleOption(option)}
-            />
-          </div>
-        )}
-
-        <div className="pt-2 flex justify-between">
-          <SecondaryButton type="submit">Add to Project</SecondaryButton>
-          <SecondaryButton onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}>
-            Cancel
-          </SecondaryButton>
-        </div>
-      </form>
+      <div className="pt-2 flex justify-between">
+        <SecondaryButton onClick={handleAccept}>Accept</SecondaryButton>
+        <SecondaryButton onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}>
+          Reject
+        </SecondaryButton>
+      </div>
     </div>
   );
 }

@@ -156,12 +156,12 @@ export default function CanvasControlBar(props) {
       </div>
     );
   }
-  if (isExpressGeneration && !isImageStudio) {
+  if (!isImageStudio && (isExpressGeneration || typeof openAdvancedVideoEditDialog === 'function')) {
     expressGenerationLink = (
       <div className={sectionSurfaceClassName}>
-        <span className={expressBadgeClassName}>Express</span>
+        {isExpressGeneration && <span className={expressBadgeClassName}>Express</span>}
         {typeof openAdvancedVideoEditDialog === 'function' && (
-          <IconActionButton title="Advanced video edits" onClick={openAdvancedVideoEditDialog}>
+          <IconActionButton title="Advanced options" onClick={openAdvancedVideoEditDialog}>
             <FaCog className="text-[13px]" />
           </IconActionButton>
         )}

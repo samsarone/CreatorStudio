@@ -24,7 +24,11 @@ const LayersDisplay = (props) => {
   const getListStyle = (isDraggingOver) => ({
     background: isDraggingOver ? bgColorDraggingOver : bgColorDragging,
     padding: grid,
-    width: 200
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    borderRadius: 8,
+    overflow: 'hidden'
   });
 
   const onDragEnd = (result) => {
@@ -80,11 +84,11 @@ const LayersDisplay = (props) => {
                   <div
                     ref={provided.innerRef}
                     {...provided.draggableProps}
-                    {...provided.dragHandleProps}
                     onClick={() => setSelectedId(item.id)}
                     style={{
                       ...provided.draggableProps.style,
-                      margin: '8px',
+                      width: '100%',
+                      margin: '0 0 8px',
                       backgroundColor: snapshot.isDragging ? isDraggingBGColor : isStableBGColor,
                       border: colorMode === 'dark' ? '1px solid #1f2a3d' : '1px solid #64748b',
                       color: textColor,
@@ -92,20 +96,62 @@ const LayersDisplay = (props) => {
                       borderRadius: '5px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer'
+                      gap: '6px',
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                      overflow: 'hidden'
                     }}
                   >
-                    {`item ${item.id} - ${item.type}`}
-                    <div className='ml-1 mr-1'>
-                      <FaEye onClick={() => hideItemInLayer(item.id)} />
+                    <div
+                      {...provided.dragHandleProps}
+                      style={{
+                        flex: '1 1 auto',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {`item ${item.id} - ${item.type}`}
                     </div>
                     <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        hideItemInLayer(item.id);
+                      }}
+                      aria-label="Toggle layer visibility"
+                      title="Toggle layer visibility"
+                      style={{
+                        color: textColor,
+                        flex: '0 0 24px',
+                        width: 24,
+                        height: 24,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <FaEye />
+                    </button>
+                    <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteItem(item.id);
                       }}
-                      style={{ color: 'white' }}
+                      aria-label="Delete layer"
+                      title="Delete layer"
+                      style={{
+                        color: textColor,
+                        flex: '0 0 24px',
+                        width: 24,
+                        height: 24,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
                     >
                       <FaTimes />
                     </button>

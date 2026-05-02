@@ -13,6 +13,10 @@ import {
   FaChevronDown,
   FaCopy,
   FaDownload,
+  FaPlay,
+  FaStop,
+  FaThLarge,
+  FaVolumeUp,
 } from 'react-icons/fa';
 import AudioOptionsDialog from '../audio/AudioOptionsDialog.jsx';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
@@ -53,6 +57,7 @@ import {
   getViewportGeometryFrameRange,
   viewportValueToFrame,
 } from '../../util/viewportGeometry.js';
+import { getAudioTrackFrameBounds } from '../../util/audioTrackTiming.js';
 const MAX_VISIBLE_LAYERS = 10;
 const MIN_LAYER_HEIGHT = 20; // in pixels
 const VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND = 30;
@@ -174,6 +179,15 @@ function getAudioTrackDisplayTitle(audioTrack = {}) {
   }
 
   return (hasDistinctTitle ? title : '') || typeLabel;
+}
+
+function formatAudioTrackNumber(value, decimalPlaces = 2) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return '';
+  }
+
+  return numericValue.toFixed(decimalPlaces);
 }
 
 function clampPercent(value) {
@@ -750,9 +764,11 @@ export default function FrameToolbar(props) {
     downloadLink,
     submitRegenerateFrames,
     applyAudioDucking,
+    regenerateFramesBeforeRender,
     sceneTransitionPreset = 'none',
     onSceneTransitionPresetChange,
     onApplyAudioDuckingChange,
+    onRegenerateFramesBeforeRenderChange,
     selectedLayerIndex,
     setSelectedLayerIndex,
     regenerateVideoSessionSubtitles,
@@ -3000,217 +3016,234 @@ export default function FrameToolbar(props) {
       colorMode === 'light'
         ? 'border border-slate-200 bg-white/90 text-slate-700 hover:bg-slate-100'
         : 'border border-[#2a3953] bg-[#111a2f]/82 text-slate-100 hover:bg-[#17223a]';
-    const toolbarDividerClassName =
-      colorMode === 'light' ? 'bg-slate-200' : 'bg-[#253248]';
     const inlineInputClassName =
       colorMode === 'light'
-        ? 'h-7 w-[54px] bg-transparent px-0 text-right text-[11px] font-semibold text-slate-700 outline-none'
-        : 'h-7 w-[54px] bg-transparent px-0 text-right text-[11px] font-semibold text-slate-100 outline-none';
+        ? 'h-5 min-w-0 bg-transparent px-0 text-right text-[11px] font-semibold text-slate-700 outline-none'
+        : 'h-5 min-w-0 bg-transparent px-0 text-right text-[11px] font-semibold text-slate-100 outline-none';
+    const audioTileClassName = `inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 ${secondarySurfaceClassName}`;
+    const audioTileLabelClassName = `${metadataLabelClassName} shrink-0`;
+    const audioTileIconClassName =
+      colorMode === 'light'
+        ? 'shrink-0 text-[10px] text-slate-500'
+        : 'shrink-0 text-[10px] text-slate-400';
+    const audioTileValueClassName = `${metadataValueClassName} min-w-0 truncate`;
     const compactPromptCopyButtonClassName =
       promptCopyState === 'copied'
         ? activePillClassName
         : promptCopyState === 'failed'
           ? removeButtonClassName
           : promptCopyButtonClassName;
+    const primaryAudioMetadataItem = selectedAudioTrackMetadata[0];
 
     return (
-      <div className={`flex w-full max-w-full flex-col gap-1.5 overflow-hidden rounded-2xl px-2 py-1.5 ${audioToolbarSurface}`}>
-        <div className='flex min-w-0 justify-center overflow-x-auto pb-[2px]'>
-          <div className='flex min-w-max items-center gap-1.5'>
-            <div
+      <div className={`flex w-full max-w-full flex-col gap-1 overflow-hidden rounded-xl px-1.5 py-1 ${audioToolbarSurface}`}>
+        <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_74px_74px_58px_66px_26px_26px_26px] items-center gap-1 overflow-hidden'>
+          <div
+            className={audioTileClassName}
+            title={selectedAudioTrack ? selectedAudioTrackDisplayTitle : audioStatusTitle}
+          >
+            <span
               className={`h-2.5 w-2.5 shrink-0 rounded-full ${audioStatusDotClass}`}
               title={audioStatusTitle}
               aria-label={audioStatusTitle}
             />
-
-            {selectedAudioTrack ? (
-              <button
-                type="button"
-                onClick={duplicateSelectedAudioTrack}
-                disabled={!canDuplicateSelectedAudioTrack || isDuplicatingAudioTrack}
-                title="Duplicate audio layer"
-                aria-label="Duplicate audio layer"
-                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${duplicateButtonClassName}`}
-              >
-                <FaCopy />
-              </button>
-            ) : null}
-
-            <button
-              type="button"
-              onClick={toggleSelectedAudioAdvancedOptions}
-              title="Audio tools"
-              aria-label="Audio tools"
-              disabled={!hasAudioLayers}
-              className={`inline-flex h-8 shrink-0 items-center justify-center rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:opacity-50 ${advancedButtonClassName}`}
-            >
-              Tools
-            </button>
-
-            <button
-              type="button"
-              onClick={onUpdateAllAudioLayers}
-              disabled={dirtyCount === 0}
-              title="Update all audio layers"
-              aria-label="Update all audio layers"
-              className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition disabled:opacity-50 ${updateButtonClassName}`}
-            >
-              <FaCheck />
-            </button>
-
-            {selectedAudioTrack ? (
-              <button
-                type="button"
-                title="Remove audio layer"
-                aria-label="Remove audio layer"
-                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition ${removeButtonClassName}`}
-                onClick={() => removeAudioLayer(selectedAudioTrack)}
-              >
-                <FaTimes />
-              </button>
-            ) : null}
+            <span className={`${audioTileValueClassName} font-semibold`}>
+              {selectedAudioTrack ? selectedAudioTrackDisplayTitle : audioStatusTitle}
+            </span>
           </div>
+
+          {selectedAudioTrack ? (
+            <>
+              <label className={audioTileClassName} title="Start time">
+                <FaPlay className={audioTileIconClassName} aria-hidden="true" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatAudioTrackNumber(selectedAudioTrack.startTime, 0)}
+                  className={`${inlineInputClassName} w-[46px]`}
+                  onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
+                  aria-label="Start time"
+                />
+              </label>
+
+              <label className={audioTileClassName} title="End time">
+                <FaStop className={audioTileIconClassName} aria-hidden="true" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatAudioTrackNumber(selectedAudioTrack.endTime, 0)}
+                  className={`${inlineInputClassName} w-[46px]`}
+                  onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
+                  aria-label="End time"
+                />
+              </label>
+
+              <label className={audioTileClassName} title="Layer volume">
+                <FaVolumeUp className={audioTileIconClassName} aria-hidden="true" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={formatAudioTrackNumber(selectedAudioTrack.volume, 0)}
+                  className={`${inlineInputClassName} w-[34px]`}
+                  onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
+                  aria-label="Layer volume"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={toggleSelectedAudioAdvancedOptions}
+                title={showSelectedAudioExtraOptionsToolbar ? 'Hide extra audio details' : 'View more audio details'}
+                aria-label={showSelectedAudioExtraOptionsToolbar ? 'Hide extra audio details' : 'View more audio details'}
+                disabled={!hasAudioLayers}
+                className={`inline-flex h-7 shrink-0 items-center justify-center rounded-md px-1 text-[9px] font-semibold uppercase tracking-[0.08em] transition disabled:opacity-50 ${advancedButtonClassName}`}
+              >
+                {showSelectedAudioExtraOptionsToolbar ? 'Hide' : 'View more'}
+              </button>
+            </>
+          ) : null}
+
+          {selectedAudioTrack ? (
+            <button
+              type="button"
+              onClick={duplicateSelectedAudioTrack}
+              disabled={!canDuplicateSelectedAudioTrack || isDuplicatingAudioTrack}
+              title="Duplicate audio layer"
+              aria-label="Duplicate audio layer"
+              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition disabled:opacity-50 ${duplicateButtonClassName}`}
+            >
+              <FaCopy />
+            </button>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={onUpdateAllAudioLayers}
+            disabled={dirtyCount === 0}
+            title="Update all audio layers"
+            aria-label="Update all audio layers"
+            className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition disabled:opacity-50 ${updateButtonClassName}`}
+          >
+            <FaCheck />
+          </button>
+
+          {selectedAudioTrack ? (
+            <button
+              type="button"
+              title="Remove audio layer"
+              aria-label="Remove audio layer"
+              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition ${removeButtonClassName}`}
+              onClick={() => removeAudioLayer(selectedAudioTrack)}
+            >
+              <FaTimes />
+            </button>
+          ) : null}
         </div>
 
         {selectedAudioTrack ? (
-          <div className='overflow-x-auto pb-[2px]'>
-            <div className='flex min-w-max items-center gap-1.5'>
+          <div className='grid min-w-0 grid-cols-[64px_72px_minmax(0,1fr)] items-center gap-1 overflow-hidden'>
+            {shouldShowSelectedAudioTrackTypeLabel ? (
               <div
-                className={`inline-flex h-8 max-w-[220px] shrink-0 items-center rounded-lg px-2.5 text-xs font-semibold ${secondarySurfaceClassName}`}
-                title={selectedAudioTrackDisplayTitle}
+                className={audioTileClassName}
+                title={selectedAudioTrackTypeLabel}
               >
-                <span className='min-w-0 truncate'>{selectedAudioTrackDisplayTitle}</span>
+                <span className={audioTileLabelClassName}>Type</span>
+                <span className={audioTileValueClassName}>{selectedAudioTrackTypeLabel}</span>
               </div>
-
-              <div className={`inline-flex h-8 shrink-0 items-center overflow-hidden rounded-lg ${secondarySurfaceClassName}`}>
-                <label className='inline-flex h-full items-center gap-1.5 px-2' title="Start time">
-                  <span className={metadataLabelClassName}>In</span>
-                  <input
-                    type="number"
-                    value={selectedAudioTrack.startTime}
-                    className={inlineInputClassName}
-                    onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
-                    aria-label="Start time"
-                  />
-                </label>
-                <div className={`h-4 w-px shrink-0 ${toolbarDividerClassName}`} />
-                <label className='inline-flex h-full items-center gap-1.5 px-2' title="End time">
-                  <span className={metadataLabelClassName}>Out</span>
-                  <input
-                    type="number"
-                    value={selectedAudioTrack.endTime}
-                    className={inlineInputClassName}
-                    onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
-                    aria-label="End time"
-                  />
-                </label>
-                <div className={`h-4 w-px shrink-0 ${toolbarDividerClassName}`} />
-                <label className='inline-flex h-full items-center gap-1.5 px-2' title="Layer volume">
-                  <span className={metadataLabelClassName}>Vol</span>
-                  <input
-                    type="number"
-                    value={selectedAudioTrack.volume}
-                    className={inlineInputClassName}
-                    onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
-                    aria-label="Layer volume"
-                  />
-                </label>
+            ) : (
+              <div className={audioTileClassName} title={audioStatusTitle}>
+                <span className={audioTileLabelClassName}>State</span>
+                <span className={audioTileValueClassName}>{dirtyCount > 0 ? 'Dirty' : 'Ready'}</span>
               </div>
+            )}
 
-              {shouldShowSelectedAudioTrackTypeLabel ? (
-                <div
-                  className={`inline-flex h-8 shrink-0 items-center rounded-lg px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${secondarySurfaceClassName}`}
-                  title={selectedAudioTrackTypeLabel}
+            {selectedAudioTrackIsSpeech ? (
+              <div
+                className={`inline-flex h-7 min-w-0 items-center overflow-hidden rounded-md ${secondarySurfaceClassName}`}
+                title={selectedAudioTrackBindingLabel}
+              >
+                <span className={`${audioTileLabelClassName} px-1.5`}>Link</span>
+                <button
+                  type="button"
+                  onClick={() => handleSelectedAudioBindingChange(false)}
+                  className={`inline-flex h-full min-w-0 flex-1 items-center justify-center px-1 text-[9px] font-semibold uppercase tracking-[0.08em] transition ${
+                    !selectedAudioTrackIsBound ? activePillClassName : ''
+                  }`}
+                  aria-pressed={!selectedAudioTrackIsBound}
                 >
-                  {selectedAudioTrackTypeLabel}
-                </div>
-              ) : null}
-
-              {selectedAudioTrackIsSpeech ? (
-                <div
-                  className={`inline-flex h-8 shrink-0 items-center overflow-hidden rounded-lg ${secondarySurfaceClassName}`}
-                  title={selectedAudioTrackBindingLabel}
+                  Off
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectedAudioBindingChange(true)}
+                  disabled={!selectedLayerData}
+                  className={`inline-flex h-full min-w-0 flex-1 items-center justify-center px-1 text-[9px] font-semibold uppercase tracking-[0.08em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    selectedAudioTrackIsBound ? activePillClassName : ''
+                  }`}
+                  aria-pressed={selectedAudioTrackIsBound}
                 >
-                  <span className={`${metadataLabelClassName} px-2`}>Link</span>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectedAudioBindingChange(false)}
-                    className={`inline-flex h-full items-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
-                      !selectedAudioTrackIsBound ? activePillClassName : ''
-                    }`}
-                    aria-pressed={!selectedAudioTrackIsBound}
-                  >
-                    Unbound
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectedAudioBindingChange(true)}
-                    disabled={!selectedLayerData}
-                    className={`inline-flex h-full items-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                      selectedAudioTrackIsBound ? activePillClassName : ''
-                    }`}
-                    aria-pressed={selectedAudioTrackIsBound}
-                  >
-                    Bound
-                  </button>
-                </div>
-              ) : null}
+                  On
+                </button>
+              </div>
+            ) : (
+              <div className={audioTileClassName} title="Unlinked audio layer">
+                <span className={audioTileLabelClassName}>Link</span>
+                <span className={audioTileValueClassName}>Free</span>
+              </div>
+            )}
 
-              {selectedAudioTrackMetadata.map((item) => (
-                <div
-                  key={item.label}
-                  className={`inline-flex h-8 max-w-[180px] shrink-0 items-center gap-1.5 rounded-lg px-2 ${secondarySurfaceClassName}`}
-                  title={`${item.label}: ${item.value}`}
+            {selectedAudioTrackPrompt ? (
+              <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_28px] gap-1'>
+                <button
+                  ref={promptDropdownButtonRef}
+                  type="button"
+                  onClick={togglePromptDropdown}
+                  className={`inline-flex h-7 min-w-0 items-center gap-1 overflow-hidden rounded-md px-1.5 text-left transition ${promptPreviewClassName}`}
+                  title={selectedAudioTrackPrompt}
                 >
-                  <span className={metadataLabelClassName}>{item.label}</span>
-                  <span className={`${metadataValueClassName} min-w-0 truncate`}>{item.value}</span>
-                </div>
-              ))}
-
-              {selectedAudioTrackPrompt ? (
-                <>
-                  <button
-                    ref={promptDropdownButtonRef}
-                    type="button"
-                    onClick={togglePromptDropdown}
-                    className={`inline-flex h-8 min-w-[220px] max-w-[360px] shrink-0 items-center gap-2 overflow-hidden rounded-lg px-2.5 text-left transition ${promptPreviewClassName}`}
-                    title={selectedAudioTrackPrompt}
-                  >
-                    <span className={`${metadataLabelClassName} shrink-0`}>Prompt</span>
-                    <span className='min-w-0 flex-1 truncate text-xs'>
-                      {selectedAudioTrackPrompt}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={copyPromptToClipboard}
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] transition ${compactPromptCopyButtonClassName}`}
-                    title={
-                      promptCopyState === 'copied'
-                        ? 'Prompt copied'
-                        : promptCopyState === 'failed'
-                          ? 'Copy failed'
-                          : 'Copy prompt'
-                    }
-                    aria-label="Copy prompt"
-                  >
-                    {promptCopyState === 'copied' ? (
-                      <FaCheck />
-                    ) : promptCopyState === 'failed' ? (
-                      <FaTimes />
-                    ) : (
-                      <FaCopy />
-                    )}
-                  </button>
-                </>
-              ) : null}
-            </div>
+                  <span className={`${audioTileLabelClassName} shrink-0`}>Prompt</span>
+                  <span className='min-w-0 flex-1 truncate text-[10px]'>
+                    {selectedAudioTrackPrompt}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={copyPromptToClipboard}
+                  className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition ${compactPromptCopyButtonClassName}`}
+                  title={
+                    promptCopyState === 'copied'
+                      ? 'Prompt copied'
+                      : promptCopyState === 'failed'
+                        ? 'Copy failed'
+                        : 'Copy prompt'
+                  }
+                  aria-label="Copy prompt"
+                >
+                  {promptCopyState === 'copied' ? (
+                    <FaCheck />
+                  ) : promptCopyState === 'failed' ? (
+                    <FaTimes />
+                  ) : (
+                    <FaCopy />
+                  )}
+                </button>
+              </div>
+            ) : (
+              <div className={audioTileClassName}>
+                <span className={audioTileLabelClassName}>
+                  {primaryAudioMetadataItem?.label || 'Prompt'}
+                </span>
+                <span className={audioTileValueClassName}>
+                  {primaryAudioMetadataItem?.value || 'None'}
+                </span>
+              </div>
+            )}
           </div>
         ) : null}
 
         {showSelectedAudioExtraOptionsToolbar ? (
-          <div className='overflow-x-auto pb-[2px]'>
-            <div className='flex min-w-max items-center gap-1.5'>
+          <div className='pb-[2px]'>
+            <div className='flex min-w-0 flex-wrap items-center gap-1.5'>
               <label
                 className={`inline-flex h-8 shrink-0 items-center gap-1 rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.1em] ${
                   showVerticalWaveform ? activePillClassName : secondarySurfaceClassName
@@ -3490,7 +3523,7 @@ export default function FrameToolbar(props) {
   const showSelectedTextTrack = () => {
 
     if (!selectedTextTrackDisplay) {
-      return <span />;
+      return null;
     }
     return (
       <SelectedTextToolbarDisplay selectedTextTrack={selectedTextTrackDisplay}
@@ -4409,8 +4442,8 @@ export default function FrameToolbar(props) {
 
     // Filter audio tracks within the visible range
     const visibleAudioLayers = audioTrackListDisplay.filter((audioTrack) => {
-      const audioStartFrame = audioTrack.startTime * 30;
-      const audioEndFrame = audioTrack.endTime * 30;
+      const { startFrame: audioStartFrame, endFrame: audioEndFrame } =
+        getAudioTrackFrameBounds(audioTrack, DISPLAY_FRAMES_PER_SECOND);
       const connectedLayerId = resolveAudioTrackConnectedLayerId(audioTrack);
 
       if (connectedLayerId && !displayedVisibleLayerIdSet.has(connectedLayerId.toString())) {
@@ -4422,8 +4455,8 @@ export default function FrameToolbar(props) {
 
     return visibleAudioLayers.map(function (audioTrack) {
 
-      const audioStartFrame = audioTrack.startTime * 30;
-      const audioEndFrame = audioTrack.endTime * 30;
+      const { startFrame: audioStartFrame, endFrame: audioEndFrame } =
+        getAudioTrackFrameBounds(audioTrack, DISPLAY_FRAMES_PER_SECOND);
       const audioTrackId = resolveAudioTrackId(audioTrack);
       const shouldShowTrackWaveform = Boolean(
         showSelectedAudioExtraOptionsToolbar
@@ -4470,7 +4503,7 @@ export default function FrameToolbar(props) {
 
   const showSelectedVisualTrack = () => {
     if (!selectedVisualTrack) {
-      return <span />;
+      return null;
     }
 
     return (
@@ -4484,7 +4517,7 @@ export default function FrameToolbar(props) {
 
   const showSelectedVideoTrack = () => {
     if (!selectedVideoTrack) {
-      return <span />;
+      return null;
     }
 
     return (
@@ -4804,18 +4837,21 @@ export default function FrameToolbar(props) {
   };
   let containerWdidth = 'z-1 opacity-100';
   if (isExpandedToolbarView) {
-    containerWdidth = 'min-w-[50%] max-w-[90%] z-[102]';
+    frameToolbarInsetStyle.top = '0px';
+    frameToolbarInsetStyle.width = 'clamp(420px, 44vw, 720px)';
+    frameToolbarInsetStyle.maxWidth = 'calc(100vw - 32px)';
+    containerWdidth = 'z-[102]';
   } else {
     frameToolbarInsetStyle.width = collapsedToolbarWidth;
   }
 
-  let trackViewDisplay = <span />;
-  let selectedTrackViewDisplay = <span />;
+  let trackViewDisplay = null;
+  let selectedTrackViewDisplay = null;
 
   if (isExpandedToolbarView) {
     if (currentLayerActionSuperView === 'SETTINGS') {
-      trackViewDisplay = <span />;
-      selectedTrackViewDisplay = <span />;
+      trackViewDisplay = null;
+      selectedTrackViewDisplay = null;
     }
     if (currentLayerActionSuperView === 'AUDIO') {
       trackViewDisplay = showAddedAudioTracks();
@@ -4963,9 +4999,11 @@ export default function FrameToolbar(props) {
       >
         <FaEye />
       </button>
-      <div className='shrink-0'>
-        {expandButtonLabel}
-      </div>
+      {!isExpandedToolbarView ? (
+        <div className='shrink-0'>
+          {expandButtonLabel}
+        </div>
+      ) : null}
     </div>
   );
 
@@ -4974,15 +5012,16 @@ export default function FrameToolbar(props) {
   let showGridsView = <span />;
   if (isExpandedToolbarView) {
     showGridsView = (
-      <label className={gridToggleClassName}>
-        <input
-          type="checkbox"
-          className={gridToggleInputClassName}
-          checked={isGridVisible}
-          onChange={(e) => setIsGridVisible(e.target.checked)}
-        />
-        <span>Grid</span>
-      </label>
+      <button
+        type="button"
+        className={`${gridToggleClassName} h-7 w-7 justify-center rounded-lg !px-0 !py-0 text-[11px]`}
+        onClick={() => setIsGridVisible(!isGridVisible)}
+        aria-label={isGridVisible ? 'Hide timeline grid' : 'Show timeline grid'}
+        aria-pressed={isGridVisible}
+        title={isGridVisible ? 'Hide timeline grid' : 'Show timeline grid'}
+      >
+        <FaThLarge />
+      </button>
     );
   }
 
@@ -5283,6 +5322,12 @@ export default function FrameToolbar(props) {
           sessionSubtitlesEnabled={sessionSubtitlesEnabled}
           applyAudioDucking={applyAudioDucking}
           onApplyAudioDuckingChange={onApplyAudioDuckingChange}
+          regenerateFramesBeforeRender={regenerateFramesBeforeRender}
+          onRegenerateFramesBeforeRenderChange={onRegenerateFramesBeforeRenderChange}
+          submitRenderVideo={submitRenderVideo}
+          isRenderPending={isRenderPending}
+          isVideoGenerating={isVideoGenerating}
+          isUpdateLayerPending={isUpdateLayerPending}
           closeDialog={closeAlertDialog}
         />
       </div>
@@ -5475,6 +5520,19 @@ export default function FrameToolbar(props) {
                   onChange={(event) => onApplyAudioDuckingChange(event.target.checked)}
                 />
               </label>
+
+              <label className={settingsToggleRowClassName}>
+                <div>
+                  <div>Regenerate frames before render</div>
+                  <div className={settingsHintClassName}>Refresh every layer's frames before queueing the next video render.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  className={gridToggleInputClassName}
+                  checked={Boolean(regenerateFramesBeforeRender)}
+                  onChange={(event) => onRegenerateFramesBeforeRenderChange?.(event.target.checked)}
+                />
+              </label>
             </div>
 
             {showVerticalWaveform ? (
@@ -5613,11 +5671,11 @@ export default function FrameToolbar(props) {
           {showGridsView}
         </div>
       );
-      expandedBottomRowActionDisplay = (
-        <div className='min-w-0 max-w-full overflow-visible'>
+      expandedBottomRowActionDisplay = selectedTrackViewDisplay ? (
+        <div className='min-w-0 max-w-full overflow-hidden'>
           {selectedTrackViewDisplay}
         </div>
-      );
+      ) : null;
     }
   } else {
     submitRenderFullActionDisplay = (
@@ -5782,28 +5840,30 @@ export default function FrameToolbar(props) {
       <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]'>
         <div className={`relative z-[240] w-full shrink-0 overflow-visible pb-1 border-r-2 ${bgColor} border-stone-600`}>
           {isExpandedToolbarView ? (
-            <div className='flex min-w-0 flex-col gap-2 px-2 pt-2 pb-1'>
-              <div className='flex min-w-0 items-start gap-2'>
+            <div className='flex min-w-0 flex-col gap-1 px-1.5 pt-1 pb-1'>
+              <div className='flex min-w-0 items-center gap-1 overflow-hidden pb-[1px]'>
                 <div className={`min-w-0 shrink-0 ${disabledMenuClass}`}>
                   {layerActionCurrentView}
                 </div>
-                <div className='ml-auto min-w-0 flex-1 overflow-visible'>
-                  <div className='flex min-w-0 flex-wrap items-center justify-end gap-1.5'>
-                    {expandedTopRowActionDisplay}
-                  </div>
+
+                <div className='min-w-[148px] flex-[1_1_180px] overflow-visible'>
+                  {toolbarHeaderControls}
+                </div>
+
+                <div className='shrink-0'>
+                  {expandedTopRowActionDisplay}
+                </div>
+
+                <div className='shrink-0'>
+                  {expandButtonLabel}
                 </div>
               </div>
 
-              <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2'>
-                <div className='min-w-0'>
-                  {toolbarHeaderControls}
+              {expandedBottomRowActionDisplay ? (
+                <div className='min-w-0 w-full max-w-full overflow-hidden'>
+                  {expandedBottomRowActionDisplay}
                 </div>
-                <div className='min-w-0 overflow-visible'>
-                  <div className='flex min-w-0 flex-wrap items-center justify-end gap-1.5'>
-                    {expandedBottomRowActionDisplay}
-                  </div>
-                </div>
-              </div>
+              ) : null}
             </div>
           ) : (
             <div

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
@@ -21,8 +21,7 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function MobileTopNav(props) {
-  const { resetCurrentSession, addCustodyAddress, addNewVidGPTSession } = props;
-  const farcasterSignInButtonRef = useRef(null);
+  const { resetCurrentSession, addNewVidGPTSession } = props;
   const { colorMode } = useColorMode();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const location = useLocation();

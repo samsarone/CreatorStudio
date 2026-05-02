@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useContext, useCallback } from 'react';
+import React, { useEffect, useState, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
@@ -38,7 +38,6 @@ const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 export default function TopNav(props) {
   const {
     resetCurrentSession,
-    addCustodyAddress,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
     isRenderPending,
@@ -56,7 +55,6 @@ export default function TopNav(props) {
     sessionId: sessionIdOverride,
     openAdvancedVideoEditDialog,
   } = props;
-  const farcasterSignInButtonRef = useRef(null);
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
   const location = useLocation();

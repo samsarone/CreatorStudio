@@ -38,6 +38,15 @@ export function normalizeAudioLayerType(value) {
     return 'lip_sync';
   }
 
+  if (
+    normalized === 'custom_speech' ||
+    normalized === 'custom speech' ||
+    normalized === 'recorded_speech' ||
+    normalized === 'recorded speech'
+  ) {
+    return 'speech';
+  }
+
   return normalized;
 }
 
@@ -239,8 +248,18 @@ export function isRenderablePreviewAudioLayer(layer = {}) {
     return false;
   }
 
-  const isSelectedLayer = Boolean(layer.isEnabled || layer.defaultSelected);
-  return isSelectedLayer && layer.generationStatus !== 'PENDING';
+  const hasExplicitSelectionState =
+    typeof layer.isEnabled === 'boolean' || typeof layer.defaultSelected === 'boolean';
+  const isSelectedLayer = hasExplicitSelectionState
+    ? Boolean(layer.isEnabled || layer.defaultSelected)
+    : true;
+  const generationStatus = typeof layer.generationStatus === 'string'
+    ? layer.generationStatus.trim().toUpperCase()
+    : '';
+
+  return Boolean(resolveAudioLayerSourceValue(layer))
+    && isSelectedLayer
+    && generationStatus !== 'PENDING';
 }
 
 export function resolveAudioLayerSourceValue(audioLayer = {}) {

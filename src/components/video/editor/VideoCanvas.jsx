@@ -96,9 +96,10 @@ const VideoCanvas = forwardRef((props, ref) => {
     eraserToolbarPosition, eraserWidthRef, toolbarShapeProps, setToolbarShapeProps, paintToolbarPosition,
     paintToolbarVisible, isDrawing, shapeSet, showPencil, pencilLines, overlayImage, shapeSelectToolbarVisible,
     shapeSelectToolbarPosition, enableSegmentationMask, segmentationData, setSegmentationData,
-    isExpressGeneration, currentLayerSeek, removeVideoLayer, aspectRatio, isAIVideoGenerationPending,
+    isExpressGeneration, currentLayerSeek, isVideoPreviewPlaying, removeVideoLayer, aspectRatio, isAIVideoGenerationPending,
     canvasDimensions: canvasDimensionsProp,
     toggleStageZoom, stageZoomScale, displayZoomType, requestRegenerateSubtitles, aiVideoLayer,
+    nextAiVideoLayer, nextAiVideoLayerType,
     requestRegenerateAnimations, removeSelectedItem, requestRealignLayers, totalDuration,
     updateTargetTextActiveLayerConfig, createTextLayer, updateTargetImageActiveLayerConfig,
     downloadCurrentFrame, requestRealignToAiVideoAndLayers,
@@ -730,7 +731,10 @@ const VideoCanvas = forwardRef((props, ref) => {
     <div className='absolute inset-0'>
       <VideoUnderlay aiVideoLayer={aiVideoLayer} currentLayerSeek={currentRelateiveTimeStamp}
         canvasDimensions={canvasDimensions}
-        aiVideoLayerType={aiVideoLayerType} />
+        aiVideoLayerType={aiVideoLayerType}
+        nextAiVideoLayer={nextAiVideoLayer}
+        nextAiVideoLayerType={nextAiVideoLayerType}
+        isVideoPreviewPlaying={isVideoPreviewPlaying} />
     </div>
   )
 

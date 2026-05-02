@@ -262,9 +262,13 @@ export default function PreviewPlaybackController(props) {
         const startTime = Number.isFinite(Number(layer.startTime))
           ? Math.max(0, Number(layer.startTime))
           : 0;
-        const endTime = Number.isFinite(Number(layer.endTime))
-          ? Math.max(startTime, Number(layer.endTime))
-          : startTime;
+        const duration = Number.isFinite(Number(layer.duration))
+          ? Math.max(0, Number(layer.duration))
+          : 0;
+        const explicitEndTime = Number(layer.endTime);
+        const endTime = Number.isFinite(explicitEndTime) && explicitEndTime > startTime
+          ? explicitEndTime
+          : startTime + duration;
         const audioEl = new Audio(resolvedAudioUrl);
         audioEl.preload = 'auto';
         audioEl.crossOrigin = 'anonymous';

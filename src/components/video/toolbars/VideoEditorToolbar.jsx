@@ -164,6 +164,11 @@ export default function VideoEditorToolbar(props) {
     setAdvancedSessionTheme,
     submitAddBatchTrackToProject,
     currentLayer,
+    requestAddAudioLayerFromLibrary,
+    currentLayerSeek,
+    setCurrentLayerSeek,
+    isVideoPreviewPlaying,
+    setIsVideoPreviewPlaying,
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
@@ -1236,9 +1241,14 @@ export default function VideoEditorToolbar(props) {
             audioGenerationPending={audioGenerationPending}
             bgColor={inputSurface}
             text2Color={text2Color}
-            showAdvancedOptions={false}
-            setShowAdvancedOptions={() => { }}
             colorMode={colorMode}
+            currentLayer={currentLayer}
+            sessionDetails={sessionDetails}
+            requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
+            currentLayerSeek={currentLayerSeek}
+            setCurrentLayerSeek={setCurrentLayerSeek}
+            isVideoPreviewPlaying={isVideoPreviewPlaying}
+            setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
             sizeVariant={sidebarSizeVariant}
           />
         </div>
@@ -1772,10 +1782,13 @@ export default function VideoEditorToolbar(props) {
                     ? 'mb-4'
                     : 'mb-1'
                   : 'mb-0';
+                const toolbarItemContainerSurfaceClass = isSelected
+                  ? 'bg-transparent border border-transparent'
+                  : buttonBgcolor;
 
                 return (
               <div
-                className={`${buttonBgcolor} rounded-sm text-left ${isItemSelected(item.view) ? 'mt-1' : 'mt-4'
+                className={`${toolbarItemContainerSurfaceClass} rounded-sm text-left ${isSelected ? 'mt-1' : 'mt-4'
                   } transition-colors duration-300`}
               >
                 <div
