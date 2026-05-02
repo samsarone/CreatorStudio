@@ -3,6 +3,10 @@ import React, { useEffect, useRef, useState } from 'react';
 const VIDEO_SYNC_SEEK_TOLERANCE_SECONDS = 0.2;
 const VIDEO_END_EPSILON_SECONDS = 0.05;
 
+function normalizeVideoSrc(value) {
+  return typeof value === 'string' && value.trim() ? value.trim() : '';
+}
+
 function getDefaultVideoLayout(videoType) {
   return {
     width: '100%',
@@ -13,6 +17,10 @@ function getDefaultVideoLayout(videoType) {
   };
 }
 
+function getInactiveSlotIndex(activeSlotIndex) {
+  return activeSlotIndex === 0 ? 1 : 0;
+}
+
 export default function VideoUnderlay(props) {
   const {
     aiVideoLayer,
@@ -20,28 +28,23 @@ export default function VideoUnderlay(props) {
     canvasDimensions,
     aiVideoLayerType,
     nextAiVideoLayer,
-    nextAiVideoLayerType,
     isVideoPreviewPlaying = false,
   } = props;
 
-  const videoRef = useRef(null);
-  const nextVideoRef = useRef(null);
-  const [videoSrc, setVideoSrc] = useState('');
+  const primaryVideoRef = useRef(null);
+  const secondaryVideoRef = useRef(null);
+  const videoRefs = [primaryVideoRef, secondaryVideoRef];
+  const currentVideoSrc = normalizeVideoSrc(aiVideoLayer);
+  const nextVideoSrc = normalizeVideoSrc(nextAiVideoLayer);
+
+  const [activeSlotIndex, setActiveSlotIndex] = useState(0);
+  const [slotSources, setSlotSources] = useState(['', '']);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [videoLayout, setVideoLayout] = useState(getDefaultVideoLayout(aiVideoLayerType));
-  const normalizedNextVideoSrc = typeof nextAiVideoLayer === 'string' && nextAiVideoLayer.trim()
-    ? nextAiVideoLayer.trim()
-    : '';
 
   const resolveVideoLayout = (videoElement) => {
     if (aiVideoLayerType !== 'user_video') {
-      return {
-        width: '100%',
-        height: '100%',
-        left: '0px',
-        top: '0px',
-        objectFit: 'cover',
-      };
+      return getDefaultVideoLayout(aiVideoLayerType);
     }
 
     const sourceWidth = Number(videoElement?.videoWidth);
@@ -50,13 +53,7 @@ export default function VideoUnderlay(props) {
     const canvasHeight = Number(canvasDimensions?.height);
 
     if (!sourceWidth || !sourceHeight || !canvasWidth || !canvasHeight) {
-      return {
-        width: '100%',
-        height: '100%',
-        left: '0px',
-        top: '0px',
-        objectFit: 'contain',
-      };
+      return getDefaultVideoLayout(aiVideoLayerType);
     }
 
     const scale = Math.min(1, canvasWidth / sourceWidth, canvasHeight / sourceHeight);
@@ -75,28 +72,59 @@ export default function VideoUnderlay(props) {
   };
 
   useEffect(() => {
-    const newVideoSrc = typeof aiVideoLayer === 'string' && aiVideoLayer.trim()
-      ? aiVideoLayer.trim()
-      : '';
-
-    if (videoSrc === newVideoSrc) {
+    if (!currentVideoSrc) {
+      setSlotSources((previousSources) => (
+        previousSources[0] || previousSources[1] ? ['', ''] : previousSources
+      ));
+      setIsVideoReady(false);
+      setVideoLayout(getDefaultVideoLayout(aiVideoLayerType));
       return;
     }
 
-    setVideoSrc(newVideoSrc);
+    const existingSlotIndex = slotSources.findIndex((source) => source === currentVideoSrc);
+    if (existingSlotIndex !== -1) {
+      if (existingSlotIndex !== activeSlotIndex) {
+        const promotedVideo = videoRefs[existingSlotIndex].current;
+        setActiveSlotIndex(existingSlotIndex);
+        setIsVideoReady(Boolean(promotedVideo && promotedVideo.readyState >= 2));
+        setVideoLayout(getDefaultVideoLayout(aiVideoLayerType));
+      }
+      return;
+    }
+
+    const targetSlotIndex = getInactiveSlotIndex(activeSlotIndex);
+    setSlotSources((previousSources) => {
+      const nextSources = [...previousSources];
+      nextSources[targetSlotIndex] = currentVideoSrc;
+      return nextSources;
+    });
+    setActiveSlotIndex(targetSlotIndex);
     setIsVideoReady(false);
     setVideoLayout(getDefaultVideoLayout(aiVideoLayerType));
-
-    if (!newVideoSrc && videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.removeAttribute('src');
-      videoRef.current.load();
-    }
-  }, [aiVideoLayer, aiVideoLayerType, videoSrc]);
+  }, [activeSlotIndex, aiVideoLayerType, currentVideoSrc, slotSources]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !videoSrc) {
+    if (!nextVideoSrc || nextVideoSrc === currentVideoSrc || slotSources.includes(nextVideoSrc)) {
+      return;
+    }
+
+    setSlotSources((previousSources) => {
+      const currentSlotIndex = previousSources.findIndex((source) => source === currentVideoSrc);
+      const targetSlotIndex = currentSlotIndex === 0
+        ? 1
+        : currentSlotIndex === 1
+          ? 0
+          : getInactiveSlotIndex(activeSlotIndex);
+      const nextSources = [...previousSources];
+      nextSources[targetSlotIndex] = nextVideoSrc;
+      return nextSources;
+    });
+  }, [activeSlotIndex, currentVideoSrc, nextVideoSrc, slotSources]);
+
+  useEffect(() => {
+    const activeVideo = videoRefs[activeSlotIndex].current;
+    const activeSlotSource = slotSources[activeSlotIndex];
+    if (!activeVideo || !currentVideoSrc || activeSlotSource !== currentVideoSrc) {
       return undefined;
     }
 
@@ -106,13 +134,13 @@ export default function VideoUnderlay(props) {
       if (isCancelled) {
         return;
       }
-      setVideoLayout(resolveVideoLayout(video));
+      setVideoLayout(resolveVideoLayout(activeVideo));
       setIsVideoReady(true);
     };
 
     const handleLoadedMetadata = () => {
       if (!isCancelled) {
-        setVideoLayout(resolveVideoLayout(video));
+        setVideoLayout(resolveVideoLayout(activeVideo));
       }
     };
 
@@ -122,94 +150,106 @@ export default function VideoUnderlay(props) {
       }
     };
 
-    video.preload = 'auto';
-    video.muted = true;
-    video.playsInline = true;
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('loadeddata', markReady);
-    video.addEventListener('canplay', markReady);
-    video.addEventListener('canplaythrough', markReady);
-    video.addEventListener('error', handleError);
+    activeVideo.preload = 'auto';
+    activeVideo.muted = true;
+    activeVideo.playsInline = true;
+    activeVideo.addEventListener('loadedmetadata', handleLoadedMetadata);
+    activeVideo.addEventListener('loadeddata', markReady);
+    activeVideo.addEventListener('canplay', markReady);
+    activeVideo.addEventListener('canplaythrough', markReady);
+    activeVideo.addEventListener('error', handleError);
 
-    if (video.readyState >= 2) {
+    if (activeVideo.readyState >= 2) {
       markReady();
     } else {
       try {
-        video.load();
+        activeVideo.load();
       } catch (err) {
-        // Ignore best-effort preload failures; the video element will emit an error if needed.
+        // Ignore best-effort preload failures; the element will emit an error if needed.
       }
     }
 
     return () => {
       isCancelled = true;
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('loadeddata', markReady);
-      video.removeEventListener('canplay', markReady);
-      video.removeEventListener('canplaythrough', markReady);
-      video.removeEventListener('error', handleError);
+      activeVideo.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      activeVideo.removeEventListener('loadeddata', markReady);
+      activeVideo.removeEventListener('canplay', markReady);
+      activeVideo.removeEventListener('canplaythrough', markReady);
+      activeVideo.removeEventListener('error', handleError);
     };
-  }, [aiVideoLayerType, canvasDimensions, videoSrc]);
+  }, [activeSlotIndex, aiVideoLayerType, canvasDimensions, currentVideoSrc, slotSources]);
 
   useEffect(() => {
-    const nextVideo = nextVideoRef.current;
-
-    if (!nextVideo || !normalizedNextVideoSrc || normalizedNextVideoSrc === videoSrc) {
+    const inactiveSlotIndex = getInactiveSlotIndex(activeSlotIndex);
+    const inactiveVideo = videoRefs[inactiveSlotIndex].current;
+    const inactiveSource = slotSources[inactiveSlotIndex];
+    if (!inactiveVideo || !inactiveSource || inactiveSource === currentVideoSrc) {
       return;
     }
 
-    nextVideo.preload = 'auto';
-    nextVideo.muted = true;
-    nextVideo.playsInline = true;
-    try {
-      nextVideo.load();
-    } catch (err) {
-      // Ignore best-effort preloading failures; playback still falls back to normal loading.
+    inactiveVideo.preload = 'auto';
+    inactiveVideo.muted = true;
+    inactiveVideo.playsInline = true;
+    if (inactiveVideo.readyState < 2) {
+      try {
+        inactiveVideo.load();
+      } catch (err) {
+        // Ignore best-effort preloading failures; playback still falls back to normal loading.
+      }
     }
-  }, [normalizedNextVideoSrc, nextAiVideoLayerType, videoSrc]);
+  }, [activeSlotIndex, currentVideoSrc, slotSources]);
 
-  // Seek to currentLayerSeek when video is ready or when currentLayerSeek changes
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video || Number.isNaN(Number(currentLayerSeek))) {
+    videoRefs.forEach((videoRef, slotIndex) => {
+      const video = videoRef.current;
+      if (!video || slotIndex === activeSlotIndex || video.paused) {
+        return;
+      }
+      video.pause();
+    });
+  }, [activeSlotIndex, slotSources]);
+
+  useEffect(() => {
+    const activeVideo = videoRefs[activeSlotIndex].current;
+    if (!activeVideo || slotSources[activeSlotIndex] !== currentVideoSrc || Number.isNaN(Number(currentLayerSeek))) {
       return undefined;
     }
 
     const syncToCurrentSeek = () => {
       const rawSeekTime = Math.max(0, Number(currentLayerSeek) || 0);
-      const hasKnownDuration = Number.isFinite(video.duration) && video.duration > 0;
+      const hasKnownDuration = Number.isFinite(activeVideo.duration) && activeVideo.duration > 0;
       const maxSeekTime = hasKnownDuration
-        ? Math.max(0, video.duration - VIDEO_END_EPSILON_SECONDS)
+        ? Math.max(0, activeVideo.duration - VIDEO_END_EPSILON_SECONDS)
         : rawSeekTime;
       const nextSeekTime = hasKnownDuration
         ? Math.min(rawSeekTime, maxSeekTime)
         : rawSeekTime;
 
       if (!isVideoPreviewPlaying) {
-        if (!video.paused) {
-          video.pause();
+        if (!activeVideo.paused) {
+          activeVideo.pause();
         }
-        if (Math.abs(video.currentTime - nextSeekTime) > 0.01) {
-          video.currentTime = nextSeekTime;
+        if (Math.abs(activeVideo.currentTime - nextSeekTime) > 0.01) {
+          activeVideo.currentTime = nextSeekTime;
         }
         return;
       }
 
       const shouldCorrectDrift =
-        Math.abs(video.currentTime - nextSeekTime) > VIDEO_SYNC_SEEK_TOLERANCE_SECONDS
-        || (video.ended && (!hasKnownDuration || nextSeekTime < maxSeekTime));
+        Math.abs(activeVideo.currentTime - nextSeekTime) > VIDEO_SYNC_SEEK_TOLERANCE_SECONDS
+        || (activeVideo.ended && (!hasKnownDuration || nextSeekTime < maxSeekTime));
 
       if (shouldCorrectDrift) {
-        video.currentTime = nextSeekTime;
+        activeVideo.currentTime = nextSeekTime;
       }
 
-      if (hasKnownDuration && rawSeekTime >= video.duration - VIDEO_END_EPSILON_SECONDS) {
-        video.pause();
+      if (hasKnownDuration && rawSeekTime >= activeVideo.duration - VIDEO_END_EPSILON_SECONDS) {
+        activeVideo.pause();
         return;
       }
 
-      if (video.paused) {
-        const playAttempt = video.play();
+      if (activeVideo.paused) {
+        const playAttempt = activeVideo.play();
         if (playAttempt && typeof playAttempt.catch === 'function') {
           playAttempt.catch(() => {});
         }
@@ -225,12 +265,19 @@ export default function VideoUnderlay(props) {
       syncToCurrentSeek();
     };
 
-    video.addEventListener('loadeddata', handleLoadedData, { once: true });
+    activeVideo.addEventListener('loadeddata', handleLoadedData, { once: true });
 
     return () => {
-      video.removeEventListener('loadeddata', handleLoadedData);
+      activeVideo.removeEventListener('loadeddata', handleLoadedData);
     };
-  }, [currentLayerSeek, isVideoPreviewPlaying, isVideoReady]);
+  }, [
+    activeSlotIndex,
+    currentLayerSeek,
+    currentVideoSrc,
+    isVideoPreviewPlaying,
+    isVideoReady,
+    slotSources,
+  ]);
 
   return (
     <div
@@ -247,46 +294,46 @@ export default function VideoUnderlay(props) {
           position: 'relative',
           width: '100%',
           height: '100%',
-          pointerEvents: 'none', // Allow clicks to pass through if needed
+          pointerEvents: 'none',
           marginLeft: '1px',
           marginTop: '1px',
         }}
       >
-        <video
-          ref={videoRef}
-          src={videoSrc}
-          muted
-          preload="auto"
-          playsInline
-          style={{
-            position: 'absolute',
-            width: videoLayout.width,
-            height: videoLayout.height,
-            left: videoLayout.left,
-            top: videoLayout.top,
-            objectFit: videoLayout.objectFit,
-          }}
-        />
-        {normalizedNextVideoSrc && normalizedNextVideoSrc !== videoSrc && (
-          <video
-            ref={nextVideoRef}
-            src={normalizedNextVideoSrc}
-            muted
-            preload="auto"
-            playsInline
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              width: '1px',
-              height: '1px',
-              opacity: 0,
-              pointerEvents: 'none',
-            }}
-          />
-        )}
+        {[0, 1].map((slotIndex) => {
+          const isActiveSlot = slotIndex === activeSlotIndex;
+          const source = slotSources[slotIndex];
+          return (
+            <video
+              key={slotIndex}
+              ref={videoRefs[slotIndex]}
+              src={source || undefined}
+              muted
+              preload="auto"
+              playsInline
+              aria-hidden={!isActiveSlot}
+              style={isActiveSlot ? {
+                position: 'absolute',
+                width: videoLayout.width,
+                height: videoLayout.height,
+                left: videoLayout.left,
+                top: videoLayout.top,
+                objectFit: videoLayout.objectFit,
+                opacity: 1,
+              } : {
+                position: 'absolute',
+                width: '1px',
+                height: '1px',
+                left: '0px',
+                top: '0px',
+                opacity: 0,
+                pointerEvents: 'none',
+              }}
+            />
+          );
+        })}
       </div>
 
-      {isVideoReady === false && aiVideoLayer && (
+      {isVideoReady === false && currentVideoSrc && (
         <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50">
           <div className="text-white">Loading video...</div>
         </div>

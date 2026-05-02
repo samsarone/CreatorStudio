@@ -144,7 +144,7 @@ function logRecordSpeechDebug(message, payload = {}) {
     return;
   }
 
-  console.debug(`[RecordSpeech] ${message}`, payload);
+  console.log(`[RecordSpeech] ${message}`, payload);
 }
 
 function warnRecordSpeech(message, payload = {}) {
@@ -267,7 +267,7 @@ export default function RecordSpeechSection({
     recordingPreviewStartSeconds,
   ]);
   const activeTranscriptCue = useMemo(() => {
-    if (!isImmersiveActive || !isRecordingPreviewActive || transcriptCues.length === 0) {
+    if (!isImmersiveActive || transcriptCues.length === 0) {
       return null;
     }
 
@@ -281,7 +281,6 @@ export default function RecordSpeechSection({
       .find(Boolean) || null;
   }, [
     isImmersiveActive,
-    isRecordingPreviewActive,
     transcriptCandidateTimes,
     transcriptCues,
   ]);
@@ -772,6 +771,12 @@ export default function RecordSpeechSection({
     }
 
     setTranscriptError('');
+    logRecordSpeechDebug('transcript upload selected', {
+      fileName: file.name,
+      size: file.size,
+      type: file.type,
+      isImmersiveActive,
+    });
 
     try {
       const text = await file.text();
@@ -802,6 +807,11 @@ export default function RecordSpeechSection({
   };
 
   const openTranscriptUpload = () => {
+    logRecordSpeechDebug('transcript upload button clicked', {
+      isImmersiveActive,
+      isRecording,
+      isVideoPreviewPlaying,
+    });
     transcriptInputRef.current?.click();
   };
 
@@ -931,11 +941,11 @@ export default function RecordSpeechSection({
   }, [isImmersiveActive, isRecording, isVideoPreviewPlaying]);
 
   useEffect(() => {
-    if (!isImmersiveActive || !isRecordingPreviewActive || transcriptCues.length === 0) {
+    if (!isImmersiveActive || transcriptCues.length === 0) {
       return;
     }
 
-    const debugBucket = Math.floor(currentPreviewTime * 2);
+    const debugBucket = Math.floor(currentPreviewTime);
     const cueKey = activeTranscriptCue
       ? `${activeTranscriptCue.startTime}-${activeTranscriptCue.endTime}-${activeTranscriptCue.text}`
       : '';
@@ -952,7 +962,11 @@ export default function RecordSpeechSection({
     logRecordSpeechDebug('transcript cue lookup', {
       currentPreviewTime,
       currentLayerStartTime,
+      isRecording,
+      isRecordingPreviewActive,
+      isVideoPreviewPlaying,
       recordingPreviewStartSeconds,
+      cueCount: transcriptCues.length,
       candidates: transcriptCandidateTimes.map(({ source, value }) => ({
         source,
         value: Math.round(value * 1000) / 1000,
@@ -973,7 +987,9 @@ export default function RecordSpeechSection({
     currentLayerStartTime,
     currentPreviewTime,
     isImmersiveActive,
+    isRecording,
     isRecordingPreviewActive,
+    isVideoPreviewPlaying,
     recordingPreviewStartSeconds,
     transcriptCandidateTimes,
     transcriptCues.length,

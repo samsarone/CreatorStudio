@@ -347,19 +347,6 @@ export default function VideoEditorContainer(props) {
     startAIVideoLayerGenerationPoll();
   }, [aiVideoPollType]);
 
-
-  // Preload hidden <video> once we set aiVideoLayer
-  useEffect(() => {
-    if (aiVideoLayer) {
-      const hiddenContainer = document.getElementById('hidden-video-container');
-      const video = document.createElement('video');
-      video.src = aiVideoLayer;
-      video.preload = 'auto';
-      video.style.display = 'none';
-      hiddenContainer.appendChild(video);
-    }
-  }, [aiVideoLayer]);
-
   useEffect(() => {
     if (currentLayer && currentLayer.segmentation) {
       setSegmentationData(currentLayer.segmentation);
@@ -2661,16 +2648,6 @@ export default function VideoEditorContainer(props) {
       const updatedLayerIndex = newLayers.findIndex(
         (layer) => layer._id.toString() === selectedLayerId
       );
-
-      const hiddenContainer = document.getElementById('hidden-video-container');
-      const { url: videoSrc } = resolveLayerVideoState(layerData);
-      if (hiddenContainer && videoSrc) {
-        const video = document.createElement('video');
-        video.src = videoSrc;
-        video.preload = 'auto';
-        video.style.display = 'none';
-        hiddenContainer.appendChild(video);
-      }
 
       setVideoSessionDetails(sessionData);
       updateCurrentLayerAndLayerList(newLayers, updatedLayerIndex);

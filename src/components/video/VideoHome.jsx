@@ -303,7 +303,6 @@ export default function VideoHome(props) {
 
   const [downloadLink, setDownloadLink] = useState(null);
 
-  const [preloadedLayerIds, setPreloadedLayerIds] = useState(new Set());
   const [renderCompletedThisSession, setRenderCompletedThisSession] = useState(false);
   const renderPollTimerRef = useRef(null);
   const layerPollTimerRef = useRef(null);
@@ -406,18 +405,6 @@ export default function VideoHome(props) {
       || isActiveUserVideoUploadTask(layer?.userVideoUploadTask)
     ));
   };
-
-  function ensureHiddenVideoContainer() {
-    let hiddenContainer = document.getElementById('hidden-video-container');
-    if (!hiddenContainer) {
-      hiddenContainer = document.createElement('div');
-      hiddenContainer.id = 'hidden-video-container';
-      hiddenContainer.style.display = 'none';
-      document.body.appendChild(hiddenContainer);
-    }
-
-    return hiddenContainer;
-  }
 
   const stopLayerPolling = () => {
     if (layerPollTimerRef.current) {
@@ -540,50 +527,6 @@ export default function VideoHome(props) {
     setRenderCompletedThisSession(false);
   }, [isCanvasDirty, renderCompletedThisSession]);
 
-  useEffect(() => {
-    if (layers && layers.length > 0) {
-      const hiddenContainer = ensureHiddenVideoContainer();
-
-      layers.forEach(layer => {
-
-        if (layer && layer.aiVideoLayer) {
-          const videoSrc = `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
-          preloadVideo(videoSrc, hiddenContainer, 'metadata');
-        } else if (layer && layer.userVideoLayer) {
-          const videoSrc = `${PROCESSOR_API_URL}${layer.userVideoLayer}`;
-          preloadVideo(videoSrc, hiddenContainer, 'metadata');
-        }
-      });
-
-    }
-  }, [layers]);
-
-
-
-
-
-
-
-  useEffect(() => {
-    if (!currentLayer) return;
-
-    // Create a hidden container if not existing
-    let hiddenContainer = document.getElementById('hidden-video-container');
-    if (!hiddenContainer) {
-      hiddenContainer = document.createElement('div');
-      hiddenContainer.id = 'hidden-video-container';
-      hiddenContainer.style.display = 'none';
-      document.body.appendChild(hiddenContainer);
-    }
-
-
-    preloadLayerAiVideoLayer(currentLayer);
-
-  }, [currentLayer]);
-
-
-
-
   const generateMeta = async () => {
 
     const payload = {
@@ -598,164 +541,6 @@ export default function VideoHome(props) {
 
     setSessionMetadata(sessionMeta);
   }
-
-
-
-
-  // --------------
-  // HELPER: Preload
-  // --------------
-  const preloadVideo = (src, container, preload = 'auto') => {
-    if (!src || !container) {
-      return null;
-    }
-
-    const existingVideo = Array.from(container.querySelectorAll('video[data-preload-src]'))
-      .find((videoEl) => videoEl.dataset.preloadSrc === src);
-
-    if (existingVideo) {
-      if (preload === 'auto' && existingVideo.preload !== 'auto') {
-        existingVideo.preload = 'auto';
-        try {
-          existingVideo.load();
-        } catch (err) {
-          // Ignore best-effort preload failures.
-        }
-      }
-      return existingVideo;
-    }
-
-    const videoEl = document.createElement('video');
-    videoEl.src = src;
-    videoEl.dataset.preloadSrc = src;
-    videoEl.preload = preload;
-    videoEl.muted = true;
-    videoEl.playsInline = true;
-    videoEl.style.display = 'none';
-    container.appendChild(videoEl);
-    if (preload !== 'none') {
-      try {
-        videoEl.load();
-      } catch (err) {
-        // Ignore best-effort preload failures.
-      }
-    }
-    return videoEl;
-  };
-
-  function preloadLayerAiVideoLayer(layer) {
-    if (!layer) return;
-    const hiddenContainer = ensureHiddenVideoContainer();
-    if (!hiddenContainer) return;
-
-    // Don’t re-preload the same layer if we already did
-    if (preloadedLayerIds.has(layer._id)) return;
-
-    // Mark this layer as preloaded
-    setPreloadedLayerIds((prev) => new Set(prev).add(layer._id));
-
-    // AI video
-    if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
-      const videoURL = layer.aiVideoRemoteLink
-        ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
-        : `${PROCESSOR_API_URL}/${layer.aiVideoLayer}`;
-
-      preloadVideo(videoURL, hiddenContainer);
-    }
-
-    // Lip sync video
-    if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
-      const videoURL = layer.lipSyncRemoteLink
-        ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
-        : `${PROCESSOR_API_URL}/${layer.lipSyncVideoLayer}`;
-      preloadVideo(videoURL, hiddenContainer);
-    }
-
-    // Sound effect video
-    if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
-      const videoURL = layer.soundEffectRemoteLink
-        ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
-        : `${PROCESSOR_API_URL}/${layer.soundEffectVideoLayer}`;
-      preloadVideo(videoURL, hiddenContainer);
-    }
-
-    if (layer.hasUserVideoLayer && layer.userVideoLayer) {
-      const videoURL = layer.userVideoRemoteLink
-        ? `${STATIC_CDN_URL}/${layer.userVideoRemoteLink}`
-        : `${PROCESSOR_API_URL}${layer.userVideoLayer}`;
-      preloadVideo(videoURL, hiddenContainer);
-    }
-  }
-
-  // ----------------------------------------------------------------
-  // 1) Ensure the current layer's video is loaded FIRST (immediately)
-  // ----------------------------------------------------------------
-  useEffect(() => {
-    if (!currentLayer) return;
-
-    let hiddenContainer = document.getElementById('hidden-video-container');
-    if (!hiddenContainer) {
-      hiddenContainer = document.createElement('div');
-      hiddenContainer.id = 'hidden-video-container';
-      hiddenContainer.style.display = 'none';
-      document.body.appendChild(hiddenContainer);
-    }
-
-    // Preload current layer only
-    preloadLayerAiVideoLayer(currentLayer);
-
-  }, [currentLayer]); // every time the current layer changes
-
-  // ---------------------------------------------------------------------------
-  // 2) Then load the *nearby* layers (e.g. ±2) using requestIdleCallback (if available)
-  // ---------------------------------------------------------------------------
-  useEffect(() => {
-    // If we have no layers or invalid selection, do nothing
-    if (!layers || layers.length === 0 || selectedLayerIndex == null) return;
-
-    // Create container if needed
-    let hiddenContainer = document.getElementById('hidden-video-container');
-    if (!hiddenContainer) {
-      hiddenContainer = document.createElement('div');
-      hiddenContainer.id = 'hidden-video-container';
-      hiddenContainer.style.display = 'none';
-      document.body.appendChild(hiddenContainer);
-    }
-
-    // Figure out which indices to preload. For example ±2 from current
-    // (Adjust the “2” as needed, or add more advanced logic for your timeline.)
-    const indicesToPreload = [];
-    for (let offset = -2; offset <= 2; offset++) {
-      const idx = selectedLayerIndex + offset;
-      if (idx < 0 || idx >= layers.length) continue;
-      // Already preloaded or it is the current layer?
-      if (idx === selectedLayerIndex) continue;
-      indicesToPreload.push(idx);
-    }
-
-    let i = 0;
-    function scheduleNext() {
-      if (i >= indicesToPreload.length) return;
-
-      // Use requestIdleCallback if the browser supports it
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(() => {
-          const layerIndex = indicesToPreload[i];
-          preloadLayerAiVideoLayer(layers[layerIndex]);
-          i++;
-          scheduleNext();
-        });
-      } else {
-        // fallback: just do it immediately
-        const layerIndex = indicesToPreload[i];
-        preloadLayerAiVideoLayer(layers[layerIndex]);
-        i++;
-        scheduleNext();
-      }
-    }
-    scheduleNext();
-
-  }, [layers, selectedLayerIndex, preloadedLayerIds]);
 
 
 
@@ -785,8 +570,6 @@ export default function VideoHome(props) {
   useEffect(() => {
 
     if (layers && layers.length > 0) {
-      const hiddenContainer = document.getElementById('hidden-video-container');
-
       layers.forEach(layer => {
 
 
@@ -3589,7 +3372,6 @@ export default function VideoHome(props) {
             </div>
           </div>
         </div>
-        <div id="hidden-video-container" style={{ 'display': 'none' }}></div>
         <ToastContainer
           position="bottom-center"
           autoClose={5000}
