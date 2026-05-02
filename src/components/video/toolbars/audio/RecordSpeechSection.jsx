@@ -221,12 +221,44 @@ function resolveVideoBlobDuration(blobUrl) {
     }
 
     const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.onloadedmetadata = () => {
-      const duration = Number(video.duration);
-      resolve(Number.isFinite(duration) && duration > 0 ? duration : null);
+    let settled = false;
+    let timeoutId = null;
+    const finish = (duration = null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      video.removeAttribute('src');
+      video.load?.();
+      resolve(duration);
     };
-    video.onerror = () => resolve(null);
+    const resolveCurrentDuration = () => {
+      const duration = Number(video.duration);
+      if (Number.isFinite(duration) && duration > 0) {
+        finish(duration);
+        return true;
+      }
+      return false;
+    };
+
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadedmetadata = () => {
+      if (!resolveCurrentDuration()) {
+        try {
+          video.currentTime = Number.MAX_SAFE_INTEGER;
+        } catch {
+          finish(null);
+        }
+      }
+    };
+    video.ontimeupdate = resolveCurrentDuration;
+    video.onerror = () => finish(null);
+    timeoutId = setTimeout(() => finish(null), 3000);
     video.src = blobUrl;
   });
 }
@@ -302,6 +334,7 @@ export default function RecordSpeechSection({
   const facecamChunksRef = useRef([]);
   const facecamDiscardStoppedRef = useRef(false);
   const facecamStopPromiseRef = useRef(null);
+  const facecamDurationRef = useRef(null);
   const recordingStartedAtRef = useRef(0);
   const recordingTimerRef = useRef(null);
   const chunkFlushTimerRef = useRef(null);
@@ -718,7 +751,9 @@ export default function RecordSpeechSection({
         facecamUrlRef.current = objectUrl;
         setFacecamBlob(blob);
         setFacecamUrl(objectUrl);
-        setFacecamDuration(await resolveVideoBlobDuration(objectUrl));
+        const resolvedFacecamDuration = await resolveVideoBlobDuration(objectUrl);
+        facecamDurationRef.current = resolvedFacecamDuration;
+        setFacecamDuration(resolvedFacecamDuration);
         resolve(blob);
       };
     });
@@ -781,6 +816,7 @@ export default function RecordSpeechSection({
     setUploadedGlobalVideo(null);
     setFacecamError('');
     facecamStopPromiseRef.current = null;
+    facecamDurationRef.current = null;
     setUploadedLibraryItem(null);
     setHasAddedToSession(false);
     setIsPlayingPreview(false);
@@ -1078,10 +1114,6 @@ export default function RecordSpeechSection({
       return null;
     }
 
-    if (uploadedGlobalVideo) {
-      return uploadedGlobalVideo;
-    }
-
     const headers = getHeaders();
     if (!headers?.headers) {
       setRecorderError('You must be logged in to save recorded facecam.');
@@ -1092,11 +1124,26 @@ export default function RecordSpeechSection({
     setFacecamError('');
 
     try {
+      if (uploadedGlobalVideo) {
+        if (!shouldPollGlobalVideoProcessing({}, uploadedGlobalVideo)) {
+          return uploadedGlobalVideo;
+        }
+
+        const completedGlobalVideo = await pollGlobalVideoProcessing({
+          sessionId: sessionDetails._id.toString(),
+          globalVideo: uploadedGlobalVideo,
+          headers,
+        });
+        setUploadedGlobalVideo(completedGlobalVideo);
+        return completedGlobalVideo;
+      }
+
       const startTime = Number.isFinite(Number(recordingStartTimeRef.current))
         ? Number(recordingStartTimeRef.current)
         : currentLayerStartTime;
-      const duration = Number.isFinite(Number(facecamDuration)) && Number(facecamDuration) > 0
-        ? Number(facecamDuration)
+      const recordedFacecamDuration = Number(facecamDurationRef.current ?? facecamDuration);
+      const duration = Number.isFinite(recordedFacecamDuration) && recordedFacecamDuration > 0
+        ? recordedFacecamDuration
         : resolvedRecordingDuration || 1;
       const extension = getVideoRecordingExtension(activeFacecamBlob.type);
       const response = await axios.post(
@@ -1119,6 +1166,9 @@ export default function RecordSpeechSection({
         }
       );
       let globalVideo = response?.data?.globalVideo || null;
+      if (globalVideo) {
+        setUploadedGlobalVideo(globalVideo);
+      }
       if (globalVideo && shouldPollGlobalVideoProcessing(response?.data, globalVideo)) {
         globalVideo = await pollGlobalVideoProcessing({
           sessionId: sessionDetails._id.toString(),
@@ -1450,8 +1500,10 @@ export default function RecordSpeechSection({
       </div>
     </div>
   ) : null;
+  const facecamUploadComplete = Boolean(uploadedGlobalVideo)
+    && !shouldPollGlobalVideoProcessing({}, uploadedGlobalVideo);
   const libraryActionComplete = Boolean(uploadedLibraryItem)
-    && (!shouldRecordFacecam || Boolean(uploadedGlobalVideo));
+    && (!shouldRecordFacecam || facecamUploadComplete);
 
   return (
     <>
