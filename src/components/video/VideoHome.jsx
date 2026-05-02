@@ -2218,6 +2218,14 @@ export default function VideoHome(props) {
       const newLayers = videoSessionDetails.layers;
       const newLayer = resData.layer;
       const newLayerIndex = newLayers.findIndex(layer => layer._id === newLayer._id);
+      const insertedLayer = newLayers[newLayerIndex] || newLayer;
+
+      activeItemListRef.current = [];
+      previousSyncedLayerIdRef.current = insertedLayer?._id?.toString?.() || null;
+      syncActiveItemList([], { resetHistory: true });
+
+      const { startFrame: newLayerSeek } = getLayerDisplayFrameRange(insertedLayer);
+      setCurrentLayerSeek(newLayerSeek);
 
       updateCurrentLayerAndLayerList(newLayers, newLayerIndex);
       setIsCanvasDirty(true);
