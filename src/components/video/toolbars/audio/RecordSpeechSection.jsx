@@ -12,6 +12,7 @@ import {
   FaPlus,
   FaStop,
   FaTimesCircle,
+  FaVideo,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { getHeaders } from '../../../../utils/web';
@@ -26,6 +27,13 @@ const RECORDER_MIME_TYPES = [
   'audio/mp4',
   'audio/ogg;codecs=opus',
   'audio/ogg',
+];
+
+const VIDEO_RECORDER_MIME_TYPES = [
+  'video/webm;codecs=vp9',
+  'video/webm;codecs=vp8',
+  'video/webm',
+  'video/mp4',
 ];
 
 function getSupportedRecorderMimeType() {
@@ -46,6 +54,25 @@ function getRecordingExtension(mimeType = '') {
   }
   if (normalizedMimeType.includes('mpeg') || normalizedMimeType.includes('mp3')) {
     return 'mp3';
+  }
+  return 'webm';
+}
+
+function getSupportedVideoRecorderMimeType() {
+  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
+    return '';
+  }
+
+  return VIDEO_RECORDER_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType)) || '';
+}
+
+function getVideoRecordingExtension(mimeType = '') {
+  const normalizedMimeType = mimeType.toLowerCase();
+  if (normalizedMimeType.includes('mp4')) {
+    return 'mp4';
+  }
+  if (normalizedMimeType.includes('quicktime')) {
+    return 'mov';
   }
   return 'webm';
 }
@@ -86,6 +113,24 @@ function resolveBlobDuration(blobUrl) {
     };
     audio.onerror = () => resolve(null);
     audio.src = blobUrl;
+  });
+}
+
+function resolveVideoBlobDuration(blobUrl) {
+  return new Promise((resolve) => {
+    if (!blobUrl || typeof document === 'undefined') {
+      resolve(null);
+      return;
+    }
+
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      const duration = Number(video.duration);
+      resolve(Number.isFinite(duration) && duration > 0 ? duration : null);
+    };
+    video.onerror = () => resolve(null);
+    video.src = blobUrl;
   });
 }
 
@@ -190,13 +235,28 @@ export default function RecordSpeechSection({
   const [recordingPreviewStartSeconds, setRecordingPreviewStartSeconds] = useState(null);
   const [isRecordingPreviewActive, setIsRecordingPreviewActive] = useState(false);
   const [helperPreviewTime, setHelperPreviewTime] = useState(null);
+  const [facecamAction, setFacecamAction] = useState('audio_only');
+  const [cameraDevices, setCameraDevices] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState('');
+  const [facecamShapeOverlay, setFacecamShapeOverlay] = useState('circle');
+  const [isFacecamRecording, setIsFacecamRecording] = useState(false);
+  const [facecamBlob, setFacecamBlob] = useState(null);
+  const [facecamUrl, setFacecamUrl] = useState('');
+  const [facecamDuration, setFacecamDuration] = useState(null);
+  const [uploadedGlobalVideo, setUploadedGlobalVideo] = useState(null);
+  const [facecamError, setFacecamError] = useState('');
 
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
+  const facecamMediaRecorderRef = useRef(null);
+  const facecamStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const gainNodeRef = useRef(null);
   const analyserRef = useRef(null);
   const recordedChunksRef = useRef([]);
+  const facecamChunksRef = useRef([]);
+  const facecamDiscardStoppedRef = useRef(false);
+  const facecamStopPromiseRef = useRef(null);
   const recordingStartedAtRef = useRef(0);
   const recordingTimerRef = useRef(null);
   const chunkFlushTimerRef = useRef(null);
@@ -206,7 +266,9 @@ export default function RecordSpeechSection({
   const helperPreviewStartedAtRef = useRef(0);
   const helperPreviewBaseTimeRef = useRef(0);
   const previewAudioRef = useRef(null);
+  const facecamPreviewRef = useRef(null);
   const recordingUrlRef = useRef('');
+  const facecamUrlRef = useRef('');
   const transcriptInputRef = useRef(null);
   const discardStoppedRecordingRef = useRef(false);
   const recorderStopReasonRef = useRef('idle');
@@ -226,6 +288,7 @@ export default function RecordSpeechSection({
   const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
   const currentLayerStartTime = resolveLayerStartTime(currentLayer);
   const currentPreviewTime = Math.max(0, (Number(currentLayerSeek) || 0) / DISPLAY_FRAMES_PER_SECOND);
+  const facecamFramesPerSecond = Number(sessionDetails?.framesPerSecond) === 30 ? 30 : 16;
   const effectivePreviewTime = Number.isFinite(Number(helperPreviewTime))
     ? Number(helperPreviewTime)
     : currentPreviewTime;
@@ -233,6 +296,8 @@ export default function RecordSpeechSection({
     && Boolean(navigator.mediaDevices?.getUserMedia)
     && typeof MediaRecorder !== 'undefined';
   const hasRecording = Boolean(recordingBlob && recordingUrl);
+  const hasFacecamRecording = Boolean(facecamBlob && facecamUrl);
+  const shouldRecordFacecam = facecamAction === 'record_facecam';
   const hasCurrentLayer = Boolean(currentLayer?._id || currentLayer?.id);
   const resolvedRecordingDuration = Number.isFinite(Number(recordingDuration)) && Number(recordingDuration) > 0
     ? Number(recordingDuration)
@@ -241,6 +306,10 @@ export default function RecordSpeechSection({
     const selectedMic = microphones.find((device) => device.deviceId === selectedMicId);
     return selectedMic?.label || 'Default microphone';
   }, [microphones, selectedMicId]);
+  const selectedCameraLabel = useMemo(() => {
+    const selectedCamera = cameraDevices.find((device) => device.deviceId === selectedCameraId);
+    return selectedCamera?.label || 'Default camera';
+  }, [cameraDevices, selectedCameraId]);
   const transcriptCandidateTimes = useMemo(() => {
     const candidates = [
       { source: 'sessionTime', value: effectivePreviewTime },
@@ -306,13 +375,38 @@ export default function RecordSpeechSection({
     }
   };
 
+  const refreshCameras = async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      return;
+    }
+
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter((device) => device.kind === 'videoinput');
+      setCameraDevices(videoInputs);
+      setSelectedCameraId((currentCameraId) => {
+        if (currentCameraId && videoInputs.some((device) => device.deviceId === currentCameraId)) {
+          return currentCameraId;
+        }
+        return videoInputs[0]?.deviceId || '';
+      });
+    } catch {
+      setCameraDevices([]);
+    }
+  };
+
   useEffect(() => {
     refreshMicrophones().catch(() => {});
+    refreshCameras().catch(() => {});
 
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.addEventListener) {
-      navigator.mediaDevices.addEventListener('devicechange', refreshMicrophones);
+      const handleDeviceChange = () => {
+        refreshMicrophones().catch(() => {});
+        refreshCameras().catch(() => {});
+      };
+      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
       return () => {
-        navigator.mediaDevices.removeEventListener('devicechange', refreshMicrophones);
+        navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
       };
     }
 
@@ -328,6 +422,18 @@ export default function RecordSpeechSection({
   useEffect(() => {
     recordingUrlRef.current = recordingUrl;
   }, [recordingUrl]);
+
+  useEffect(() => {
+    facecamUrlRef.current = facecamUrl;
+  }, [facecamUrl]);
+
+  useEffect(() => {
+    if (!facecamPreviewRef.current || isFacecamRecording) {
+      return;
+    }
+
+    facecamPreviewRef.current.srcObject = null;
+  }, [facecamUrl, isFacecamRecording]);
 
   useEffect(() => {
     const resolvedSeek = Number(currentLayerSeek);
@@ -372,6 +478,10 @@ export default function RecordSpeechSection({
       if (recordingUrlRef.current) {
         URL.revokeObjectURL(recordingUrlRef.current);
       }
+      if (facecamUrlRef.current) {
+        URL.revokeObjectURL(facecamUrlRef.current);
+      }
+      stopFacecamStream();
     };
   }, []);
 
@@ -433,6 +543,111 @@ export default function RecordSpeechSection({
     setLevel(0);
   };
 
+  const stopFacecamStream = () => {
+    if (facecamStreamRef.current) {
+      facecamStreamRef.current.getTracks().forEach((track) => track.stop());
+      facecamStreamRef.current = null;
+    }
+    if (facecamPreviewRef.current) {
+      facecamPreviewRef.current.srcObject = null;
+    }
+  };
+
+  const stopFacecamRecording = ({ discard = false } = {}) => {
+    const recorder = facecamMediaRecorderRef.current;
+    if (!recorder || recorder.state === 'inactive') {
+      stopFacecamStream();
+      return facecamStopPromiseRef.current || Promise.resolve(null);
+    }
+
+    if (discard) {
+      facecamDiscardStoppedRef.current = true;
+    }
+
+    try {
+      recorder.stop();
+    } catch {
+      stopFacecamStream();
+      setIsFacecamRecording(false);
+    }
+
+    return facecamStopPromiseRef.current || Promise.resolve(null);
+  };
+
+  const startFacecamRecording = async () => {
+    if (!shouldRecordFacecam) {
+      return true;
+    }
+
+    setFacecamError('');
+    const constraints = {
+      video: selectedCameraId
+        ? { deviceId: { exact: selectedCameraId }, width: { ideal: 960 }, height: { ideal: 960 }, frameRate: { ideal: facecamFramesPerSecond, max: facecamFramesPerSecond } }
+        : { width: { ideal: 960 }, height: { ideal: 960 }, frameRate: { ideal: facecamFramesPerSecond, max: facecamFramesPerSecond } },
+      audio: false,
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    facecamStreamRef.current = stream;
+    refreshCameras().catch(() => {});
+
+    if (facecamPreviewRef.current) {
+      facecamPreviewRef.current.srcObject = stream;
+      facecamPreviewRef.current.muted = true;
+      facecamPreviewRef.current.play?.().catch(() => {});
+    }
+
+    const mimeType = getSupportedVideoRecorderMimeType();
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    facecamMediaRecorderRef.current = recorder;
+    facecamChunksRef.current = [];
+    facecamDiscardStoppedRef.current = false;
+
+    facecamStopPromiseRef.current = new Promise((resolve) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          facecamChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onerror = (event) => {
+        setFacecamError(event?.error?.message || event?.message || 'Unable to record facecam.');
+      };
+
+      recorder.onstop = async () => {
+        setIsFacecamRecording(false);
+        stopFacecamStream();
+
+        if (facecamDiscardStoppedRef.current) {
+          facecamDiscardStoppedRef.current = false;
+          facecamChunksRef.current = [];
+          resolve(null);
+          return;
+        }
+
+        const recordedMimeType = recorder.mimeType || mimeType || 'video/webm';
+        const blob = new Blob(facecamChunksRef.current, { type: recordedMimeType });
+        if (!blob.size) {
+          resolve(null);
+          return;
+        }
+
+        if (facecamUrlRef.current) {
+          URL.revokeObjectURL(facecamUrlRef.current);
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        facecamUrlRef.current = objectUrl;
+        setFacecamBlob(blob);
+        setFacecamUrl(objectUrl);
+        setFacecamDuration(await resolveVideoBlobDuration(objectUrl));
+        resolve(blob);
+      };
+    });
+
+    recorder.start();
+    setIsFacecamRecording(true);
+    return true;
+  };
+
   const updateLevel = () => {
     const analyser = analyserRef.current;
     if (!analyser || !isRecordingRef.current) {
@@ -474,9 +689,18 @@ export default function RecordSpeechSection({
     if (recordingUrl) {
       URL.revokeObjectURL(recordingUrl);
     }
+    if (facecamUrl) {
+      URL.revokeObjectURL(facecamUrl);
+    }
     setRecordingBlob(null);
     setRecordingUrl('');
     setRecordingDuration(null);
+    setFacecamBlob(null);
+    setFacecamUrl('');
+    setFacecamDuration(null);
+    setUploadedGlobalVideo(null);
+    setFacecamError('');
+    facecamStopPromiseRef.current = null;
     setUploadedLibraryItem(null);
     setHasAddedToSession(false);
     setIsPlayingPreview(false);
@@ -501,6 +725,10 @@ export default function RecordSpeechSection({
     resetRecording({ preserveRecordingPreview });
 
     try {
+      if (shouldRecordFacecam) {
+        await startFacecamRecording();
+      }
+
       const constraints = {
         audio: selectedMicId
           ? { deviceId: { exact: selectedMicId }, echoCancellation: true, noiseSuppression: true }
@@ -630,6 +858,9 @@ export default function RecordSpeechSection({
       return true;
     } catch (error) {
       setRecorderError(error?.message || 'Unable to start microphone recording.');
+      if (shouldRecordFacecam) {
+        await stopFacecamRecording({ discard: true });
+      }
       isRecordingRef.current = false;
       setIsRecording(false);
       clearRecordingTimers();
@@ -654,6 +885,7 @@ export default function RecordSpeechSection({
     clearRecordingTimers();
     setRecordingSeconds(Math.max(1, Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)));
     mediaRecorderRef.current.stop();
+    stopFacecamRecording({ discard });
     isRecordingRef.current = false;
     if (isImmersiveActive && typeof setIsVideoPreviewPlaying === 'function') {
       setIsRecordingPreviewActive(false);
@@ -746,6 +978,73 @@ export default function RecordSpeechSection({
     }
   };
 
+  const uploadFacecamRecording = async () => {
+    if (!shouldRecordFacecam || !sessionDetails?._id) {
+      return null;
+    }
+
+    const stoppedFacecamBlob = facecamStopPromiseRef.current
+      ? await facecamStopPromiseRef.current.catch(() => null)
+      : null;
+    const activeFacecamBlob = facecamBlob || stoppedFacecamBlob;
+
+    if (!activeFacecamBlob) {
+      return null;
+    }
+
+    if (uploadedGlobalVideo) {
+      return uploadedGlobalVideo;
+    }
+
+    const headers = getHeaders();
+    if (!headers?.headers) {
+      setRecorderError('You must be logged in to save recorded facecam.');
+      return null;
+    }
+
+    setIsUploadPending(true);
+    setFacecamError('');
+
+    try {
+      const startTime = Number.isFinite(Number(recordingStartTimeRef.current))
+        ? Number(recordingStartTimeRef.current)
+        : currentLayerStartTime;
+      const duration = Number.isFinite(Number(facecamDuration)) && Number(facecamDuration) > 0
+        ? Number(facecamDuration)
+        : resolvedRecordingDuration || 1;
+      const extension = getVideoRecordingExtension(activeFacecamBlob.type);
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/upload_global_video`,
+        activeFacecamBlob,
+        {
+          headers: {
+            ...headers.headers,
+            'Content-Type': activeFacecamBlob.type || 'video/webm',
+          },
+          params: {
+            sessionId: sessionDetails._id.toString(),
+            fileName: `recorded-facecam.${extension}`,
+            startTime,
+            duration,
+            framesPerSecond: facecamFramesPerSecond,
+            shapeOverlay: facecamShapeOverlay,
+            title: 'Recorded facecam',
+          },
+        }
+      );
+      const globalVideo = response?.data?.globalVideo || null;
+      if (globalVideo) {
+        setUploadedGlobalVideo(globalVideo);
+      }
+      return globalVideo;
+    } catch (error) {
+      setFacecamError(error?.response?.data?.error || 'Unable to save recorded facecam.');
+      return null;
+    } finally {
+      setIsUploadPending(false);
+    }
+  };
+
   const handleAddToSession = async () => {
     if (typeof requestAddAudioLayerFromLibrary !== 'function') {
       setRecorderError('Unable to add recorded speech to this session.');
@@ -757,7 +1056,14 @@ export default function RecordSpeechSection({
       return;
     }
 
-    requestAddAudioLayerFromLibrary(uploadedItem, {
+    if (shouldRecordFacecam && (facecamBlob || facecamStopPromiseRef.current)) {
+      const globalVideo = await uploadFacecamRecording();
+      if (!globalVideo) {
+        return;
+      }
+    }
+
+    await requestAddAudioLayerFromLibrary(uploadedItem, {
       startTime: Number.isFinite(Number(recordingStartTimeRef.current))
         ? Number(recordingStartTimeRef.current)
         : currentLayerStartTime,
@@ -1042,7 +1348,7 @@ export default function RecordSpeechSection({
   const dangerIconButtonClass = `${iconButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
   const helperTranscriptOverlay = isImmersiveActive && activeTranscriptCue ? (
     <div className="pointer-events-none fixed inset-0 z-[10000]">
-      <div className="absolute bottom-[12vh] left-1/2 w-[min(92vw,900px)] -translate-x-1/2 text-center">
+      <div className="absolute left-1/2 top-[10vh] w-[min(88vw,760px)] -translate-x-1/2 text-center">
         <div className="rounded-2xl bg-black/70 px-6 py-4 text-xl font-semibold leading-relaxed text-white shadow-2xl backdrop-blur">
           {activeTranscriptCue.text}
         </div>
@@ -1083,6 +1389,56 @@ export default function RecordSpeechSection({
         </label>
 
         <label className="block">
+          <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Action</span>
+          <select
+            value={facecamAction}
+            onChange={(event) => setFacecamAction(event.target.value)}
+            disabled={isRecording || isStartingRecording}
+            className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+          >
+            <option value="audio_only">Audio only</option>
+            <option value="record_facecam">Record facecam</option>
+          </select>
+        </label>
+
+        {shouldRecordFacecam && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="block">
+              <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Camera</span>
+              <select
+                value={selectedCameraId}
+                onChange={(event) => setSelectedCameraId(event.target.value)}
+                disabled={isRecording || cameraDevices.length === 0}
+                className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+              >
+                {cameraDevices.length === 0 ? (
+                  <option value="">Default camera</option>
+                ) : cameraDevices.map((device, index) => (
+                  <option key={device.deviceId || index} value={device.deviceId}>
+                    {device.label || `Camera ${index + 1}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Shape</span>
+              <select
+                value={facecamShapeOverlay}
+                onChange={(event) => setFacecamShapeOverlay(event.target.value)}
+                disabled={isRecording}
+                className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+              >
+                <option value="circle">Circle</option>
+                <option value="oval">Oval</option>
+                <option value="rectangle">Rectangle</option>
+                <option value="rounded_rectangle">Rounded rectangle</option>
+              </select>
+            </label>
+          </div>
+        )}
+
+        <label className="block">
           <span className={`mb-1 flex items-center justify-between text-xs font-semibold ${mutedText}`}>
             <span>Volume</span>
             <span>{micVolume}%</span>
@@ -1104,6 +1460,27 @@ export default function RecordSpeechSection({
             style={{ width: `${Math.round(level * 100)}%` }}
           />
         </div>
+
+        {(shouldRecordFacecam || hasFacecamRecording || isFacecamRecording) && (
+          <div className={`overflow-hidden rounded-lg border ${borderColor}`}>
+            <div className={`flex items-center justify-between gap-2 px-3 py-2 text-xs ${mutedText}`}>
+              <span className="inline-flex items-center gap-2">
+                <FaVideo aria-hidden="true" />
+                {isFacecamRecording ? selectedCameraLabel : 'Facecam'}
+              </span>
+              <span>{hasFacecamRecording ? formatRecordingTime(facecamDuration || resolvedRecordingDuration) : ''}</span>
+            </div>
+            <video
+              ref={facecamPreviewRef}
+              src={!isFacecamRecording && facecamUrl ? facecamUrl : undefined}
+              controls={!isFacecamRecording && Boolean(facecamUrl)}
+              muted
+              playsInline
+              autoPlay={isFacecamRecording}
+              className="aspect-video w-full bg-black object-cover"
+            />
+          </div>
+        )}
 
         <input
           ref={transcriptInputRef}
@@ -1223,6 +1600,12 @@ export default function RecordSpeechSection({
           </div>
         )}
 
+        {facecamError && (
+          <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-400">
+            {facecamError}
+          </div>
+        )}
+
         {!canUseRecorder && (
           <div className={`rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
             Recording is unavailable in this browser.
@@ -1232,6 +1615,12 @@ export default function RecordSpeechSection({
         {canUseRecorder && microphones.length === 0 && (
           <div className={`text-xs ${mutedText}`}>
             Using {selectedMicLabel}.
+          </div>
+        )}
+
+        {canUseRecorder && shouldRecordFacecam && cameraDevices.length === 0 && (
+          <div className={`text-xs ${mutedText}`}>
+            Using {selectedCameraLabel}.
           </div>
         )}
       </div>

@@ -3,7 +3,6 @@ import TextareaAutosize from 'react-textarea-autosize';
 import SingleSelect from '../../../common/SingleSelect.jsx';
 import CommonButton from '../../../common/CommonButton.tsx';
 import AddSpeaker from './AddSpeaker';
-import RecordSpeechSection from './RecordSpeechSection.jsx';
 import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';
 
 function normalizeProvider(provider, speakerValue = '') {
@@ -62,14 +61,6 @@ export default function MovieSpeechProviderSelect(props) {
     colorMode,
     playMusicPreviewForSpeaker,
     currentlyPlayingSpeaker,
-    currentLayer,
-    sessionDetails,
-    requestAddAudioLayerFromLibrary,
-    currentLayerSeek,
-    setCurrentLayerSeek,
-    isVideoPreviewPlaying,
-    setIsVideoPreviewPlaying,
-    onRecordSpeechRecordingChange,
     sizeVariant = "default",
   } = props;
   const isSidebarPanel =
@@ -193,20 +184,6 @@ export default function MovieSpeechProviderSelect(props) {
 
   return (
     <div className="w-full">
-      <RecordSpeechSection
-        bgColor={bgColor}
-        text2Color={text2Color}
-        colorMode={colorMode}
-        currentLayer={currentLayer}
-        sessionDetails={sessionDetails}
-        requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
-        currentLayerSeek={currentLayerSeek}
-        setCurrentLayerSeek={setCurrentLayerSeek}
-        isVideoPreviewPlaying={isVideoPreviewPlaying}
-        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
-        onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
-      />
-
       {/* Header row with Add Speaker button */}
       <div className={headerRowClass}>
         <label className={`text-sm font-bold ${text2Color}`}>Speakers</label>

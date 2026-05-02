@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useState, useRef, useContext } from "react";
+import { createPortal } from 'react-dom';
 import { Stage, Layer, Group, Line, Image as KonvaImage, Rect } from 'react-konva';
 
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
@@ -152,6 +153,8 @@ const VideoCanvas = forwardRef((props, ref) => {
 
 
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 1024, height: 1024 });
+  const canvasFrameRef = useRef(null);
+  const [videoLayerControlPosition, setVideoLayerControlPosition] = useState(null);
 
 
 
@@ -743,11 +746,58 @@ const VideoCanvas = forwardRef((props, ref) => {
     removeVideoLayer?.();
   };
 
+  useEffect(() => {
+    if (!aiVideoLayer || !canvasFrameRef.current || typeof window === 'undefined') {
+      setVideoLayerControlPosition(null);
+      return undefined;
+    }
+
+    const canvasFrame = canvasFrameRef.current;
+
+    const updateVideoLayerControlPosition = () => {
+      const rect = canvasFrame.getBoundingClientRect();
+      setVideoLayerControlPosition({
+        right: Math.max(window.innerWidth - rect.right + 12, 12),
+        top: Math.max(rect.top + 12, 72),
+        maxWidth: Math.max(220, Math.min(rect.width - 24, window.innerWidth - 24)),
+      });
+    };
+
+    updateVideoLayerControlPosition();
+    window.addEventListener('resize', updateVideoLayerControlPosition);
+    window.addEventListener('scroll', updateVideoLayerControlPosition, true);
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(updateVideoLayerControlPosition)
+      : null;
+    resizeObserver?.observe(canvasFrame);
+
+    return () => {
+      window.removeEventListener('resize', updateVideoLayerControlPosition);
+      window.removeEventListener('scroll', updateVideoLayerControlPosition, true);
+      resizeObserver?.disconnect();
+    };
+  }, [
+    aiVideoLayer,
+    canvasDimensions.height,
+    canvasDimensions.width,
+    isRightPanelExpanded,
+    rightPanelView,
+    stageZoomScale,
+  ]);
+
   const videoLayerRemoveControl = aiVideoLayer ? (
-    <div className="absolute left-3 top-3 z-[80] flex max-w-[calc(100%-24px)] items-center gap-2 rounded-lg border border-[#1f2a3d] bg-[#0f1629]/95 px-2 py-1 text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]">
+    <div
+      className="fixed z-[900] flex items-center justify-end gap-2 overflow-visible rounded-lg border border-[#1f2a3d] bg-[#0f1629]/95 px-2 py-1 text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
+      style={{
+        right: `${videoLayerControlPosition?.right ?? 12}px`,
+        top: `${videoLayerControlPosition?.top ?? 72}px`,
+        maxWidth: `${videoLayerControlPosition?.maxWidth ?? 320}px`,
+      }}
+    >
       <button
         type="button"
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-rose-500/15 px-2 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/25 hover:text-white"
+        className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/25 hover:text-white"
         onClick={handleRemoveVideoLayerClick}
         aria-label="Remove video from layer"
         title="Remove video from layer"
@@ -755,11 +805,16 @@ const VideoCanvas = forwardRef((props, ref) => {
         <FaTimes className="text-[11px]" aria-hidden="true" />
         <span>Remove from layer</span>
       </button>
-      <span className="min-w-0 truncate rounded-full border border-[#e45a26]/30 bg-[#e45a26]/20 px-2 py-1 text-xs font-semibold text-orange-100">
+      <span className="min-w-0 truncate rounded-full border border-[#e45a26]/30 bg-[#e45a26]/20 px-2.5 py-1 text-xs font-semibold text-orange-100">
         {getVideoTypeLabel(aiVideoLayerType)}
       </span>
     </div>
   ) : null;
+
+  const videoLayerRemoveControlPortal =
+    videoLayerRemoveControl && typeof document !== 'undefined'
+      ? createPortal(videoLayerRemoveControl, document.body)
+      : videoLayerRemoveControl;
 
 
   const overlayView = rightPanelView || currentView;
@@ -909,7 +964,7 @@ const VideoCanvas = forwardRef((props, ref) => {
       : `m-auto relative rounded-xl px-4 py-6 ${canvasSurfaceClassName}`;
 
   return (
-    <div className={`${canvasShellClassName} ${textColor}`}
+    <div className={`${canvasShellClassName} ${textColor} overflow-visible`}
       style={{
         display: 'inline-block',
         boxSizing: 'border-box',
@@ -917,7 +972,8 @@ const VideoCanvas = forwardRef((props, ref) => {
     >
       {canvasInternalLoading}
       <div
-        className="relative inline-block"
+        ref={canvasFrameRef}
+        className="relative z-[40] inline-block overflow-visible"
         style={{
           width: `${canvasDimensions.width}px`,
           height: `${canvasDimensions.height}px`,
@@ -1000,8 +1056,8 @@ const VideoCanvas = forwardRef((props, ref) => {
             {currentShapeSelectDisplay}
           </Layer>
         </Stage>
-        {videoLayerRemoveControl}
       </div>
+      {videoLayerRemoveControlPortal}
 
       <CanvasToolbar
         buttonPositions={buttonPositions}

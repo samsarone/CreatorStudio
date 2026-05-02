@@ -171,12 +171,22 @@ export default function VideoEditorContainer(props) {
     openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
+  const currentLayerRef = useRef(currentLayer);
+  const layersRef = useRef(layers);
   const generationPollIntervalRef = useRef(null);
   const outpaintPollIntervalRef = useRef(null);
   const audioGenerationPollIntervalRef = useRef(null);
   const maskGenerationPollIntervalRef = useRef(null);
   const aiVideoGenerationPollIntervalRef = useRef(null);
   const layeredAudioGenerationPollIntervalRef = useRef(null);
+
+  useEffect(() => {
+    currentLayerRef.current = currentLayer;
+  }, [currentLayer]);
+
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
 
 
   const [aiVideoPollType, setAiVideoPollType] = useState(null);
@@ -250,12 +260,13 @@ export default function VideoEditorContainer(props) {
   }, [layerHasPendingVideoTask, resolveLayerVideoState]);
 
   const syncCurrentLayerUserVideoUploadTask = useCallback((task, extraLayerPatch = {}) => {
-    if (!currentLayer?._id || !Array.isArray(layers)) {
+    const sessionLayers = Array.isArray(layersRef.current) ? layersRef.current : layers;
+    if (!currentLayer?._id || !Array.isArray(sessionLayers)) {
       return;
     }
 
     const currentLayerId = currentLayer._id.toString();
-    const updatedLayers = layers.map((layer) => {
+    const updatedLayers = sessionLayers.map((layer) => {
       if (layer?._id?.toString?.() !== currentLayerId) {
         return layer;
       }
@@ -274,14 +285,16 @@ export default function VideoEditorContainer(props) {
       return;
     }
 
-    updateCurrentLayerAndLayerList(updatedLayers, updatedLayerIndex);
-    if (videoSessionDetails) {
-      setVideoSessionDetails({
-        ...videoSessionDetails,
-        layers: updatedLayers,
-      });
-    }
-  }, [currentLayer, layers, setVideoSessionDetails, updateCurrentLayerAndLayerList, videoSessionDetails]);
+    updateCurrentLayerAndLayerList(updatedLayers, updatedLayerIndex, { preserveCurrentLayer: true });
+    setVideoSessionDetails((previousSessionDetails) => (
+      previousSessionDetails
+        ? {
+          ...previousSessionDetails,
+          layers: updatedLayers,
+        }
+        : previousSessionDetails
+    ));
+  }, [currentLayer, layers, setVideoSessionDetails, updateCurrentLayerAndLayerList]);
 
   // On each currentLayer change, figure out which AI video layer to use
   useEffect(() => {
@@ -646,10 +659,6 @@ export default function VideoEditorContainer(props) {
             },
           });
 
-          if (isLastChunk) {
-            pollForLayersUpdate();
-          }
-
           response = await responsePromise;
           const responseTask = response?.data?.task;
           if (responseTask) {
@@ -691,11 +700,15 @@ export default function VideoEditorContainer(props) {
           const updatedLayerIndex = session.layers.findIndex(
             (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
           );
+          const uploadedLayerIsCurrent =
+            currentLayerRef.current?._id?.toString?.() === layer._id.toString();
 
           setVideoSessionDetails(session);
-          updateCurrentLayerAndLayerList(session.layers, updatedLayerIndex);
+          updateCurrentLayerAndLayerList(session.layers, updatedLayerIndex, { preserveCurrentLayer: true });
           setAudioLayers(updatedAudioLayers || session.audioLayers || []);
-          setActiveItemList(layer.imageSession?.activeItemList || []);
+          if (uploadedLayerIsCurrent) {
+            setActiveItemList(layer.imageSession?.activeItemList || []);
+          }
           setIsCanvasDirty(true);
         } else {
           syncCurrentLayerUserVideoUploadTask(responseTask || {
@@ -716,7 +729,6 @@ export default function VideoEditorContainer(props) {
         }
 
         setAiVideoPollType('user_video');
-        pollForLayersUpdate();
 
         toast.success(
           <div>
@@ -771,7 +783,6 @@ export default function VideoEditorContainer(props) {
       id,
       layerHasAnyVideoArtefact,
       layers,
-      pollForLayersUpdate,
       setActiveItemList,
       setAudioLayers,
       setIsCanvasDirty,
@@ -842,7 +853,7 @@ export default function VideoEditorContainer(props) {
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
-      return;
+      return null;
     }
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/request_generate`, payload, headers)
@@ -2307,7 +2318,7 @@ export default function VideoEditorContainer(props) {
       audioItem,
       ...addConfig,
     };
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/add_audio_from_library`, payload, headers).then((dataRes) => {
+    return axios.post(`${PROCESSOR_API_URL}/video_sessions/add_audio_from_library`, payload, headers).then((dataRes) => {
       const response = dataRes.data;
       const sessionDetails = response.sessionDetails;
       if (sessionDetails) {
@@ -2650,7 +2661,7 @@ export default function VideoEditorContainer(props) {
       );
 
       setVideoSessionDetails(sessionData);
-      updateCurrentLayerAndLayerList(newLayers, updatedLayerIndex);
+      updateCurrentLayerAndLayerList(newLayers, updatedLayerIndex, { preserveCurrentLayer: true });
       setAudioLayers(sessionData.audioLayers || []);
       setIsCanvasDirty(true);
       if (aiVideoPollType === 'user_video') {

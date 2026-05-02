@@ -32,6 +32,7 @@ import SecondaryButton from '../../common/SecondaryButton.tsx';
 import SoundSelectToolbar from './audio/SoundSelectToolbar.jsx';
 import LayerSpeechPreview from './audio/LayerSpeechPreview.jsx';
 import MovieSpeechProviderSelect from './audio/MovieSpeechProviderSelect.jsx';
+import RecordSpeechSection from './audio/RecordSpeechSection.jsx';
 
 import { toast } from 'react-toastify';
 import './editorToolbar.css';
@@ -1247,14 +1248,6 @@ export default function VideoEditorToolbar(props) {
             bgColor={inputSurface}
             text2Color={text2Color}
             colorMode={colorMode}
-            currentLayer={currentLayer}
-            sessionDetails={sessionDetails}
-            requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
-            currentLayerSeek={currentLayerSeek}
-            setCurrentLayerSeek={setCurrentLayerSeek}
-            isVideoPreviewPlaying={isVideoPreviewPlaying}
-            setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
-            onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
             sizeVariant={sidebarSizeVariant}
           />
         </div>
@@ -1602,6 +1595,24 @@ export default function VideoEditorToolbar(props) {
   const textPillSelected = colorMode === 'dark' ? 'text-rose-100' : 'text-rose-700';
   const textPillUnselected = colorMode === 'dark' ? 'text-slate-200' : 'text-gray-600';
 
+  const recordingFacecamDisplay = (
+    <div className={textInnerColor}>
+      <RecordSpeechSection
+        bgColor={inputSurface}
+        text2Color={text2Color}
+        colorMode={colorMode}
+        currentLayer={currentLayer}
+        sessionDetails={sessionDetails}
+        requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
+        currentLayerSeek={currentLayerSeek}
+        setCurrentLayerSeek={setCurrentLayerSeek}
+        isVideoPreviewPlaying={isVideoPreviewPlaying}
+        setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
+      />
+    </div>
+  );
+
   const isItemSelected = (view) => currentViewDisplay === view;
   const getMarginTop = (view) => (isItemSelected(view) ? 'mt-0' : 'mt-4');
   const getSelectedClass = (view) =>
@@ -1653,6 +1664,15 @@ export default function VideoEditorToolbar(props) {
           {audioSubOptionsDisplay}
         </div>
       )
+    },
+    {
+      label: 'Recording and Facecam',
+      icon: null,
+      view: CURRENT_TOOLBAR_VIEW.SHOW_RECORDING_FACECAM_DISPLAY,
+      onClick: () => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_RECORDING_FACECAM_DISPLAY),
+      onExpandClick: null,
+      showOverflow: true,
+      content: recordingFacecamDisplay
     },
     {
       label: 'Actions',

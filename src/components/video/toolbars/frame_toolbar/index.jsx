@@ -585,6 +585,44 @@ function buildVideoTrackDisplayList(layers, displayFramesPerSecond = 30) {
   });
 }
 
+function resolveGlobalVideoId(globalVideo) {
+  return globalVideo?._id?.toString?.() || globalVideo?._id || globalVideo?.id || null;
+}
+
+function buildGlobalVideoTrackDisplayList(globalVideos, displayFramesPerSecond = 30) {
+  if (!Array.isArray(globalVideos) || globalVideos.length === 0) {
+    return [];
+  }
+
+  return globalVideos.map((globalVideo, index) => {
+    const startTime = Math.max(0, Number(globalVideo?.startTime) || 0);
+    const duration = Math.max(
+      1 / displayFramesPerSecond,
+      Number(globalVideo?.duration) || Math.max(0, Number(globalVideo?.endTime) - startTime) || 1
+    );
+    const endTime = Math.max(startTime + (1 / displayFramesPerSecond), Number(globalVideo?.endTime) || startTime + duration);
+    const startFrame = Math.max(0, Math.round(startTime * displayFramesPerSecond));
+    const endFrame = Math.max(startFrame + 1, Math.round(endTime * displayFramesPerSecond));
+    const globalVideoId = resolveGlobalVideoId(globalVideo) || `global_video_${index}`;
+
+    return {
+      ...globalVideo,
+      _id: globalVideoId,
+      id: globalVideoId,
+      trackKey: `global_video_${globalVideoId}`,
+      assetLabel: globalVideo?.title || 'Global video',
+      shortLabel: 'GV',
+      startTime: startFrame / displayFramesPerSecond,
+      endTime: endFrame / displayFramesPerSecond,
+      duration: (endFrame - startFrame) / displayFramesPerSecond,
+      startFrame,
+      endFrame,
+      durationFrames: endFrame - startFrame,
+      isDirty: false,
+    };
+  });
+}
+
 function buildLayerFrameMetadata(layers = [], displayFramesPerSecond = 30) {
   let fallbackStartFrame = 0;
 
@@ -754,6 +792,7 @@ export default function FrameToolbar(props) {
     showAudioTrackView,
     frameToolbarView,
     audioLayers,
+    globalVideos = [],
     removeAudioLayer,
     addLayerToComposition,
     copyCurrentLayerBelow,
@@ -793,6 +832,7 @@ export default function FrameToolbar(props) {
     isVideoPreviewPlaying = false,
     isExpressSession = false,
     framesPerSecond = 16,
+    updateGlobalVideos,
 
   } = props;
 
@@ -1108,6 +1148,8 @@ export default function FrameToolbar(props) {
   const pendingSelectedAudioLayerIdRef = useRef(null);
   const [visualTrackListDisplay, setVisualTrackListDisplay] = useState([]);
   const [videoTrackListDisplay, setVideoTrackListDisplay] = useState([]);
+  const [globalVideoTrackListDisplay, setGlobalVideoTrackListDisplay] = useState([]);
+  const pendingSelectedGlobalVideoIdRef = useRef(null);
   const [layerViewportHeight, setLayerViewportHeight] = useState(0);
   const [videoEditDraftOperationsByLayer, setVideoEditDraftOperationsByLayer] = useState({});
   const [videoEditRangeByLayer, setVideoEditRangeByLayer] = useState({});
@@ -1234,6 +1276,35 @@ export default function FrameToolbar(props) {
   }, [layers, DISPLAY_FRAMES_PER_SECOND]);
 
   useEffect(() => {
+    const nextGlobalVideoTracks = buildGlobalVideoTrackDisplayList(
+      globalVideos,
+      DISPLAY_FRAMES_PER_SECOND,
+    );
+
+    setGlobalVideoTrackListDisplay((previousGlobalVideoTracks) => {
+      const selectedTrackId = pendingSelectedGlobalVideoIdRef.current
+        || previousGlobalVideoTracks.find((globalVideoTrack) => globalVideoTrack.isDisplaySelected)?._id?.toString?.()
+        || null;
+
+      const visibleGlobalVideoDisplay = nextGlobalVideoTracks.map((globalVideoTrack) => ({
+        ...globalVideoTrack,
+        isDisplaySelected: Boolean(
+          selectedTrackId
+          && globalVideoTrack?._id
+          && globalVideoTrack._id.toString() === selectedTrackId.toString()
+        ),
+        isDirty: false,
+      }));
+
+      if (selectedTrackId && visibleGlobalVideoDisplay.some((track) => track.isDisplaySelected)) {
+        pendingSelectedGlobalVideoIdRef.current = null;
+      }
+
+      return visibleGlobalVideoDisplay;
+    });
+  }, [globalVideos, DISPLAY_FRAMES_PER_SECOND]);
+
+  useEffect(() => {
     const validLayerIds = new Set(videoTrackListDisplay.map((track) => track.layerId));
 
     setVideoEditDraftOperationsByLayer((previousValue) => {
@@ -1333,6 +1404,20 @@ export default function FrameToolbar(props) {
   const selectedAudioTrackId = useMemo(
     () => resolveAudioTrackId(selectedAudioTrack),
     [selectedAudioTrack]
+  );
+  const selectedGlobalVideoTrack = useMemo(
+    () => globalVideoTrackListDisplay.find(
+      (globalVideoTrack) => globalVideoTrack.isDisplaySelected
+    ) || null,
+    [globalVideoTrackListDisplay]
+  );
+  const selectedGlobalVideoTrackId = useMemo(
+    () => resolveGlobalVideoId(selectedGlobalVideoTrack),
+    [selectedGlobalVideoTrack]
+  );
+  const globalVideoDirtyCount = useMemo(
+    () => globalVideoTrackListDisplay.filter((track) => track.isDirty).length,
+    [globalVideoTrackListDisplay]
   );
   const selectedAudioTrackPrompt = useMemo(
     () => getAudioTrackPromptText(selectedAudioTrack),
@@ -2603,6 +2688,154 @@ export default function FrameToolbar(props) {
     setAudioTrackListDisplay(updatedAudioTrackListDisplay);
 
   }
+
+  const updateGlobalVideoTrackDraftById = (globalVideoId, updater) => {
+    setGlobalVideoTrackListDisplay((previousGlobalVideoTracks) => (
+      previousGlobalVideoTracks.map((globalVideoTrack) => {
+        const trackId = resolveGlobalVideoId(globalVideoTrack);
+        const targetId = globalVideoId?.toString?.() || `${globalVideoId}`;
+        if (!trackId || !targetId || trackId.toString() !== targetId) {
+          return globalVideoTrack;
+        }
+
+        const nextTrack = typeof updater === 'function'
+          ? updater(globalVideoTrack)
+          : { ...globalVideoTrack, ...updater };
+        const nextStartFrame = Math.max(0, Math.round((Number(nextTrack.startTime) || 0) * DISPLAY_FRAMES_PER_SECOND));
+        const nextEndFrame = Math.max(
+          nextStartFrame + 1,
+          Math.round((Number(nextTrack.endTime) || 0) * DISPLAY_FRAMES_PER_SECOND)
+        );
+
+        return {
+          ...nextTrack,
+          startFrame: nextStartFrame,
+          endFrame: nextEndFrame,
+          durationFrames: nextEndFrame - nextStartFrame,
+          duration: (nextEndFrame - nextStartFrame) / DISPLAY_FRAMES_PER_SECOND,
+          endTime: nextEndFrame / DISPLAY_FRAMES_PER_SECOND,
+          isDirty: true,
+        };
+      })
+    ));
+  };
+
+  const updateGlobalVideoFromSlider = (globalVideoId, startTime, endTime, duration) => {
+    updateGlobalVideoTrackDraftById(globalVideoId, {
+      startTime,
+      endTime,
+      duration,
+    });
+  };
+
+  const setGlobalVideoTrackDisplayAsSelected = (globalVideoId) => {
+    pendingSelectedGlobalVideoIdRef.current = globalVideoId;
+    setGlobalVideoTrackListDisplay((previousGlobalVideoTracks) => (
+      previousGlobalVideoTracks.map((globalVideoTrack) => {
+        const trackId = resolveGlobalVideoId(globalVideoTrack);
+        return {
+          ...globalVideoTrack,
+          isDisplaySelected: Boolean(
+            trackId
+            && globalVideoId
+            && trackId.toString() === globalVideoId.toString()
+          ),
+        };
+      })
+    ));
+  };
+
+  const onUpdateAllGlobalVideos = async (updatedGlobalVideos = globalVideoTrackListDisplay) => {
+    if (typeof updateGlobalVideos !== 'function') {
+      return;
+    }
+
+    const response = await updateGlobalVideos(updatedGlobalVideos);
+    if (response?.success) {
+      const officialGlobalVideos = Array.isArray(response.serverGlobalVideos)
+        ? response.serverGlobalVideos
+        : updatedGlobalVideos;
+      setGlobalVideoTrackListDisplay(
+        buildGlobalVideoTrackDisplayList(officialGlobalVideos, DISPLAY_FRAMES_PER_SECOND)
+      );
+    } else {
+      alert("Failed to update global videos.");
+    }
+  };
+
+  const updateSelectedGlobalVideoNumber = (field, rawValue) => {
+    if (!selectedGlobalVideoTrackId) {
+      return;
+    }
+
+    const nextValue = Number(rawValue);
+    if (!Number.isFinite(nextValue)) {
+      return;
+    }
+
+    updateGlobalVideoTrackDraftById(selectedGlobalVideoTrackId, (track) => {
+      if (field === 'startTime') {
+        const startTime = Math.max(0, nextValue);
+        const endTime = Math.max(startTime + (1 / DISPLAY_FRAMES_PER_SECOND), Number(track.endTime) || startTime);
+        return {
+          ...track,
+          startTime,
+          endTime,
+          duration: endTime - startTime,
+        };
+      }
+      if (field === 'endTime') {
+        const startTime = Math.max(0, Number(track.startTime) || 0);
+        const endTime = Math.max(startTime + (1 / DISPLAY_FRAMES_PER_SECOND), nextValue);
+        return {
+          ...track,
+          endTime,
+          duration: endTime - startTime,
+        };
+      }
+      if (field === 'width' || field === 'height') {
+        return {
+          ...track,
+          dimensions: {
+            ...(track.dimensions || {}),
+            [field]: Math.max(1, nextValue),
+          },
+        };
+      }
+      if (field === 'x' || field === 'y') {
+        return {
+          ...track,
+          position: {
+            ...(track.position || {}),
+            [field]: Math.max(0, nextValue),
+          },
+        };
+      }
+      return track;
+    });
+  };
+
+  const updateSelectedGlobalVideoShape = (shapeOverlay) => {
+    if (!selectedGlobalVideoTrackId) {
+      return;
+    }
+    updateGlobalVideoTrackDraftById(selectedGlobalVideoTrackId, {
+      shape_overlay: shapeOverlay,
+    });
+  };
+
+  const removeSelectedGlobalVideoTrack = async () => {
+    if (!selectedGlobalVideoTrackId) {
+      return;
+    }
+
+    const nextGlobalVideoTracks = globalVideoTrackListDisplay.filter((globalVideoTrack) => {
+      const trackId = resolveGlobalVideoId(globalVideoTrack);
+      return !trackId || trackId.toString() !== selectedGlobalVideoTrackId.toString();
+    });
+    setGlobalVideoTrackListDisplay(nextGlobalVideoTracks);
+    await onUpdateAllGlobalVideos(nextGlobalVideoTracks);
+  };
 
 
   const handleVolumeChangeHandler = (e, trackId) => {
@@ -4501,6 +4734,158 @@ export default function FrameToolbar(props) {
     });
   };
 
+  const showAddedGlobalVideoTracks = () => {
+    const [visibleStartFrame, visibleEndFrame] = displayedFrameRange;
+    const visibleGlobalVideoTracks = globalVideoTrackListDisplay.filter((globalVideoTrack) => (
+      globalVideoTrack.endFrame >= visibleStartFrame
+      && globalVideoTrack.startFrame <= visibleEndFrame
+    ));
+
+    if (visibleGlobalVideoTracks.length === 0) {
+      return (
+        <div className="flex items-start px-3 py-4 text-[11px] text-slate-400">
+          No global videos in the visible range.
+        </div>
+      );
+    }
+
+    return visibleGlobalVideoTracks.map((globalVideoTrack) => {
+      const isStartVisible = globalVideoTrack.startFrame >= visibleStartFrame;
+      const isEndVisible = globalVideoTrack.endFrame <= visibleEndFrame;
+      const globalVideoTrackId = resolveGlobalVideoId(globalVideoTrack);
+      const sliderTrack = {
+        ...globalVideoTrack,
+        url: '',
+        audioUrl: '',
+        selectedLocalAudioLink: '',
+        localAudioLinks: [],
+        selectedRemoteAudioLink: '',
+        remoteAudioLinks: [],
+      };
+
+      return (
+        <AudioTrackSlider
+          key={globalVideoTrack.trackKey || globalVideoTrack._id}
+          audioTrack={sliderTrack}
+          onUpdate={updateGlobalVideoFromSlider}
+          selectedFrameRange={displayedFrameRange}
+          viewportGeometry={displayedLayerViewportGeometry}
+          isStartVisible={isStartVisible}
+          isEndVisible={isEndVisible}
+          setAudioRangeSliderDisplayAsSelected={setGlobalVideoTrackDisplayAsSelected}
+          totalDuration={totalDuration}
+          showWaveformOverlay={false}
+          selectedVolumePointId={selectedGlobalVideoTrackId === globalVideoTrackId ? selectedGlobalVideoTrackId : null}
+        />
+      );
+    });
+  };
+
+  const showSelectedGlobalVideoTrack = () => {
+    if (!selectedGlobalVideoTrack) {
+      return (
+        <div className="px-3 py-3 text-[11px] text-slate-400">
+          Select a global video track to edit placement, shape, or timing.
+        </div>
+      );
+    }
+
+    const inputClassName = 'h-8 w-20 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs';
+    const labelClassName = 'flex flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-400';
+
+    return (
+      <div className="flex flex-wrap items-end gap-2 px-2 py-2 text-xs">
+        <label className={labelClassName}>
+          <span>Start</span>
+          <input
+            type="number"
+            step="0.1"
+            value={Number(selectedGlobalVideoTrack.startTime || 0).toFixed(1)}
+            onChange={(event) => updateSelectedGlobalVideoNumber('startTime', event.target.value)}
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          <span>End</span>
+          <input
+            type="number"
+            step="0.1"
+            value={Number(selectedGlobalVideoTrack.endTime || 0).toFixed(1)}
+            onChange={(event) => updateSelectedGlobalVideoNumber('endTime', event.target.value)}
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          <span>X</span>
+          <input
+            type="number"
+            value={Math.round(Number(selectedGlobalVideoTrack.position?.x) || 0)}
+            onChange={(event) => updateSelectedGlobalVideoNumber('x', event.target.value)}
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          <span>Y</span>
+          <input
+            type="number"
+            value={Math.round(Number(selectedGlobalVideoTrack.position?.y) || 0)}
+            onChange={(event) => updateSelectedGlobalVideoNumber('y', event.target.value)}
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          <span>Width</span>
+          <input
+            type="number"
+            min="1"
+            value={Math.round(Number(selectedGlobalVideoTrack.dimensions?.width) || 0)}
+            onChange={(event) => updateSelectedGlobalVideoNumber('width', event.target.value)}
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          <span>Height</span>
+          <input
+            type="number"
+            min="1"
+            value={Math.round(Number(selectedGlobalVideoTrack.dimensions?.height) || 0)}
+            onChange={(event) => updateSelectedGlobalVideoNumber('height', event.target.value)}
+            className={inputClassName}
+          />
+        </label>
+        <label className={labelClassName}>
+          <span>Shape</span>
+          <select
+            value={selectedGlobalVideoTrack.shape_overlay || 'circle'}
+            onChange={(event) => updateSelectedGlobalVideoShape(event.target.value)}
+            className="h-8 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs"
+          >
+            <option value="circle">Circle</option>
+            <option value="oval">Oval</option>
+            <option value="rectangle">Rectangle</option>
+            <option value="rounded_rectangle">Rounded rectangle</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => onUpdateAllGlobalVideos()}
+          disabled={!globalVideoDirtyCount || typeof updateGlobalVideos !== 'function'}
+          className="inline-flex h-8 items-center rounded-md border border-cyan-500/50 px-3 text-xs font-semibold text-cyan-200 disabled:opacity-50"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={removeSelectedGlobalVideoTrack}
+          disabled={typeof updateGlobalVideos !== 'function'}
+          className="inline-flex h-8 items-center rounded-md border border-red-500/50 px-3 text-xs font-semibold text-red-300 disabled:opacity-50"
+        >
+          Remove
+        </button>
+      </div>
+    );
+  };
+
   const showSelectedVisualTrack = () => {
     if (!selectedVisualTrack) {
       return null;
@@ -4864,6 +5249,14 @@ export default function FrameToolbar(props) {
         </div>
       );
       selectedTrackViewDisplay = showSelectedVideoTrack();
+    }
+    if (currentLayerActionSuperView === 'GLOBAL_VIDEO') {
+      trackViewDisplay = (
+        <div className='text-track-container'>
+          {showAddedGlobalVideoTracks()}
+        </div>
+      );
+      selectedTrackViewDisplay = showSelectedGlobalVideoTrack();
     }
     if (currentLayerActionSuperView === 'IMAGE') {
       trackViewDisplay = (
@@ -5779,6 +6172,10 @@ export default function FrameToolbar(props) {
       ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
       : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
+    const globalVideoTabClassName = `${currentLayerActionSuperView === 'GLOBAL_VIDEO'
+      ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
+      : 'bg-gray-700/80 text-gray-300'
+      } ${baseTabClassName}`;
 
     // Conditional class for the "Text" tab
     const textTabClassName = `${currentLayerActionSuperView === 'TEXT'
@@ -5805,6 +6202,12 @@ export default function FrameToolbar(props) {
           onClick={() => setCurrentLayerActionSuperView('VIDEO')}
         >
           <div>Video</div>
+        </div>
+        <div
+          className={globalVideoTabClassName}
+          onClick={() => setCurrentLayerActionSuperView('GLOBAL_VIDEO')}
+        >
+          <div>Global videos</div>
         </div>
         <div
           className={imageTabClassName}
