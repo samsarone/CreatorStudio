@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -176,50 +176,65 @@ function getAudioLayerId(layer) {
   return layer?._id?.toString?.() || layer?._id || layer?.id || null;
 }
 
+const previewAudioLayerMergeCache = {
+  sessionAudioLayers: null,
+  workingAudioLayers: null,
+  mergedAudioLayers: [],
+};
+
 function mergePreviewAudioLayers(sessionAudioLayers, workingAudioLayers) {
+  if (
+    previewAudioLayerMergeCache.sessionAudioLayers === sessionAudioLayers
+    && previewAudioLayerMergeCache.workingAudioLayers === workingAudioLayers
+  ) {
+    return previewAudioLayerMergeCache.mergedAudioLayers;
+  }
+
   const sessionLayers = Array.isArray(sessionAudioLayers)
     ? sessionAudioLayers.filter(Boolean)
     : [];
   const workingLayers = Array.isArray(workingAudioLayers)
     ? workingAudioLayers.filter(Boolean)
     : [];
+  let mergedAudioLayers;
 
   if (sessionLayers.length === 0) {
-    return workingLayers;
+    mergedAudioLayers = workingLayers;
+  } else if (workingLayers.length === 0) {
+    mergedAudioLayers = sessionLayers;
+  } else {
+    const workingLayerById = new Map();
+    workingLayers.forEach((audioLayer) => {
+      const layerId = getAudioLayerId(audioLayer);
+      if (layerId) {
+        workingLayerById.set(layerId.toString(), audioLayer);
+      }
+    });
+
+    const sessionLayerIds = new Set();
+    mergedAudioLayers = sessionLayers.map((sessionLayer) => {
+      const layerId = getAudioLayerId(sessionLayer);
+      if (layerId) {
+        sessionLayerIds.add(layerId.toString());
+      }
+
+      const workingLayer = layerId ? workingLayerById.get(layerId.toString()) : null;
+      return workingLayer ? { ...sessionLayer, ...workingLayer } : sessionLayer;
+    });
+
+    workingLayers.forEach((workingLayer) => {
+      const layerId = getAudioLayerId(workingLayer);
+      if (!layerId || sessionLayerIds.has(layerId.toString())) {
+        return;
+      }
+      mergedAudioLayers.push(workingLayer);
+    });
   }
 
-  if (workingLayers.length === 0) {
-    return sessionLayers;
-  }
-
-  const workingLayerById = new Map();
-  workingLayers.forEach((audioLayer) => {
-    const layerId = getAudioLayerId(audioLayer);
-    if (layerId) {
-      workingLayerById.set(layerId.toString(), audioLayer);
-    }
-  });
-
-  const sessionLayerIds = new Set();
-  const mergedLayers = sessionLayers.map((sessionLayer) => {
-    const layerId = getAudioLayerId(sessionLayer);
-    if (layerId) {
-      sessionLayerIds.add(layerId.toString());
-    }
-
-    const workingLayer = layerId ? workingLayerById.get(layerId.toString()) : null;
-    return workingLayer ? { ...sessionLayer, ...workingLayer } : sessionLayer;
-  });
-
-  workingLayers.forEach((workingLayer) => {
-    const layerId = getAudioLayerId(workingLayer);
-    if (!layerId || sessionLayerIds.has(layerId.toString())) {
-      return;
-    }
-    mergedLayers.push(workingLayer);
-  });
-
-  return mergedLayers;
+  previewAudioLayerMergeCache.sessionAudioLayers = sessionAudioLayers;
+  previewAudioLayerMergeCache.workingAudioLayers = workingAudioLayers;
+  previewAudioLayerMergeCache.mergedAudioLayers = mergedAudioLayers;
+  return mergedAudioLayers;
 }
 
 export default function VideoHome(props) {
@@ -3241,10 +3256,7 @@ export default function VideoHome(props) {
   const studioTopInsetPx = 56;
   const reservedLeftRailWidth = `calc(${collapsedFrameToolbarWidth} + ${studioInsetPx * 2}px)`;
   const reservedRightRailWidth = `calc(${collapsedRightPanelWidth} + ${studioInsetPx}px)`;
-  const previewAudioLayers = useMemo(
-    () => mergePreviewAudioLayers(videoSessionDetails?.audioLayers, audioLayers),
-    [videoSessionDetails?.audioLayers, audioLayers]
-  );
+  const previewAudioLayers = mergePreviewAudioLayers(videoSessionDetails?.audioLayers, audioLayers);
 
 
   const editorContainerDisplay = (
