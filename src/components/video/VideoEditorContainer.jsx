@@ -122,6 +122,7 @@ export default function VideoEditorContainer(props) {
     isUpdateLayerPending,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    onRecordSpeechRecordingChange,
     applyAudioDucking = true,
     isRenderPending,
     audioLayers,
@@ -3101,6 +3102,7 @@ export default function VideoEditorContainer(props) {
       setCurrentLayerSeek={setCurrentLayerSeek}
       isVideoPreviewPlaying={isVideoPreviewPlaying}
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+      onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
       selectedEditModelValue={selectedEditModelValue}
       submitAddBatchTrackToProject={submitAddBatchTrackToProject}
       currentLayer={currentLayer}

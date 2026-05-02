@@ -69,6 +69,7 @@ export default function MovieSpeechProviderSelect(props) {
     setCurrentLayerSeek,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    onRecordSpeechRecordingChange,
     sizeVariant = "default",
   } = props;
   const isSidebarPanel =
@@ -203,6 +204,7 @@ export default function MovieSpeechProviderSelect(props) {
         setCurrentLayerSeek={setCurrentLayerSeek}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
       />
 
       {/* Header row with Add Speaker button */}

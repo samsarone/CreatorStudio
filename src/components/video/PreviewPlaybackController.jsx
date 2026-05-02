@@ -56,6 +56,7 @@ export default function PreviewPlaybackController(props) {
     isVideoPreviewPlaying,
     setCurrentLayerSeek,
     setIsVideoPreviewPlaying,
+    suspendAudioPreview = false,
     totalDuration,
   } = props;
 
@@ -174,11 +175,15 @@ export default function PreviewPlaybackController(props) {
         return false;
       }
 
-      if (audioEntry.audio.readyState < PREVIEW_AUDIO_READY_STATE) {
+      if (
+        audioEntry.audio.readyState < PREVIEW_AUDIO_READY_STATE
+        && !audioEntry.hasRequestedLoad
+      ) {
         try {
+          audioEntry.hasRequestedLoad = true;
           audioEntry.audio.load();
         } catch (err) {
-          // Ignore best-effort preload failures and let playback continue.
+          markPreviewAudioFailed(audioEntry, 'load_error');
         }
       }
 
@@ -270,7 +275,7 @@ export default function PreviewPlaybackController(props) {
   }, [primePreviewAudioWindow, syncPreviewAudioLevels]);
 
   useEffect(() => {
-    const renderableAudioLayers = Array.isArray(audioLayers)
+    const renderableAudioLayers = !suspendAudioPreview && Array.isArray(audioLayers)
       ? audioLayers.filter(isRenderablePreviewAudioLayer)
       : [];
     const shouldBuildPreviewAudioGraph = Boolean(
@@ -293,6 +298,9 @@ export default function PreviewPlaybackController(props) {
         if (!resolvedAudioUrl) {
           return null;
         }
+        if (failedAudioSourceRef.current.has(resolvedAudioUrl)) {
+          return null;
+        }
 
         const baseVolume = resolvePreviewLayerBaseVolume(layer);
         const mediaElementVolume = clampAudioValue(baseVolume);
@@ -307,7 +315,7 @@ export default function PreviewPlaybackController(props) {
           ? explicitEndTime
           : startTime + duration;
         const audioEl = new Audio(resolvedAudioUrl);
-        audioEl.preload = 'auto';
+        audioEl.preload = 'none';
         audioEl.crossOrigin = 'anonymous';
         audioEl.volume = mediaElementVolume;
 
@@ -332,6 +340,7 @@ export default function PreviewPlaybackController(props) {
           manualVolumeAdjustmentEnabled,
           manualVolumeAutomationPoints,
           hasPlaybackError: failedAudioSourceRef.current.has(resolvedAudioUrl),
+          hasRequestedLoad: false,
           failedSourceSet: failedAudioSourceRef.current,
           url: resolvedAudioUrl,
         };
@@ -339,14 +348,6 @@ export default function PreviewPlaybackController(props) {
         audioEl.addEventListener('error', () => {
           markPreviewAudioFailed(audioEntry, 'media_error');
         });
-
-        if (!audioEntry.hasPlaybackError) {
-          try {
-            audioEl.load();
-          } catch (err) {
-            markPreviewAudioFailed(audioEntry, 'load_error');
-          }
-        }
 
         if (audioContext) {
           try {
@@ -434,6 +435,7 @@ export default function PreviewPlaybackController(props) {
     audioLayers,
     applyAudioDucking,
     resetPreviewAudioLevels,
+    suspendAudioPreview,
   ]);
 
   useEffect(() => {

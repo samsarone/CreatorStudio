@@ -166,6 +166,7 @@ export default function RecordSpeechSection({
   setCurrentLayerSeek,
   isVideoPreviewPlaying,
   setIsVideoPreviewPlaying,
+  onRecordSpeechRecordingChange,
 }) {
   const [microphones, setMicrophones] = useState([]);
   const [selectedMicId, setSelectedMicId] = useState('');
@@ -206,6 +207,7 @@ export default function RecordSpeechSection({
   const discardStoppedRecordingRef = useRef(false);
   const recorderStopReasonRef = useRef('idle');
   const currentLayerSeekRef = useRef(0);
+  const recordingStartTimeRef = useRef(null);
   const isStartingRecordingRef = useRef(false);
   const isRecordingRef = useRef(false);
   const isImmersiveActiveRef = useRef(false);
@@ -341,6 +343,20 @@ export default function RecordSpeechSection({
   }, [isImmersiveActive]);
 
   useEffect(() => {
+    if (typeof onRecordSpeechRecordingChange !== 'function') {
+      return;
+    }
+
+    onRecordSpeechRecordingChange(Boolean(isRecording || isStartingRecording));
+  }, [isRecording, isStartingRecording, onRecordSpeechRecordingChange]);
+
+  useEffect(() => () => {
+    if (typeof onRecordSpeechRecordingChange === 'function') {
+      onRecordSpeechRecordingChange(false);
+    }
+  }, [onRecordSpeechRecordingChange]);
+
+  useEffect(() => {
     return () => {
       stopRecorderStream();
       clearRecordingTimers();
@@ -439,6 +455,7 @@ export default function RecordSpeechSection({
     setIsPlayingPreview(false);
     setRecordingSeconds(0);
     if (!preserveRecordingPreview) {
+      recordingStartTimeRef.current = null;
       setRecordingPreviewStartSeconds(null);
       setIsRecordingPreviewActive(false);
     }
@@ -710,7 +727,9 @@ export default function RecordSpeechSection({
     }
 
     requestAddAudioLayerFromLibrary(uploadedItem, {
-      startTime: currentLayerStartTime,
+      startTime: Number.isFinite(Number(recordingStartTimeRef.current))
+        ? Number(recordingStartTimeRef.current)
+        : currentLayerStartTime,
       duration: resolvedRecordingDuration || uploadedItem.duration || 1,
       volume: Number(micVolume) || 100,
       addSubtitles: false,
@@ -806,6 +825,7 @@ export default function RecordSpeechSection({
   const startSessionPreviewFromCurrentSeek = () => {
     const startFrame = resolveCurrentSeekFrame();
     currentLayerSeekRef.current = startFrame;
+    recordingStartTimeRef.current = currentLayerStartTime;
     setRecordingPreviewStartSeconds(startFrame / DISPLAY_FRAMES_PER_SECOND);
     setIsRecordingPreviewActive(true);
     if (typeof setCurrentLayerSeek === 'function') {
@@ -815,6 +835,9 @@ export default function RecordSpeechSection({
   };
 
   const handleStartRecordingWithPreview = async () => {
+    if (typeof onRecordSpeechRecordingChange === 'function') {
+      onRecordSpeechRecordingChange(true);
+    }
     startSessionPreviewFromCurrentSeek();
     const didStartRecording = await startRecording({ preserveRecordingPreview: true }).catch(() => false);
     if (!didStartRecording) {
@@ -936,6 +959,15 @@ export default function RecordSpeechSection({
       })),
       matchedCue: activeTranscriptCue,
     });
+    if (activeTranscriptCue) {
+      logRecordSpeechDebug('helper overlay text active', {
+        text: activeTranscriptCue.text,
+        matchSource: activeTranscriptCue.matchSource,
+        matchTime: activeTranscriptCue.matchTime,
+        startTime: activeTranscriptCue.startTime,
+        endTime: activeTranscriptCue.endTime,
+      });
+    }
   }, [
     activeTranscriptCue,
     currentLayerStartTime,

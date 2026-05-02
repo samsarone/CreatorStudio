@@ -173,6 +173,7 @@ export default function VideoEditorToolbar(props) {
     setCurrentLayerSeek,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    onRecordSpeechRecordingChange,
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
@@ -1253,6 +1254,7 @@ export default function VideoEditorToolbar(props) {
             setCurrentLayerSeek={setCurrentLayerSeek}
             isVideoPreviewPlaying={isVideoPreviewPlaying}
             setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+            onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
             sizeVariant={sidebarSizeVariant}
           />
         </div>

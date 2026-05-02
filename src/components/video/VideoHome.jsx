@@ -256,6 +256,7 @@ export default function VideoHome(props) {
   const [totalDuration, setTotalDuration] = useState(0);
   const [isLayerGenerationPending, setIsLayerGenerationPending] = useState(false);
   const [audioFileTrack, setAudioFileTrack] = useState(null);
+  const [isRecordSpeechRecording, setIsRecordSpeechRecording] = useState(false);
   const [currentEditorView, setCurrentEditorView] = useState(CURRENT_EDITOR_VIEW.VIEW);
   const [downloadVideoDisplay, setDownloadVideoDisplay] = useState(false);
   const [renderedVideoPath, setRenderedVideoPath] = useState(null);
@@ -3264,7 +3265,6 @@ export default function VideoHome(props) {
       <VideoEditorContainer
         selectedLayerIndex={selectedLayerIndex}
         layers={layers}
-        key={`layer_canvas_${selectedLayerIndex}`}
         currentLayerSeek={currentLayerSeek}
         currentEditorView={currentEditorView}
         setCurrentEditorView={setCurrentEditorView}
@@ -3309,6 +3309,7 @@ export default function VideoHome(props) {
         applyAudioDucking={applyAudioDucking}
         audioLayers={audioLayers}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        onRecordSpeechRecordingChange={setIsRecordSpeechRecording}
         setAudioLayers={setAudioLayers}
         isRenderPending={isVideoRenderPending}
 
@@ -3448,6 +3449,7 @@ export default function VideoHome(props) {
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setCurrentLayerSeek={setCurrentLayerSeek}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        suspendAudioPreview={isRecordSpeechRecording}
         totalDuration={totalDuration}
       />
       <div
