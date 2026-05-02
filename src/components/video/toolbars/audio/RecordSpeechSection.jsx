@@ -189,6 +189,7 @@ export default function RecordSpeechSection({
   const [hasAddedToSession, setHasAddedToSession] = useState(false);
   const [recordingPreviewStartSeconds, setRecordingPreviewStartSeconds] = useState(null);
   const [isRecordingPreviewActive, setIsRecordingPreviewActive] = useState(false);
+  const [helperPreviewTime, setHelperPreviewTime] = useState(null);
 
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -201,6 +202,9 @@ export default function RecordSpeechSection({
   const chunkFlushTimerRef = useRef(null);
   const levelTimerRef = useRef(null);
   const levelSamplesRef = useRef(null);
+  const helperPreviewTimerRef = useRef(null);
+  const helperPreviewStartedAtRef = useRef(0);
+  const helperPreviewBaseTimeRef = useRef(0);
   const previewAudioRef = useRef(null);
   const recordingUrlRef = useRef('');
   const transcriptInputRef = useRef(null);
@@ -222,6 +226,9 @@ export default function RecordSpeechSection({
   const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
   const currentLayerStartTime = resolveLayerStartTime(currentLayer);
   const currentPreviewTime = Math.max(0, (Number(currentLayerSeek) || 0) / DISPLAY_FRAMES_PER_SECOND);
+  const effectivePreviewTime = Number.isFinite(Number(helperPreviewTime))
+    ? Number(helperPreviewTime)
+    : currentPreviewTime;
   const canUseRecorder = typeof navigator !== 'undefined'
     && Boolean(navigator.mediaDevices?.getUserMedia)
     && typeof MediaRecorder !== 'undefined';
@@ -230,22 +237,18 @@ export default function RecordSpeechSection({
   const resolvedRecordingDuration = Number.isFinite(Number(recordingDuration)) && Number(recordingDuration) > 0
     ? Number(recordingDuration)
     : recordingSeconds;
-  const layerRelativePreviewTime = Math.max(0, currentPreviewTime - currentLayerStartTime);
-
   const selectedMicLabel = useMemo(() => {
     const selectedMic = microphones.find((device) => device.deviceId === selectedMicId);
     return selectedMic?.label || 'Default microphone';
   }, [microphones, selectedMicId]);
   const transcriptCandidateTimes = useMemo(() => {
     const candidates = [
-      { source: 'sessionTime', value: currentPreviewTime },
-      { source: 'layerRelativeTime', value: layerRelativePreviewTime },
-      { source: 'durationOffsetAdjustedTime', value: currentPreviewTime + currentLayerStartTime },
+      { source: 'sessionTime', value: effectivePreviewTime },
     ];
-    if (Number.isFinite(Number(recordingPreviewStartSeconds))) {
+    if (currentLayerStartTime > 0 && effectivePreviewTime < currentLayerStartTime) {
       candidates.push({
-        source: 'recordingElapsedTime',
-        value: Math.max(0, currentPreviewTime - Number(recordingPreviewStartSeconds)),
+        source: 'durationOffsetAdjustedTime',
+        value: effectivePreviewTime + currentLayerStartTime,
       });
     }
 
@@ -262,9 +265,7 @@ export default function RecordSpeechSection({
       });
   }, [
     currentLayerStartTime,
-    currentPreviewTime,
-    layerRelativePreviewTime,
-    recordingPreviewStartSeconds,
+    effectivePreviewTime,
   ]);
   const activeTranscriptCue = useMemo(() => {
     if (!isImmersiveActive || transcriptCues.length === 0) {
@@ -362,6 +363,9 @@ export default function RecordSpeechSection({
       if (levelTimerRef.current) {
         window.clearTimeout(levelTimerRef.current);
       }
+      if (helperPreviewTimerRef.current) {
+        window.clearInterval(helperPreviewTimerRef.current);
+      }
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
       }
@@ -380,6 +384,30 @@ export default function RecordSpeechSection({
       window.clearInterval(chunkFlushTimerRef.current);
       chunkFlushTimerRef.current = null;
     }
+  };
+
+  const stopHelperPreviewClock = () => {
+    if (helperPreviewTimerRef.current) {
+      window.clearInterval(helperPreviewTimerRef.current);
+      helperPreviewTimerRef.current = null;
+    }
+  };
+
+  const startHelperPreviewClock = (baseTime = currentPreviewTime) => {
+    const resolvedBaseTime = Math.max(0, Number(baseTime) || 0);
+    helperPreviewBaseTimeRef.current = resolvedBaseTime;
+    helperPreviewStartedAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    setHelperPreviewTime(resolvedBaseTime);
+    if (helperPreviewTimerRef.current) {
+      return;
+    }
+
+    helperPreviewTimerRef.current = window.setInterval(() => {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      setHelperPreviewTime(
+        helperPreviewBaseTimeRef.current + ((now - helperPreviewStartedAtRef.current) / 1000)
+      );
+    }, 250);
   };
 
   const stopRecorderStream = () => {
@@ -455,6 +483,8 @@ export default function RecordSpeechSection({
     setRecordingSeconds(0);
     if (!preserveRecordingPreview) {
       recordingStartTimeRef.current = null;
+      stopHelperPreviewClock();
+      setHelperPreviewTime(null);
       setRecordingPreviewStartSeconds(null);
       setIsRecordingPreviewActive(false);
     }
@@ -627,6 +657,8 @@ export default function RecordSpeechSection({
     isRecordingRef.current = false;
     if (isImmersiveActive && typeof setIsVideoPreviewPlaying === 'function') {
       setIsRecordingPreviewActive(false);
+      stopHelperPreviewClock();
+      setHelperPreviewTime(null);
       setIsVideoPreviewPlaying(false);
     }
   };
@@ -838,6 +870,7 @@ export default function RecordSpeechSection({
     recordingStartTimeRef.current = currentLayerStartTime;
     setRecordingPreviewStartSeconds(startFrame / DISPLAY_FRAMES_PER_SECOND);
     setIsRecordingPreviewActive(true);
+    startHelperPreviewClock(startFrame / DISPLAY_FRAMES_PER_SECOND);
     if (typeof setCurrentLayerSeek === 'function') {
       setCurrentLayerSeek(startFrame);
     }
@@ -853,6 +886,8 @@ export default function RecordSpeechSection({
     if (!didStartRecording) {
       setRecordingPreviewStartSeconds(null);
       setIsRecordingPreviewActive(false);
+      stopHelperPreviewClock();
+      setHelperPreviewTime(null);
       if (typeof setIsVideoPreviewPlaying === 'function') {
         setIsVideoPreviewPlaying(false);
       }
@@ -893,6 +928,8 @@ export default function RecordSpeechSection({
       stopRecording();
     }
     setIsRecordingPreviewActive(false);
+    stopHelperPreviewClock();
+    setHelperPreviewTime(null);
     if (typeof setIsVideoPreviewPlaying === 'function') {
       setIsVideoPreviewPlaying(false);
     }
@@ -910,42 +947,41 @@ export default function RecordSpeechSection({
     }
 
     const handleFullscreenChange = () => {
-      if (isImmersiveActive && !document.fullscreenElement) {
-        if (isRecordingRef.current) {
-          return;
-        }
-
-        setIsRecordingPreviewActive(false);
-        isImmersiveActiveRef.current = false;
-        setIsImmersiveActive(false);
-        if (typeof setIsVideoPreviewPlaying === 'function') {
-          setIsVideoPreviewPlaying(false);
-        }
-      }
+      logRecordSpeechDebug('fullscreen state changed', {
+        isImmersiveActive,
+        hasFullscreenElement: Boolean(document.fullscreenElement),
+        isRecording: isRecordingRef.current,
+      });
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [isImmersiveActive, setIsVideoPreviewPlaying]);
+  }, [isImmersiveActive]);
 
   useEffect(() => {
-    if (!isImmersiveActive) {
+    if (!isImmersiveActive || transcriptCues.length === 0) {
+      stopHelperPreviewClock();
+      setHelperPreviewTime(null);
       return;
     }
 
-    if (!isVideoPreviewPlaying && !isRecording) {
-      setIsRecordingPreviewActive(false);
+    if (!isVideoPreviewPlaying) {
+      stopHelperPreviewClock();
+      setHelperPreviewTime(currentPreviewTime);
+      return;
     }
-  }, [isImmersiveActive, isRecording, isVideoPreviewPlaying]);
+
+    startHelperPreviewClock(currentPreviewTime);
+  }, [currentPreviewTime, isImmersiveActive, isVideoPreviewPlaying, transcriptCues.length]);
 
   useEffect(() => {
     if (!isImmersiveActive || transcriptCues.length === 0) {
       return;
     }
 
-    const debugBucket = Math.floor(currentPreviewTime);
+    const debugBucket = Math.floor(effectivePreviewTime);
     const cueKey = activeTranscriptCue
       ? `${activeTranscriptCue.startTime}-${activeTranscriptCue.endTime}-${activeTranscriptCue.text}`
       : '';
@@ -961,6 +997,7 @@ export default function RecordSpeechSection({
     lastTranscriptDebugCueRef.current = cueKey;
     logRecordSpeechDebug('transcript cue lookup', {
       currentPreviewTime,
+      effectivePreviewTime,
       currentLayerStartTime,
       isRecording,
       isRecordingPreviewActive,
@@ -986,6 +1023,7 @@ export default function RecordSpeechSection({
     activeTranscriptCue,
     currentLayerStartTime,
     currentPreviewTime,
+    effectivePreviewTime,
     isImmersiveActive,
     isRecording,
     isRecordingPreviewActive,
@@ -1125,7 +1163,7 @@ export default function RecordSpeechSection({
               ? 'border-red-400/40 bg-red-500/10 text-red-400'
               : `${borderColor} ${mutedText}`
           }`}>
-            {transcriptError || transcriptFileName}
+            {transcriptError || `${transcriptFileName} · ${transcriptCues.length} cues`}
           </div>
         )}
 
