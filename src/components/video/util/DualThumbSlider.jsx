@@ -3,77 +3,145 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ReactSlider from 'react-slider';
 
 const DUAL_THUMB_HANDLE_HEIGHT = 10;
+const DUAL_THUMB_HANDLE_INSET = DUAL_THUMB_HANDLE_HEIGHT / 2;
 
-export default function DualThumbSlider({ min, max, value, onChange, onAfterChange }) {
+export default function DualThumbSlider({
+  min,
+  max,
+  value,
+  onChange,
+  onAfterChange,
+  sliderMin,
+  sliderMax,
+  valueToSliderValue,
+  sliderValueToValue,
+  disabled = false,
+}) {
+  const resolvedSliderMin = Number.isFinite(Number(sliderMin)) ? Number(sliderMin) : min;
+  const resolvedSliderMax = Number.isFinite(Number(sliderMax)) ? Number(sliderMax) : max;
+  const toSliderValue = (domainValue) => (
+    typeof valueToSliderValue === 'function'
+      ? valueToSliderValue(domainValue)
+      : domainValue
+  );
+  const toDomainValue = (sliderValue) => (
+    typeof sliderValueToValue === 'function'
+      ? sliderValueToValue(sliderValue)
+      : sliderValue
+  );
+  const domainValuesToSliderValues = (values) => (
+    Array.isArray(values)
+      ? values.map((val) => toSliderValue(val))
+      : values
+  );
+  const sliderValuesToDomainValues = (values) => (
+    Array.isArray(values)
+      ? values.map((val) => {
+        const domainValue = toDomainValue(val);
+        if (!Number.isFinite(domainValue)) return min;
+        return Math.min(Math.max(domainValue, min), max);
+      })
+      : values
+  );
   const [sliderValues, setSliderValues] = useState(() => (
-    Array.isArray(value) ? value : [min, max]
+    domainValuesToSliderValues(Array.isArray(value) ? value : [min, max])
   ));
 
   const sliderSpan = max - min;
-  const safeMax = sliderSpan === 0 ? min + 1 : max;
+  const renderedSliderSpan = resolvedSliderMax - resolvedSliderMin;
+  const safeSliderMax = renderedSliderSpan === 0 ? resolvedSliderMin + 1 : resolvedSliderMax;
 
   const sanitizeValues = (values) => (
     Array.isArray(values)
       ? values.map((val) => {
-        if (!Number.isFinite(val)) return min;
-        const clamped = Math.min(Math.max(val, min), max);
-        return sliderSpan === 0 ? min : clamped;
+        if (!Number.isFinite(val)) return resolvedSliderMin;
+        const clamped = Math.min(Math.max(val, resolvedSliderMin), resolvedSliderMax);
+        return renderedSliderSpan === 0 ? resolvedSliderMin : clamped;
       })
       : values
   );
 
   const handleSliderChange = (values) => {
+    if (disabled) {
+      return;
+    }
+
     const sanitizedValues = sanitizeValues(values);
     setSliderValues(sanitizedValues);
 
-    if (sliderSpan !== 0 && typeof onChange === 'function') {
-      onChange(sanitizedValues);
+    if (sliderSpan !== 0 && renderedSliderSpan !== 0 && typeof onChange === 'function') {
+      onChange(sliderValuesToDomainValues(sanitizedValues));
     }
   };
 
   const handleSliderAfterChange = (values) => {
+    if (disabled) {
+      return;
+    }
+
     const sanitizedValues = sanitizeValues(values);
     setSliderValues(sanitizedValues);
 
-    if (sliderSpan !== 0 && typeof onAfterChange === 'function') {
-      onAfterChange(sanitizedValues);
+    if (sliderSpan !== 0 && renderedSliderSpan !== 0 && typeof onAfterChange === 'function') {
+      onAfterChange(sliderValuesToDomainValues(sanitizedValues));
     }
   };
 
   useEffect(() => {
     if (Array.isArray(value)) {
-      const sanitizedValues = sanitizeValues(value);
+      const sanitizedValues = sanitizeValues(domainValuesToSliderValues(value));
       setSliderValues(sanitizedValues);
     }
-  }, [value, min, max]);
+  }, [
+    max,
+    min,
+    resolvedSliderMax,
+    resolvedSliderMin,
+    value,
+    valueToSliderValue,
+  ]);
 
   const displayValues = useMemo(() => {
     if (!Array.isArray(sliderValues)) return sliderValues;
     return sliderValues.map((val) => {
-      if (!Number.isFinite(val)) return min;
-      if (sliderSpan === 0) return min;
-      return Math.min(Math.max(val, min), safeMax);
+      if (!Number.isFinite(val)) return resolvedSliderMin;
+      if (renderedSliderSpan === 0) return resolvedSliderMin;
+      return Math.min(Math.max(val, resolvedSliderMin), safeSliderMax);
     });
-  }, [sliderValues, min, safeMax, sliderSpan]);
+  }, [
+    renderedSliderSpan,
+    resolvedSliderMin,
+    safeSliderMax,
+    sliderValues,
+  ]);
 
   return (
     <div
       className='dual-thumb-slider'
-      style={{ height: `calc(100% + ${DUAL_THUMB_HANDLE_HEIGHT}px)` }}
+      style={{ height: '100%' }}
     >
       <div
         className='dual-thumb-slider-rail'
-        style={{ bottom: `${DUAL_THUMB_HANDLE_HEIGHT}px` }}
+        style={{
+          top: `${DUAL_THUMB_HANDLE_INSET}px`,
+          bottom: `${DUAL_THUMB_HANDLE_INSET}px`,
+        }}
       />
       <ReactSlider
-        className='h-full w-full'
+        className='w-full'
+        style={{
+          height: `calc(100% - ${DUAL_THUMB_HANDLE_HEIGHT}px)`,
+          top: `${DUAL_THUMB_HANDLE_INSET}px`,
+          position: 'relative',
+        }}
         thumbClassName='thumb'
-        min={min}
-        max={safeMax}
+        min={resolvedSliderMin}
+        max={safeSliderMax}
         value={displayValues}
         minDistance={1}
         pearling
         withTracks={false}
+        disabled={disabled}
         onChange={handleSliderChange}
         onAfterChange={handleSliderAfterChange}
         renderThumb={(props) => {

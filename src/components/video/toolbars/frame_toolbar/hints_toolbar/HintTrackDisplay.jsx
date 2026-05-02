@@ -1,0 +1,215 @@
+import React, { useCallback, useMemo, useRef } from 'react';
+import { FaGripLines } from 'react-icons/fa6';
+import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
+
+const DISPLAY_FRAMES_PER_SECOND = 30;
+const MIN_HINT_FRAME_DISTANCE = 1;
+
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, Number(value) || 0));
+}
+
+function clampPercent(value) {
+  return clamp(value, 0, 100);
+}
+
+export default function HintTrackDisplay({
+  hint,
+  selectedFrameRange,
+  isStartVisible = true,
+  isEndVisible = true,
+  isDisplaySelected = false,
+  onUpdate,
+  setHintTrackDisplayAsSelected,
+}) {
+  const { colorMode } = useColorMode();
+  const railRef = useRef(null);
+  const hintId = hint?.id || hint?._id;
+  const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
+  const visibleFrameRange = Math.max(1, visibleEndFrame - visibleStartFrame);
+  const startFrame = Math.max(0, Math.round(Number(hint?.startFrame) || 0));
+  const endFrame = Math.max(startFrame + 1, Math.round(Number(hint?.endFrame) || startFrame + 1));
+  const clippedStartFrame = clamp(startFrame, visibleStartFrame, visibleEndFrame);
+  const clippedEndFrame = clamp(endFrame, clippedStartFrame + 1, visibleEndFrame);
+  const trackTopPercent = clampPercent(
+    ((clippedStartFrame - visibleStartFrame) / visibleFrameRange) * 100,
+  );
+  const trackBottomPercent = clampPercent(
+    ((clippedEndFrame - visibleStartFrame) / visibleFrameRange) * 100,
+  );
+  const trackHeightPercent = Math.max(0.5, trackBottomPercent - trackTopPercent);
+  const railSurfaceClassName = colorMode === 'dark'
+    ? 'bg-[#0b1220] border border-[#273449]'
+    : 'bg-slate-100 border border-slate-300';
+  const selectedRingClassName = isDisplaySelected
+    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
+    : '';
+  const activeTrackStyle = {
+    backgroundColor: isDisplaySelected
+      ? (colorMode === 'dark' ? '#123046' : '#dbeafe')
+      : (colorMode === 'dark' ? '#182234' : '#e2e8f0'),
+    border: `1px solid ${isDisplaySelected
+      ? (colorMode === 'dark' ? 'rgba(103,232,249,0.55)' : 'rgba(14,165,233,0.6)')
+      : (colorMode === 'dark' ? 'rgba(100,116,139,0.7)' : 'rgba(148,163,184,0.8)')}`,
+    boxShadow: isDisplaySelected
+      ? (colorMode === 'dark'
+        ? '0 0 0 1px rgba(103,232,249,0.24), 0 0 14px rgba(34,211,238,0.18)'
+        : '0 0 0 1px rgba(14,165,233,0.18), 0 0 12px rgba(14,165,233,0.16)')
+      : 'none',
+  };
+  const bottomEdgeClassName = isDisplaySelected
+    ? (colorMode === 'dark' ? 'bg-cyan-200/80' : 'bg-sky-600/80')
+    : (colorMode === 'dark' ? 'bg-[#6b7d95]' : 'bg-slate-500/70');
+  const thumbClassName = `absolute left-1/2 z-[5] flex h-[10px] w-[18px] -translate-x-1/2 items-center justify-center rounded-full border shadow ${
+    colorMode === 'dark'
+      ? 'border-white/40 bg-white text-slate-800'
+      : 'border-slate-300 bg-slate-100 text-slate-700'
+  }`;
+
+  const selectHint = useCallback((event) => {
+    event?.stopPropagation?.();
+    setHintTrackDisplayAsSelected?.(hintId);
+  }, [hintId, setHintTrackDisplayAsSelected]);
+
+  const frameFromClientY = useCallback((clientY) => {
+    const rect = railRef.current?.getBoundingClientRect?.();
+    if (!rect || rect.height <= 0) {
+      return visibleStartFrame;
+    }
+
+    const y = clamp(clientY - rect.top, 0, rect.height);
+    return visibleStartFrame + ((y / rect.height) * visibleFrameRange);
+  }, [visibleFrameRange, visibleStartFrame]);
+
+  const updateFrames = useCallback((nextStartFrame, nextEndFrame) => {
+    const normalizedStartFrame = clamp(
+      Math.round(nextStartFrame),
+      visibleStartFrame,
+      Math.max(visibleStartFrame, visibleEndFrame - MIN_HINT_FRAME_DISTANCE),
+    );
+    const normalizedEndFrame = clamp(
+      Math.round(nextEndFrame),
+      normalizedStartFrame + MIN_HINT_FRAME_DISTANCE,
+      visibleEndFrame,
+    );
+    const nextStartTime = normalizedStartFrame / DISPLAY_FRAMES_PER_SECOND;
+    const nextEndTime = normalizedEndFrame / DISPLAY_FRAMES_PER_SECOND;
+
+    onUpdate?.(hintId, nextStartTime, nextEndTime, nextEndTime - nextStartTime);
+  }, [hintId, onUpdate, visibleEndFrame, visibleStartFrame]);
+
+  const beginDrag = useCallback((event, dragMode) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    selectHint(event);
+
+    const baselineFrame = frameFromClientY(event.clientY);
+    const baselineStartFrame = startFrame;
+    const baselineEndFrame = endFrame;
+    const baselineDurationFrames = Math.max(
+      MIN_HINT_FRAME_DISTANCE,
+      baselineEndFrame - baselineStartFrame,
+    );
+
+    const handleMouseMove = (moveEvent) => {
+      const nextFrame = frameFromClientY(moveEvent.clientY);
+
+      if (dragMode === 'start') {
+        updateFrames(nextFrame, baselineEndFrame);
+        return;
+      }
+
+      if (dragMode === 'end') {
+        updateFrames(baselineStartFrame, nextFrame);
+        return;
+      }
+
+      const deltaFrames = nextFrame - baselineFrame;
+      const nextStartFrame = clamp(
+        baselineStartFrame + deltaFrames,
+        visibleStartFrame,
+        visibleEndFrame - baselineDurationFrames,
+      );
+      updateFrames(nextStartFrame, nextStartFrame + baselineDurationFrames);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [
+    endFrame,
+    frameFromClientY,
+    selectHint,
+    startFrame,
+    updateFrames,
+    visibleEndFrame,
+    visibleStartFrame,
+  ]);
+
+  const hintTitle = useMemo(() => {
+    const startTime = Number(hint?.startTime || 0).toFixed(1);
+    const endTime = Number(hint?.endTime || 0).toFixed(1);
+    return `${startTime}s - ${endTime}s${hint?.text ? ` · ${hint.text}` : ''}`;
+  }, [hint?.endTime, hint?.startTime, hint?.text]);
+
+  return (
+    <div
+      className={`relative mr-2 inline-flex h-full min-h-0 w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2 ${selectedRingClassName}`}
+      onMouseDownCapture={() => setHintTrackDisplayAsSelected?.(hintId)}
+      title={hintTitle}
+    >
+      <div
+        ref={railRef}
+        className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}
+      >
+        <button
+          type="button"
+          className="absolute left-1/2 w-[16px] -translate-x-1/2 cursor-grab overflow-hidden rounded-full p-0 outline-none active:cursor-grabbing"
+          style={{
+            ...activeTrackStyle,
+            top: `${trackTopPercent}%`,
+            height: `${trackHeightPercent}%`,
+            minHeight: '4px',
+          }}
+          onMouseDown={(event) => beginDrag(event, 'move')}
+          onClick={selectHint}
+        >
+          <div className={`pointer-events-none absolute inset-x-0 top-0 h-px ${colorMode === 'dark' ? 'bg-white/12' : 'bg-white/80'}`} />
+          <div className={`pointer-events-none absolute inset-x-0 bottom-0 h-px ${bottomEdgeClassName}`} />
+        </button>
+
+        {isStartVisible ? (
+          <button
+            type="button"
+            className={thumbClassName}
+            style={{ top: `${trackTopPercent}%`, transform: 'translate(-50%, -50%)' }}
+            onMouseDown={(event) => beginDrag(event, 'start')}
+            onClick={selectHint}
+          >
+            <FaGripLines />
+          </button>
+        ) : null}
+
+        {isEndVisible ? (
+          <button
+            type="button"
+            className={thumbClassName}
+            style={{ top: `${trackBottomPercent}%`, transform: 'translate(-50%, -50%)' }}
+            onMouseDown={(event) => beginDrag(event, 'end')}
+            onClick={selectHint}
+          >
+            <FaGripLines />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}

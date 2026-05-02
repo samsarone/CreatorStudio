@@ -352,8 +352,8 @@ function AddSessionDropdown(props) {
       </button>
 
       {!useImageProjectModal && isOpen && (
-        <div className={`absolute left-0 mt-2 min-w-[9rem] w-max origin-top-right rounded-md
-         ${menuSurface} z-20`} >
+        <div className={`absolute left-0 z-[1220] mt-2 min-w-[9rem] w-max origin-top-right rounded-md
+         ${menuSurface}`} >
           <div role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
             <button
 

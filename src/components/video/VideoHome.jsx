@@ -1467,6 +1467,40 @@ export default function VideoHome(props) {
     }
   };
 
+  const updateGlobalAudioLayersOneShot = async (updatedGlobalAudioLayers) => {
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return { success: false };
+      }
+
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/update_global_audio_layers`,
+        {
+          sessionId: id,
+          globalAudioLayers: updatedGlobalAudioLayers,
+        },
+        headers
+      );
+      const sessionDetails = response.data?.sessionDetails || null;
+      const returnedGlobalAudioLayers = response.data?.globalAudioLayers
+        || sessionDetails?.global_audio_layers
+        || [];
+
+      if (sessionDetails) {
+        setVideoSessionDetails(sessionDetails);
+        setLayers(sessionDetails.layers || []);
+        setAudioLayers(sessionDetails.audioLayers || []);
+      }
+      setIsCanvasDirty(true);
+
+      return { success: true, serverGlobalAudioLayers: returnedGlobalAudioLayers };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
   const updateGlobalVideosOneShot = async (updatedGlobalVideos) => {
     try {
       const headers = getHeaders();
@@ -1496,6 +1530,47 @@ export default function VideoHome(props) {
       setIsCanvasDirty(true);
 
       return { success: true, serverGlobalVideos: returnedGlobalVideos };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
+  const updateSessionHints = async (updatedHints) => {
+    try {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return { success: false };
+      }
+
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/update_hints`,
+        {
+          sessionId: id,
+          hints: updatedHints,
+        },
+        headers
+      );
+      const sessionDetails = response.data?.sessionDetails || null;
+      const returnedHints = response.data?.timelineHints
+        || sessionDetails?.timelineHints
+        || [];
+
+      setVideoSessionDetails((previousSessionDetails) => (
+        previousSessionDetails
+          ? {
+            ...previousSessionDetails,
+            ...(sessionDetails || {}),
+            layers: previousSessionDetails.layers,
+            audioLayers: previousSessionDetails.audioLayers,
+            timelineHints: returnedHints,
+          }
+          : sessionDetails
+            ? { ...sessionDetails, timelineHints: returnedHints }
+            : previousSessionDetails
+      ));
+
+      return { success: true, serverHints: returnedHints };
     } catch (error) {
       return { success: false, error };
     }
@@ -3196,6 +3271,7 @@ export default function VideoHome(props) {
           renderedVideoPath={renderedVideoPath}
           downloadVideoDisplay={downloadVideoDisplay}
           sessionId={id}
+          sessionDetails={videoSessionDetails}
           updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
           updateSessionLayer={updateSessionLayer}
           setIsLayerSeeking={setIsLayerSeeking}
@@ -3204,6 +3280,7 @@ export default function VideoHome(props) {
           showAudioTrackView={showAudioTrackView}
           frameToolbarView={frameToolbarView}
           audioLayers={audioLayers}
+          globalAudioLayers={videoSessionDetails?.global_audio_layers || videoSessionDetails?.globalAudioLayers || []}
           globalVideos={videoSessionDetails?.global_videos || videoSessionDetails?.globalVideos || []}
           updateAudioLayer={updateAudioLayer}
           isAudioLayerDirty={isAudioLayerDirty}
@@ -3243,7 +3320,9 @@ export default function VideoHome(props) {
           generateMeta={generateMeta}
           sessionMetadata={sessionMetadata}
           updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+          updateGlobalAudioLayers={updateGlobalAudioLayersOneShot}
           updateGlobalVideos={updateGlobalVideosOneShot}
+          updateSessionHints={updateSessionHints}
           requestVideoLayerEdit={requestVideoLayerEdit}
           renderCompletedThisSession={renderCompletedThisSession}
           isRenderPending={isVideoRenderPending}
@@ -3313,6 +3392,7 @@ export default function VideoHome(props) {
                 renderedVideoPath={renderedVideoPath}
                 downloadVideoDisplay={downloadVideoDisplay}
                 sessionId={id}
+                sessionDetails={videoSessionDetails}
                 updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
                 updateSessionLayer={updateSessionLayer}
                 setIsLayerSeeking={setIsLayerSeeking}
@@ -3321,6 +3401,7 @@ export default function VideoHome(props) {
                 showAudioTrackView={showAudioTrackView}
                 frameToolbarView={frameToolbarView}
                 audioLayers={audioLayers}
+                globalAudioLayers={videoSessionDetails?.global_audio_layers || videoSessionDetails?.globalAudioLayers || []}
                 globalVideos={videoSessionDetails?.global_videos || videoSessionDetails?.globalVideos || []}
                 updateAudioLayer={updateAudioLayer}
                 isAudioLayerDirty={isAudioLayerDirty}
@@ -3360,7 +3441,9 @@ export default function VideoHome(props) {
                 sessionMetadata={sessionMetadata}
                 isGuestSession={isGuestSession}
                 updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
+                updateGlobalAudioLayers={updateGlobalAudioLayersOneShot}
                 updateGlobalVideos={updateGlobalVideosOneShot}
+                updateSessionHints={updateSessionHints}
                 requestVideoLayerEdit={requestVideoLayerEdit}
                 renderCompletedThisSession={renderCompletedThisSession}
                 isRenderPending={isVideoRenderPending}

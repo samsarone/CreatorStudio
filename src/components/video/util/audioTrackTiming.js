@@ -4,7 +4,7 @@ export function getAudioTrackTimeBounds(audioTrack = {}) {
   const parsedEndTime = Number(audioTrack?.endTime);
   const parsedDuration = Number(audioTrack?.duration);
   const parsedOriginalDuration = Number(audioTrack?.originalDuration);
-  const explicitEndTime = Number.isFinite(parsedEndTime) && parsedEndTime >= startTime
+  const explicitEndTime = Number.isFinite(parsedEndTime) && parsedEndTime > startTime
     ? parsedEndTime
     : null;
   const durationEndTime = Number.isFinite(parsedDuration) && parsedDuration > 0

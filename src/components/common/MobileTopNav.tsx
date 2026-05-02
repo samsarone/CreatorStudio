@@ -314,7 +314,7 @@ export default function MobileTopNav(props) {
 
 
   return (
-    <div className={`${navShell} fixed w-[100vw] z-10 ${isGenerationsView ? 'py-2' : 'h-[50px]'}`}>
+    <div className={`${navShell} fixed z-[1200] w-[100vw] ${isGenerationsView ? 'py-2' : 'h-[50px]'}`}>
       <div className={`${isGenerationsView ? 'flex flex-col gap-3 px-3' : 'flex flex-basis items-center h-full'}`}>
         <div className={isGenerationsView ? 'flex min-h-[44px] items-center justify-between' : 'basis-1/3 pl-2'}>
           <BrandLogo onClick={gotoHome} className={isGenerationsView ? '' : 'mt-1'} />

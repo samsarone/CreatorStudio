@@ -170,6 +170,7 @@ export default function VideoEditorToolbar(props) {
     submitAddBatchTrackToProject,
     currentLayer,
     requestAddAudioLayerFromLibrary,
+    requestAddGlobalAudioLayerFromLibrary,
     currentLayerSeek,
     setCurrentLayerSeek,
     isVideoPreviewPlaying,
@@ -1604,6 +1605,7 @@ export default function VideoEditorToolbar(props) {
         currentLayer={currentLayer}
         sessionDetails={sessionDetails}
         requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
+        requestAddGlobalAudioLayerFromLibrary={requestAddGlobalAudioLayerFromLibrary}
         currentLayerSeek={currentLayerSeek}
         setCurrentLayerSeek={setCurrentLayerSeek}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
@@ -1666,7 +1668,7 @@ export default function VideoEditorToolbar(props) {
       )
     },
     {
-      label: 'Recording and Facecam',
+      label: 'Recording & Cam',
       icon: null,
       view: CURRENT_TOOLBAR_VIEW.SHOW_RECORDING_FACECAM_DISPLAY,
       onClick: () => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_RECORDING_FACECAM_DISPLAY),
@@ -1811,6 +1813,9 @@ export default function VideoEditorToolbar(props) {
                 const toolbarItemContainerSurfaceClass = isSelected
                   ? 'bg-transparent border border-transparent'
                   : buttonBgcolor;
+                const toolbarItemBodyOverflowClass =
+                  isSelected && item.showOverflow ? 'overflow-visible' : 'overflow-hidden';
+                const toolbarItemBodyPointerClass = isSelected ? 'pointer-events-auto' : 'pointer-events-none';
 
                 return (
               <div
@@ -1838,8 +1843,7 @@ export default function VideoEditorToolbar(props) {
                   <FaChevronDown className={toolbarItemChevronClass} />
                 </div>
                 <div
-                  className={`${toolbarItemBodyMarginClass} ${toolbarItemBodyClass} ${item.showOverflow ? 'overflow-visible' : 'overflow-hidden'
-                    } transition-all duration-500 ${isItemSelected(item.view) ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
+                  className={`${toolbarItemBodyMarginClass} ${toolbarItemBodyClass} ${toolbarItemBodyOverflowClass} ${toolbarItemBodyPointerClass} transition-all duration-500 ${isSelected ? 'h-auto opacity-100' : 'max-h-0 opacity-0'
                     }`}
                 >
                   {item.content}

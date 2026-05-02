@@ -13,7 +13,9 @@ import {
   FaChevronDown,
   FaCopy,
   FaDownload,
+  FaLightbulb,
   FaPlay,
+  FaPlus,
   FaStop,
   FaThLarge,
   FaVolumeUp,
@@ -40,6 +42,7 @@ import VisualTrackDisplay from './visual_toolbar/VisualTrackDisplay.jsx';
 import SelectedVisualTrackDisplay from './visual_toolbar/SelectedVisualTrackDisplay.jsx';
 import VideoTrackDisplay from './video_toolbar/VideoTrackDisplay.jsx';
 import SelectedVideoTrackDisplay from './video_toolbar/SelectedVideoTrackDisplay.jsx';
+import HintTrackDisplay from './hints_toolbar/HintTrackDisplay.jsx';
 
 import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaEye } from 'react-icons/fa6';
@@ -57,7 +60,14 @@ import {
   getViewportGeometryFrameRange,
   viewportValueToFrame,
 } from '../../util/viewportGeometry.js';
-import { getAudioTrackFrameBounds } from '../../util/audioTrackTiming.js';
+import {
+  getAudioTrackFrameBounds,
+  getAudioTrackTimeBounds,
+} from '../../util/audioTrackTiming.js';
+import {
+  buildSpeechTranscriptHintRows,
+  normalizeTimelineHints,
+} from '../../../../utils/sessionTimelineText.js';
 const MAX_VISIBLE_LAYERS = 10;
 const MIN_LAYER_HEIGHT = 20; // in pixels
 const VISUAL_TRACK_DISPLAY_FRAMES_PER_SECOND = 30;
@@ -95,6 +105,43 @@ const SCENE_TRANSITION_PRESET_OPTIONS = [
 
 function resolveAudioTrackId(audioTrack) {
   return audioTrack?._id?.toString?.() || audioTrack?._id || audioTrack?.id || null;
+}
+
+function stripAudioTrackDisplayState(audioTrack = {}) {
+  const nextAudioTrack = { ...audioTrack };
+  [
+    'isDirty',
+    'isSaving',
+    'isDisplaySelected',
+    'isSelected',
+    'saveError',
+    'trackKey',
+    'durationFrames',
+    'startFrame',
+    'endFrame',
+    'isGlobalAudioLayer',
+  ].forEach((field) => {
+    delete nextAudioTrack[field];
+  });
+  return nextAudioTrack;
+}
+
+function buildAudioTrackDisplayItem(audioTrack = {}, isGlobalAudioLayer = false, selectedTrackId = null) {
+  const audioTrackId = resolveAudioTrackId(audioTrack);
+  const { startTime, endTime } = getAudioTrackTimeBounds(audioTrack);
+  return {
+    ...audioTrack,
+    startTime,
+    endTime,
+    duration: Math.max(0, endTime - startTime),
+    isGlobalAudioLayer,
+    isDisplaySelected: Boolean(
+      selectedTrackId
+      && audioTrackId
+      && audioTrackId.toString() === selectedTrackId.toString()
+    ),
+    isDirty: false,
+  };
 }
 
 function resolveLayerId(layer) {
@@ -257,6 +304,7 @@ function buildLayerPixelLayout(
   visibleLayerDurationFramesById = {},
   availableHeight = 0,
   displayFramesPerSecond = 30,
+  minimumHeight = MIN_LAYER_HEIGHT,
 ) {
   const layerHeightsInPixels = allocateLayerHeights(
     layers.map((layer) => {
@@ -267,6 +315,7 @@ function buildLayerPixelLayout(
       };
     }),
     availableHeight,
+    minimumHeight,
   );
 
   let nextTop = 0;
@@ -623,6 +672,35 @@ function buildGlobalVideoTrackDisplayList(globalVideos, displayFramesPerSecond =
   });
 }
 
+function buildHintTrackDisplayList(hints, displayFramesPerSecond = 30) {
+  return normalizeTimelineHints(hints, {
+    minimumDuration: 1 / displayFramesPerSecond,
+  }).map((hint, index) => {
+    const startFrame = Math.max(0, Math.round(Number(hint.startTime || 0) * displayFramesPerSecond));
+    const rawEndTime = Number(hint.endTime);
+    const rawDuration = Number(hint.duration);
+    const endTime = Number.isFinite(rawEndTime) && rawEndTime > Number(hint.startTime || 0)
+      ? rawEndTime
+      : Number(hint.startTime || 0) + (Number.isFinite(rawDuration) ? rawDuration : 1 / displayFramesPerSecond);
+    const endFrame = Math.max(
+      startFrame + 1,
+      Math.round(endTime * displayFramesPerSecond)
+    );
+
+    return {
+      ...hint,
+      id: hint.id || `hint_${index}`,
+      trackKey: `hint_${hint.id || index}`,
+      startFrame,
+      endFrame,
+      durationFrames: endFrame - startFrame,
+      startTime: startFrame / displayFramesPerSecond,
+      endTime: endFrame / displayFramesPerSecond,
+      duration: (endFrame - startFrame) / displayFramesPerSecond,
+    };
+  });
+}
+
 function buildLayerFrameMetadata(layers = [], displayFramesPerSecond = 30) {
   let fallbackStartFrame = 0;
 
@@ -786,12 +864,14 @@ export default function FrameToolbar(props) {
     isLayerSeeking,
     renderedVideoPath,
     sessionId,
+    sessionDetails = null,
     updateSessionLayer,
     setIsLayerSeeking,
     isVideoGenerating,
     showAudioTrackView,
     frameToolbarView,
     audioLayers,
+    globalAudioLayers = [],
     globalVideos = [],
     removeAudioLayer,
     addLayerToComposition,
@@ -823,6 +903,7 @@ export default function FrameToolbar(props) {
     duplicateAudioLayer,
     isGuestSession,
     updateAllAudioLayersOneShot,
+    updateGlobalAudioLayers,
     requestVideoLayerEdit,
     isSessionPublished,
     renderCompletedThisSession,
@@ -833,6 +914,7 @@ export default function FrameToolbar(props) {
     isExpressSession = false,
     framesPerSecond = 16,
     updateGlobalVideos,
+    updateSessionHints,
 
   } = props;
 
@@ -927,6 +1009,7 @@ export default function FrameToolbar(props) {
   const [showVerticalWaveform, setShowVerticalWaveform] = useState(false);
   const [isDuplicatingAudioTrack, setIsDuplicatingAudioTrack] = useState(false);
 
+  const [audioLayerView, setAudioLayerView] = useState('layer');
   const [selectedAudioTrackDisplay, setSelectedAudioTrackDisplay] = useState(null);
   const [isPromptDropdownOpen, setIsPromptDropdownOpen] = useState(false);
   const [promptDropdownPosition, setPromptDropdownPosition] = useState({
@@ -948,6 +1031,14 @@ export default function FrameToolbar(props) {
 
 
   const [selectedTextTrackDisplay, setSelectedTextTrackDisplay] = useState(null);
+  const [timelineHintsDraft, setTimelineHintsDraft] = useState([]);
+  const [selectedHintId, setSelectedHintId] = useState(null);
+  const [selectedHintLayerId, setSelectedHintLayerId] = useState(null);
+  const [hintsDirty, setHintsDirty] = useState(false);
+  const [isSavingHints, setIsSavingHints] = useState(false);
+  const [showAddHintForm, setShowAddHintForm] = useState(false);
+  const [newHintText, setNewHintText] = useState('');
+  const [hintsStatusMessage, setHintsStatusMessage] = useState('');
 
 
   const [selectedAnimation, setSelectedAnimation] = useState(null);
@@ -959,6 +1050,36 @@ export default function FrameToolbar(props) {
   const { user } = useUser();
 
   const selectedLayerData = selectedLayerIndex >= 0 ? layers[selectedLayerIndex] : null;
+  const selectedLayerId = resolveLayerId(selectedLayerData);
+  const selectedHintLayerData = useMemo(() => {
+    const normalizedHintLayerId = selectedHintLayerId?.toString?.() || selectedHintLayerId;
+
+    if (normalizedHintLayerId) {
+      const matchingLayer = layers.find((layer) => (
+        resolveLayerId(layer)?.toString?.() === normalizedHintLayerId.toString()
+      ));
+
+      if (matchingLayer) {
+        return matchingLayer;
+      }
+    }
+
+    return selectedLayerData;
+  }, [layers, selectedHintLayerId, selectedLayerData]);
+  const selectedHintLayerIndex = useMemo(() => {
+    const normalizedHintLayerId = resolveLayerId(selectedHintLayerData)?.toString?.()
+      || resolveLayerId(selectedHintLayerData);
+
+    if (!normalizedHintLayerId) {
+      return selectedLayerIndex;
+    }
+
+    const matchingIndex = layers.findIndex((layer) => (
+      resolveLayerId(layer)?.toString?.() === normalizedHintLayerId.toString()
+    ));
+
+    return matchingIndex >= 0 ? matchingIndex : selectedLayerIndex;
+  }, [layers, selectedHintLayerData, selectedLayerIndex]);
   const persistedClipStartDisplayFrames = useMemo(
     () => actualFramesToDisplayFrames(
       selectedLayerData?.clipStart ? selectedLayerData?.clipStartFrames : 0
@@ -1162,20 +1283,14 @@ export default function FrameToolbar(props) {
         || previousAudioTracks.find((audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected)?._id?.toString?.()
         || null;
 
-      const visibleAudioDisplay = Array.isArray(audioLayers)
-        ? audioLayers.map((audioTrack) => {
-          const audioTrackId = audioTrack?._id?.toString?.() || audioTrack?._id || null;
-          return {
-            ...audioTrack,
-            isDisplaySelected: Boolean(
-              selectedTrackId
-              && audioTrackId
-              && audioTrackId.toString() === selectedTrackId.toString()
-            ),
-            isDirty: false,
-          };
-        })
-        : [];
+      const visibleAudioDisplay = [
+        ...(Array.isArray(audioLayers) ? audioLayers.map((audioTrack) => (
+          buildAudioTrackDisplayItem(audioTrack, false, selectedTrackId)
+        )) : []),
+        ...(Array.isArray(globalAudioLayers) ? globalAudioLayers.map((audioTrack) => (
+          buildAudioTrackDisplayItem(audioTrack, true, selectedTrackId)
+        )) : []),
+      ];
 
       if (selectedTrackId && visibleAudioDisplay.some((audioTrack) => audioTrack.isDisplaySelected)) {
         pendingSelectedAudioLayerIdRef.current = null;
@@ -1183,7 +1298,7 @@ export default function FrameToolbar(props) {
 
       return visibleAudioDisplay;
     });
-  }, [audioLayers]);
+  }, [audioLayers, globalAudioLayers]);
 
   useEffect(() => {
     setAudioWaveformVisibilityByTrackId((previousValue) => {
@@ -1305,6 +1420,46 @@ export default function FrameToolbar(props) {
   }, [globalVideos, DISPLAY_FRAMES_PER_SECOND]);
 
   useEffect(() => {
+    if (hintsDirty) {
+      return;
+    }
+
+    const sessionHints = Array.isArray(sessionDetails?.timelineHints)
+      ? sessionDetails.timelineHints
+      : Array.isArray(sessionDetails?.hints)
+        ? sessionDetails.hints
+        : [];
+    const nextHints = buildHintTrackDisplayList(
+      sessionHints,
+      DISPLAY_FRAMES_PER_SECOND,
+    );
+
+    setTimelineHintsDraft(nextHints);
+    setSelectedHintId((currentHintId) => (
+      currentHintId && nextHints.some((hint) => hint.id === currentHintId)
+        ? currentHintId
+        : null
+    ));
+  }, [
+    DISPLAY_FRAMES_PER_SECOND,
+    hintsDirty,
+    sessionDetails?._id,
+    sessionDetails?.hints,
+    sessionDetails?.timelineHints,
+  ]);
+
+  useEffect(() => {
+    if (currentLayerActionSuperView !== 'HINTS') {
+      return;
+    }
+
+    setSelectedHintLayerId(selectedLayerId || null);
+  }, [
+    currentLayerActionSuperView,
+    selectedLayerId,
+  ]);
+
+  useEffect(() => {
     const validLayerIds = new Set(videoTrackListDisplay.map((track) => track.layerId));
 
     setVideoEditDraftOperationsByLayer((previousValue) => {
@@ -1390,16 +1545,24 @@ export default function FrameToolbar(props) {
   }, [videoTrackListDisplay]);
 
 
+  const visibleAudioTrackListDisplay = useMemo(
+    () => audioTrackListDisplay.filter((audioTrack) => (
+      audioLayerView === 'global'
+        ? audioTrack.isGlobalAudioLayer
+        : !audioTrack.isGlobalAudioLayer
+    )),
+    [audioLayerView, audioTrackListDisplay]
+  );
   const dirtyCount = useMemo(
-    () => audioTrackListDisplay.filter((track) => track.isDirty).length,
-    [audioTrackListDisplay]
+    () => visibleAudioTrackListDisplay.filter((track) => track.isDirty).length,
+    [visibleAudioTrackListDisplay]
   );
   const selectedAudioTrack = useMemo(
     () =>
-      audioTrackListDisplay.find(
+      visibleAudioTrackListDisplay.find(
         (audioTrack) => audioTrack.isDisplaySelected || audioTrack.isSelected
       ),
-    [audioTrackListDisplay]
+    [visibleAudioTrackListDisplay]
   );
   const selectedAudioTrackId = useMemo(
     () => resolveAudioTrackId(selectedAudioTrack),
@@ -1418,6 +1581,10 @@ export default function FrameToolbar(props) {
   const globalVideoDirtyCount = useMemo(
     () => globalVideoTrackListDisplay.filter((track) => track.isDirty).length,
     [globalVideoTrackListDisplay]
+  );
+  const selectedHintTrack = useMemo(
+    () => timelineHintsDraft.find((hint) => hint.id === selectedHintId) || null,
+    [selectedHintId, timelineHintsDraft]
   );
   const selectedAudioTrackPrompt = useMemo(
     () => getAudioTrackPromptText(selectedAudioTrack),
@@ -1510,7 +1677,7 @@ export default function FrameToolbar(props) {
     [videoTrackListDisplay]
   );
   const canDuplicateSelectedAudioTrack = useMemo(() => {
-    if (!selectedAudioTrack || typeof duplicateAudioLayer !== 'function') {
+    if (!selectedAudioTrack || selectedAudioTrack.isGlobalAudioLayer || typeof duplicateAudioLayer !== 'function') {
       return false;
     }
 
@@ -1983,13 +2150,22 @@ export default function FrameToolbar(props) {
 
 
 
+  const timelineDisplayFrameRange = useMemo(
+    () => normalizeTimelineFrameRange(selectedFrameRange, totalDurationInFrames),
+    [
+      normalizeTimelineFrameRange,
+      selectedFrameRange,
+      totalDurationInFrames,
+    ],
+  );
+
   const allVisibleLayerMetadata = useMemo(() => {
-    const [startFrame, endFrame] = selectedFrameRange;
+    const [startFrame, endFrame] = timelineDisplayFrameRange;
 
     return layerFrameMetadata.filter((layerMeta) => (
       layerMeta.endFrame > startFrame && layerMeta.startFrame < endFrame
     ));
-  }, [layerFrameMetadata, selectedFrameRange]);
+  }, [layerFrameMetadata, timelineDisplayFrameRange]);
 
   useEffect(() => {
     setVisibleLayersStartIndex((previousIndex) => {
@@ -2005,7 +2181,7 @@ export default function FrameToolbar(props) {
     [displayedVisibleLayerMetadata],
   );
   const visibleLayerDurationFramesById = useMemo(() => {
-    const [visibleStartFrame, visibleEndFrame] = selectedFrameRange;
+    const [visibleStartFrame, visibleEndFrame] = timelineDisplayFrameRange;
 
     return displayedVisibleLayerMetadata.reduce((accumulator, layerMeta) => {
       const layerId = layerMeta.layer?._id?.toString?.() || layerMeta.layer?._id || `${layerMeta.originalIndex}`;
@@ -2015,7 +2191,7 @@ export default function FrameToolbar(props) {
       );
       return accumulator;
     }, {});
-  }, [displayedVisibleLayerMetadata, selectedFrameRange]);
+  }, [displayedVisibleLayerMetadata, timelineDisplayFrameRange]);
   const resolvedLayerViewportHeight = layerViewportHeight > 0
     ? layerViewportHeight
     : (parentRef.current?.clientHeight || 500);
@@ -2036,10 +2212,10 @@ export default function FrameToolbar(props) {
     let nextPixelStart = 0;
     const segments = displayedVisibleLayerMetadata.map((layerMeta, index) => {
       const layerId = layerMeta.layer?._id?.toString?.() || layerMeta.layer?._id || `${layerMeta.originalIndex}`;
-      const frameStart = Math.max(selectedFrameRange[0], layerMeta.startFrame);
+      const frameStart = Math.max(timelineDisplayFrameRange[0], layerMeta.startFrame);
       const frameEnd = Math.max(
         frameStart + 1,
-        Math.min(selectedFrameRange[1], layerMeta.endFrame),
+        Math.min(timelineDisplayFrameRange[1], layerMeta.endFrame),
       );
       const pixelHeight = Math.max(0, visibleLayerPixelLayout.layerHeightsInPixels[index] ?? 0);
       const segment = {
@@ -2058,10 +2234,14 @@ export default function FrameToolbar(props) {
     return {
       segments,
       totalPixels: nextPixelStart,
-      frameStart: segments[0]?.frameStart ?? selectedFrameRange[0],
-      frameEnd: segments[segments.length - 1]?.frameEnd ?? selectedFrameRange[1],
+      frameStart: segments[0]?.frameStart ?? timelineDisplayFrameRange[0],
+      frameEnd: segments[segments.length - 1]?.frameEnd ?? timelineDisplayFrameRange[1],
     };
-  }, [displayedVisibleLayerMetadata, selectedFrameRange, visibleLayerPixelLayout.layerHeightsInPixels]);
+  }, [
+    displayedVisibleLayerMetadata,
+    timelineDisplayFrameRange,
+    visibleLayerPixelLayout.layerHeightsInPixels,
+  ]);
   const displayedFrameRange = useMemo(
     () => getViewportGeometryFrameRange(displayedLayerViewportGeometry),
     [displayedLayerViewportGeometry],
@@ -2837,6 +3017,356 @@ export default function FrameToolbar(props) {
     await onUpdateAllGlobalVideos(nextGlobalVideoTracks);
   };
 
+  const getPersistableHints = (hints = timelineHintsDraft) => (
+    buildHintTrackDisplayList(hints, DISPLAY_FRAMES_PER_SECOND).map((hint) => {
+      const {
+        trackKey,
+        startFrame,
+        endFrame,
+        durationFrames,
+        isDisplaySelected,
+        isDirty,
+        ...persistableHint
+      } = hint;
+      return persistableHint;
+    })
+  );
+
+  const replaceHintDrafts = (nextHints, options = {}) => {
+    const normalizedHints = buildHintTrackDisplayList(
+      nextHints,
+      DISPLAY_FRAMES_PER_SECOND,
+    );
+
+    setTimelineHintsDraft(normalizedHints);
+    setHintsDirty(Boolean(options.dirty));
+    setHintsStatusMessage(options.statusMessage || '');
+    if (options.selectedHintId !== undefined) {
+      setSelectedHintId(
+        options.selectedHintId && normalizedHints.some((hint) => hint.id === options.selectedHintId)
+          ? options.selectedHintId
+          : null
+      );
+    } else if (selectedHintId && !normalizedHints.some((hint) => hint.id === selectedHintId)) {
+      setSelectedHintId(null);
+    }
+  };
+
+  const persistTimelineHints = async (
+    hintsToSave,
+    {
+      selectedHintId: nextSelectedHintId = selectedHintId,
+      pendingMessage = 'Saving hints...',
+      successMessage = 'Hints saved.',
+      failureMessage = 'Unable to save hints.',
+    } = {},
+  ) => {
+    if (typeof updateSessionHints !== 'function') {
+      replaceHintDrafts(hintsToSave, {
+        dirty: true,
+        selectedHintId: nextSelectedHintId,
+        statusMessage: 'Hints changed locally. Save to persist.',
+      });
+      return { success: false };
+    }
+
+    const previousHints = timelineHintsDraft;
+    const previousHintsDirty = hintsDirty;
+
+    setIsSavingHints(true);
+    replaceHintDrafts(hintsToSave, {
+      dirty: false,
+      selectedHintId: nextSelectedHintId,
+      statusMessage: pendingMessage,
+    });
+
+    try {
+      const hintsPayload = getPersistableHints(hintsToSave);
+      const response = await updateSessionHints(hintsPayload);
+      if (!response?.success) {
+        throw response?.error || new Error(failureMessage);
+      }
+
+      const serverHints = Array.isArray(response.serverHints)
+        ? response.serverHints
+        : hintsPayload;
+      replaceHintDrafts(serverHints, {
+        dirty: false,
+        selectedHintId: nextSelectedHintId,
+        statusMessage: successMessage,
+      });
+      return { success: true, serverHints };
+    } catch (error) {
+      replaceHintDrafts(previousHints, {
+        dirty: previousHintsDirty,
+        selectedHintId,
+        statusMessage: error?.message || failureMessage,
+      });
+      return { success: false, error };
+    } finally {
+      setIsSavingHints(false);
+    }
+  };
+
+  const setHintTrackDisplayAsSelected = (hintId) => {
+    setSelectedHintId(hintId || null);
+  };
+
+  const updateHintFromSlider = (hintId, startTime, endTime, duration) => {
+    if (!hintId) {
+      return;
+    }
+
+    setTimelineHintsDraft((previousHints) => buildHintTrackDisplayList(
+      previousHints.map((hint) => (
+        hint.id === hintId
+          ? {
+            ...hint,
+            startTime,
+            endTime,
+            duration,
+          }
+          : hint
+      )),
+      DISPLAY_FRAMES_PER_SECOND,
+    ));
+    setSelectedHintId(hintId);
+    setHintsDirty(true);
+    setHintsStatusMessage('');
+  };
+
+  const updateSelectedHintText = (text) => {
+    if (!selectedHintTrack) {
+      return;
+    }
+
+    setTimelineHintsDraft((previousHints) => previousHints.map((hint) => (
+      hint.id === selectedHintTrack.id
+        ? { ...hint, text }
+        : hint
+    )));
+    setHintsDirty(true);
+    setHintsStatusMessage('');
+  };
+
+  const updateSelectedHintNumber = (field, rawValue) => {
+    if (!selectedHintTrack) {
+      return;
+    }
+
+    const nextValue = Number(rawValue);
+    if (!Number.isFinite(nextValue)) {
+      return;
+    }
+
+    setTimelineHintsDraft((previousHints) => buildHintTrackDisplayList(
+      previousHints.map((hint) => {
+        if (hint.id !== selectedHintTrack.id) {
+          return hint;
+        }
+
+        const startTime = Math.max(0, Number(hint.startTime) || 0);
+        const duration = Math.max(1 / DISPLAY_FRAMES_PER_SECOND, Number(hint.duration) || 1);
+        if (field === 'startTime') {
+          const nextStartTime = Math.max(0, nextValue);
+          return {
+            ...hint,
+            startTime: nextStartTime,
+            endTime: nextStartTime + duration,
+            duration,
+          };
+        }
+        if (field === 'endTime') {
+          const nextEndTime = Math.max(startTime + (1 / DISPLAY_FRAMES_PER_SECOND), nextValue);
+          return {
+            ...hint,
+            endTime: nextEndTime,
+            duration: nextEndTime - startTime,
+          };
+        }
+        if (field === 'duration') {
+          const nextDuration = Math.max(1 / DISPLAY_FRAMES_PER_SECOND, nextValue);
+          return {
+            ...hint,
+            duration: nextDuration,
+            endTime: startTime + nextDuration,
+          };
+        }
+
+        return hint;
+      }),
+      DISPLAY_FRAMES_PER_SECOND,
+    ));
+    setHintsDirty(true);
+    setHintsStatusMessage('');
+  };
+
+  const importHintsFromTranscripts = async () => {
+    const sessionForImport = sessionDetails || {
+      _id: sessionId,
+      layers,
+      audioLayers,
+      framesPerSecond,
+    };
+    const transcriptRows = buildSpeechTranscriptHintRows(sessionForImport);
+
+    if (!transcriptRows.length) {
+      setHintsStatusMessage('No speech transcript cues are available to import.');
+      return;
+    }
+
+    const importedHints = transcriptRows.map((row, index) => ({
+      id: `hint_transcript_${Date.now()}_${index}`,
+      text: row.text,
+      speaker: row.speaker || '',
+      startTime: row.startTime,
+      endTime: row.endTime,
+      duration: Math.max(1 / DISPLAY_FRAMES_PER_SECOND, row.endTime - row.startTime),
+    }));
+
+    await persistTimelineHints(importedHints, {
+      selectedHintId: null,
+      pendingMessage: `Importing ${importedHints.length} speech transcript hint${importedHints.length === 1 ? '' : 's'}...`,
+      successMessage: `Imported ${importedHints.length} speech transcript hint${importedHints.length === 1 ? '' : 's'}.`,
+      failureMessage: 'Unable to import speech transcript hints.',
+    });
+  };
+
+  const addHintFromSelectedLayer = async () => {
+    const text = newHintText.trim();
+    if (!text) {
+      setHintsStatusMessage('Enter hint text before adding.');
+      return;
+    }
+    if (!selectedHintLayerData) {
+      setHintsStatusMessage('Select a layer before adding a hint.');
+      return;
+    }
+
+    const startTime = Math.max(0, Number(selectedHintLayerData.durationOffset ?? selectedHintLayerData.startTime) || 0);
+    const duration = Math.max(
+      1 / DISPLAY_FRAMES_PER_SECOND,
+      Number(selectedHintLayerData.duration) || 1,
+    );
+    const hintId = `hint_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const nextHint = {
+      id: hintId,
+      text,
+      startTime,
+      endTime: startTime + duration,
+      duration,
+    };
+
+    const saveResult = await persistTimelineHints([...timelineHintsDraft, nextHint], {
+      selectedHintId: hintId,
+      pendingMessage: 'Adding hint...',
+      successMessage: 'Hint added.',
+      failureMessage: 'Unable to add hint.',
+    });
+
+    if (saveResult.success) {
+      setNewHintText('');
+      setShowAddHintForm(false);
+    }
+  };
+
+  const deleteSelectedHint = async () => {
+    const targetHintId = selectedHintTrack?.id || selectedHintId;
+    if (!targetHintId) {
+      setHintsStatusMessage('Select a hint before removing it.');
+      return;
+    }
+
+    const nextHints = timelineHintsDraft.filter((hint) => hint.id?.toString?.() !== targetHintId.toString());
+    if (nextHints.length === timelineHintsDraft.length) {
+      setHintsStatusMessage('Unable to find the selected hint.');
+      return;
+    }
+
+    await persistTimelineHints(nextHints, {
+      selectedHintId: null,
+      pendingMessage: 'Removing hint...',
+      successMessage: 'Hint removed.',
+      failureMessage: 'Unable to remove hint.',
+    });
+  };
+
+  const removeAllHints = async () => {
+    if (timelineHintsDraft.length === 0 || isSavingHints) {
+      return;
+    }
+
+    const previousHints = timelineHintsDraft;
+    const previousHintsDirty = hintsDirty;
+    replaceHintDrafts([], {
+      dirty: false,
+      selectedHintId: null,
+      statusMessage: 'Removing all hints...',
+    });
+
+    if (typeof updateSessionHints !== 'function') {
+      replaceHintDrafts([], {
+        dirty: true,
+        selectedHintId: null,
+        statusMessage: 'All hints removed locally. Save to persist.',
+      });
+      return;
+    }
+
+    setIsSavingHints(true);
+    try {
+      const response = await updateSessionHints([]);
+      if (!response?.success) {
+        throw response?.error || new Error('Unable to remove hints.');
+      }
+
+      replaceHintDrafts(response.serverHints || [], {
+        dirty: false,
+        selectedHintId: null,
+        statusMessage: 'All hints removed.',
+      });
+    } catch (error) {
+      replaceHintDrafts(previousHints, {
+        dirty: previousHintsDirty,
+        selectedHintId,
+        statusMessage: error?.message || 'Unable to remove hints.',
+      });
+    } finally {
+      setIsSavingHints(false);
+    }
+  };
+
+  const saveTimelineHints = async () => {
+    if (typeof updateSessionHints !== 'function') {
+      setHintsStatusMessage('Unable to save hints in this session.');
+      return;
+    }
+
+    setIsSavingHints(true);
+    setHintsStatusMessage('');
+
+    try {
+      const hintsToSave = getPersistableHints();
+      const response = await updateSessionHints(hintsToSave);
+      if (!response?.success) {
+        throw response?.error || new Error('Unable to save hints.');
+      }
+
+      const serverHints = Array.isArray(response.serverHints)
+        ? response.serverHints
+        : hintsToSave;
+      replaceHintDrafts(serverHints, {
+        dirty: false,
+        selectedHintId,
+        statusMessage: 'Hints saved.',
+      });
+    } catch (error) {
+      setHintsStatusMessage(error?.message || 'Unable to save hints.');
+    } finally {
+      setIsSavingHints(false);
+    }
+  };
+
 
   const handleVolumeChangeHandler = (e, trackId) => {
     const newVolume = parseFloat(e.target.value);
@@ -3141,22 +3671,33 @@ export default function FrameToolbar(props) {
   };
 
 
-  const onUpdateAllAudioLayers = async () => {
-    // We’re about to send the entire array:
-    const response = await updateAllAudioLayersOneShot(audioTrackListDisplay);
-    if (response.success) {
-      // The server accepted the changes and returned 
-      // the “official” updated audio layer objects:
-      const officialLayers = response.serverLayers;
-      // We can now re-initialize local state to match 
-      // the server's final version. (No longer dirty.)
-      const merged = officialLayers.map((layer) => ({
-        ...layer,
-        isDirty: false,
-      }));
-      setAudioTrackListDisplay(merged);
+  const onUpdateAllAudioLayers = async (nextAudioTrackListDisplay = audioTrackListDisplay) => {
+    const normalAudioTracks = nextAudioTrackListDisplay
+      .filter((audioTrack) => !audioTrack.isGlobalAudioLayer)
+      .map(stripAudioTrackDisplayState);
+    const globalAudioTracks = nextAudioTrackListDisplay
+      .filter((audioTrack) => audioTrack.isGlobalAudioLayer)
+      .map(stripAudioTrackDisplayState);
+
+    const normalResponse = typeof updateAllAudioLayersOneShot === 'function'
+      ? await updateAllAudioLayersOneShot(normalAudioTracks)
+      : { success: true, serverLayers: normalAudioTracks };
+    const globalResponse = typeof updateGlobalAudioLayers === 'function'
+      ? await updateGlobalAudioLayers(globalAudioTracks)
+      : { success: true, serverGlobalAudioLayers: globalAudioTracks };
+
+    if (normalResponse.success && globalResponse.success) {
+      const officialLayers = Array.isArray(normalResponse.serverLayers)
+        ? normalResponse.serverLayers
+        : normalAudioTracks;
+      const officialGlobalLayers = Array.isArray(globalResponse.serverGlobalAudioLayers)
+        ? globalResponse.serverGlobalAudioLayers
+        : globalAudioTracks;
+      setAudioTrackListDisplay([
+        ...officialLayers.map((layer) => buildAudioTrackDisplayItem(layer, false, selectedAudioTrackId)),
+        ...officialGlobalLayers.map((layer) => buildAudioTrackDisplayItem(layer, true, selectedAudioTrackId)),
+      ]);
     } else {
-      
       alert("Failed to update! See console.");
     }
   };
@@ -3179,10 +3720,29 @@ export default function FrameToolbar(props) {
     }
   };
 
+  const removeSelectedAudioTrack = async () => {
+    if (!selectedAudioTrack) {
+      return;
+    }
+
+    if (!selectedAudioTrack.isGlobalAudioLayer) {
+      removeAudioLayer(selectedAudioTrack);
+      return;
+    }
+
+    const selectedTrackId = resolveAudioTrackId(selectedAudioTrack);
+    const nextAudioTrackListDisplay = audioTrackListDisplay.filter((audioTrack) => {
+      const trackId = resolveAudioTrackId(audioTrack);
+      return !trackId || !selectedTrackId || trackId.toString() !== selectedTrackId.toString();
+    });
+    setAudioTrackListDisplay(nextAudioTrackListDisplay);
+    await onUpdateAllAudioLayers(nextAudioTrackListDisplay);
+  };
+
 
 
   const showSelectedAudioTrack = () => {
-    const hasAudioLayers = audioTrackListDisplay.length > 0;
+    const hasAudioLayers = visibleAudioTrackListDisplay.length > 0;
     const manualVolumeAdjustmentEnabled = Boolean(selectedAudioTrack?.manualVolumeAdjustmentEnabled);
     const selectedPointLabel = selectedAudioVolumePoint
       ? (selectedAudioVolumePoint.kind === 'start'
@@ -3232,7 +3792,7 @@ export default function FrameToolbar(props) {
       : (colorMode === 'light' ? 'bg-slate-300' : 'bg-slate-600');
     const audioStatusTitle = dirtyCount > 0
       ? `${dirtyCount} audio update${dirtyCount === 1 ? '' : 's'} pending`
-      : 'Audio workspace';
+      : `${audioLayerView === 'global' ? 'Global' : 'Layer'} audio workspace`;
     const metadataLabelClassName =
       colorMode === 'light'
         ? 'text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500'
@@ -3267,9 +3827,35 @@ export default function FrameToolbar(props) {
           ? removeButtonClassName
           : promptCopyButtonClassName;
     const primaryAudioMetadataItem = selectedAudioTrackMetadata[0];
+    const audioViewButtonClassName = (viewName) => `${pillBaseClassName} ${
+      audioLayerView === viewName ? activePillClassName : secondarySurfaceClassName
+    }`;
 
     return (
       <div className={`flex w-full max-w-full flex-col gap-1 overflow-hidden rounded-xl px-1.5 py-1 ${audioToolbarSurface}`}>
+        <div className='flex min-w-0 flex-wrap items-center justify-between gap-1'>
+          <div className='inline-flex min-w-0 items-center gap-1'>
+            <button
+              type="button"
+              className={audioViewButtonClassName('layer')}
+              onClick={() => setAudioLayerView('layer')}
+              aria-pressed={audioLayerView === 'layer'}
+            >
+              Layer audio
+            </button>
+            <button
+              type="button"
+              className={audioViewButtonClassName('global')}
+              onClick={() => setAudioLayerView('global')}
+              aria-pressed={audioLayerView === 'global'}
+            >
+              Global audio
+            </button>
+          </div>
+          <div className={`${metadataLabelClassName} shrink-0`}>
+            {visibleAudioTrackListDisplay.length} track{visibleAudioTrackListDisplay.length === 1 ? '' : 's'}
+          </div>
+        </div>
         <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_74px_74px_58px_66px_26px_26px_26px] items-center gap-1 overflow-hidden'>
           <div
             className={audioTileClassName}
@@ -3366,7 +3952,7 @@ export default function FrameToolbar(props) {
               title="Remove audio layer"
               aria-label="Remove audio layer"
               className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition ${removeButtonClassName}`}
-              onClick={() => removeAudioLayer(selectedAudioTrack)}
+              onClick={removeSelectedAudioTrack}
             >
               <FaTimes />
             </button>
@@ -3507,7 +4093,7 @@ export default function FrameToolbar(props) {
                   >
                     Spec
                   </button>
-                  {audioTrackListDisplay.map((audioTrack, index) => {
+                  {visibleAudioTrackListDisplay.map((audioTrack, index) => {
                     const trackId = resolveAudioTrackId(audioTrack);
                     if (!trackId) {
                       return null;
@@ -3778,8 +4364,8 @@ export default function FrameToolbar(props) {
 
   }
 
-  const viewRangeStart = selectedFrameRange?.[0] ?? 0;
-  const viewRangeEnd = selectedFrameRange?.[1] ?? 0;
+  const viewRangeStart = timelineDisplayFrameRange?.[0] ?? 0;
+  const viewRangeEnd = timelineDisplayFrameRange?.[1] ?? 0;
   const hasValidViewRange =
     Number.isFinite(viewRangeStart) &&
     Number.isFinite(viewRangeEnd) &&
@@ -4017,6 +4603,9 @@ export default function FrameToolbar(props) {
 
     setSelectedLayerIndex(originalIndex);
     setSelectedLayer(layer);
+    if (currentLayerActionSuperView === 'HINTS') {
+      setSelectedHintLayerId(nextLayerId);
+    }
     if (Number.isFinite(nextLayerSeekFrame)) {
       setCurrentLayerSeek(nextLayerSeekFrame);
     }
@@ -4039,12 +4628,12 @@ export default function FrameToolbar(props) {
       const parentHeight = parentRef.current ? parentRef.current.clientHeight : 500; // Default height if null
       const layerHeightsInPixels = keyPrefix === 'current'
         ? visibleLayerPixelLayout.layerHeightsInPixels
-        : buildLayerPixelLayout(
-          layersToRender,
-          visibleLayerDurationFramesById,
-          parentHeight,
-          DISPLAY_FRAMES_PER_SECOND,
-        ).layerHeightsInPixels;
+          : buildLayerPixelLayout(
+            layersToRender,
+            visibleLayerDurationFramesById,
+            parentHeight,
+            DISPLAY_FRAMES_PER_SECOND,
+          ).layerHeightsInPixels;
 
       return layersToRender.map((layer, index) => {
         const originalIndex = layers.findIndex((l) => l._id === layer._id);
@@ -4674,12 +5263,16 @@ export default function FrameToolbar(props) {
     const [visibleStartFrame, visibleEndFrame] = displayedFrameRange;
 
     // Filter audio tracks within the visible range
-    const visibleAudioLayers = audioTrackListDisplay.filter((audioTrack) => {
+    const visibleAudioLayers = visibleAudioTrackListDisplay.filter((audioTrack) => {
       const { startFrame: audioStartFrame, endFrame: audioEndFrame } =
         getAudioTrackFrameBounds(audioTrack, DISPLAY_FRAMES_PER_SECOND);
       const connectedLayerId = resolveAudioTrackConnectedLayerId(audioTrack);
 
-      if (connectedLayerId && !displayedVisibleLayerIdSet.has(connectedLayerId.toString())) {
+      if (
+        audioLayerView === 'layer'
+        && connectedLayerId
+        && !displayedVisibleLayerIdSet.has(connectedLayerId.toString())
+      ) {
         return false;
       }
 
@@ -4703,7 +5296,7 @@ export default function FrameToolbar(props) {
       let isEndVisible = audioEndFrame <= visibleEndFrame;
 
       return <AudioTrackSlider
-        key={audioTrack._id}
+        key={`${audioTrack.isGlobalAudioLayer ? 'global' : 'audio'}_${audioTrackId || audioTrack._id}`}
         audioTrack={audioTrack}
         onUpdate={updateAudioLayerFromSlider}
         selectedFrameRange={displayedFrameRange}
@@ -4882,6 +5475,180 @@ export default function FrameToolbar(props) {
         >
           Remove
         </button>
+      </div>
+    );
+  };
+
+  const showAddedHintTracks = () => {
+    const [visibleStartFrame, visibleEndFrame] = timelineDisplayFrameRange;
+    const visibleHintTracks = timelineHintsDraft.filter((hint) => (
+      hint.endFrame >= visibleStartFrame
+      && hint.startFrame <= visibleEndFrame
+    ));
+
+    if (visibleHintTracks.length === 0) {
+      return (
+        <div className="flex items-start px-3 py-4 text-[11px] text-slate-400">
+          No hints in the visible range.
+        </div>
+      );
+    }
+
+    return visibleHintTracks.map((hint) => {
+      const isStartVisible = hint.startFrame >= visibleStartFrame;
+      const isEndVisible = hint.endFrame <= visibleEndFrame;
+
+      return (
+        <HintTrackDisplay
+          key={hint.trackKey || hint.id}
+          hint={hint}
+          selectedFrameRange={timelineDisplayFrameRange}
+          isStartVisible={isStartVisible}
+          isEndVisible={isEndVisible}
+          isDisplaySelected={selectedHintId === hint.id}
+          setHintTrackDisplayAsSelected={setHintTrackDisplayAsSelected}
+          onUpdate={updateHintFromSlider}
+        />
+      );
+    });
+  };
+
+  const showSelectedHintTrack = () => {
+    const inputClassName = 'h-8 w-20 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs';
+    const labelClassName = 'flex flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-400';
+    const selectedLayerLabel = selectedHintLayerData && selectedHintLayerIndex >= 0
+      ? `Scene ${selectedHintLayerIndex + 1}`
+      : 'No scene selected';
+
+    return (
+      <div className="flex flex-wrap items-end gap-2 px-2 py-2 text-xs">
+        <button
+          type="button"
+          onClick={importHintsFromTranscripts}
+          disabled={isSavingHints}
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-500/40 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50"
+        >
+          <FaDownload aria-hidden="true" />
+          Import speech transcript hints
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowAddHintForm((value) => !value);
+            if (!selectedHintLayerId && selectedLayerId) {
+              setSelectedHintLayerId(selectedLayerId);
+            }
+            setHintsStatusMessage('');
+          }}
+          disabled={!selectedHintLayerData || isSavingHints}
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-cyan-500/50 px-3 text-xs font-semibold text-cyan-200 disabled:opacity-50"
+          title={selectedLayerLabel}
+        >
+          <FaPlus aria-hidden="true" />
+          Add hint
+        </button>
+        <button
+          type="button"
+          onClick={saveTimelineHints}
+          disabled={!hintsDirty || isSavingHints || typeof updateSessionHints !== 'function'}
+          className="inline-flex h-8 items-center rounded-md border border-emerald-500/50 px-3 text-xs font-semibold text-emerald-200 disabled:opacity-50"
+        >
+          {isSavingHints ? 'Saving' : 'Save'}
+        </button>
+        <button
+          type="button"
+          onClick={deleteSelectedHint}
+          disabled={isSavingHints || (!selectedHintTrack && !selectedHintId)}
+          className="inline-flex h-8 items-center rounded-md border border-red-500/50 px-3 text-xs font-semibold text-red-300 disabled:opacity-50"
+        >
+          Remove selected
+        </button>
+        <button
+          type="button"
+          onClick={removeAllHints}
+          disabled={timelineHintsDraft.length === 0 || isSavingHints}
+          className="inline-flex h-8 items-center rounded-md border border-red-500/60 px-3 text-xs font-semibold text-red-200 disabled:opacity-50"
+        >
+          Remove all hints
+        </button>
+
+        {showAddHintForm && (
+          <div className="flex min-w-[260px] flex-1 items-end gap-2 rounded-md border border-slate-500/30 px-2 py-2">
+            <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-400">
+              <span>{selectedLayerLabel}</span>
+              <textarea
+                rows={2}
+                value={newHintText}
+                onChange={(event) => setNewHintText(event.target.value)}
+                className="min-h-[42px] rounded-md border border-slate-500/40 bg-transparent px-2 py-1 text-xs normal-case tracking-normal text-slate-100"
+                placeholder="Hint text"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={addHintFromSelectedLayer}
+              disabled={isSavingHints}
+              className="inline-flex h-8 items-center rounded-md border border-cyan-500/50 px-3 text-xs font-semibold text-cyan-200 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+        )}
+
+        {selectedHintTrack ? (
+          <>
+            <label className={`${labelClassName} min-w-[220px] flex-1`}>
+              <span>Hint</span>
+              <input
+                type="text"
+                value={selectedHintTrack.text || ''}
+                onChange={(event) => updateSelectedHintText(event.target.value)}
+                className="h-8 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs normal-case tracking-normal"
+              />
+            </label>
+            <label className={labelClassName}>
+              <span>Start</span>
+              <input
+                type="number"
+                step="0.1"
+                value={Number(selectedHintTrack.startTime || 0).toFixed(1)}
+                onChange={(event) => updateSelectedHintNumber('startTime', event.target.value)}
+                className={inputClassName}
+              />
+            </label>
+            <label className={labelClassName}>
+              <span>End</span>
+              <input
+                type="number"
+                step="0.1"
+                value={Number(selectedHintTrack.endTime || 0).toFixed(1)}
+                onChange={(event) => updateSelectedHintNumber('endTime', event.target.value)}
+                className={inputClassName}
+              />
+            </label>
+            <label className={labelClassName}>
+              <span>Duration</span>
+              <input
+                type="number"
+                step="0.1"
+                value={Number(selectedHintTrack.duration || 0).toFixed(1)}
+                onChange={(event) => updateSelectedHintNumber('duration', event.target.value)}
+                className={inputClassName}
+              />
+            </label>
+          </>
+        ) : (
+          <div className="inline-flex h-8 items-center gap-2 text-[11px] text-slate-400">
+            <FaLightbulb aria-hidden="true" />
+            Select a hint track to edit text or timing.
+          </div>
+        )}
+
+        {hintsStatusMessage ? (
+          <div className="inline-flex h-8 items-center text-[11px] text-slate-400">
+            {hintsStatusMessage}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -5225,7 +5992,7 @@ export default function FrameToolbar(props) {
     frameToolbarInsetStyle.top = '0px';
     frameToolbarInsetStyle.width = 'clamp(420px, 44vw, 720px)';
     frameToolbarInsetStyle.maxWidth = 'calc(100vw - 32px)';
-    containerWdidth = 'z-[102]';
+    containerWdidth = 'z-[1210]';
   } else {
     frameToolbarInsetStyle.width = collapsedToolbarWidth;
   }
@@ -5273,6 +6040,14 @@ export default function FrameToolbar(props) {
         </div>
       );
       selectedTrackViewDisplay = showSelectedTextTrack();
+    }
+    if (currentLayerActionSuperView === 'HINTS') {
+      trackViewDisplay = (
+        <div className='text-track-container'>
+          {showAddedHintTracks()}
+        </div>
+      );
+      selectedTrackViewDisplay = showSelectedHintTrack();
     }
   }
 
@@ -6182,6 +6957,10 @@ export default function FrameToolbar(props) {
       ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
       : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
+    const hintsTabClassName = `${currentLayerActionSuperView === 'HINTS'
+      ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
+      : 'bg-gray-700/80 text-gray-300'
+      } ${baseTabClassName}`;
     const settingsTabClassName = `${currentLayerActionSuperView === 'SETTINGS'
       ? 'bg-gradient-to-r from-gray-900 via-emerald-900 to-gray-900 text-white'
       : 'bg-gray-700/80 text-gray-300'
@@ -6221,6 +7000,12 @@ export default function FrameToolbar(props) {
           onClick={() => setCurrentLayerActionSuperView('TEXT')}
         >
           <div>Text</div>
+        </div>
+        <div
+          className={hintsTabClassName}
+          onClick={() => setCurrentLayerActionSuperView('HINTS')}
+        >
+          <div>Hints</div>
         </div>
         <div
           className={settingsTabClassName}
@@ -6345,7 +7130,7 @@ export default function FrameToolbar(props) {
             </div>
           )}
 
-          <div className='relative z-[6] text-xs font-bold basis-1/4 min-h-0'>
+          <div className='relative z-[6] min-h-0 min-w-[88px] shrink-0 basis-1/4 text-xs font-bold'>
             <div className='relative h-full min-h-0'>
               {/* Previous and Next buttons */}
               <div className='relative h-full min-h-0 w-full overflow-visible' ref={parentRef}>
@@ -6354,8 +7139,8 @@ export default function FrameToolbar(props) {
               </div>
             </div>
           </div>
-          <div className='relative z-[2] basis-3/4 min-h-0'>
-            <div className='flex flex-row h-full min-h-0'>
+          <div className='relative z-[2] min-h-0 min-w-0 flex-1 basis-0'>
+            <div className='flex h-full min-h-0 min-w-0 flex-row'>
 	              <div className={`inline-flex h-full min-h-0 ${trackSliderML}`}>
                 {hasUsableFrameRange ? (
                   <ReactSlider

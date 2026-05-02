@@ -2338,6 +2338,37 @@ export default function VideoEditorContainer(props) {
     });
   };
 
+  const requestAddGlobalAudioLayerFromLibrary = (audioItem, addConfig = {}) => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    const payload = {
+      sessionId: id,
+      audioItem,
+      ...addConfig,
+    };
+    return axios.post(`${PROCESSOR_API_URL}/video_sessions/add_global_audio_from_library`, payload, headers).then((dataRes) => {
+      const response = dataRes.data;
+      const sessionDetails = response.sessionDetails;
+      if (sessionDetails) {
+        setVideoSessionDetails(sessionDetails);
+        setAudioLayers(sessionDetails.audioLayers || []);
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioAddedToProject")}
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+        resetImageLibrary();
+      }
+    });
+  };
+
   // Add selected video to layer
   const addSelectedAiVideoToLayer = (payload) => {
     setIsSelectButtonDisabled(true);
@@ -3086,6 +3117,7 @@ export default function VideoEditorContainer(props) {
       aspectRatio={aspectRatio}
       setAdvancedSessionTheme={setAdvancedSessionTheme}
       requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
+      requestAddGlobalAudioLayerFromLibrary={requestAddGlobalAudioLayerFromLibrary}
       currentLayerSeek={currentLayerSeek}
       setCurrentLayerSeek={setCurrentLayerSeek}
       isVideoPreviewPlaying={isVideoPreviewPlaying}

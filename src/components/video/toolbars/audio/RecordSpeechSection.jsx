@@ -2,10 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
-  FaCompress,
-  FaExpand,
-  FaFileUpload,
   FaHome,
+  FaLightbulb,
+  FaCircle,
   FaMicrophone,
   FaPause,
   FaPlay,
@@ -16,6 +15,7 @@ import {
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { getHeaders } from '../../../../utils/web';
+import { normalizeTimelineHints } from '../../../../utils/sessionTimelineText.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DISPLAY_FRAMES_PER_SECOND = 30;
@@ -98,6 +98,32 @@ function resolveLayerStartTime(currentLayer = {}) {
   return Number.isFinite(layerStartTime) && layerStartTime >= 0 ? layerStartTime : 0;
 }
 
+function resolveSessionDuration(sessionDetails = {}, latestHintEndTime = 0) {
+  const explicitDuration = Number(sessionDetails?.totalDuration ?? sessionDetails?.duration);
+  const layerDuration = Array.isArray(sessionDetails?.layers)
+    ? sessionDetails.layers.reduce((durationTotal, layer) => (
+      durationTotal + Math.max(0, Number(layer?.duration) || 0)
+    ), 0)
+    : 0;
+
+  return Math.max(
+    Number.isFinite(explicitDuration) && explicitDuration > 0 ? explicitDuration : 0,
+    layerDuration,
+    Number.isFinite(latestHintEndTime) ? latestHintEndTime : 0,
+    1
+  );
+}
+
+function getHintCueKey(hintCue = {}) {
+  return hintCue?.id || `${hintCue.startTime}-${hintCue.endTime}-${hintCue.text}`;
+}
+
+function calculateHintProgressPercent(intervalStartTime, targetStartTime, currentTime) {
+  const intervalDuration = Math.max(0.001, targetStartTime - intervalStartTime);
+  const elapsed = Math.max(0, currentTime - intervalStartTime);
+  return Math.max(0, Math.min(100, (elapsed / intervalDuration) * 100));
+}
+
 function resolveBlobDuration(blobUrl) {
   return new Promise((resolve) => {
     if (!blobUrl) {
@@ -134,56 +160,6 @@ function resolveVideoBlobDuration(blobUrl) {
   });
 }
 
-function parseTranscriptTimestamp(value = '') {
-  const normalizedValue = value.trim().replace(',', '.');
-  if (!normalizedValue) {
-    return null;
-  }
-
-  const parts = normalizedValue.split(':').map((part) => part.trim());
-  if (parts.length < 2 || parts.length > 3) {
-    const seconds = Number(normalizedValue);
-    return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
-  }
-
-  const seconds = Number(parts.pop());
-  const minutes = Number(parts.pop());
-  const hours = parts.length > 0 ? Number(parts.pop()) : 0;
-
-  if (![seconds, minutes, hours].every((part) => Number.isFinite(part) && part >= 0)) {
-    return null;
-  }
-
-  return (hours * 3600) + (minutes * 60) + seconds;
-}
-
-function parseTimestampedTranscript(text = '') {
-  return text
-    .split(/\r?\n/)
-    .map((line) => {
-      const match = line.match(/^\s*\[([^\]]+?)\s*(?:-->|-)\s*([^\]]+?)\]\s*(.+?)\s*$/);
-      if (!match) {
-        return null;
-      }
-
-      const startTime = parseTranscriptTimestamp(match[1]);
-      const endTime = parseTranscriptTimestamp(match[2]);
-      const cueText = match[3].trim();
-
-      if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime || !cueText) {
-        return null;
-      }
-
-      return {
-        startTime,
-        endTime,
-        text: cueText,
-      };
-    })
-    .filter(Boolean)
-    .sort((leftCue, rightCue) => leftCue.startTime - rightCue.startTime);
-}
-
 function logRecordSpeechDebug(message, payload = {}) {
   if (!DEBUG_RECORD_SPEECH || typeof console === 'undefined') {
     return;
@@ -207,6 +183,7 @@ export default function RecordSpeechSection({
   currentLayer,
   sessionDetails,
   requestAddAudioLayerFromLibrary,
+  requestAddGlobalAudioLayerFromLibrary,
   currentLayerSeek,
   setCurrentLayerSeek,
   isVideoPreviewPlaying,
@@ -228,14 +205,11 @@ export default function RecordSpeechSection({
   const [isUploadPending, setIsUploadPending] = useState(false);
   const [level, setLevel] = useState(0);
   const [isImmersiveActive, setIsImmersiveActive] = useState(false);
-  const [transcriptCues, setTranscriptCues] = useState([]);
-  const [transcriptFileName, setTranscriptFileName] = useState('');
-  const [transcriptError, setTranscriptError] = useState('');
+  const [hintsEnabled, setHintsEnabled] = useState(false);
   const [hasAddedToSession, setHasAddedToSession] = useState(false);
   const [recordingPreviewStartSeconds, setRecordingPreviewStartSeconds] = useState(null);
   const [isRecordingPreviewActive, setIsRecordingPreviewActive] = useState(false);
-  const [helperPreviewTime, setHelperPreviewTime] = useState(null);
-  const [facecamAction, setFacecamAction] = useState('audio_only');
+  const [recordMode, setRecordMode] = useState('audio');
   const [cameraDevices, setCameraDevices] = useState([]);
   const [selectedCameraId, setSelectedCameraId] = useState('');
   const [facecamShapeOverlay, setFacecamShapeOverlay] = useState('circle');
@@ -262,14 +236,10 @@ export default function RecordSpeechSection({
   const chunkFlushTimerRef = useRef(null);
   const levelTimerRef = useRef(null);
   const levelSamplesRef = useRef(null);
-  const helperPreviewTimerRef = useRef(null);
-  const helperPreviewStartedAtRef = useRef(0);
-  const helperPreviewBaseTimeRef = useRef(0);
   const previewAudioRef = useRef(null);
   const facecamPreviewRef = useRef(null);
   const recordingUrlRef = useRef('');
   const facecamUrlRef = useRef('');
-  const transcriptInputRef = useRef(null);
   const discardStoppedRecordingRef = useRef(false);
   const recorderStopReasonRef = useRef('idle');
   const currentLayerSeekRef = useRef(0);
@@ -289,15 +259,16 @@ export default function RecordSpeechSection({
   const currentLayerStartTime = resolveLayerStartTime(currentLayer);
   const currentPreviewTime = Math.max(0, (Number(currentLayerSeek) || 0) / DISPLAY_FRAMES_PER_SECOND);
   const facecamFramesPerSecond = Number(sessionDetails?.framesPerSecond) === 30 ? 30 : 16;
-  const effectivePreviewTime = Number.isFinite(Number(helperPreviewTime))
-    ? Number(helperPreviewTime)
-    : currentPreviewTime;
+  const hintTimelineTime = currentPreviewTime;
   const canUseRecorder = typeof navigator !== 'undefined'
     && Boolean(navigator.mediaDevices?.getUserMedia)
     && typeof MediaRecorder !== 'undefined';
   const hasRecording = Boolean(recordingBlob && recordingUrl);
   const hasFacecamRecording = Boolean(facecamBlob && facecamUrl);
-  const shouldRecordFacecam = facecamAction === 'record_facecam';
+  const normalizedRecordMode = ['audio_video', 'facecam_audio', 'record_facecam'].includes(recordMode)
+    ? 'audio_video'
+    : 'audio';
+  const shouldRecordFacecam = normalizedRecordMode === 'audio_video';
   const hasCurrentLayer = Boolean(currentLayer?._id || currentLayer?.id);
   const resolvedRecordingDuration = Number.isFinite(Number(recordingDuration)) && Number(recordingDuration) > 0
     ? Number(recordingDuration)
@@ -310,51 +281,107 @@ export default function RecordSpeechSection({
     const selectedCamera = cameraDevices.find((device) => device.deviceId === selectedCameraId);
     return selectedCamera?.label || 'Default camera';
   }, [cameraDevices, selectedCameraId]);
-  const transcriptCandidateTimes = useMemo(() => {
-    const candidates = [
-      { source: 'sessionTime', value: effectivePreviewTime },
-    ];
-    if (currentLayerStartTime > 0 && effectivePreviewTime < currentLayerStartTime) {
-      candidates.push({
-        source: 'durationOffsetAdjustedTime',
-        value: effectivePreviewTime + currentLayerStartTime,
-      });
-    }
-
-    const seenTimes = new Set();
-    return candidates
-      .filter(({ value }) => Number.isFinite(value))
-      .filter(({ value }) => {
-        const roundedValue = Math.round(value * 1000) / 1000;
-        if (seenTimes.has(roundedValue)) {
-          return false;
-        }
-        seenTimes.add(roundedValue);
-        return true;
-      });
-  }, [
-    currentLayerStartTime,
-    effectivePreviewTime,
+  const speechHintCues = useMemo(() => normalizeTimelineHints(
+    sessionDetails?.timelineHints || sessionDetails?.hints || []
+  ), [sessionDetails?.hints, sessionDetails?.timelineHints]);
+  const latestHintEndTime = useMemo(() => (
+    speechHintCues.reduce((latestEndTime, hintCue) => (
+      Math.max(latestEndTime, Number(hintCue?.endTime) || 0)
+    ), 0)
+  ), [speechHintCues]);
+  const sessionDuration = useMemo(() => resolveSessionDuration(
+    sessionDetails,
+    latestHintEndTime
+  ), [
+    latestHintEndTime,
+    sessionDetails,
   ]);
+  const globalRemainingSeconds = Math.max(0, sessionDuration - hintTimelineTime);
   const activeTranscriptCue = useMemo(() => {
-    if (!isImmersiveActive || transcriptCues.length === 0) {
+    if (!hintsEnabled || speechHintCues.length === 0) {
       return null;
     }
 
-    return transcriptCandidateTimes
-      .map(({ source, value }) => {
-        const cue = transcriptCues.find((candidateCue) => (
-          value >= candidateCue.startTime && value < candidateCue.endTime
-        ));
-        return cue ? { ...cue, matchSource: source, matchTime: value } : null;
-      })
-      .find(Boolean) || null;
-  }, [
-    isImmersiveActive,
-    transcriptCandidateTimes,
-    transcriptCues,
-  ]);
+    const resolvedTime = Math.max(0, Number(hintTimelineTime) || 0);
+    const timeTolerance = 0.001;
+    let activeCue = null;
 
+    for (const candidateCue of speechHintCues) {
+      const cueStartTime = Number(candidateCue?.startTime);
+      if (!Number.isFinite(cueStartTime)) {
+        continue;
+      }
+      if (cueStartTime > resolvedTime + timeTolerance) {
+        break;
+      }
+      activeCue = candidateCue;
+    }
+
+    if (!activeCue) {
+      return null;
+    }
+
+    const activeCueStartTime = Number(activeCue.startTime);
+    const nextCue = speechHintCues.find((candidateCue) => (
+      Number(candidateCue?.startTime) > activeCueStartTime + timeTolerance
+    ));
+    const finalCueEndTime = Number(activeCue.endTime);
+    if (!nextCue && Number.isFinite(finalCueEndTime) && resolvedTime >= finalCueEndTime + 0.05) {
+      return null;
+    }
+
+    return activeCue;
+  }, [
+    hintTimelineTime,
+    hintsEnabled,
+    speechHintCues,
+  ]);
+  const hintProgressWindow = useMemo(() => {
+    if (!hintsEnabled || speechHintCues.length === 0) {
+      return null;
+    }
+
+    const resolvedTime = Math.max(0, Number(hintTimelineTime) || 0);
+    const timeTolerance = 0.001;
+    const nextHint = speechHintCues.find((hintCue) => (
+      Number(hintCue?.startTime) > resolvedTime + timeTolerance
+    )) || null;
+
+    if (!nextHint) {
+      return null;
+    }
+
+    const targetStartTime = Math.max(0, Number(nextHint.startTime) || 0);
+    const currentHint = [...speechHintCues]
+      .reverse()
+      .find((hintCue) => (
+        Number(hintCue?.startTime) <= resolvedTime + timeTolerance
+        && Number(hintCue?.startTime) < targetStartTime
+      ));
+    const fallbackStartTime = Number.isFinite(Number(recordingPreviewStartSeconds))
+      ? Number(recordingPreviewStartSeconds)
+      : currentLayerStartTime;
+    const intervalStartTime = Math.min(
+      targetStartTime - 0.001,
+      Math.max(0, Number(currentHint?.startTime ?? fallbackStartTime) || 0)
+    );
+
+    return {
+      targetKey: getHintCueKey(nextHint),
+      targetHint: nextHint,
+      currentHint,
+      targetStartTime,
+      intervalStartTime,
+      progressPercent: calculateHintProgressPercent(intervalStartTime, targetStartTime, resolvedTime),
+      remainingSeconds: Math.max(0, targetStartTime - resolvedTime),
+    };
+  }, [
+    currentLayerStartTime,
+    hintTimelineTime,
+    hintsEnabled,
+    recordingPreviewStartSeconds,
+    speechHintCues,
+  ]);
   const refreshMicrophones = async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
       return;
@@ -469,9 +496,6 @@ export default function RecordSpeechSection({
       if (levelTimerRef.current) {
         window.clearTimeout(levelTimerRef.current);
       }
-      if (helperPreviewTimerRef.current) {
-        window.clearInterval(helperPreviewTimerRef.current);
-      }
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
       }
@@ -494,30 +518,6 @@ export default function RecordSpeechSection({
       window.clearInterval(chunkFlushTimerRef.current);
       chunkFlushTimerRef.current = null;
     }
-  };
-
-  const stopHelperPreviewClock = () => {
-    if (helperPreviewTimerRef.current) {
-      window.clearInterval(helperPreviewTimerRef.current);
-      helperPreviewTimerRef.current = null;
-    }
-  };
-
-  const startHelperPreviewClock = (baseTime = currentPreviewTime) => {
-    const resolvedBaseTime = Math.max(0, Number(baseTime) || 0);
-    helperPreviewBaseTimeRef.current = resolvedBaseTime;
-    helperPreviewStartedAtRef.current = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    setHelperPreviewTime(resolvedBaseTime);
-    if (helperPreviewTimerRef.current) {
-      return;
-    }
-
-    helperPreviewTimerRef.current = window.setInterval(() => {
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      setHelperPreviewTime(
-        helperPreviewBaseTimeRef.current + ((now - helperPreviewStartedAtRef.current) / 1000)
-      );
-    }, 250);
   };
 
   const stopRecorderStream = () => {
@@ -707,8 +707,6 @@ export default function RecordSpeechSection({
     setRecordingSeconds(0);
     if (!preserveRecordingPreview) {
       recordingStartTimeRef.current = null;
-      stopHelperPreviewClock();
-      setHelperPreviewTime(null);
       setRecordingPreviewStartSeconds(null);
       setIsRecordingPreviewActive(false);
     }
@@ -887,10 +885,9 @@ export default function RecordSpeechSection({
     mediaRecorderRef.current.stop();
     stopFacecamRecording({ discard });
     isRecordingRef.current = false;
-    if (isImmersiveActive && typeof setIsVideoPreviewPlaying === 'function') {
-      setIsRecordingPreviewActive(false);
-      stopHelperPreviewClock();
-      setHelperPreviewTime(null);
+    if (isImmersiveActive || isImmersiveActiveRef.current) {
+      exitImmersiveView();
+    } else if (typeof setIsVideoPreviewPlaying === 'function') {
       setIsVideoPreviewPlaying(false);
     }
   };
@@ -947,7 +944,7 @@ export default function RecordSpeechSection({
         sessionId: sessionDetails._id.toString(),
         dataURL,
         fileName: `recorded-speech.${extension}`,
-        generationType: 'custom_speech',
+        generationType: 'recorded_speech',
         libraryType: 'speech',
         title: 'Recorded speech',
         speakerCharacterName: 'Recorded speech',
@@ -1063,11 +1060,23 @@ export default function RecordSpeechSection({
       }
     }
 
-    await requestAddAudioLayerFromLibrary(uploadedItem, {
+    const addRecordedAudioLayer = typeof requestAddGlobalAudioLayerFromLibrary === 'function'
+      ? requestAddGlobalAudioLayerFromLibrary
+      : requestAddAudioLayerFromLibrary;
+    const uploadedDuration = Number(uploadedItem.duration);
+    const recordedDuration = Number(resolvedRecordingDuration);
+    const sessionRecordingDuration = Number.isFinite(uploadedDuration) && uploadedDuration > 0
+      ? uploadedDuration
+      : Number.isFinite(recordedDuration) && recordedDuration > 0
+        ? recordedDuration
+        : 1;
+
+    await addRecordedAudioLayer(uploadedItem, {
       startTime: Number.isFinite(Number(recordingStartTimeRef.current))
         ? Number(recordingStartTimeRef.current)
         : currentLayerStartTime,
-      duration: resolvedRecordingDuration || uploadedItem.duration || 1,
+      duration: sessionRecordingDuration,
+      recordedDuration: sessionRecordingDuration,
       volume: Number(micVolume) || 100,
       addSubtitles: false,
       audioBindingMode: 'unbounded',
@@ -1102,57 +1111,6 @@ export default function RecordSpeechSection({
     resetRecording();
   };
 
-  const handleTranscriptUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    setTranscriptError('');
-    logRecordSpeechDebug('transcript upload selected', {
-      fileName: file.name,
-      size: file.size,
-      type: file.type,
-      isImmersiveActive,
-    });
-
-    try {
-      const text = await file.text();
-      const parsedCues = parseTimestampedTranscript(text);
-      if (parsedCues.length === 0) {
-        throw new Error('No timestamped transcript cues found.');
-      }
-
-      setTranscriptCues(parsedCues);
-      setTranscriptFileName(file.name);
-      logRecordSpeechDebug('transcript parsed', {
-        fileName: file.name,
-        cues: parsedCues.length,
-        firstCue: parsedCues[0],
-        lastCue: parsedCues[parsedCues.length - 1],
-      });
-    } catch (error) {
-      setTranscriptCues([]);
-      setTranscriptFileName('');
-      setTranscriptError(error?.message || 'Unable to read transcript file.');
-      warnRecordSpeech('transcript parse failed', {
-        fileName: file.name,
-        error: error?.message || String(error),
-      });
-    } finally {
-      event.target.value = '';
-    }
-  };
-
-  const openTranscriptUpload = () => {
-    logRecordSpeechDebug('transcript upload button clicked', {
-      isImmersiveActive,
-      isRecording,
-      isVideoPreviewPlaying,
-    });
-    transcriptInputRef.current?.click();
-  };
-
   const resolveCurrentSeekFrame = () => {
     const currentSeekFrame = Number(currentLayerSeekRef.current);
     if (Number.isFinite(currentSeekFrame)) {
@@ -1176,7 +1134,6 @@ export default function RecordSpeechSection({
     recordingStartTimeRef.current = currentLayerStartTime;
     setRecordingPreviewStartSeconds(startFrame / DISPLAY_FRAMES_PER_SECOND);
     setIsRecordingPreviewActive(true);
-    startHelperPreviewClock(startFrame / DISPLAY_FRAMES_PER_SECOND);
     if (typeof setCurrentLayerSeek === 'function') {
       setCurrentLayerSeek(startFrame);
     }
@@ -1187,15 +1144,20 @@ export default function RecordSpeechSection({
     if (typeof onRecordSpeechRecordingChange === 'function') {
       onRecordSpeechRecordingChange(true);
     }
+    if (hintsEnabled && speechHintCues.length > 0) {
+      await enterImmersiveView();
+    }
     startSessionPreviewFromCurrentSeek();
     const didStartRecording = await startRecording({ preserveRecordingPreview: true }).catch(() => false);
     if (!didStartRecording) {
-      setRecordingPreviewStartSeconds(null);
-      setIsRecordingPreviewActive(false);
-      stopHelperPreviewClock();
-      setHelperPreviewTime(null);
-      if (typeof setIsVideoPreviewPlaying === 'function') {
-        setIsVideoPreviewPlaying(false);
+      if (isImmersiveActiveRef.current) {
+        exitImmersiveView();
+      } else {
+        setRecordingPreviewStartSeconds(null);
+        setIsRecordingPreviewActive(false);
+        if (typeof setIsVideoPreviewPlaying === 'function') {
+          setIsVideoPreviewPlaying(false);
+        }
       }
     }
   };
@@ -1212,9 +1174,8 @@ export default function RecordSpeechSection({
     await document.documentElement.requestFullscreen?.().catch(() => {});
   };
 
-  const openImmersiveMode = async () => {
-    if (isImmersiveActive) {
-      closeImmersiveMode();
+  const enterImmersiveView = async () => {
+    if (isImmersiveActiveRef.current) {
       return;
     }
     if (typeof setIsVideoPreviewPlaying === 'function') {
@@ -1225,17 +1186,8 @@ export default function RecordSpeechSection({
     await requestImmersiveFullscreen();
   };
 
-  const closeImmersiveMode = () => {
-    if (isRecordingRef.current) {
-      return;
-    }
-
-    if (isRecording) {
-      stopRecording();
-    }
+  const exitImmersiveView = () => {
     setIsRecordingPreviewActive(false);
-    stopHelperPreviewClock();
-    setHelperPreviewTime(null);
     if (typeof setIsVideoPreviewPlaying === 'function') {
       setIsVideoPreviewPlaying(false);
     }
@@ -1267,27 +1219,11 @@ export default function RecordSpeechSection({
   }, [isImmersiveActive]);
 
   useEffect(() => {
-    if (!isImmersiveActive || transcriptCues.length === 0) {
-      stopHelperPreviewClock();
-      setHelperPreviewTime(null);
+    if (!hintsEnabled || speechHintCues.length === 0) {
       return;
     }
 
-    if (!isVideoPreviewPlaying) {
-      stopHelperPreviewClock();
-      setHelperPreviewTime(currentPreviewTime);
-      return;
-    }
-
-    startHelperPreviewClock(currentPreviewTime);
-  }, [currentPreviewTime, isImmersiveActive, isVideoPreviewPlaying, transcriptCues.length]);
-
-  useEffect(() => {
-    if (!isImmersiveActive || transcriptCues.length === 0) {
-      return;
-    }
-
-    const debugBucket = Math.floor(effectivePreviewTime);
+    const debugBucket = Math.floor(hintTimelineTime);
     const cueKey = activeTranscriptCue
       ? `${activeTranscriptCue.startTime}-${activeTranscriptCue.endTime}-${activeTranscriptCue.text}`
       : '';
@@ -1301,26 +1237,21 @@ export default function RecordSpeechSection({
 
     lastTranscriptDebugBucketRef.current = debugBucket;
     lastTranscriptDebugCueRef.current = cueKey;
-    logRecordSpeechDebug('transcript cue lookup', {
+    logRecordSpeechDebug('hint cue lookup', {
       currentPreviewTime,
-      effectivePreviewTime,
+      hintTimelineTime,
       currentLayerStartTime,
       isRecording,
       isRecordingPreviewActive,
       isVideoPreviewPlaying,
       recordingPreviewStartSeconds,
-      cueCount: transcriptCues.length,
-      candidates: transcriptCandidateTimes.map(({ source, value }) => ({
-        source,
-        value: Math.round(value * 1000) / 1000,
-      })),
+      cueCount: speechHintCues.length,
+      progressWindow: hintProgressWindow,
       matchedCue: activeTranscriptCue,
     });
     if (activeTranscriptCue) {
-      logRecordSpeechDebug('helper overlay text active', {
+      logRecordSpeechDebug('helper hint overlay active', {
         text: activeTranscriptCue.text,
-        matchSource: activeTranscriptCue.matchSource,
-        matchTime: activeTranscriptCue.matchTime,
         startTime: activeTranscriptCue.startTime,
         endTime: activeTranscriptCue.endTime,
       });
@@ -1329,40 +1260,100 @@ export default function RecordSpeechSection({
     activeTranscriptCue,
     currentLayerStartTime,
     currentPreviewTime,
-    effectivePreviewTime,
-    isImmersiveActive,
+    hintProgressWindow,
+    hintTimelineTime,
+    hintsEnabled,
     isRecording,
     isRecordingPreviewActive,
     isVideoPreviewPlaying,
     recordingPreviewStartSeconds,
-    transcriptCandidateTimes,
-    transcriptCues.length,
+    speechHintCues.length,
   ]);
 
   const iconButtonBaseClass = 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
-  const primaryIconButtonClass = `${iconButtonBaseClass} border-blue-500 bg-blue-600 text-white hover:bg-blue-500`;
   const recordPrimaryButtonClass = 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-500 bg-blue-600 text-sm text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50';
+  const recordAudioVideoButtonClass = colorMode === 'dark'
+    ? 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-400/70 bg-red-500/12 text-sm text-red-300 shadow-sm transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50'
+    : 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-500/70 bg-white text-sm text-red-600 shadow-sm transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50';
+  const stopSquareButtonClass = 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-red-500/70 bg-red-600 text-sm text-white shadow-sm transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50';
+  const hintsIconButtonClass = `inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+    hintsEnabled
+      ? 'border-amber-400 bg-amber-500 text-slate-950 hover:bg-amber-400'
+      : colorMode === 'dark'
+        ? 'border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]'
+        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+  }`;
   const secondaryIconButtonClass = colorMode === 'dark'
     ? `${iconButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
     : `${iconButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
-  const dangerIconButtonClass = `${iconButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
-  const helperTranscriptOverlay = isImmersiveActive && activeTranscriptCue ? (
+  const resultIconButtonBaseClass = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[11px] shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
+  const resultPrimaryIconButtonClass = `${resultIconButtonBaseClass} border-blue-500 bg-blue-600 text-white hover:bg-blue-500`;
+  const resultSecondaryIconButtonClass = colorMode === 'dark'
+    ? `${resultIconButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
+    : `${resultIconButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
+  const resultDangerIconButtonClass = `${resultIconButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
+  const recordButtonLabel = shouldRecordFacecam ? 'Record audio and video' : 'Record audio';
+  const stopButtonLabel = 'Stop recording';
+  const teleprompterCue = activeTranscriptCue;
+  const teleprompterCueText = teleprompterCue?.text || 'Hints are ready';
+  const nextHintTimeLabel = hintProgressWindow ? formatRecordingTime(hintProgressWindow.remainingSeconds) : '--:--';
+  const handleHintsToggleClick = () => {
+    const nextHintsEnabled = !hintsEnabled;
+    setHintsEnabled(nextHintsEnabled);
+    if (nextHintsEnabled && isRecordingRef.current && speechHintCues.length > 0) {
+      enterImmersiveView().catch(() => {});
+    } else if (!nextHintsEnabled && isImmersiveActiveRef.current) {
+      exitImmersiveView();
+    }
+  };
+  const helperTranscriptOverlay = isImmersiveActive && hintsEnabled && (teleprompterCue || hintProgressWindow) ? (
     <div className="pointer-events-none fixed inset-0 z-[10000]">
-      <div className="absolute left-1/2 top-[10vh] w-[min(88vw,760px)] -translate-x-1/2 text-center">
-        <div className="rounded-2xl bg-black/70 px-6 py-4 text-xl font-semibold leading-relaxed text-white shadow-2xl backdrop-blur">
-          {activeTranscriptCue.text}
+      <div
+        className="absolute left-1/2 w-[min(94vw,1120px)] -translate-x-1/2 text-center"
+        style={{ top: 'max(14px, 4vh)' }}
+      >
+        <div className="overflow-hidden rounded-2xl border border-white/15 bg-black/80 px-4 py-4 text-white shadow-2xl backdrop-blur-md sm:px-7 sm:py-5">
+          {hintProgressWindow && (
+            <div className="mb-4">
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/15" aria-label="Progress until next hint">
+                <div
+                  className="h-full rounded-full bg-amber-300"
+                  style={{ width: `${hintProgressWindow.progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          <div
+            className="mx-auto max-h-[36vh] max-w-[980px] overflow-hidden px-2 font-semibold leading-tight"
+            style={{ fontSize: 'clamp(1.8rem, 4vw, 3.6rem)' }}
+          >
+            {teleprompterCueText}
+          </div>
+
+          <div className="mt-4 flex items-end justify-between gap-4 text-left text-xs font-semibold uppercase text-white/65">
+            <div>
+              <div className="text-[10px] tracking-wide text-white/45">Next text</div>
+              <div className="text-lg text-amber-100 tabular-nums">{nextHintTimeLabel}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] tracking-wide text-white/45">Global</div>
+              <div className="text-xs tabular-nums text-white/75">
+                {formatRecordingTime(hintTimelineTime)} · {formatRecordingTime(globalRemainingSeconds)} left
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   ) : null;
-
   return (
     <>
     <section className={`mb-4 rounded-xl border ${borderColor} ${panelBg} p-3`}>
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className={`flex items-center gap-2 text-sm font-bold ${text2Color}`}>
           <FaMicrophone aria-hidden="true" />
-          <span>Record speech</span>
+          <span>Recording & Cam</span>
         </div>
         <span className={`text-xs tabular-nums ${mutedText}`}>
           {formatRecordingTime(isRecording ? recordingSeconds : resolvedRecordingDuration)}
@@ -1389,15 +1380,15 @@ export default function RecordSpeechSection({
         </label>
 
         <label className="block">
-          <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Action</span>
+          <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Record</span>
           <select
-            value={facecamAction}
-            onChange={(event) => setFacecamAction(event.target.value)}
+            value={normalizedRecordMode}
+            onChange={(event) => setRecordMode(event.target.value)}
             disabled={isRecording || isStartingRecording}
             className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
           >
-            <option value="audio_only">Audio only</option>
-            <option value="record_facecam">Record facecam</option>
+            <option value="audio">Audio</option>
+            <option value="audio_video">Audio & Video</option>
           </select>
         </label>
 
@@ -1466,7 +1457,7 @@ export default function RecordSpeechSection({
             <div className={`flex items-center justify-between gap-2 px-3 py-2 text-xs ${mutedText}`}>
               <span className="inline-flex items-center gap-2">
                 <FaVideo aria-hidden="true" />
-                {isFacecamRecording ? selectedCameraLabel : 'Facecam'}
+                {isFacecamRecording ? selectedCameraLabel : 'Camera preview'}
               </span>
               <span>{hasFacecamRecording ? formatRecordingTime(facecamDuration || resolvedRecordingDuration) : ''}</span>
             </div>
@@ -1482,79 +1473,57 @@ export default function RecordSpeechSection({
           </div>
         )}
 
-        <input
-          ref={transcriptInputRef}
-          type="file"
-          accept=".txt,text/plain"
-          className="hidden"
-          onChange={handleTranscriptUpload}
-        />
-
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleStartRecordingClick}
             disabled={!canUseRecorder || isRecording || isStartingRecording}
-            className={recordPrimaryButtonClass}
-            title={isStartingRecording ? 'Starting recording' : 'Start recording and play session preview'}
-            aria-label={isStartingRecording ? 'Starting recording' : 'Start recording and play session preview'}
+            className={shouldRecordFacecam ? recordAudioVideoButtonClass : recordPrimaryButtonClass}
+            title={isStartingRecording ? 'Starting recording' : recordButtonLabel}
+            aria-label={isStartingRecording ? 'Starting recording' : recordButtonLabel}
           >
-            <FaMicrophone aria-hidden="true" />
+            {shouldRecordFacecam ? <FaCircle aria-hidden="true" /> : <FaMicrophone aria-hidden="true" />}
           </button>
           <button
             type="button"
             onClick={stopRecording}
             disabled={!isRecording}
-            className={secondaryIconButtonClass}
-            title="Stop recording"
-            aria-label="Stop recording"
+            className={shouldRecordFacecam ? stopSquareButtonClass : secondaryIconButtonClass}
+            title={stopButtonLabel}
+            aria-label={stopButtonLabel}
           >
             <FaStop aria-hidden="true" />
           </button>
           <button
             type="button"
-            onClick={openImmersiveMode}
-            disabled={!canUseRecorder}
-            className={secondaryIconButtonClass}
-            title={isImmersiveActive ? 'Exit immersive recording' : 'Open immersive recording'}
-            aria-label={isImmersiveActive ? 'Exit immersive recording' : 'Open immersive recording'}
+            onClick={handleHintsToggleClick}
+            className={hintsIconButtonClass}
+            title={hintsEnabled ? 'Hide hints' : 'Show hints'}
+            aria-label={hintsEnabled ? 'Hide hints' : 'Show hints'}
           >
-            {isImmersiveActive ? <FaCompress aria-hidden="true" /> : <FaExpand aria-hidden="true" />}
+            <FaLightbulb aria-hidden="true" />
           </button>
-          {isImmersiveActive && (
-            <button
-              type="button"
-              onClick={openTranscriptUpload}
-              className={secondaryIconButtonClass}
-              title="Upload speech helper transcript"
-              aria-label="Upload speech helper transcript"
-            >
-              <FaFileUpload aria-hidden="true" />
-            </button>
-          )}
         </div>
 
-        {isImmersiveActive && (transcriptFileName || transcriptError) && (
-          <div className={`truncate rounded-lg border px-3 py-2 text-xs ${
-            transcriptError
-              ? 'border-red-400/40 bg-red-500/10 text-red-400'
-              : `${borderColor} ${mutedText}`
-          }`}>
-            {transcriptError || `${transcriptFileName} · ${transcriptCues.length} cues`}
-          </div>
-        )}
-
         {hasRecording && (
-          <div className="grid gap-3">
-            <audio controls src={recordingUrl} className="w-full">
-              Your browser does not support the audio element.
-            </audio>
+          <div className="grid gap-2">
+            <div className={`flex h-8 items-center justify-between gap-2 rounded-lg border px-3 text-xs ${
+              colorMode === 'dark'
+                ? 'border-[#273956] bg-[#111a2f] text-slate-100'
+                : 'border-slate-200 bg-white text-slate-700'
+            }`}>
+              <span className="inline-flex min-w-0 items-center gap-2 truncate">
+                <FaMicrophone className="shrink-0" aria-hidden="true" />
+                <span className="truncate">Audio preview</span>
+              </span>
+              <span className="shrink-0 tabular-nums">{formatRecordingTime(resolvedRecordingDuration)}</span>
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={togglePreviewPlayback}
-                className={secondaryIconButtonClass}
+                className={resultSecondaryIconButtonClass}
                 title={isPlayingPreview ? 'Pause preview' : 'Play preview'}
                 aria-label={isPlayingPreview ? 'Pause preview' : 'Play preview'}
               >
@@ -1564,7 +1533,7 @@ export default function RecordSpeechSection({
                 type="button"
                 onClick={handleAddToSession}
                 disabled={isUploadPending || !hasCurrentLayer}
-                className={primaryIconButtonClass}
+                className={resultPrimaryIconButtonClass}
                 title="Add to session"
                 aria-label="Add to session"
               >
@@ -1574,7 +1543,7 @@ export default function RecordSpeechSection({
                 type="button"
                 onClick={handleAddToLibrary}
                 disabled={isUploadPending || Boolean(uploadedLibraryItem)}
-                className={secondaryIconButtonClass}
+                className={resultSecondaryIconButtonClass}
                 title={uploadedLibraryItem ? 'Already in library' : 'Add to library'}
                 aria-label={uploadedLibraryItem ? 'Already in library' : 'Add to library'}
               >
@@ -1584,7 +1553,7 @@ export default function RecordSpeechSection({
                 type="button"
                 onClick={handleDeleteRecording}
                 disabled={isUploadPending}
-                className={dangerIconButtonClass}
+                className={resultDangerIconButtonClass}
                 title="Remove and delete recording"
                 aria-label="Remove and delete recording"
               >

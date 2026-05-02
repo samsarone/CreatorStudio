@@ -3,12 +3,13 @@ import axios from 'axios';
 import { FaCopy, FaDownload, FaSpinner, FaTimes } from 'react-icons/fa';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { getHeaders } from '../../../utils/web.jsx';
+import {
+  buildHintsText,
+  buildTranscriptText,
+  normalizeSessionId,
+} from '../../../utils/sessionTimelineText.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
-
-function normalizeSessionId(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
 
 function getErrorMessage(error) {
   return (
@@ -17,176 +18,6 @@ function getErrorMessage(error) {
     error?.message ||
     'Unable to complete this advanced action.'
   );
-}
-
-function toFiniteNumber(value, fallback = 0) {
-  const parsedValue = Number(value);
-  return Number.isFinite(parsedValue) ? parsedValue : fallback;
-}
-
-function formatTimestamp(value) {
-  const totalMilliseconds = Math.max(0, Math.round(toFiniteNumber(value) * 1000));
-  const milliseconds = totalMilliseconds % 1000;
-  const totalSeconds = Math.floor(totalMilliseconds / 1000);
-  const seconds = totalSeconds % 60;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const minutes = totalMinutes % 60;
-  const hours = Math.floor(totalMinutes / 60);
-  const pad = (input, length = 2) => String(input).padStart(length, '0');
-
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${pad(milliseconds, 3)}`;
-}
-
-function getAudioLayerId(audioLayer) {
-  return audioLayer?._id?.toString?.() || audioLayer?._id || audioLayer?.id || null;
-}
-
-function getAudioLayerSpeaker(audioLayer = {}) {
-  return (
-    audioLayer.speakerCharacterName ||
-    audioLayer.speaker ||
-    audioLayer.actor ||
-    ''
-  );
-}
-
-function getSubtitleText(item = {}) {
-  return (
-    item.text ||
-    item.normalizedText ||
-    item.config?.text ||
-    ''
-  ).toString().replace(/\s+/g, ' ').trim();
-}
-
-function isSubtitleItem(item = {}) {
-  return item?.type === 'text' && item?.subType === 'subtitle';
-}
-
-function mergeTranscriptRows(rows = [], frameDurationSeconds = 1 / 16) {
-  const sortedRows = [...rows].sort((left, right) => left.startTime - right.startTime);
-  const mergedRows = [];
-
-  sortedRows.forEach((row) => {
-    const previousRow = mergedRows[mergedRows.length - 1];
-    const canMerge = previousRow &&
-      previousRow.text === row.text &&
-      previousRow.audioLayerId === row.audioLayerId &&
-      row.startTime - previousRow.endTime <= Math.max(0.12, frameDurationSeconds * 2);
-
-    if (canMerge) {
-      previousRow.endTime = Math.max(previousRow.endTime, row.endTime);
-      return;
-    }
-
-    mergedRows.push({ ...row });
-  });
-
-  return mergedRows;
-}
-
-function buildSubtitleTranscriptRows(sessionDetails = {}) {
-  const framesPerSecond = Math.max(1, toFiniteNumber(sessionDetails.framesPerSecond, 16));
-  const audioLayerMap = new Map();
-  const audioLayers = Array.isArray(sessionDetails.audioLayers) ? sessionDetails.audioLayers : [];
-
-  audioLayers.forEach((audioLayer) => {
-    const id = getAudioLayerId(audioLayer);
-    if (id) {
-      audioLayerMap.set(id.toString(), audioLayer);
-    }
-  });
-
-  const rows = [];
-  const layers = Array.isArray(sessionDetails.layers) ? sessionDetails.layers : [];
-
-  layers.forEach((layer) => {
-    const layerStartTime = toFiniteNumber(layer?.durationOffset ?? layer?.startTime, 0);
-    const activeItemList = Array.isArray(layer?.imageSession?.activeItemList)
-      ? layer.imageSession.activeItemList
-      : [];
-
-    activeItemList.forEach((item) => {
-      if (!isSubtitleItem(item)) {
-        return;
-      }
-
-      const text = getSubtitleText(item);
-      if (!text) {
-        return;
-      }
-
-      const frameOffset = toFiniteNumber(item?.config?.frameOffset, 0);
-      const frameDuration = Math.max(1, toFiniteNumber(item?.config?.frameDuration, 1));
-      const startTime = layerStartTime + frameOffset / framesPerSecond;
-      const endTime = startTime + frameDuration / framesPerSecond;
-      const audioLayerId = item.audioLayerId?.toString?.() || item.audioLayerId || null;
-      const audioLayer = audioLayerId ? audioLayerMap.get(audioLayerId.toString()) : null;
-
-      rows.push({
-        startTime,
-        endTime,
-        text,
-        audioLayerId,
-        speaker: item.speaker || getAudioLayerSpeaker(audioLayer),
-      });
-    });
-  });
-
-  return mergeTranscriptRows(rows, 1 / framesPerSecond);
-}
-
-function buildAudioPromptTranscriptRows(sessionDetails = {}) {
-  const audioLayers = Array.isArray(sessionDetails.audioLayers) ? sessionDetails.audioLayers : [];
-
-  return audioLayers
-    .filter((audioLayer) => {
-      const generationType = typeof audioLayer?.generationType === 'string'
-        ? audioLayer.generationType.toLowerCase()
-        : '';
-      return generationType === 'speech' && typeof audioLayer?.prompt === 'string' && audioLayer.prompt.trim();
-    })
-    .map((audioLayer) => {
-      const startTime = Math.max(0, toFiniteNumber(audioLayer.startTime, 0));
-      const explicitEndTime = toFiniteNumber(audioLayer.endTime, NaN);
-      const duration = toFiniteNumber(audioLayer.duration, 0);
-      const endTime = Number.isFinite(explicitEndTime) && explicitEndTime > startTime
-        ? explicitEndTime
-        : startTime + Math.max(0, duration);
-
-      return {
-        startTime,
-        endTime,
-        text: audioLayer.prompt.replace(/\s+/g, ' ').trim(),
-        audioLayerId: getAudioLayerId(audioLayer),
-        speaker: getAudioLayerSpeaker(audioLayer),
-      };
-    })
-    .sort((left, right) => left.startTime - right.startTime);
-}
-
-function buildTranscriptText(sessionDetails = {}) {
-  const sessionId = normalizeSessionId(sessionDetails?._id || sessionDetails?.id);
-  const subtitleRows = buildSubtitleTranscriptRows(sessionDetails);
-  const rows = subtitleRows.length ? subtitleRows : buildAudioPromptTranscriptRows(sessionDetails);
-
-  if (!rows.length) {
-    return null;
-  }
-
-  const lines = [
-    'Samsar session transcript',
-    `Session: ${sessionId || '-'}`,
-    `Generated: ${new Date().toISOString()}`,
-    '',
-  ];
-
-  rows.forEach((row) => {
-    const speaker = row.speaker ? `${row.speaker}: ` : '';
-    lines.push(`[${formatTimestamp(row.startTime)} - ${formatTimestamp(row.endTime)}] ${speaker}${row.text}`);
-  });
-
-  return `${lines.join('\n')}\n`;
 }
 
 function downloadTextFile({ fileName, text }) {
@@ -213,6 +44,7 @@ export default function VideoEditAdvancedDialog({
   const [errorMessage, setErrorMessage] = useState('');
   const isCopyingSession = pendingAction === 'copy_session';
   const isDownloadingTranscript = pendingAction === 'download_transcript';
+  const isDownloadingHints = pendingAction === 'download_hints';
 
   const surfaceClass = colorMode === 'dark'
     ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d]'
@@ -330,6 +162,36 @@ export default function VideoEditAdvancedDialog({
     }
   };
 
+  const downloadHints = async () => {
+    if (!resolvedSessionId && !currentSession) {
+      setErrorMessage('Session details are not available.');
+      return;
+    }
+
+    setPendingAction('download_hints');
+    setErrorMessage('');
+
+    try {
+      const sessionDetails = await getLatestSessionDetails();
+      const hintsText = buildHintsText(sessionDetails);
+
+      if (!hintsText) {
+        setErrorMessage('No hints are available for this session.');
+        return;
+      }
+
+      const fileSessionId = normalizeSessionId(sessionDetails?._id || sessionDetails?.id || resolvedSessionId) || 'session';
+      downloadTextFile({
+        fileName: `samsar-hints-${fileSessionId}.txt`,
+        text: hintsText,
+      });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   const renderOption = ({ icon, title, description, buttonLabel, onClick, isPending, primary = false }) => (
     <div className={`rounded-xl border p-3 ${cardClass}`}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
@@ -388,6 +250,14 @@ export default function VideoEditAdvancedDialog({
           buttonLabel: 'Download',
           onClick: downloadTranscript,
           isPending: isDownloadingTranscript,
+        })}
+        {renderOption({
+          icon: <FaDownload />,
+          title: 'Download hints',
+          description: 'Downloads the available speech hints with timeline timestamps.',
+          buttonLabel: 'Download',
+          onClick: downloadHints,
+          isPending: isDownloadingHints,
         })}
       </div>
 

@@ -735,7 +735,7 @@ const showLicenseDialog = () => {
 
   if (isGenerationsView) {
     return (
-      <div className={`${navShell} fixed top-0 inset-x-0 h-[76px] z-20`}>
+      <div className={`${navShell} fixed top-0 inset-x-0 z-[1200] h-[76px]`}>
         <div className="grid h-full w-full grid-cols-[minmax(220px,1fr)_auto_minmax(220px,1fr)] items-center gap-4 px-4 sm:px-6">
           <div className="flex h-full items-center justify-start">
             <BrandLogo onClick={gotoHome} className="w-full max-w-[250px]" />
@@ -764,7 +764,7 @@ const showLicenseDialog = () => {
 
 
   return (
-    <div className={`${navShell} fixed top-0 inset-x-0 h-[56px] z-20`}>
+    <div className={`${navShell} fixed top-0 inset-x-0 z-[1200] h-[56px]`}>
       <div className="grid h-full w-full grid-cols-[minmax(160px,14%)_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
         <div className="flex h-full items-center justify-center px-2">
           <BrandLogo onClick={gotoHome} className="w-full max-w-[260px] px-4" />
