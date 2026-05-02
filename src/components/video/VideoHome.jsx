@@ -108,7 +108,51 @@ function isSubtitleTranscriptItem(item) {
   return item?.type === 'text' && item?.subType === 'subtitle';
 }
 
+function removeSubtitleTranscriptItemsFromLayer(layer) {
+  const activeItemList = Array.isArray(layer?.imageSession?.activeItemList)
+    ? layer.imageSession.activeItemList
+    : null;
+
+  if (!activeItemList || activeItemList.length === 0) {
+    return layer;
+  }
+
+  const filteredActiveItemList = activeItemList.filter((item) => !isSubtitleTranscriptItem(item));
+  if (filteredActiveItemList.length === activeItemList.length) {
+    return layer;
+  }
+
+  return {
+    ...layer,
+    imageSession: {
+      ...layer.imageSession,
+      activeItemList: filteredActiveItemList,
+    },
+  };
+}
+
+function removeSubtitleTranscriptItemsFromLayers(layers = []) {
+  if (!Array.isArray(layers) || layers.length === 0) {
+    return layers;
+  }
+
+  let didRemoveSubtitles = false;
+  const nextLayers = layers.map((layer) => {
+    const nextLayer = removeSubtitleTranscriptItemsFromLayer(layer);
+    if (nextLayer !== layer) {
+      didRemoveSubtitles = true;
+    }
+    return nextLayer;
+  });
+
+  return didRemoveSubtitles ? nextLayers : layers;
+}
+
 function resolveSessionSubtitlesEnabled(sessionDetails = {}) {
+  if (sessionDetails?.enableSubtitles === false) {
+    return false;
+  }
+
   if (typeof sessionDetails?.hasSubtitles === 'boolean') {
     return sessionDetails.hasSubtitles;
   }
@@ -458,6 +502,19 @@ export default function VideoHome(props) {
   useEffect(() => {
     videoSessionDetailsRef.current = videoSessionDetails;
   }, [videoSessionDetails]);
+
+  useEffect(() => {
+    if (resolveSessionSubtitlesEnabled(videoSessionDetails)) {
+      return;
+    }
+
+    setLayers((prevLayers) => removeSubtitleTranscriptItemsFromLayers(prevLayers));
+    setCurrentLayer((prevLayer) => removeSubtitleTranscriptItemsFromLayer(prevLayer));
+  }, [
+    videoSessionDetails?.enableSubtitles,
+    videoSessionDetails?.hasSubtitles,
+    videoSessionDetails?.has_subtitles,
+  ]);
 
   useEffect(() => {
     if (!isCanvasDirty || !renderCompletedThisSession) {
@@ -1072,8 +1129,11 @@ export default function VideoHome(props) {
       currentLayerId && previousSyncedLayerIdRef.current === currentLayerId;
 
     if (currentLayer && currentLayer.imageSession && currentLayer.imageSession.activeItemList) {
+      const layerActiveItemList = resolveSessionSubtitlesEnabled(videoSessionDetails)
+        ? currentLayer.imageSession.activeItemList
+        : currentLayer.imageSession.activeItemList.filter((item) => !isSubtitleTranscriptItem(item));
       const activeList = normalizeActiveTextItemListForCanvas(
-        currentLayer.imageSession.activeItemList,
+        layerActiveItemList,
         getCanvasDimensionsForAspectRatio(videoSessionDetails?.aspectRatio),
         shouldReuseLocalTextConfig ? activeItemListRef.current : [],
         { preferFallbackTextConfig: shouldReuseLocalTextConfig }
@@ -1089,7 +1149,14 @@ export default function VideoHome(props) {
       syncActiveItemList([], { resetHistory: true });
     }
     previousSyncedLayerIdRef.current = currentLayerId;
-  }, [currentLayer, syncActiveItemList, videoSessionDetails?.aspectRatio]);
+  }, [
+    currentLayer,
+    syncActiveItemList,
+    videoSessionDetails?.aspectRatio,
+    videoSessionDetails?.enableSubtitles,
+    videoSessionDetails?.hasSubtitles,
+    videoSessionDetails?.has_subtitles,
+  ]);
 
   // Image Preloading Worker Setup
   useEffect(() => {
@@ -3110,7 +3177,23 @@ export default function VideoHome(props) {
 
     axios.post(`${PROCESSOR_API_URL}/video_sessions/request_regenerate_subtitles`, { sessionId: id, realignAudio: true }, headers).then((response) => {
       const videoSessionData = response.data;
+      const responseLayers = Array.isArray(videoSessionData?.layers) ? videoSessionData.layers : null;
+      const responseAudioLayers = Array.isArray(videoSessionData?.audioLayers) ? videoSessionData.audioLayers : null;
+      const currentLayerId = getSessionLayerId(currentLayerRef.current);
       setVideoSessionDetails(videoSessionData);
+      if (responseLayers) {
+        setLayers(responseLayers);
+        const responseCurrentLayer = responseLayers.find(
+          (layer) => getSessionLayerId(layer) === currentLayerId
+        ) || responseLayers[selectedLayerIndex];
+        if (responseCurrentLayer) {
+          setCurrentLayer(responseCurrentLayer);
+          syncActiveItemList(responseCurrentLayer.imageSession?.activeItemList || []);
+        }
+      }
+      if (responseAudioLayers) {
+        setAudioLayers(responseAudioLayers);
+      }
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
     });

@@ -92,6 +92,10 @@ function buildMovieSpeakerOption(speaker = {}) {
 }
 
 function resolveSessionSubtitlesEnabled(sessionDetails = {}) {
+  if (sessionDetails?.enableSubtitles === false) {
+    return false;
+  }
+
   if (typeof sessionDetails?.hasSubtitles === 'boolean') {
     return sessionDetails.hasSubtitles;
   }

@@ -13,7 +13,6 @@ import {
   FaTimesCircle,
 } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import { getHeaders } from '../../../../utils/web';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
@@ -115,7 +114,7 @@ function parseTimestampedTranscript(text = '') {
   return text
     .split(/\r?\n/)
     .map((line) => {
-      const match = line.match(/^\s*\[([^\]-]+?)\s*-\s*([^\]]+?)\]\s*(.+?)\s*$/);
+      const match = line.match(/^\s*\[([^\]]+?)\s*(?:-->|-)\s*([^\]]+?)\]\s*(.+?)\s*$/);
       if (!match) {
         return null;
       }
@@ -153,7 +152,7 @@ export default function RecordSpeechSection({
   const [microphones, setMicrophones] = useState([]);
   const [selectedMicId, setSelectedMicId] = useState('');
   const [micVolume, setMicVolume] = useState(100);
-  const [addTranscription, setAddTranscription] = useState(false);
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -169,6 +168,8 @@ export default function RecordSpeechSection({
   const [transcriptFileName, setTranscriptFileName] = useState('');
   const [transcriptError, setTranscriptError] = useState('');
   const [hasAddedToSession, setHasAddedToSession] = useState(false);
+  const [recordingPreviewStartSeconds, setRecordingPreviewStartSeconds] = useState(null);
+  const [isRecordingPreviewActive, setIsRecordingPreviewActive] = useState(false);
 
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -178,10 +179,18 @@ export default function RecordSpeechSection({
   const recordedChunksRef = useRef([]);
   const recordingStartedAtRef = useRef(0);
   const recordingTimerRef = useRef(null);
-  const levelAnimationFrameRef = useRef(null);
+  const levelTimerRef = useRef(null);
+  const levelSamplesRef = useRef(null);
   const previewAudioRef = useRef(null);
   const recordingUrlRef = useRef('');
   const transcriptInputRef = useRef(null);
+  const discardStoppedRecordingRef = useRef(false);
+  const currentLayerSeekRef = useRef(0);
+  const isStartingRecordingRef = useRef(false);
+  const isRecordingRef = useRef(false);
+  const isImmersiveActiveRef = useRef(false);
+  const lastLevelUpdateRef = useRef(0);
+  const levelValueRef = useRef(0);
 
   const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
   const panelBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-50';
@@ -197,20 +206,44 @@ export default function RecordSpeechSection({
   const resolvedRecordingDuration = Number.isFinite(Number(recordingDuration)) && Number(recordingDuration) > 0
     ? Number(recordingDuration)
     : recordingSeconds;
+  const layerRelativePreviewTime = Math.max(0, currentPreviewTime - currentLayerStartTime);
+  const layerOffsetPreviewTime = currentLayerStartTime + currentPreviewTime;
 
   const selectedMicLabel = useMemo(() => {
     const selectedMic = microphones.find((device) => device.deviceId === selectedMicId);
     return selectedMic?.label || 'Default microphone';
   }, [microphones, selectedMicId]);
   const activeTranscriptCue = useMemo(() => {
-    if (!isImmersiveActive || !isVideoPreviewPlaying || transcriptCues.length === 0) {
+    if (!isImmersiveActive || !isRecordingPreviewActive || transcriptCues.length === 0) {
       return null;
     }
 
-    return transcriptCues.find((cue) => (
-      currentPreviewTime >= cue.startTime && currentPreviewTime < cue.endTime
-    )) || null;
-  }, [currentPreviewTime, isImmersiveActive, isVideoPreviewPlaying, transcriptCues]);
+    const candidateTimes = currentLayerStartTime > 0 && currentPreviewTime < currentLayerStartTime
+      ? [layerOffsetPreviewTime, currentPreviewTime, layerRelativePreviewTime]
+      : [currentPreviewTime, layerOffsetPreviewTime, layerRelativePreviewTime];
+
+    if (Number.isFinite(Number(recordingPreviewStartSeconds))) {
+      candidateTimes.push(Math.max(0, currentPreviewTime - Number(recordingPreviewStartSeconds)));
+    }
+
+    return candidateTimes
+      .filter((candidateTime, index, allTimes) => (
+        Number.isFinite(candidateTime) && allTimes.indexOf(candidateTime) === index
+      ))
+      .map((candidateTime) => transcriptCues.find((cue) => (
+        candidateTime >= cue.startTime && candidateTime < cue.endTime
+      )))
+      .find(Boolean) || null;
+  }, [
+    currentPreviewTime,
+    currentLayerStartTime,
+    layerOffsetPreviewTime,
+    layerRelativePreviewTime,
+    isImmersiveActive,
+    isRecordingPreviewActive,
+    recordingPreviewStartSeconds,
+    transcriptCues,
+  ]);
 
   const refreshMicrophones = async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
@@ -256,13 +289,26 @@ export default function RecordSpeechSection({
   }, [recordingUrl]);
 
   useEffect(() => {
+    const resolvedSeek = Number(currentLayerSeek);
+    currentLayerSeekRef.current = Number.isFinite(resolvedSeek) ? resolvedSeek : 0;
+  }, [currentLayerSeek]);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  useEffect(() => {
+    isImmersiveActiveRef.current = isImmersiveActive;
+  }, [isImmersiveActive]);
+
+  useEffect(() => {
     return () => {
       stopRecorderStream();
       if (recordingTimerRef.current) {
         window.clearInterval(recordingTimerRef.current);
       }
-      if (levelAnimationFrameRef.current) {
-        window.cancelAnimationFrame(levelAnimationFrameRef.current);
+      if (levelTimerRef.current) {
+        window.clearTimeout(levelTimerRef.current);
       }
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
@@ -274,9 +320,9 @@ export default function RecordSpeechSection({
   }, []);
 
   const stopRecorderStream = () => {
-    if (levelAnimationFrameRef.current) {
-      window.cancelAnimationFrame(levelAnimationFrameRef.current);
-      levelAnimationFrameRef.current = null;
+    if (levelTimerRef.current) {
+      window.clearTimeout(levelTimerRef.current);
+      levelTimerRef.current = null;
     }
 
     if (mediaStreamRef.current) {
@@ -291,28 +337,45 @@ export default function RecordSpeechSection({
 
     gainNodeRef.current = null;
     analyserRef.current = null;
+    levelSamplesRef.current = null;
+    levelValueRef.current = 0;
     setLevel(0);
   };
 
   const updateLevel = () => {
     const analyser = analyserRef.current;
-    if (!analyser) {
+    if (!analyser || !isRecordingRef.current) {
       return;
     }
 
-    const samples = new Uint8Array(analyser.fftSize);
+    let samples = levelSamplesRef.current;
+    if (!samples || samples.length !== analyser.fftSize) {
+      samples = new Uint8Array(analyser.fftSize);
+      levelSamplesRef.current = samples;
+    }
+
     analyser.getByteTimeDomainData(samples);
     let sumSquares = 0;
-    samples.forEach((sample) => {
+    for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+      const sample = samples[sampleIndex];
       const centeredSample = (sample - 128) / 128;
       sumSquares += centeredSample * centeredSample;
-    });
+    }
     const rms = Math.sqrt(sumSquares / samples.length);
-    setLevel(Math.min(1, rms * 4));
-    levelAnimationFrameRef.current = window.requestAnimationFrame(updateLevel);
+    const nextLevel = Math.min(1, rms * 4);
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (
+      now - lastLevelUpdateRef.current > 100 ||
+      Math.abs(nextLevel - levelValueRef.current) > 0.08
+    ) {
+      lastLevelUpdateRef.current = now;
+      levelValueRef.current = nextLevel;
+      setLevel(nextLevel);
+    }
+    levelTimerRef.current = window.setTimeout(updateLevel, 100);
   };
 
-  const resetRecording = () => {
+  const resetRecording = ({ preserveRecordingPreview = false } = {}) => {
     if (previewAudioRef.current) {
       previewAudioRef.current.pause();
       previewAudioRef.current = null;
@@ -326,15 +389,22 @@ export default function RecordSpeechSection({
     setUploadedLibraryItem(null);
     setHasAddedToSession(false);
     setIsPlayingPreview(false);
+    setRecordingSeconds(0);
+    if (!preserveRecordingPreview) {
+      setRecordingPreviewStartSeconds(null);
+      setIsRecordingPreviewActive(false);
+    }
   };
 
-  const startRecording = async ({ onStarted } = {}) => {
-    if (!canUseRecorder || isRecording) {
-      return;
+  const startRecording = async ({ onStarted, preserveRecordingPreview = false } = {}) => {
+    if (!canUseRecorder || isRecording || isStartingRecordingRef.current) {
+      return false;
     }
 
+    isStartingRecordingRef.current = true;
+    setIsStartingRecording(true);
     setRecorderError('');
-    resetRecording();
+    resetRecording({ preserveRecordingPreview });
 
     try {
       const constraints = {
@@ -344,7 +414,7 @@ export default function RecordSpeechSection({
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       mediaStreamRef.current = stream;
-      await refreshMicrophones();
+      refreshMicrophones().catch(() => {});
 
       const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
       const audioContext = new AudioContextCtor();
@@ -361,6 +431,9 @@ export default function RecordSpeechSection({
       audioContextRef.current = audioContext;
       gainNodeRef.current = gainNode;
       analyserRef.current = analyserNode;
+      levelSamplesRef.current = new Uint8Array(analyserNode.fftSize);
+      levelValueRef.current = 0;
+      lastLevelUpdateRef.current = 0;
 
       const mimeType = getSupportedRecorderMimeType();
       const recorder = new MediaRecorder(
@@ -369,6 +442,7 @@ export default function RecordSpeechSection({
       );
       mediaRecorderRef.current = recorder;
       recordedChunksRef.current = [];
+      discardStoppedRecordingRef.current = false;
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {
@@ -377,6 +451,14 @@ export default function RecordSpeechSection({
       };
 
       recorder.onstop = async () => {
+        if (discardStoppedRecordingRef.current) {
+          discardStoppedRecordingRef.current = false;
+          recordedChunksRef.current = [];
+          setIsRecording(false);
+          stopRecorderStream();
+          return;
+        }
+
         const recordedMimeType = recorder.mimeType || mimeType || 'audio/webm';
         const blob = new Blob(recordedChunksRef.current, { type: recordedMimeType });
         const objectUrl = URL.createObjectURL(blob);
@@ -388,9 +470,11 @@ export default function RecordSpeechSection({
         stopRecorderStream();
       };
 
-      recorder.start();
+      // Flush chunks periodically so long recordings do not sit in one browser-managed buffer.
+      recorder.start(1000);
       recordingStartedAtRef.current = Date.now();
       setRecordingSeconds(0);
+      isRecordingRef.current = true;
       setIsRecording(true);
       if (typeof onStarted === 'function') {
         onStarted();
@@ -399,16 +483,26 @@ export default function RecordSpeechSection({
         setRecordingSeconds(Math.floor((Date.now() - recordingStartedAtRef.current) / 1000));
       }, 250);
       updateLevel();
+      return true;
     } catch (error) {
       setRecorderError(error?.message || 'Unable to start microphone recording.');
+      isRecordingRef.current = false;
       setIsRecording(false);
       stopRecorderStream();
+      return false;
+    } finally {
+      isStartingRecordingRef.current = false;
+      setIsStartingRecording(false);
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = ({ discard = false } = {}) => {
     if (!isRecording || !mediaRecorderRef.current) {
       return;
+    }
+
+    if (discard) {
+      discardStoppedRecordingRef.current = true;
     }
 
     if (recordingTimerRef.current) {
@@ -417,7 +511,9 @@ export default function RecordSpeechSection({
     }
     setRecordingSeconds(Math.max(1, Math.floor((Date.now() - recordingStartedAtRef.current) / 1000)));
     mediaRecorderRef.current.stop();
+    isRecordingRef.current = false;
     if (isImmersiveActive && typeof setIsVideoPreviewPlaying === 'function') {
+      setIsRecordingPreviewActive(false);
       setIsVideoPreviewPlaying(false);
     }
   };
@@ -478,7 +574,7 @@ export default function RecordSpeechSection({
         libraryType: 'speech',
         title: 'Recorded speech',
         speakerCharacterName: 'Recorded speech',
-        addTranscription: Boolean(addTranscription),
+        addTranscription: false,
         volume: Number(micVolume) || 100,
       }, headers);
 
@@ -547,7 +643,7 @@ export default function RecordSpeechSection({
 
   const handleDeleteRecording = async () => {
     if (isRecording) {
-      stopRecording();
+      stopRecording({ discard: true });
     }
     await deleteUploadedRecording();
     resetRecording();
@@ -579,19 +675,63 @@ export default function RecordSpeechSection({
     }
   };
 
-  const startSessionPreviewAtRecordingStart = () => {
-    if (
-      typeof setCurrentLayerSeek !== 'function' ||
-      typeof setIsVideoPreviewPlaying !== 'function'
-    ) {
+  const openTranscriptUpload = () => {
+    transcriptInputRef.current?.click();
+  };
+
+  const resolveCurrentSeekFrame = () => {
+    const currentSeekFrame = Number(currentLayerSeekRef.current);
+    if (Number.isFinite(currentSeekFrame)) {
+      return Math.max(0, Math.round(currentSeekFrame));
+    }
+
+    return Math.max(0, Math.round(currentLayerStartTime * DISPLAY_FRAMES_PER_SECOND));
+  };
+
+  const startNormalVideoPlayback = () => {
+    if (typeof setIsVideoPreviewPlaying !== 'function') {
       return;
     }
 
-    const startFrame = Math.max(0, Math.round(currentLayerStartTime * DISPLAY_FRAMES_PER_SECOND));
-    setCurrentLayerSeek(startFrame);
-    window.requestAnimationFrame(() => {
-      setIsVideoPreviewPlaying(true);
+    setIsVideoPreviewPlaying((previousValue) => {
+      if (previousValue) {
+        return previousValue;
+      }
+
+      return !previousValue;
     });
+  };
+
+  const startSessionPreviewFromCurrentSeek = () => {
+    const startFrame = resolveCurrentSeekFrame();
+    currentLayerSeekRef.current = startFrame;
+    setRecordingPreviewStartSeconds(startFrame / DISPLAY_FRAMES_PER_SECOND);
+    setIsRecordingPreviewActive(true);
+    if (typeof setCurrentLayerSeek === 'function') {
+      setCurrentLayerSeek(startFrame);
+    }
+    startNormalVideoPlayback();
+  };
+
+  const handleImmersiveStartRecording = async () => {
+    startSessionPreviewFromCurrentSeek();
+    const didStartRecording = await startRecording({ preserveRecordingPreview: true }).catch(() => false);
+    if (!didStartRecording) {
+      setRecordingPreviewStartSeconds(null);
+      setIsRecordingPreviewActive(false);
+      if (typeof setIsVideoPreviewPlaying === 'function') {
+        setIsVideoPreviewPlaying(false);
+      }
+    }
+  };
+
+  const handleStartRecordingClick = () => {
+    if (isImmersiveActive) {
+      handleImmersiveStartRecording();
+      return;
+    }
+
+    startRecording().catch(() => {});
   };
 
   const requestImmersiveFullscreen = async () => {
@@ -602,19 +742,32 @@ export default function RecordSpeechSection({
     await document.documentElement.requestFullscreen?.().catch(() => {});
   };
 
-  const startImmersiveRecording = async () => {
-    setIsImmersiveActive(true);
-    await requestImmersiveFullscreen();
-    await startRecording({ onStarted: startSessionPreviewAtRecordingStart });
-  };
-
-  const closeImmersiveMode = () => {
-    if (isRecording) {
-      stopRecording();
+  const openImmersiveMode = async () => {
+    if (isImmersiveActive) {
+      closeImmersiveMode();
+      return;
     }
     if (typeof setIsVideoPreviewPlaying === 'function') {
       setIsVideoPreviewPlaying(false);
     }
+    isImmersiveActiveRef.current = true;
+    setIsImmersiveActive(true);
+    await requestImmersiveFullscreen();
+  };
+
+  const closeImmersiveMode = () => {
+    if (isRecordingRef.current) {
+      return;
+    }
+
+    if (isRecording) {
+      stopRecording();
+    }
+    setIsRecordingPreviewActive(false);
+    if (typeof setIsVideoPreviewPlaying === 'function') {
+      setIsVideoPreviewPlaying(false);
+    }
+    isImmersiveActiveRef.current = false;
     setIsImmersiveActive(false);
 
     if (typeof document !== 'undefined' && document.fullscreenElement) {
@@ -622,13 +775,49 @@ export default function RecordSpeechSection({
     }
   };
 
-  const iconButtonBaseClass = 'inline-flex h-10 w-10 items-center justify-center rounded-full border text-sm shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    const handleFullscreenChange = () => {
+      if (isImmersiveActive && !document.fullscreenElement) {
+        if (isRecordingRef.current) {
+          return;
+        }
+
+        setIsRecordingPreviewActive(false);
+        isImmersiveActiveRef.current = false;
+        setIsImmersiveActive(false);
+        if (typeof setIsVideoPreviewPlaying === 'function') {
+          setIsVideoPreviewPlaying(false);
+        }
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isImmersiveActive, setIsVideoPreviewPlaying]);
+
+  useEffect(() => {
+    if (!isImmersiveActive) {
+      return;
+    }
+
+    if (!isVideoPreviewPlaying && !isRecording) {
+      setIsRecordingPreviewActive(false);
+    }
+  }, [isImmersiveActive, isRecording, isVideoPreviewPlaying]);
+
+  const iconButtonBaseClass = 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
   const primaryIconButtonClass = `${iconButtonBaseClass} border-blue-500 bg-blue-600 text-white hover:bg-blue-500`;
+  const recordPrimaryButtonClass = 'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-blue-500 bg-blue-600 text-sm text-white shadow-sm transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50';
   const secondaryIconButtonClass = colorMode === 'dark'
     ? `${iconButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
     : `${iconButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
   const dangerIconButtonClass = `${iconButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
-
   return (
     <section className={`mb-4 rounded-xl border ${borderColor} ${panelBg} p-3`}>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -683,49 +872,67 @@ export default function RecordSpeechSection({
           />
         </div>
 
-        <label className={`flex items-center gap-2 text-xs ${mutedText}`} title="Transcription is not implemented yet.">
-          <input
-            type="checkbox"
-            checked={addTranscription}
-            onChange={(event) => setAddTranscription(event.target.checked)}
-            disabled
-          />
-          <span>Add transcription</span>
-        </label>
+        <input
+          ref={transcriptInputRef}
+          type="file"
+          accept=".txt,text/plain"
+          className="hidden"
+          onChange={handleTranscriptUpload}
+        />
 
-        <div className="grid grid-cols-2 gap-2">
-          <SecondaryButton
+        <div className="flex flex-wrap items-center gap-2">
+          <button
             type="button"
-            onClick={startRecording}
-            disabled={!canUseRecorder || isRecording}
-            className="w-full"
+            onClick={handleStartRecordingClick}
+            disabled={!canUseRecorder || isRecording || isStartingRecording}
+            className={recordPrimaryButtonClass}
+            title={isStartingRecording ? 'Starting recording' : (isImmersiveActive ? 'Start recording and play session preview' : 'Start recording')}
+            aria-label={isStartingRecording ? 'Starting recording' : (isImmersiveActive ? 'Start recording and play session preview' : 'Start recording')}
           >
-            Start
-          </SecondaryButton>
-          <SecondaryButton
+            <FaMicrophone aria-hidden="true" />
+          </button>
+          <button
             type="button"
             onClick={stopRecording}
             disabled={!isRecording}
-            className="w-full"
+            className={secondaryIconButtonClass}
+            title="Stop recording"
+            aria-label="Stop recording"
           >
-            <span className="inline-flex items-center justify-center gap-2">
-              <FaStop aria-hidden="true" />
-              Stop
-            </span>
-          </SecondaryButton>
+            <FaStop aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={openImmersiveMode}
+            disabled={!canUseRecorder}
+            className={secondaryIconButtonClass}
+            title={isImmersiveActive ? 'Exit immersive recording' : 'Open immersive recording'}
+            aria-label={isImmersiveActive ? 'Exit immersive recording' : 'Open immersive recording'}
+          >
+            {isImmersiveActive ? <FaCompress aria-hidden="true" /> : <FaExpand aria-hidden="true" />}
+          </button>
+          {isImmersiveActive && (
+            <button
+              type="button"
+              onClick={openTranscriptUpload}
+              className={secondaryIconButtonClass}
+              title="Upload speech helper transcript"
+              aria-label="Upload speech helper transcript"
+            >
+              <FaFileUpload aria-hidden="true" />
+            </button>
+          )}
         </div>
 
-        <SecondaryButton
-          type="button"
-          onClick={startImmersiveRecording}
-          disabled={!canUseRecorder || isRecording}
-          className="w-full"
-        >
-          <span className="inline-flex items-center justify-center gap-2">
-            <FaExpand aria-hidden="true" />
-            Immersive
-          </span>
-        </SecondaryButton>
+        {isImmersiveActive && (transcriptFileName || transcriptError) && (
+          <div className={`truncate rounded-lg border px-3 py-2 text-xs ${
+            transcriptError
+              ? 'border-red-400/40 bg-red-500/10 text-red-400'
+              : `${borderColor} ${mutedText}`
+          }`}>
+            {transcriptError || transcriptFileName}
+          </div>
+        )}
 
         {hasRecording && (
           <div className="grid gap-3">
@@ -733,13 +940,16 @@ export default function RecordSpeechSection({
               Your browser does not support the audio element.
             </audio>
 
-            <div className="flex items-center justify-end gap-2">
-              <SecondaryButton type="button" onClick={togglePreviewPlayback} className="w-full">
-                <span className="inline-flex items-center justify-center gap-2">
-                  {isPlayingPreview ? <FaPause aria-hidden="true" /> : <FaPlay aria-hidden="true" />}
-                  Preview
-                </span>
-              </SecondaryButton>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={togglePreviewPlayback}
+                className={secondaryIconButtonClass}
+                title={isPlayingPreview ? 'Pause preview' : 'Play preview'}
+                aria-label={isPlayingPreview ? 'Pause preview' : 'Play preview'}
+              >
+                {isPlayingPreview ? <FaPause aria-hidden="true" /> : <FaPlay aria-hidden="true" />}
+              </button>
               <button
                 type="button"
                 onClick={handleAddToSession}
@@ -793,60 +1003,13 @@ export default function RecordSpeechSection({
         )}
       </div>
 
-      {isImmersiveActive && (
+      {isImmersiveActive && activeTranscriptCue && (
         <div className="pointer-events-none fixed inset-0 z-[10000]">
-          <div className="pointer-events-auto absolute left-4 right-4 top-4 flex items-center justify-between gap-3">
-            <div className="rounded-full bg-black/60 px-4 py-2 text-sm font-semibold text-white shadow-xl backdrop-blur">
-              {formatRecordingTime(isRecording ? recordingSeconds : resolvedRecordingDuration)}
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                ref={transcriptInputRef}
-                type="file"
-                accept=".txt,text/plain"
-                className="hidden"
-                onChange={handleTranscriptUpload}
-              />
-              <button
-                type="button"
-                onClick={() => transcriptInputRef.current?.click()}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white shadow-xl backdrop-blur transition hover:bg-black/75"
-                title="Upload transcript hints"
-                aria-label="Upload transcript hints"
-              >
-                <FaFileUpload aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={closeImmersiveMode}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white shadow-xl backdrop-blur transition hover:bg-black/75"
-                title="Exit immersive mode"
-                aria-label="Exit immersive mode"
-              >
-                <FaCompress aria-hidden="true" />
-              </button>
+          <div className="absolute bottom-[12vh] left-1/2 w-[min(92vw,900px)] -translate-x-1/2 text-center">
+            <div className="rounded-2xl bg-black/70 px-6 py-4 text-xl font-semibold leading-relaxed text-white shadow-2xl backdrop-blur">
+              {activeTranscriptCue.text}
             </div>
           </div>
-
-          {(activeTranscriptCue || transcriptFileName || transcriptError) && (
-            <div className="pointer-events-none absolute bottom-10 left-1/2 w-[min(92vw,900px)] -translate-x-1/2 text-center">
-              {activeTranscriptCue && (
-                <div className="rounded-2xl bg-black/70 px-6 py-4 text-xl font-semibold leading-relaxed text-white shadow-2xl backdrop-blur">
-                  {activeTranscriptCue.text}
-                </div>
-              )}
-              {!activeTranscriptCue && transcriptFileName && (
-                <div className="inline-flex rounded-full bg-black/55 px-4 py-2 text-xs font-medium text-white/80 shadow-xl backdrop-blur">
-                  {transcriptFileName}
-                </div>
-              )}
-              {transcriptError && (
-                <div className="inline-flex rounded-full bg-red-600/80 px-4 py-2 text-xs font-medium text-white shadow-xl backdrop-blur">
-                  {transcriptError}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
     </section>
