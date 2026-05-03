@@ -6606,6 +6606,9 @@ export default function FrameToolbar(props) {
   const settingsActionButtonClasses = colorMode === 'dark'
     ? 'inline-flex items-center justify-center rounded-xl border border-[#2a3953] bg-[#111a2f]/82 px-3 py-2 text-xs font-semibold text-slate-100 transition hover:bg-[#17223a]'
     : 'inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/90 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100';
+  const settingsCancelRenderButtonClasses = colorMode === 'dark'
+    ? 'inline-flex items-center justify-center gap-2 rounded-xl border border-rose-400/45 bg-rose-500/12 px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/20'
+    : 'inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100';
   const settingsSummaryCardClassName = `${panelSectionClassName} rounded-2xl p-3`;
   const promptDropdownSurfaceClassName = colorMode === 'dark'
     ? 'border border-[#24324a] bg-[#08111d]/95 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.45)]'
@@ -6647,6 +6650,16 @@ export default function FrameToolbar(props) {
           <div className={settingsSummaryCardClassName}>
             <div className={settingsStatLabelClassName}>Status</div>
             <div className={settingsStatValueClassName}>{sessionSyncStatus}</div>
+            {canCancelPendingRender ? (
+              <button
+                type="button"
+                className={`mt-2 w-full ${settingsCancelRenderButtonClasses}`}
+                onClick={cancelPendingRender}
+              >
+                <FaTimes className='text-[11px]' />
+                Cancel render
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -7016,52 +7029,42 @@ export default function FrameToolbar(props) {
       ? 'bg-gradient-to-r from-gray-900 via-emerald-900 to-gray-900 text-white'
       : 'bg-gray-700/80 text-gray-300'
       } ${baseTabClassName}`;
+    const canUseLayerActionTab = (viewName) => !isRenderPending || viewName === 'SETTINGS';
+    const getLayerActionTabProps = (viewName, className) => {
+      const canUseTab = canUseLayerActionTab(viewName);
+
+      return {
+        className: `${className} ${canUseTab ? '' : 'opacity-50'}`,
+        onClick: canUseTab ? () => setCurrentLayerActionSuperView(viewName) : undefined,
+        'aria-disabled': canUseTab ? undefined : true,
+        style: canUseTab ? undefined : { cursor: 'not-allowed' },
+      };
+    };
 
     // Update the JSX to use the computed class names
     layerActionCurrentView = (
       <div className="flex flex-wrap items-center justify-start gap-1.5">
         {/* Audio Tab */}
-        <div
-          className={audioTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('AUDIO')}
-        >
+        <div {...getLayerActionTabProps('AUDIO', audioTabClassName)}>
           <div>Audio</div>
         </div>
-        <div
-          className={videoTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('VIDEO')}
-        >
+        <div {...getLayerActionTabProps('VIDEO', videoTabClassName)}>
           <div>Video</div>
         </div>
-        <div
-          className={globalVideoTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('GLOBAL_VIDEO')}
-        >
+        <div {...getLayerActionTabProps('GLOBAL_VIDEO', globalVideoTabClassName)}>
           <div>Global videos</div>
         </div>
-        <div
-          className={imageTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('IMAGE')}
-        >
+        <div {...getLayerActionTabProps('IMAGE', imageTabClassName)}>
           <div>Image</div>
         </div>
         {/* Text Tab */}
-        <div
-          className={textTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('TEXT')}
-        >
+        <div {...getLayerActionTabProps('TEXT', textTabClassName)}>
           <div>Text</div>
         </div>
-        <div
-          className={hintsTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('HINTS')}
-        >
+        <div {...getLayerActionTabProps('HINTS', hintsTabClassName)}>
           <div>Hints</div>
         </div>
-        <div
-          className={settingsTabClassName}
-          onClick={() => setCurrentLayerActionSuperView('SETTINGS')}
-        >
+        <div {...getLayerActionTabProps('SETTINGS', settingsTabClassName)}>
           <div>Settings</div>
         </div>
       </div>
@@ -7081,7 +7084,7 @@ export default function FrameToolbar(props) {
           {isExpandedToolbarView ? (
             <div className='flex min-w-0 flex-col gap-1 px-1.5 pt-1 pb-1'>
               <div className='flex min-w-0 items-center gap-1 overflow-hidden pb-[1px]'>
-                <div className={`min-w-0 shrink-0 ${disabledMenuClass}`}>
+                <div className='min-w-0 shrink-0'>
                   {layerActionCurrentView}
                 </div>
 
