@@ -4,7 +4,7 @@ import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode";
 
 export default function SecondaryButton(props) {
-  const { children, onClick, isPending, extraClasses, disabled, className } = props;
+  const { children, onClick, isPending, extraClasses, disabled, className, type } = props;
   const { user } = useUser();
   const { colorMode } = useColorMode();
 
@@ -29,7 +29,7 @@ export default function SecondaryButton(props) {
       : 'transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_18px_rgba(15,23,42,0.14)] active:translate-y-0';
   const additionalClasses = [extraClasses, className].filter(Boolean).join(" ");
   return (
-    <button onClick={onClick} className={`m-auto text-center min-w-8
+    <button type={type} onClick={onClick} className={`m-auto text-center min-w-8
     rounded-lg
     ${bgColor}
     font-bold

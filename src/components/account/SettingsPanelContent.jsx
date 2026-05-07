@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaPause, FaPlay } from "react-icons/fa";
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -23,15 +24,67 @@ import {
 const BACKING_TRACK_MODEL_OPTIONS = [
   { value: "ELEVENLABS_MUSIC", label: "ElevenLabs" },
   { value: "LYRIA2", label: "Lyria 2" },
+  { value: "CUSTOM_TEXT_TO_MUSIC", label: "Custom Text to Music" },
 ];
 
 const SETTINGS_TABS = [
   { key: "general", label: "General" },
+  { key: "custom", label: "Custom configuration" },
   { key: "fonts", label: "Fonts" },
   { key: "agent", label: "Agent" },
   { key: "security", label: "Security" },
   { key: "danger", label: "Danger" },
 ];
+
+const SETTINGS_TAB_KEYS = SETTINGS_TABS.map((tab) => tab.key);
+const CUSTOM_ADAPTER_FIELDS = [
+  "api_key",
+  "base_url",
+  "text_to_image",
+  "text_to_video",
+  "image_to_video",
+  "text_to_speech",
+  "text_to_music",
+  "text_to_sound_effect",
+];
+
+function resolveSettingsTabFromPath(pathname) {
+  const segments = pathname.split("/").filter(Boolean);
+  const requestedTab = segments[2];
+  return SETTINGS_TAB_KEYS.includes(requestedTab) ? requestedTab : "general";
+}
+
+function getSettingsTabPath(tabKey) {
+  return tabKey === "general" ? "/account/settings" : `/account/settings/${tabKey}`;
+}
+
+function normalizeCustomAdaptersForForm(customAdapters) {
+  const source = customAdapters && typeof customAdapters === "object" ? customAdapters : {};
+  return CUSTOM_ADAPTER_FIELDS.reduce((acc, field) => {
+    acc[field] = typeof source[field] === "string" ? source[field] : "";
+    return acc;
+  }, {});
+}
+
+function buildCustomAdaptersPayload(customAdapters) {
+  const payload = CUSTOM_ADAPTER_FIELDS.reduce((acc, field) => {
+    const value = customAdapters[field]?.trim();
+    if (value) {
+      acc[field] = value;
+    }
+    return acc;
+  }, {});
+
+  if (Object.keys(payload).length === 0) {
+    return { customAdapters: null };
+  }
+
+  if (!payload.base_url) {
+    return { error: "Base URL is required for custom configuration." };
+  }
+
+  return { customAdapters: payload };
+}
 
 export default function SettingsPanelContent(props) {
   const {
@@ -45,6 +98,8 @@ export default function SettingsPanelContent(props) {
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const { user } = useUser();
   const { t, setLanguage } = useLocalization();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const textColor = colorMode === "dark" ? "text-slate-100" : "text-slate-900";
   const cardBgColor = colorMode === "dark" ? "bg-[#0f1629]" : "bg-white";
@@ -54,7 +109,7 @@ export default function SettingsPanelContent(props) {
   const mutedBg = colorMode === "dark" ? "bg-[#111a2f]" : "bg-slate-50";
   const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
-  const [activeTab, setActiveTab] = useState("general");
+  const [activeTab, setActiveTab] = useState(() => resolveSettingsTabFromPath(location.pathname));
   const [username, setUsername] = useState(user.username || "");
   const [preferredLanguage, setPreferredLanguage] = useState(user.preferredLanguage || "en");
   const [backingTrackModel, setBackingTrackModel] = useState(
@@ -65,6 +120,9 @@ export default function SettingsPanelContent(props) {
   );
   const [speakerOptions, setSpeakerOptions] = useState(() =>
     normalizeSpeakerOptionsState(user?.speakerOptions)
+  );
+  const [customAdapters, setCustomAdapters] = useState(() =>
+    normalizeCustomAdaptersForForm(user?.custom_adapters)
   );
   const [expandedSpeakerProvider, setExpandedSpeakerProvider] = useState("OPENAI");
   const [currentlyPlayingSpeaker, setCurrentlyPlayingSpeaker] = useState(null);
@@ -82,7 +140,12 @@ export default function SettingsPanelContent(props) {
     setBackingTrackModel(user.backingTrackModel || "ELEVENLABS_MUSIC");
     setFontPreferences(mergeFontPreferencesWithDefaults(user.fontPreferences));
     setSpeakerOptions(normalizeSpeakerOptionsState(user.speakerOptions));
+    setCustomAdapters(normalizeCustomAdaptersForForm(user.custom_adapters));
   }, [user]);
+
+  useEffect(() => {
+    setActiveTab(resolveSettingsTabFromPath(location.pathname));
+  }, [location.pathname]);
 
   useEffect(() => {
     return () => {
@@ -148,6 +211,40 @@ export default function SettingsPanelContent(props) {
     };
 
     updateUserDetails(updatedDetails);
+  };
+
+  const handleSettingsTabClick = (tabKey) => {
+    const targetPath = getSettingsTabPath(tabKey);
+    setActiveTab(tabKey);
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
+    }
+  };
+
+  const handleCustomAdapterFieldChange = (field, value) => {
+    setCustomAdapters((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleUpdateCustomAdapters = (evt) => {
+    evt.preventDefault();
+
+    const { customAdapters: payload, error } = buildCustomAdaptersPayload(customAdapters);
+    if (error) {
+      toast.error(error, {
+        position: "bottom-center",
+      });
+      return;
+    }
+
+    updateUserDetails({ custom_adapters: payload });
+  };
+
+  const handleClearCustomAdapters = () => {
+    setCustomAdapters(normalizeCustomAdaptersForForm(null));
+    updateUserDetails({ custom_adapters: null });
   };
 
   const handleFontPreferenceChange = (languageCode, key, value) => {
@@ -285,7 +382,7 @@ export default function SettingsPanelContent(props) {
               label={tab.label}
               isActive={activeTab === tab.key}
               colorMode={colorMode}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleSettingsTabClick(tab.key)}
             />
           ))}
         </div>
@@ -344,6 +441,128 @@ export default function SettingsPanelContent(props) {
             <div className="block">
               <SecondaryButton className="rounded-l-none" type="submit">
                 {t("account.updateButton")}
+              </SecondaryButton>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {activeTab === "custom" && (
+        <form onSubmit={handleUpdateCustomAdapters}>
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Custom proxy server</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 w-full gap-4">
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Base URL
+                </label>
+                <input
+                  type="url"
+                  value={customAdapters.base_url}
+                  placeholder="https://proxy.example.com"
+                  onChange={(e) => handleCustomAdapterFieldChange("base_url", e.target.value)}
+                  className={formInputClasses}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>API key</label>
+                <input
+                  type="password"
+                  value={customAdapters.api_key}
+                  onChange={(e) => handleCustomAdapterFieldChange("api_key", e.target.value)}
+                  className={formInputClasses}
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Text-to-video path
+                </label>
+                <input
+                  type="text"
+                  value={customAdapters.text_to_video}
+                  placeholder="/custom_text_to_video"
+                  onChange={(e) =>
+                    handleCustomAdapterFieldChange("text_to_video", e.target.value)
+                  }
+                  className={formInputClasses}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Text-to-image path
+                </label>
+                <input
+                  type="text"
+                  value={customAdapters.text_to_image}
+                  placeholder="/custom_text_to_image"
+                  onChange={(e) =>
+                    handleCustomAdapterFieldChange("text_to_image", e.target.value)
+                  }
+                  className={formInputClasses}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Image-to-video path
+                </label>
+                <input
+                  type="text"
+                  value={customAdapters.image_to_video}
+                  placeholder="/custom_image_to_video"
+                  onChange={(e) =>
+                    handleCustomAdapterFieldChange("image_to_video", e.target.value)
+                  }
+                  className={formInputClasses}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Text-to-speech path
+                </label>
+                <input
+                  type="text"
+                  value={customAdapters.text_to_speech}
+                  placeholder="/custom_text_to_speech"
+                  onChange={(e) =>
+                    handleCustomAdapterFieldChange("text_to_speech", e.target.value)
+                  }
+                  className={formInputClasses}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Text-to-music path
+                </label>
+                <input
+                  type="text"
+                  value={customAdapters.text_to_music}
+                  placeholder="/custom_text_to_music"
+                  onChange={(e) =>
+                    handleCustomAdapterFieldChange("text_to_music", e.target.value)
+                  }
+                  className={formInputClasses}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                  Text-to-sound-effect path
+                </label>
+                <input
+                  type="text"
+                  value={customAdapters.text_to_sound_effect}
+                  placeholder="/custom_text_to_sound_effect"
+                  onChange={(e) =>
+                    handleCustomAdapterFieldChange("text_to_sound_effect", e.target.value)
+                  }
+                  className={formInputClasses}
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <SecondaryButton type="submit">Save Custom Configuration</SecondaryButton>
+              <SecondaryButton type="button" onClick={handleClearCustomAdapters}>
+                Clear Configuration
               </SecondaryButton>
             </div>
           </div>

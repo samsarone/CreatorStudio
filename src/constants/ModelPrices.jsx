@@ -1,5 +1,10 @@
 // ModelPrices.js
 
+import {
+  EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL,
+  getExpressVideoPricingDistributionPerSecond,
+} from './pricing/ExpressVideoPricingDistribution.js';
+
 export const IMAGE_MODEL_PRICES = [
   {
     key: 'GPTIMAGE2',
@@ -29,21 +34,21 @@ export const IMAGE_MODEL_PRICES = [
     ],
   },
   {
-    key: 'HUNYUAN',
-    isExpressModel: true,
-    prices: [
-      { aspectRatio: '1:1', price: 60 },
-      { aspectRatio: '16:9', price: 60 },
-      { aspectRatio: '9:16', price: 60 },
-    ],
-  },
-  {
     key: 'NANOBANANA2',
     isExpressModel: true,
     prices: [
       { aspectRatio: '1:1', price: 23 },
       { aspectRatio: '16:9', price: 23 },
       { aspectRatio: '9:16', price: 23 },
+    ],
+  },
+  {
+    key: 'CUSTOM_TEXT_TO_IMAGE',
+    isExpressModel: true,
+    prices: [
+      { aspectRatio: '1:1', price: 10 },
+      { aspectRatio: '16:9', price: 10 },
+      { aspectRatio: '9:16', price: 10 },
     ],
   },
 ]
@@ -76,14 +81,15 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
-      { aspectRatio: '16:9', price: 60 },
-      { aspectRatio: '9:16', price: 60 },
+      { aspectRatio: '16:9', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.RUNWAYML },
+      { aspectRatio: '9:16', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.RUNWAYML },
     ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('RUNWAYML'),
     units: [5, 10],
   },
   {
     key: 'SORA2',
-    isExpressModel: true,
+    isExpressModel: false,
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
@@ -94,7 +100,7 @@ export const VIDEO_MODEL_PRICES = [
   },
   {
     key: 'SORA2PRO',
-    isExpressModel: true,
+    isExpressModel: false,
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
@@ -104,15 +110,24 @@ export const VIDEO_MODEL_PRICES = [
     units: [8],
   },
   {
+    key: 'CUSTOM_IMAGE_TO_VIDEO',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    prices: [],
+    units: [5, 10],
+  },
+  {
     key: 'KLINGIMGTOVID3PRO',
     isExpressModel: true,
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '1:1', price: 60 },
-      { aspectRatio: '16:9', price: 60 },
-      { aspectRatio: '9:16', price: 60 },
+      { aspectRatio: '1:1', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.KLINGIMGTOVID3PRO },
+      { aspectRatio: '16:9', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.KLINGIMGTOVID3PRO },
+      { aspectRatio: '9:16', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.KLINGIMGTOVID3PRO },
     ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('KLINGIMGTOVID3PRO'),
     units: [5, 10],
   },
   {
@@ -129,7 +144,7 @@ export const VIDEO_MODEL_PRICES = [
   },
   {
     key: 'HAILUO',
-    isExpressModel: true,
+    isExpressModel: false,
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
@@ -139,7 +154,7 @@ export const VIDEO_MODEL_PRICES = [
   },
   {
     key: 'HAILUOPRO',
-    isExpressModel: true,
+    isExpressModel: false,
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     prices: [
@@ -153,9 +168,10 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 60 },
-      { aspectRatio: '9:16', price: 60 },
+      { aspectRatio: '16:9', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.SEEDANCEI2V },
+      { aspectRatio: '9:16', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.SEEDANCEI2V },
     ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('SEEDANCEI2V'),
     units: [5, 10],
   },
   {
@@ -175,9 +191,10 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 60 },
-      { aspectRatio: '9:16', price: 60 },
+      { aspectRatio: '16:9', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL['VEO3.1I2V'] },
+      { aspectRatio: '9:16', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL['VEO3.1I2V'] },
     ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('VEO3.1I2V'),
     units: [5, 10],
   },
   {
@@ -208,8 +225,8 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 700 },
-      { aspectRatio: '9:16', price: 700 },
+      { aspectRatio: '16:9', price: 60 },
+      { aspectRatio: '9:16', price: 60 },
     ],
     units: [4, 6, 8],
   },
@@ -231,9 +248,10 @@ export const VIDEO_MODEL_PRICES = [
     isImageToVideoModel: true,
     isTextToVideoModel: false,
     prices: [
-      { aspectRatio: '16:9', price: 300 },
-      { aspectRatio: '9:16', price: 300 },
+      { aspectRatio: '16:9', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL['VEO3.1I2VFAST'] },
+      { aspectRatio: '9:16', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL['VEO3.1I2VFAST'] },
     ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('VEO3.1I2VFAST'),
     units: [4, 6, 8],
   },
 
@@ -303,6 +321,7 @@ export const TTS_TYPES = [
   'OPENAI',
   'PLAYTS',
   'ELEVENLABS',
+  'CUSTOM_TEXT_TO_SPEECH',
 ]
 
 // to update all of thse
@@ -414,6 +433,15 @@ export const MUSIC_MODEL_PRICES = [
   },
   {
     key: 'ELEVENLABS_MUSIC',
+    prices: [
+      {
+        operationType: "generate_song",
+        price: 3,
+      }
+    ]
+  },
+  {
+    key: 'CUSTOM_TEXT_TO_MUSIC',
     prices: [
       {
         operationType: "generate_song",

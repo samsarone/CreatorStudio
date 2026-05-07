@@ -18,6 +18,7 @@ import {
   FaPlus,
   FaStop,
   FaThLarge,
+  FaUpload,
   FaVolumeUp,
 } from 'react-icons/fa';
 import AudioOptionsDialog from '../audio/AudioOptionsDialog.jsx';
@@ -672,6 +673,134 @@ function buildGlobalVideoTrackDisplayList(globalVideos, displayFramesPerSecond =
   });
 }
 
+function parseHintTimestamp(value) {
+  const timestamp = (value || '').toString().trim().replace(',', '.');
+  if (!timestamp) {
+    return NaN;
+  }
+
+  const parts = timestamp.split(':').map((part) => Number(part));
+  if (!parts.length || parts.some((part) => !Number.isFinite(part))) {
+    return NaN;
+  }
+
+  if (parts.length === 3) {
+    return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+  }
+
+  if (parts.length === 2) {
+    return (parts[0] * 60) + parts[1];
+  }
+
+  return parts[0];
+}
+
+function parseTimestampedHintsText(rawText = '') {
+  const lines = rawText.toString().split(/\r?\n/);
+  const hints = [];
+  const timestampPattern = /^\s*(?:\d+\s*)?\[?(\d{1,2}(?::\d{1,2}){1,2}(?:[.,]\d{1,3})?)\s*(?:-->|-|to)\s*(\d{1,2}(?::\d{1,2}){1,2}(?:[.,]\d{1,3})?)\]?\s*(.*)$/i;
+  const metadataPattern = /^(samsar session|session:|generated:)/i;
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex].trim();
+    if (!line || metadataPattern.test(line)) {
+      continue;
+    }
+
+    const match = line.match(timestampPattern);
+    if (!match) {
+      continue;
+    }
+
+    const startTime = parseHintTimestamp(match[1]);
+    const endTime = parseHintTimestamp(match[2]);
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime) || endTime <= startTime) {
+      continue;
+    }
+
+    let text = (match[3] || '').replace(/^[-:]\s*/, '').trim();
+    if (!text) {
+      const textLines = [];
+      let nextIndex = lineIndex + 1;
+      for (; nextIndex < lines.length; nextIndex += 1) {
+        const nextLine = lines[nextIndex].trim();
+        if (!nextLine) {
+          break;
+        }
+        if (timestampPattern.test(nextLine)) {
+          break;
+        }
+        if (!/^\d+$/.test(nextLine)) {
+          textLines.push(nextLine);
+        }
+      }
+      text = textLines.join(' ').replace(/\s+/g, ' ').trim();
+      lineIndex = Math.max(lineIndex, nextIndex - 1);
+    }
+
+    if (!text) {
+      continue;
+    }
+
+    let speaker = '';
+    const speakerMatch = text.match(/^([^:]{1,48}):\s+(.+)$/);
+    if (speakerMatch) {
+      speaker = speakerMatch[1].trim();
+      text = speakerMatch[2].trim();
+    }
+
+    hints.push({
+      id: `hint_file_${Date.now()}_${hints.length}`,
+      text,
+      speaker,
+      startTime,
+      endTime,
+      duration: endTime - startTime,
+    });
+  }
+
+  return hints;
+}
+
+function extractHintsFromUploadedFile(rawText = '') {
+  const trimmedText = rawText.toString().trim();
+  if (!trimmedText) {
+    return [];
+  }
+
+  if (trimmedText.startsWith('{') || trimmedText.startsWith('[')) {
+    try {
+      const parsedJson = JSON.parse(trimmedText);
+      let hintCandidates = [];
+
+      if (Array.isArray(parsedJson)) {
+        hintCandidates = parsedJson;
+      } else if (Array.isArray(parsedJson?.timelineHints)) {
+        hintCandidates = parsedJson.timelineHints;
+      } else if (Array.isArray(parsedJson?.hints)) {
+        hintCandidates = parsedJson.hints;
+      } else if (Array.isArray(parsedJson?.cues)) {
+        hintCandidates = parsedJson.cues;
+      } else if (Array.isArray(parsedJson?.rows)) {
+        hintCandidates = parsedJson.rows;
+      } else if (typeof parsedJson?.normalizedHintsText === 'string') {
+        hintCandidates = parseTimestampedHintsText(parsedJson.normalizedHintsText);
+      } else if (typeof parsedJson?.text === 'string') {
+        hintCandidates = parseTimestampedHintsText(parsedJson.text);
+      }
+
+      const normalizedHints = normalizeTimelineHints(hintCandidates);
+      if (normalizedHints.length > 0) {
+        return normalizedHints;
+      }
+    } catch (error) {
+      return parseTimestampedHintsText(trimmedText);
+    }
+  }
+
+  return parseTimestampedHintsText(trimmedText);
+}
+
 function buildHintTrackDisplayList(hints, displayFramesPerSecond = 30) {
   return normalizeTimelineHints(hints, {
     minimumDuration: 1 / displayFramesPerSecond,
@@ -915,6 +1044,7 @@ export default function FrameToolbar(props) {
     framesPerSecond = 16,
     updateGlobalVideos,
     updateSessionHints,
+    focusHintsPanelRequest = 0,
 
   } = props;
 
@@ -1230,6 +1360,7 @@ export default function FrameToolbar(props) {
   const promptDropdownRef = useRef(null);
   const promptDropdownButtonRef = useRef(null);
   const copyPromptTimeoutRef = useRef(null);
+  const hintsFileInputRef = useRef(null);
 
 
 
@@ -1474,6 +1605,22 @@ export default function FrameToolbar(props) {
     resetAddHintForm();
   }, [
     currentLayerActionSuperView,
+    resetAddHintForm,
+    selectedLayerId,
+  ]);
+
+  useEffect(() => {
+    if (!focusHintsPanelRequest) {
+      return;
+    }
+
+    setCurrentLayerActionSuperView('HINTS');
+    setSelectedHintLayerId(selectedLayerId || null);
+    setSelectedHintId(null);
+    resetAddHintForm();
+    setHintsStatusMessage('');
+  }, [
+    focusHintsPanelRequest,
     resetAddHintForm,
     selectedLayerId,
   ]);
@@ -3261,6 +3408,38 @@ export default function FrameToolbar(props) {
       successMessage: `Imported ${importedHints.length} speech transcript hint${importedHints.length === 1 ? '' : 's'}.`,
       failureMessage: 'Unable to import speech transcript hints.',
     });
+  };
+
+  const importHintsFromFile = async (event) => {
+    const input = event.target;
+    const file = input?.files?.[0] || null;
+    if (!file) {
+      return;
+    }
+
+    try {
+      setHintsStatusMessage(`Importing ${file.name}...`);
+      const rawText = await file.text();
+      const uploadedHints = extractHintsFromUploadedFile(rawText);
+
+      if (!uploadedHints.length) {
+        setHintsStatusMessage('No timestamped hints found in the selected file.');
+        return;
+      }
+
+      await persistTimelineHints(uploadedHints, {
+        selectedHintId: null,
+        pendingMessage: `Importing ${uploadedHints.length} hint${uploadedHints.length === 1 ? '' : 's'} from ${file.name}...`,
+        successMessage: `Imported ${uploadedHints.length} hint${uploadedHints.length === 1 ? '' : 's'} from ${file.name}.`,
+        failureMessage: 'Unable to import hints file.',
+      });
+    } catch (error) {
+      setHintsStatusMessage(error?.message || 'Unable to import hints file.');
+    } finally {
+      if (input) {
+        input.value = '';
+      }
+    }
   };
 
   const addHintFromSelectedLayer = async () => {
@@ -5573,6 +5752,22 @@ export default function FrameToolbar(props) {
 
     return (
       <div className="flex flex-wrap items-end gap-2 px-2 py-2 text-xs">
+        <input
+          ref={hintsFileInputRef}
+          type="file"
+          accept=".json,.txt,.srt,text/plain,application/json"
+          className="hidden"
+          onChange={importHintsFromFile}
+        />
+        <button
+          type="button"
+          onClick={() => hintsFileInputRef.current?.click()}
+          disabled={isSavingHints}
+          className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-500/40 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50"
+        >
+          <FaUpload aria-hidden="true" />
+          Upload hints file
+        </button>
         <button
           type="button"
           onClick={importHintsFromTranscripts}

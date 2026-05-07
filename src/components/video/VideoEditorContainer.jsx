@@ -129,6 +129,7 @@ export default function VideoEditorContainer(props) {
     setAudioLayers,
     layers,
     onAssistantFrameCaptureChange,
+    onSetAvatarHints,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
@@ -3118,11 +3119,13 @@ export default function VideoEditorContainer(props) {
       setAdvancedSessionTheme={setAdvancedSessionTheme}
       requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
       requestAddGlobalAudioLayerFromLibrary={requestAddGlobalAudioLayerFromLibrary}
+      setVideoSessionDetails={setVideoSessionDetails}
       currentLayerSeek={currentLayerSeek}
       setCurrentLayerSeek={setCurrentLayerSeek}
       isVideoPreviewPlaying={isVideoPreviewPlaying}
       setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
       onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
+      onSetAvatarHints={onSetAvatarHints}
       selectedEditModelValue={selectedEditModelValue}
       submitAddBatchTrackToProject={submitAddBatchTrackToProject}
       currentLayer={currentLayer}

@@ -14,7 +14,11 @@ function normalizeProvider(provider, speakerValue = '') {
         : '';
   const normalizedProvider = rawProvider.trim().toUpperCase();
 
-  if (normalizedProvider === 'OPENAI' || normalizedProvider === 'ELEVENLABS') {
+  if (
+    normalizedProvider === 'OPENAI' ||
+    normalizedProvider === 'ELEVENLABS' ||
+    normalizedProvider === 'CUSTOM_TEXT_TO_SPEECH'
+  ) {
     return normalizedProvider;
   }
 

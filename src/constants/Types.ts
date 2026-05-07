@@ -123,13 +123,13 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
   {
-    name: 'Hunyuan',
-    key: 'HUNYUAN',
+    name: 'NanoBanana 2',
+    key: 'NANOBANANA2',
     isExpressModel: true,
   },
   {
-    name: 'NanoBanana 2',
-    key: 'NANOBANANA2',
+    name: 'Custom Text to Image',
+    key: 'CUSTOM_TEXT_TO_IMAGE',
     isExpressModel: true,
   },
 ];
@@ -150,7 +150,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Sora 2',
     key: 'SORA2',
-    isExpressModel: true,
+    isExpressModel: false,
     isTransitionModel: false,
     isImageToVideoModel: true,
     isTextToVideoModel: true,
@@ -161,12 +161,23 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
   {
     name: 'Sora 2 Pro',
     key: 'SORA2PRO',
-    isExpressModel: true,
+    isExpressModel: false,
     isTransitionModel: false,
     isImageToVideoModel: true,
     isTextToVideoModel: true,
     supportedAspectRatios: [
       '16:9', '9:16'
+    ]
+  },
+  {
+    name: 'Custom Image to Video',
+    key: 'CUSTOM_IMAGE_TO_VIDEO',
+    isExpressModel: true,
+    isTransitionModel: false,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    supportedAspectRatios: [
+      '16:9', '9:16', '1:1',
     ]
   },
   {
@@ -197,7 +208,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     supportedAspectRatios: [
       '16:9'
     ],
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Hailuo O2 Pro',
@@ -207,7 +218,7 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     supportedAspectRatios: [
       '16:9'
     ],
-    isExpressModel: true,
+    isExpressModel: false,
   },
   {
     name: 'Seedance 2.0',
@@ -358,6 +369,7 @@ export const PIXVERRSE_VIDEO_STYLES = [
 export const TTS_PROVIDERS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'PLAYHT', label: 'Play.ht' },
+  { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
 ];
 
 export const OPENAI_SPEAKER_TYPES = [
@@ -451,15 +463,33 @@ export const MUSIC_PROVIDERS = [
     supportsLyrics: true,
     locksInstrumental: false,
   },
+  {
+    name: 'Custom Text to Music',
+    key: 'CUSTOM_TEXT_TO_MUSIC',
+    minDurationSeconds: 1,
+    maxDurationSeconds: 600,
+    supportsLyrics: false,
+    locksInstrumental: false,
+  },
 ]
 
 
 
 // constants/Types.ts
+export const CUSTOM_TTS_SPEAKER_TYPES = [
+  {
+    value: 'custom',
+    label: 'Custom Voice',
+    provider: 'CUSTOM_TEXT_TO_SPEECH',
+    Gender: null,
+  },
+];
+
 export const TTS_COMBINED_SPEAKER_TYPES = [
   ...OPENAI_SPEAKER_TYPES,
   ...ELEVENLABS_TTS,
-  ...PLAY_SPEAKER_TYPES
+  ...PLAY_SPEAKER_TYPES,
+  ...CUSTOM_TTS_SPEAKER_TYPES
 
 ];
 

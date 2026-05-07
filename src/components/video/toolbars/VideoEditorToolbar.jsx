@@ -59,13 +59,22 @@ import VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.jsx'
 import VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.jsx';
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 
+const SOUND_EFFECT_MODEL_OPTIONS = [
+  { value: 'SDAUDIO', label: 'Stable Audio' },
+  { value: 'CUSTOM_TEXT_TO_SOUND_EFFECT', label: 'Custom Sound Effect' },
+];
+
 function resolveSpeakerProvider(speaker = {}) {
   const explicitProvider =
     typeof speaker?.provider === 'string'
       ? speaker.provider.trim().toUpperCase()
       : '';
 
-  if (explicitProvider === 'OPENAI' || explicitProvider === 'ELEVENLABS') {
+  if (
+    explicitProvider === 'OPENAI' ||
+    explicitProvider === 'ELEVENLABS' ||
+    explicitProvider === 'CUSTOM_TEXT_TO_SPEECH'
+  ) {
     return explicitProvider;
   }
 
@@ -176,6 +185,8 @@ export default function VideoEditorToolbar(props) {
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
     onRecordSpeechRecordingChange,
+    setVideoSessionDetails,
+    onSetAvatarHints,
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
@@ -219,6 +230,7 @@ export default function VideoEditorToolbar(props) {
   const audioSampleRef = useRef(null);
   const [numberOfSpeechLayersRequested, setNumberOfSpeechLayersRequested] = useState(0);
   const [selectedMusicProvider, setSelectedMusicProvider] = useState(MUSIC_PROVIDERS[0]);
+  const [selectedSoundEffectModel, setSelectedSoundEffectModel] = useState(SOUND_EFFECT_MODEL_OPTIONS[0]);
   const [isInstrumental, setIsInstrumental] = useState(false);
   const [musicLyrics, setMusicLyrics] = useState('');
 
@@ -753,6 +765,7 @@ export default function VideoEditorToolbar(props) {
     const formData = new FormData(evt.target);
     const promptText = formData.get('promptText');
     const secondsTotal = parseInt(formData.get('secondsTotal'), 10);
+    const soundEffectModel = formData.get('soundEffectModel') || selectedSoundEffectModel.value;
 
     if (isNaN(secondsTotal) || secondsTotal < 2 || secondsTotal > 40) {
       toast.error(
@@ -770,7 +783,7 @@ export default function VideoEditorToolbar(props) {
     const body = {
       prompt: promptText,
       generationType: 'sound',
-      model: 'SDAUDIO',
+      model: soundEffectModel,
       secondsTotal: secondsTotal,
     };
     submitGenerateMusicRequest(body);
@@ -1326,6 +1339,21 @@ export default function VideoEditorToolbar(props) {
         <div className="transition-all duration-300 ease-in-out">
           <form name="audioGenerateForm" className="w-full" onSubmit={submitGenerateSound}>
             <div className="mb-2">
+              <label className={`text-xs ${text2Color}`} htmlFor="soundEffectModel">
+                Provider
+              </label>
+              <SingleSelect
+                name="soundEffectModel"
+                options={SOUND_EFFECT_MODEL_OPTIONS}
+                value={selectedSoundEffectModel}
+                onChange={(selectedOption) =>
+                  setSelectedSoundEffectModel(selectedOption || SOUND_EFFECT_MODEL_OPTIONS[0])
+                }
+                isSearchable={false}
+                truncateLabels={isCollapsedSidebarView}
+              />
+            </div>
+            <div className="mb-2">
               <label className={`text-xs ${text2Color}`} htmlFor="secondsTotal">
                 Duration (seconds):
               </label>
@@ -1611,6 +1639,9 @@ export default function VideoEditorToolbar(props) {
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
         onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
+        onAvatarVoiceoverSessionChange={setVideoSessionDetails}
+        onSetAvatarHints={onSetAvatarHints}
+        isCollapsedSidebarView={isCollapsedSidebarView}
       />
     </div>
   );
@@ -1668,7 +1699,7 @@ export default function VideoEditorToolbar(props) {
       )
     },
     {
-      label: 'Recording & Cam',
+      label: 'Facecam & Voiceover',
       icon: null,
       view: CURRENT_TOOLBAR_VIEW.SHOW_RECORDING_FACECAM_DISPLAY,
       onClick: () => toggleCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_RECORDING_FACECAM_DISPLAY),

@@ -272,6 +272,7 @@ export default function VideoHome(props) {
   const [isLayerSeeking, setIsLayerSeeking] = useState(false);
   const [isVideoGenerating, setIsVideoGenerating] = useState(false);
   const [frameToolbarView, setFrameToolbarView] = useState(FRAME_TOOLBAR_VIEW.DEFAULT);
+  const [focusHintsPanelRequest, setFocusHintsPanelRequest] = useState(0);
   const [audioLayers, setAudioLayers] = useState([]);
   const [isAudioLayerDirty, setIsAudioLayerDirty] = useState(false);
   const [generationImages, setGenerationImages] = useState([]);
@@ -2842,6 +2843,12 @@ export default function VideoHome(props) {
     return await assistantFrameCaptureRef.current();
   }, []);
 
+  const focusHintsPanel = useCallback(() => {
+    setMinimalToolbarDisplay(false);
+    setFrameToolbarView(FRAME_TOOLBAR_VIEW.EXPANDED);
+    setFocusHintsPanelRequest((requestCount) => requestCount + 1);
+  }, []);
+
   if (!videoSessionDetails) {
     return <StudioSkeletonLoader />;
   }
@@ -3189,7 +3196,6 @@ export default function VideoHome(props) {
   const reservedRightRailWidth = `calc(${collapsedRightPanelWidth} + ${studioInsetPx}px)`;
   const previewAudioLayers = mergePreviewAudioLayers(videoSessionDetails?.audioLayers, audioLayers);
 
-
   const editorContainerDisplay = (
     <div className='h-full min-h-0'>
       <VideoEditorContainer
@@ -3248,6 +3254,7 @@ export default function VideoHome(props) {
         setSelectedLayerIndex={setSelectedLayerIndex}
         setSelectedLayer={setSelectedLayer}
         onAssistantFrameCaptureChange={setAssistantFrameCapture}
+        onSetAvatarHints={focusHintsPanel}
 
 
 
@@ -3344,6 +3351,7 @@ export default function VideoHome(props) {
           updateGlobalAudioLayers={updateGlobalAudioLayersOneShot}
           updateGlobalVideos={updateGlobalVideosOneShot}
           updateSessionHints={updateSessionHints}
+          focusHintsPanelRequest={focusHintsPanelRequest}
           requestVideoLayerEdit={requestVideoLayerEdit}
           renderCompletedThisSession={renderCompletedThisSession}
           isRenderPending={isVideoRenderPending}
@@ -3465,6 +3473,7 @@ export default function VideoHome(props) {
                 updateGlobalAudioLayers={updateGlobalAudioLayersOneShot}
                 updateGlobalVideos={updateGlobalVideosOneShot}
                 updateSessionHints={updateSessionHints}
+                focusHintsPanelRequest={focusHintsPanelRequest}
                 requestVideoLayerEdit={requestVideoLayerEdit}
                 renderCompletedThisSession={renderCompletedThisSession}
                 isRenderPending={isVideoRenderPending}

@@ -8,19 +8,19 @@ import { getHeaders } from '../../utils/web.jsx';
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API || 'http://localhost:3002';
 
 const TEXT_MODELS = [
-  { label: 'Runway Gen-4', value: 'RUNWAYML' },
-  { label: 'Sora 2', value: 'SORA2' },
-  { label: 'Sora 2 Pro', value: 'SORA2PRO' },
-  { label: 'Veo 3.1 Fast', value: 'VEO3.1I2VFAST' },
   { label: 'Veo 3.1', value: 'VEO3.1I2V' },
+  { label: 'Veo 3.1 Fast', value: 'VEO3.1I2VFAST' },
+  { label: 'Seedance 2.0', value: 'SEEDANCEI2V' },
   { label: 'Kling Pro', value: 'KLINGIMGTOVID3PRO' },
-  { label: 'Kling Turbo', value: 'KLINGIMGTOVIDTURBO' },
+  { label: 'Runway Gen-4', value: 'RUNWAYML' },
+  { label: 'Custom Image to Video', value: 'CUSTOM_IMAGE_TO_VIDEO' },
 ];
 
 const IMAGE_MODELS = [
-  { label: 'Flux', value: 'FLUX' },
   { label: 'GPT Image 2', value: 'GPTIMAGE2' },
-  { label: 'Hunyuan', value: 'HUNYUAN' },
+  { label: 'Nano Banana 2', value: 'NANOBANANA2' },
+  { label: 'Seedream', value: 'SEEDREAM' },
+  { label: 'Custom Text to Image', value: 'CUSTOM_TEXT_TO_IMAGE' },
 ];
 
 const DURATION_OPTIONS = [10, 30, 60, 90, 120];
@@ -470,7 +470,11 @@ export default function ExternalStudioDashboard() {
                     className="rounded-2xl border border-white/10 bg-[#0c1528] px-4 py-3 text-sm text-white"
                   >
                     <option value="VEO3.1I2V">Veo 3.1</option>
+                    <option value="VEO3.1I2VFAST">Veo 3.1 Fast</option>
                     <option value="SEEDANCEI2V">Seedance 2.0</option>
+                    <option value="KLINGIMGTOVID3PRO">Kling Pro</option>
+                    <option value="RUNWAYML">Runway Gen-4</option>
+                    <option value="CUSTOM_IMAGE_TO_VIDEO">Custom Image to Video</option>
                   </select>
                   <select
                     value={imageForm.duration}

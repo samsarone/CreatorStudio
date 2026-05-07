@@ -6,6 +6,7 @@ import SpeechProviderSelect from './SpeechProviderSelect.jsx';
 const TTS_PROVIDER_OPTIONS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'ELEVENLABS', label: 'ElevenLabs' },
+  { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
 ];
 
 export default function AddSpeaker(props) {

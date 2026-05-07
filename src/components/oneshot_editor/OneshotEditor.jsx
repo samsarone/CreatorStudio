@@ -41,6 +41,7 @@ import {
   VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
+import { getExpressVideoCreditsPerSecond } from '../../constants/pricing/ExpressVideoPricingDistribution.js';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
@@ -65,44 +66,39 @@ const MAX_BACKOFF = 60_000;    // 1 min cap
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
 const VIDGENIE_PROMPT_MAX_LENGTH = 4000;
-const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'SEEDREAM'];
+const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'SEEDREAM', 'CUSTOM_TEXT_TO_IMAGE'];
 const VIDGENIE_IMAGE_MODEL_LABELS = {
   GPTIMAGE2: 'GPT Image 2',
   NANOBANANA2: 'Nano Banana 2',
   SEEDREAM: 'Seedream',
+  CUSTOM_TEXT_TO_IMAGE: 'Custom Text to Image',
 };
 const VIDGENIE_VIDEO_MODEL_ORDER = [
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
-  'SEEDANCE15I2V',
+  'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'RUNWAYML',
-  'SORA2PRO',
+  'CUSTOM_IMAGE_TO_VIDEO',
 ];
 const VIDGENIE_VIDEO_MODEL_LABELS = {
   'VEO3.1I2V': 'VEO3.1 I2V (Default)',
   'VEO3.1I2VFAST': 'VEO3.1 I2V Fast',
-  SEEDANCE15I2V: 'Seedance 1.5',
   SEEDANCEI2V: 'Seedance 2.0',
   KLINGIMGTOVID3PRO: 'Kling 3 Pro',
   RUNWAYML: 'Runway Gen 4',
-  SORA2PRO: 'Sora 2 Pro',
+  CUSTOM_IMAGE_TO_VIDEO: 'Custom Image to Video',
 };
 const VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY = 'defaultVIdGPTVideoGenerationModel';
 const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY = 'defaultVidgenieImageListVideoGenerationModel';
 const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
   'VEO3.1I2V',
+  'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'RUNWAYML',
+  'CUSTOM_IMAGE_TO_VIDEO',
 ];
-const VIDGENIE_IMAGE_LIST_VIDEO_CREDITS_PER_SECOND_BY_MODEL = {
-  'VEO3.1I2V': 50,
-  SEEDANCEI2V: 50,
-  KLINGIMGTOVID3PRO: 34,
-  RUNWAYML: 17,
-};
-
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Context / Router hooks
@@ -1632,17 +1628,11 @@ export default function OneshotEditor() {
   const [pricingDetailsDisplay, setPricingDetailsDisplay] = useState(false);
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
+  const selectedVideoModelKey = selectedVideoModel?.value || '';
+  const isCustomImageToVideoModel = selectedVideoModelKey === 'CUSTOM_IMAGE_TO_VIDEO';
   const creditsPerSecondVideo = useMemo(() => {
-    if (generationMode === 'I2V') {
-      return VIDGENIE_IMAGE_LIST_VIDEO_CREDITS_PER_SECOND_BY_MODEL[selectedVideoModel?.value] ?? 50;
-    }
-    const key = selectedVideoModel?.value || '';
-    if (key === 'KLINGIMGTOVID3PRO') return 15;
-    if (key === 'VEO3.1I2VFAST') return 30;
-    if (key === 'VEO3.1I2V') return 60;
-    if (key === 'SORA2PRO') return 70;
-    return 10; // default
-  }, [generationMode, selectedVideoModel]);
+    return getExpressVideoCreditsPerSecond(selectedVideoModelKey) ?? (generationMode === 'I2V' ? 60 : 30);
+  }, [generationMode, selectedVideoModelKey]);
 
 
   const expectedCreditsPerSecond = useMemo(() => {
@@ -1655,7 +1645,7 @@ export default function OneshotEditor() {
         className={`flex items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
         onClick={togglePricingDetailsDisplay}
       >
-        {currentEnv === 'docker' ? (
+        {currentEnv === 'docker' || isCustomImageToVideoModel ? (
           <div>{t("vidgenie.pricingApiCharge")}</div>
         ) : (
           <div className="inline-flex items-center">
@@ -1668,7 +1658,7 @@ export default function OneshotEditor() {
       </div>
       {pricingDetailsDisplay && (
         <div className={`mt-2 text-sm text-left ${mutedText} transition-opacity duration-300`}>
-          {currentEnv === 'docker' ? (
+          {currentEnv === 'docker' || isCustomImageToVideoModel ? (
             <div>{t("vidgenie.pricingApiCharge")}</div>
           ) : (
             <>

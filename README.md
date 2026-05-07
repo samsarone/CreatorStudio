@@ -66,7 +66,6 @@ These models are part of the current shared client-side image generation pool. S
 | GPT Image 2 | `GPTIMAGE2` | 46 | 46 | 46 | Yes |
 | Google Imagen4 | `IMAGEN4` | 8 | 8 | 8 | No |
 | Seedream | `SEEDREAM` | 15 | 23 | 23 | Yes |
-| Hunyuan | `HUNYUAN` | 60 | 60 | 60 | No |
 | NanoBanana 2 | `NANOBANANA2` | 23 | 23 | 23 | Yes |
 
 ### Image Editing
@@ -90,21 +89,18 @@ Studio exposes the full video model list. VidGenie `T2V` exposes a curated subse
 | Model | Key | `T2V` | `I2V` | Supported ratios | VidGenie `T2V` |
 | --- | --- | --- | --- | --- | --- |
 | Runway Gen-4 | `RUNWAYML` | Yes | Yes | `16:9`, `9:16` | Yes |
-| Sora 2 | `SORA2` | Yes | Yes | `16:9`, `9:16` | No |
-| Sora 2 Pro | `SORA2PRO` | Yes | Yes | `16:9`, `9:16` | Yes |
-| Kling 3 Pro Img2Vid | `KLINGIMGTOVID3PRO` | No | Yes | `16:9`, `9:16`, `1:1` | Yes |
-| Hailuo O2 Standard | `HAILUO` | Yes | Yes | `16:9` | No |
-| Hailuo O2 Pro | `HAILUOPRO` | Yes | Yes | `16:9` | No |
-| Seedance 2.0 | `SEEDANCEI2V` | No | Yes | `16:9`, `9:16` | Yes |
+| Kling 3 Pro Img2Vid | `KLINGIMGTOVID3PRO` | Yes | Yes | `16:9`, `9:16`, `1:1` | Yes |
+| Seedance 2.0 | `SEEDANCEI2V` | Yes | Yes | `16:9`, `9:16` | Yes |
 | Veo 3.1 Img2Vid | `VEO3.1I2V` | Yes | Yes | `16:9`, `9:16` | Yes |
 | Veo 3.1 Fast Img2Vid | `VEO3.1I2VFAST` | Yes | Yes | `16:9`, `9:16` | Yes |
+| Custom Image to Video | `CUSTOM_IMAGE_TO_VIDEO` | Yes | Yes | `1:1`, `16:9`, `9:16` | Yes |
 
 ### VidGenie Current Options
 
 `T2V` currently exposes:
 
 - Image models: `GPTIMAGE2`, `NANOBANANA2`, `SEEDREAM`
-- Video models: `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`, `RUNWAYML`, `SORA2PRO`
+- Video models: `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`, `RUNWAYML`, `CUSTOM_IMAGE_TO_VIDEO`
 - Aspect ratios: `16:9`, `9:16`
 - Durations: `10`, `30`, `60`, `90`, `120`, `180` seconds
 - Language selector plus optional subtitles
@@ -175,7 +171,6 @@ yarn build
 | `GPTIMAGE2` | 46 | 46 | 46 |
 | `IMAGEN4` | 8 | 8 | 8 |
 | `SEEDREAM` | 15 | 23 | 23 |
-| `HUNYUAN` | 60 | 60 | 60 |
 | `NANOBANANA2` | 23 | 23 | 23 |
 
 ### Image Editing
@@ -189,15 +184,21 @@ yarn build
 
 | Key | Ratios | Units | Credits |
 | --- | --- | --- | --- |
-| `RUNWAYML` | `16:9`, `9:16` | `5`, `10` | 60 |
-| `SORA2` | `16:9`, `9:16` | `8` | 100 |
-| `SORA2PRO` | `16:9`, `9:16` | `8` | 300 |
-| `KLINGIMGTOVID3PRO` | `1:1`, `16:9`, `9:16` | `5`, `10` | 60 |
-| `HAILUO` | `16:9` | `6`, `10` | 60 |
-| `HAILUOPRO` | `16:9` | `6` | 100 |
-| `SEEDANCEI2V` | `16:9`, `9:16` | `5`, `10` | 60 |
-| `VEO3.1I2V` | `16:9`, `9:16` | `8` | 700 |
-| `VEO3.1I2VFAST` | `16:9`, `9:16` | `8` | 300 |
+| `VEO3.1I2V` | `16:9`, `9:16` | `6`, `8` | 60 |
+| `VEO3.1I2VFAST` | `16:9`, `9:16` | `6`, `8` | 36 |
+| `SEEDANCEI2V` | `16:9`, `9:16` | `5`, `10` | 30 |
+| `KLINGIMGTOVID3PRO` | `1:1`, `16:9`, `9:16` | `5`, `10` | 36 |
+| `RUNWAYML` | `16:9`, `9:16` | `5`, `10` | 30 |
+
+For standard priced video models, credits/sec are split into fixed components plus the model-specific video remainder:
+
+| Key | Pipeline | Inference | Image Gen / Edit | Speech | Music | Effects and lipsync | Video | Total |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `VEO3.1I2V` | 4 | 4 | 2 | 2 | 2 | 2 | 44 | 60 |
+| `VEO3.1I2VFAST` | 4 | 4 | 2 | 2 | 2 | 2 | 20 | 36 |
+| `SEEDANCEI2V` | 4 | 4 | 2 | 2 | 2 | 2 | 14 | 30 |
+| `KLINGIMGTOVID3PRO` | 4 | 4 | 2 | 2 | 2 | 2 | 20 | 36 |
+| `RUNWAYML` | 4 | 4 | 2 | 2 | 2 | 2 | 14 | 30 |
 
 ### Post-Processing
 
