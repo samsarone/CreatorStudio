@@ -11,6 +11,8 @@ import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaChevronCircleDown,
+  FaChevronDown,
+  FaChevronRight,
   FaCog,
   FaSpinner,
   FaTimes,
@@ -43,6 +45,7 @@ import {
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { getExpressVideoCreditsPerSecond } from '../../constants/pricing/ExpressVideoPricingDistribution.js';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
+import { getFontOptionsForLanguage } from '../../constants/fontPreferences.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
@@ -66,12 +69,11 @@ const MAX_BACKOFF = 60_000;    // 1 min cap
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
 const VIDGENIE_PROMPT_MAX_LENGTH = 4000;
-const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'SEEDREAM', 'CUSTOM_TEXT_TO_IMAGE'];
+const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'SEEDREAM'];
 const VIDGENIE_IMAGE_MODEL_LABELS = {
   GPTIMAGE2: 'GPT Image 2',
   NANOBANANA2: 'Nano Banana 2',
   SEEDREAM: 'Seedream',
-  CUSTOM_TEXT_TO_IMAGE: 'Custom Text to Image',
 };
 const VIDGENIE_VIDEO_MODEL_ORDER = [
   'VEO3.1I2V',
@@ -79,7 +81,6 @@ const VIDGENIE_VIDEO_MODEL_ORDER = [
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'RUNWAYML',
-  'CUSTOM_IMAGE_TO_VIDEO',
 ];
 const VIDGENIE_VIDEO_MODEL_LABELS = {
   'VEO3.1I2V': 'VEO3.1 I2V (Default)',
@@ -87,7 +88,6 @@ const VIDGENIE_VIDEO_MODEL_LABELS = {
   SEEDANCEI2V: 'Seedance 2.0',
   KLINGIMGTOVID3PRO: 'Kling 3 Pro',
   RUNWAYML: 'Runway Gen 4',
-  CUSTOM_IMAGE_TO_VIDEO: 'Custom Image to Video',
 };
 const VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY = 'defaultVIdGPTVideoGenerationModel';
 const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY = 'defaultVidgenieImageListVideoGenerationModel';
@@ -97,8 +97,257 @@ const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'RUNWAYML',
-  'CUSTOM_IMAGE_TO_VIDEO',
 ];
+
+const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
+  tone: 'grounded',
+  font_key: '',
+  webhookUrl: '',
+  outro_image_url: '',
+  generate_outro_image: false,
+  add_outro_animation: false,
+  add_outro_focus_area: false,
+  outro_focust_area: '',
+  cta_url: '',
+  cta_text_top: '',
+  cta_text_bottom: '',
+  cta_logo: '',
+  add_footer_animation: false,
+  footer_metadata: '',
+  metadata: '',
+  image_item_metadata: '',
+  limit_single_narrator: false,
+  add_narrator_avatar: false,
+});
+
+const VIDGENIE_TONE_OPTIONS = [
+  { value: 'grounded', label: 'Grounded' },
+  { value: 'cinematic', label: 'Cinematic' },
+];
+
+const CUSTOM_ADAPTER_OPERATION_OPTIONS = [
+  { key: 'text_to_image', label: 'Text to image' },
+  { key: 'text_to_video', label: 'Text to video' },
+  { key: 'image_to_video', label: 'Image to video' },
+  { key: 'text_to_speech', label: 'Text to speech' },
+  { key: 'text_to_music', label: 'Text to music' },
+  { key: 'text_to_sound_effect', label: 'Text to sound effect' },
+];
+
+function hasTextValue(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseOptionalJsonValue(rawValue, label, validator) {
+  if (!hasTextValue(rawValue)) {
+    return { value: null };
+  }
+
+  try {
+    const value = JSON.parse(rawValue);
+    if (validator && !validator(value)) {
+      return { error: `${label} must be valid JSON in the expected shape.` };
+    }
+    return { value };
+  } catch {
+    return { error: `${label} must be valid JSON.` };
+  }
+}
+
+function normalizeSavedCustomAdapters(customAdapters) {
+  return isPlainObject(customAdapters) ? customAdapters : {};
+}
+
+function getAvailableCustomAdapterOperations(customAdapters) {
+  const savedAdapters = normalizeSavedCustomAdapters(customAdapters);
+  if (!hasTextValue(savedAdapters.base_url)) {
+    return [];
+  }
+
+  return CUSTOM_ADAPTER_OPERATION_OPTIONS
+    .map((operation) => {
+      const endpoint = savedAdapters[operation.key];
+      if (!hasTextValue(endpoint)) {
+        return null;
+      }
+      return {
+        ...operation,
+        endpoint: endpoint.trim(),
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildSelectedCustomAdaptersPayload(customAdapters, selectedOperationKeys = []) {
+  const savedAdapters = normalizeSavedCustomAdapters(customAdapters);
+  const selectedKeys = new Set(selectedOperationKeys);
+  if (!hasTextValue(savedAdapters.base_url) || selectedKeys.size === 0) {
+    return null;
+  }
+
+  const payload = {
+    base_url: savedAdapters.base_url.trim(),
+  };
+  if (hasTextValue(savedAdapters.api_key)) {
+    payload.api_key = savedAdapters.api_key.trim();
+  }
+
+  for (const operation of CUSTOM_ADAPTER_OPERATION_OPTIONS) {
+    if (!selectedKeys.has(operation.key) || !hasTextValue(savedAdapters[operation.key])) {
+      continue;
+    }
+    payload[operation.key] = savedAdapters[operation.key].trim();
+  }
+
+  return CUSTOM_ADAPTER_OPERATION_OPTIONS.some((operation) => payload[operation.key])
+    ? payload
+    : null;
+}
+
+function buildAdvancedRequestConfiguration({
+  isTextToVideo,
+  advancedOptions,
+  customAdapters,
+  selectedCustomAdapterOperations,
+}) {
+  const input = {};
+  const root = {};
+
+  if (isTextToVideo && hasTextValue(advancedOptions.tone)) {
+    input.tone = advancedOptions.tone.trim();
+  }
+
+  if (hasTextValue(advancedOptions.font_key)) {
+    input.font_key = advancedOptions.font_key.trim();
+  }
+
+  if (hasTextValue(advancedOptions.webhookUrl)) {
+    root.webhookUrl = advancedOptions.webhookUrl.trim();
+  }
+
+  const hasProvidedOutro = hasTextValue(advancedOptions.outro_image_url);
+  const shouldGenerateOutro = advancedOptions.generate_outro_image === true;
+  if (hasProvidedOutro && shouldGenerateOutro) {
+    return { error: 'Use either an outro image URL or generated QR outro, not both.' };
+  }
+
+  if (hasProvidedOutro) {
+    input.outro_image_url = advancedOptions.outro_image_url.trim();
+  }
+  if (shouldGenerateOutro) {
+    input.generate_outro_image = true;
+    input.add_outro_animation = advancedOptions.add_outro_animation === true;
+    if (!hasTextValue(advancedOptions.cta_url)) {
+      return { error: 'CTA URL is required when generated QR outro is enabled.' };
+    }
+  } else if (advancedOptions.add_outro_animation === true) {
+    input.add_outro_animation = true;
+  }
+
+  if (hasTextValue(advancedOptions.cta_url)) {
+    input.cta_url = advancedOptions.cta_url.trim();
+  }
+  if (hasTextValue(advancedOptions.cta_text_top)) {
+    input.cta_text_top = advancedOptions.cta_text_top.trim();
+  }
+  if (hasTextValue(advancedOptions.cta_text_bottom)) {
+    input.cta_text_bottom = advancedOptions.cta_text_bottom.trim();
+  }
+  if (hasTextValue(advancedOptions.cta_logo)) {
+    input.cta_logo = advancedOptions.cta_logo.trim();
+  }
+
+  const shouldUseOutroFocusArea =
+    advancedOptions.add_outro_focus_area === true || hasTextValue(advancedOptions.outro_focust_area);
+  if (shouldUseOutroFocusArea) {
+    if (advancedOptions.add_outro_animation !== true) {
+      return { error: 'Add outro animation must be enabled to use an outro focus area.' };
+    }
+    const parsedFocusArea = parseOptionalJsonValue(
+      advancedOptions.outro_focust_area,
+      'Outro focus area',
+      isPlainObject,
+    );
+    if (parsedFocusArea.error) {
+      return { error: parsedFocusArea.error };
+    }
+    if (!parsedFocusArea.value) {
+      return { error: 'Outro focus area is required when outro focus is enabled.' };
+    }
+    input.add_outro_focus_area = true;
+    input.outro_focust_area = parsedFocusArea.value;
+  }
+
+  const shouldUseFooter =
+    advancedOptions.add_footer_animation === true || hasTextValue(advancedOptions.footer_metadata);
+  if (shouldUseFooter) {
+    const parsedFooterMetadata = parseOptionalJsonValue(
+      advancedOptions.footer_metadata,
+      'Footer metadata',
+      Array.isArray,
+    );
+    if (parsedFooterMetadata.error) {
+      return { error: parsedFooterMetadata.error };
+    }
+    if (!parsedFooterMetadata.value || parsedFooterMetadata.value.length === 0) {
+      return { error: 'Footer metadata must include at least one item.' };
+    }
+    input.add_footer_animation = true;
+    input.footer_metadata = parsedFooterMetadata.value;
+  }
+
+  let imageItemMetadata = null;
+  if (!isTextToVideo) {
+    if (advancedOptions.add_narrator_avatar === true) {
+      input.add_narrator_avatar = true;
+      input.limit_single_narrator = true;
+    } else if (advancedOptions.limit_single_narrator === true) {
+      input.limit_single_narrator = true;
+    }
+
+    const parsedMetadata = parseOptionalJsonValue(
+      advancedOptions.metadata,
+      'Metadata',
+      isPlainObject,
+    );
+    if (parsedMetadata.error) {
+      return { error: parsedMetadata.error };
+    }
+    if (parsedMetadata.value) {
+      input.metadata = parsedMetadata.value;
+    }
+
+    const parsedImageItemMetadata = parseOptionalJsonValue(
+      advancedOptions.image_item_metadata,
+      'Image item metadata',
+      Array.isArray,
+    );
+    if (parsedImageItemMetadata.error) {
+      return { error: parsedImageItemMetadata.error };
+    }
+    imageItemMetadata = parsedImageItemMetadata.value;
+  }
+
+  const selectedCustomAdapters = buildSelectedCustomAdaptersPayload(
+    customAdapters,
+    selectedCustomAdapterOperations,
+  );
+  if (selectedCustomAdapters) {
+    root.configuration = {
+      custom_adapters: selectedCustomAdapters,
+    };
+  }
+
+  return {
+    input,
+    root,
+    imageItemMetadata,
+  };
+}
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Context / Router hooks
@@ -699,6 +948,53 @@ export default function OneshotEditor() {
     () => defaultLanguageOption
   );
   const [enableSubtitles, setEnableSubtitles] = useState(false);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
+  const [advancedOptions, setAdvancedOptions] = useState(() => ({
+    ...DEFAULT_ADVANCED_OPTIONS,
+  }));
+  const [selectedCustomAdapterOperations, setSelectedCustomAdapterOperations] = useState([]);
+
+  const updateAdvancedOption = useCallback((key, value) => {
+    setAdvancedOptions((prev) => {
+      const next = {
+        ...prev,
+        [key]: value,
+      };
+      if (key === 'add_narrator_avatar' && value === true) {
+        next.limit_single_narrator = true;
+      }
+      if (key === 'generate_outro_image' && value === true) {
+        next.add_outro_animation = true;
+      }
+      if (key === 'add_outro_focus_area' && value === true) {
+        next.add_outro_animation = true;
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectedCustomAdapterOperation = useCallback((operationKey) => {
+    setSelectedCustomAdapterOperations((prev) => (
+      prev.includes(operationKey)
+        ? prev.filter((key) => key !== operationKey)
+        : [...prev, operationKey]
+    ));
+  }, []);
+
+  const availableCustomAdapterOperations = useMemo(
+    () => getAvailableCustomAdapterOperations(user?.custom_adapters),
+    [user?.custom_adapters],
+  );
+
+  useEffect(() => {
+    if (!availableCustomAdapterOperations.length) {
+      setSelectedCustomAdapterOperations([]);
+      return;
+    }
+
+    const availableKeys = new Set(availableCustomAdapterOperations.map((operation) => operation.key));
+    setSelectedCustomAdapterOperations((prev) => prev.filter((key) => availableKeys.has(key)));
+  }, [availableCustomAdapterOperations]);
 
   useEffect(() => {
     setSelectedLanguageOption((prev) => {
@@ -706,6 +1002,20 @@ export default function OneshotEditor() {
       return match || defaultLanguageOption;
     });
   }, [languageOptions, defaultLanguageOption]);
+
+  const selectedLanguageCodeForFonts = useMemo(() => {
+    const selectedLanguageValue =
+      typeof selectedLanguageOption === 'string'
+        ? selectedLanguageOption
+        : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
+    const resolvedCode = resolveLanguageCode(selectedLanguageValue);
+    return resolvedCode && resolvedCode !== 'auto' ? resolvedCode : 'en';
+  }, [selectedLanguageOption]);
+
+  const fontKeyOptions = useMemo(
+    () => getFontOptionsForLanguage(selectedLanguageCodeForFonts),
+    [selectedLanguageCodeForFonts],
+  );
 
   // ─────────────────────────────────────────────────────────
   //  Aspect-ratio select
@@ -1452,6 +1762,17 @@ export default function OneshotEditor() {
       stopAllVoiceCapture();
     }
 
+    const advancedRequestConfiguration = buildAdvancedRequestConfiguration({
+      isTextToVideo,
+      advancedOptions,
+      customAdapters: user?.custom_adapters,
+      selectedCustomAdapterOperations,
+    });
+    if (advancedRequestConfiguration.error) {
+      setErrorMessage({ error: advancedRequestConfiguration.error });
+      return;
+    }
+
     setErrorMessage(null);
     setIsSubmitting(true);
     setIsGenerationPending(true);
@@ -1467,7 +1788,7 @@ export default function OneshotEditor() {
       requestInput.image_model = selectedImageModel.value;
       requestInput.video_model = selectedVideoModel.value;
       requestInput.duration = selectedDurationOption.value;
-      requestInput.tone = 'grounded';
+      requestInput.tone = advancedRequestConfiguration.input.tone || 'grounded';
       requestInput.aspect_ratio = selectedAspectRatioOption.value;
       if (selectedVideoModelSubType?.value) {
         requestInput.video_model_sub_type = selectedVideoModelSubType.value;
@@ -1487,6 +1808,7 @@ export default function OneshotEditor() {
     if (!enableSubtitles) {
       requestInput.enable_subtitles = false;
     }
+    Object.assign(requestInput, advancedRequestConfiguration.input);
 
     try {
       if (!isTextToVideo) {
@@ -1509,7 +1831,19 @@ export default function OneshotEditor() {
         if (normalizedImageUrls.length === 0) {
           throw new Error('Image upload did not return any URLs.');
         }
-        requestInput.image_urls = normalizedImageUrls;
+        const imageItemMetadata = Array.isArray(advancedRequestConfiguration.imageItemMetadata)
+          ? advancedRequestConfiguration.imageItemMetadata
+          : null;
+        requestInput.image_urls = normalizedImageUrls.map((url, index) => {
+          const itemMetadata = imageItemMetadata?.[index];
+          if (isPlainObject(itemMetadata) && Object.keys(itemMetadata).length > 0) {
+            return {
+              ...itemMetadata,
+              image_url: url,
+            };
+          }
+          return url;
+        });
         if (selectedVideoModel?.value) {
           requestInput.video_model = selectedVideoModel.value;
         }
@@ -1518,7 +1852,10 @@ export default function OneshotEditor() {
         }
       }
 
-      const payload = { input: { ...requestInput, session_id: id } };
+      const payload = {
+        input: { ...requestInput, session_id: id },
+        ...advancedRequestConfiguration.root,
+      };
       const endpoint = isTextToVideo
         ? `${VIDEO_API_BASE}/text_to_video`
         : `${VIDEO_API_BASE}/image_list_to_video`;
@@ -1567,6 +1904,9 @@ export default function OneshotEditor() {
     setUploadedImageDataUrls([]);
     setEnableSubtitles(false);
     setSelectedImageStyle(null);
+    setIsAdvancedOpen(false);
+    setAdvancedOptions({ ...DEFAULT_ADVANCED_OPTIONS });
+    setSelectedCustomAdapterOperations([]);
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
     setExpandedVideoId(null);               // ⬅️ NEW
@@ -1629,7 +1969,7 @@ export default function OneshotEditor() {
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
   const selectedVideoModelKey = selectedVideoModel?.value || '';
-  const isCustomImageToVideoModel = selectedVideoModelKey === 'CUSTOM_IMAGE_TO_VIDEO';
+  const hasSelectedCustomAdapters = selectedCustomAdapterOperations.length > 0;
   const creditsPerSecondVideo = useMemo(() => {
     return getExpressVideoCreditsPerSecond(selectedVideoModelKey) ?? (generationMode === 'I2V' ? 60 : 30);
   }, [generationMode, selectedVideoModelKey]);
@@ -1645,7 +1985,7 @@ export default function OneshotEditor() {
         className={`flex items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
         onClick={togglePricingDetailsDisplay}
       >
-        {currentEnv === 'docker' || isCustomImageToVideoModel ? (
+        {currentEnv === 'docker' || hasSelectedCustomAdapters ? (
           <div>{t("vidgenie.pricingApiCharge")}</div>
         ) : (
           <div className="inline-flex items-center">
@@ -1658,7 +1998,7 @@ export default function OneshotEditor() {
       </div>
       {pricingDetailsDisplay && (
         <div className={`mt-2 text-sm text-left ${mutedText} transition-opacity duration-300`}>
-          {currentEnv === 'docker' || isCustomImageToVideoModel ? (
+          {currentEnv === 'docker' || hasSelectedCustomAdapters ? (
             <div>{t("vidgenie.pricingApiCharge")}</div>
           ) : (
             <>
@@ -1699,6 +2039,16 @@ export default function OneshotEditor() {
     colorMode === 'dark'
       ? 'bg-gray-950/90 text-white ring-white/10'
       : 'bg-white text-slate-900 ring-slate-200';
+  const advancedInputClasses = `
+    w-full rounded-lg px-3 py-2 text-sm outline-none ring-1 transition
+    ${colorMode === 'dark'
+      ? 'bg-[#0b1224] text-slate-100 ring-white/10 focus:ring-indigo-400/60 placeholder:text-slate-500'
+      : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50 placeholder:text-slate-400'
+    }
+  `;
+  const advancedLabelClasses = `block text-[11px] font-medium mb-1 ${mutedText}`;
+  const advancedSectionBorder = colorMode === 'dark' ? 'border-white/10' : 'border-slate-200';
+  const advancedRowBg = colorMode === 'dark' ? 'bg-white/[0.03]' : 'bg-slate-50';
   const headerTitle = generationMode === 'T2V'
     ? t("vidgenie.titleTextToVideo")
     : t("vidgenie.titleImageListToVideo");
@@ -2025,6 +2375,320 @@ export default function OneshotEditor() {
               </label>
             </div>
           </div>
+        </div>
+
+        <div className={`mt-4 border-t ${advancedSectionBorder} pt-3`}>
+          <button
+            type="button"
+            onClick={() => setIsAdvancedOpen((open) => !open)}
+            aria-expanded={isAdvancedOpen}
+            className={`
+              inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition
+              ${colorMode === 'dark'
+                ? 'text-slate-200 hover:bg-white/5'
+                : 'text-slate-700 hover:bg-slate-100'
+              }
+            `}
+          >
+            {isAdvancedOpen ? <FaChevronDown aria-hidden="true" /> : <FaChevronRight aria-hidden="true" />}
+            Advanced
+          </button>
+
+          {isAdvancedOpen && (
+            <div className="mt-3 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {generationMode === 'T2V' && (
+                  <div>
+                    <label className={advancedLabelClasses}>Tone</label>
+                    <select
+                      value={advancedOptions.tone}
+                      onChange={(event) => updateAdvancedOption('tone', event.target.value)}
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                    >
+                      {VIDGENIE_TONE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className={advancedLabelClasses}>Font</label>
+                  <select
+                    value={advancedOptions.font_key}
+                    onChange={(event) => updateAdvancedOption('font_key', event.target.value)}
+                    disabled={isFormDisabled}
+                    className={advancedInputClasses}
+                  >
+                    <option value="">Default font</option>
+                    {fontKeyOptions.map((fontKey) => (
+                      <option key={fontKey} value={fontKey}>
+                        {fontKey}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className={advancedLabelClasses}>Webhook URL</label>
+                  <input
+                    type="url"
+                    value={advancedOptions.webhookUrl}
+                    onChange={(event) => updateAdvancedOption('webhookUrl', event.target.value)}
+                    disabled={isFormDisabled}
+                    className={advancedInputClasses}
+                    placeholder="https://example.com/webhook"
+                  />
+                </div>
+              </div>
+
+              {generationMode === 'I2V' && (
+                <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                      <input
+                        type="checkbox"
+                        checked={advancedOptions.limit_single_narrator || advancedOptions.add_narrator_avatar}
+                        onChange={(event) =>
+                          updateAdvancedOption('limit_single_narrator', event.target.checked)
+                        }
+                        disabled={isFormDisabled || advancedOptions.add_narrator_avatar}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-medium">Limit single narrator</span>
+                    </label>
+
+                    <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                      <input
+                        type="checkbox"
+                        checked={advancedOptions.add_narrator_avatar}
+                        onChange={(event) =>
+                          updateAdvancedOption('add_narrator_avatar', event.target.checked)
+                        }
+                        disabled={isFormDisabled}
+                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-medium">Add narrator avatar</span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className={advancedLabelClasses}>Metadata JSON</label>
+                      <TextareaAutosize
+                        minRows={3}
+                        maxRows={8}
+                        value={advancedOptions.metadata}
+                        onChange={(event) => updateAdvancedOption('metadata', event.target.value)}
+                        disabled={isFormDisabled}
+                        className={advancedInputClasses}
+                        placeholder='{"project":"launch_trailer"}'
+                      />
+                    </div>
+                    <div>
+                      <label className={advancedLabelClasses}>Image item metadata JSON</label>
+                      <TextareaAutosize
+                        minRows={3}
+                        maxRows={8}
+                        value={advancedOptions.image_item_metadata}
+                        onChange={(event) =>
+                          updateAdvancedOption('image_item_metadata', event.target.value)
+                        }
+                        disabled={isFormDisabled}
+                        className={advancedInputClasses}
+                        placeholder='[{"title":"Opening frame"}]'
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Outro
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className={advancedLabelClasses}>Outro image URL</label>
+                    <input
+                      type="url"
+                      value={advancedOptions.outro_image_url}
+                      onChange={(event) =>
+                        updateAdvancedOption('outro_image_url', event.target.value)
+                      }
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                      placeholder="https://cdn.example.com/outro.png"
+                    />
+                  </div>
+                  <div>
+                    <label className={advancedLabelClasses}>CTA URL</label>
+                    <input
+                      type="url"
+                      value={advancedOptions.cta_url}
+                      onChange={(event) => updateAdvancedOption('cta_url', event.target.value)}
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                      placeholder="https://example.com/book"
+                    />
+                  </div>
+                  <div>
+                    <label className={advancedLabelClasses}>CTA top text</label>
+                    <input
+                      type="text"
+                      value={advancedOptions.cta_text_top}
+                      onChange={(event) =>
+                        updateAdvancedOption('cta_text_top', event.target.value)
+                      }
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                    />
+                  </div>
+                  <div>
+                    <label className={advancedLabelClasses}>CTA bottom text</label>
+                    <input
+                      type="text"
+                      value={advancedOptions.cta_text_bottom}
+                      onChange={(event) =>
+                        updateAdvancedOption('cta_text_bottom', event.target.value)
+                      }
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                    />
+                  </div>
+                  <div>
+                    <label className={advancedLabelClasses}>CTA logo URL</label>
+                    <input
+                      type="url"
+                      value={advancedOptions.cta_logo}
+                      onChange={(event) => updateAdvancedOption('cta_logo', event.target.value)}
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                    />
+                  </div>
+                  <div>
+                    <label className={advancedLabelClasses}>Outro focus area JSON</label>
+                    <TextareaAutosize
+                      minRows={2}
+                      maxRows={5}
+                      value={advancedOptions.outro_focust_area}
+                      onChange={(event) =>
+                        updateAdvancedOption('outro_focust_area', event.target.value)
+                      }
+                      disabled={isFormDisabled}
+                      className={advancedInputClasses}
+                      placeholder='{"x":0,"y":0,"width":512,"height":512}'
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                    <input
+                      type="checkbox"
+                      checked={advancedOptions.generate_outro_image}
+                      onChange={(event) =>
+                        updateAdvancedOption('generate_outro_image', event.target.checked)
+                      }
+                      disabled={isFormDisabled}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium">Generate QR outro</span>
+                  </label>
+
+                  <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                    <input
+                      type="checkbox"
+                      checked={advancedOptions.add_outro_animation}
+                      onChange={(event) =>
+                        updateAdvancedOption('add_outro_animation', event.target.checked)
+                      }
+                      disabled={isFormDisabled}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium">Add outro animation</span>
+                  </label>
+
+                  <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                    <input
+                      type="checkbox"
+                      checked={advancedOptions.add_outro_focus_area}
+                      onChange={(event) =>
+                        updateAdvancedOption('add_outro_focus_area', event.target.checked)
+                      }
+                      disabled={isFormDisabled}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium">Add outro focus area</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Footer
+                </div>
+                <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                  <input
+                    type="checkbox"
+                    checked={advancedOptions.add_footer_animation}
+                    onChange={(event) =>
+                      updateAdvancedOption('add_footer_animation', event.target.checked)
+                    }
+                    disabled={isFormDisabled}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-medium">Add footer animation</span>
+                </label>
+                <div>
+                  <label className={advancedLabelClasses}>Footer metadata JSON</label>
+                  <TextareaAutosize
+                    minRows={3}
+                    maxRows={8}
+                    value={advancedOptions.footer_metadata}
+                    onChange={(event) =>
+                      updateAdvancedOption('footer_metadata', event.target.value)
+                    }
+                    disabled={isFormDisabled}
+                    className={advancedInputClasses}
+                    placeholder='[{"url":"https://example.com/book","title":"Book now"}]'
+                  />
+                </div>
+              </div>
+
+              {availableCustomAdapterOperations.length > 0 && (
+                <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Custom Adapters
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {availableCustomAdapterOperations.map((operation) => (
+                      <label
+                        key={operation.key}
+                        className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomAdapterOperations.includes(operation.key)}
+                          onChange={() => toggleSelectedCustomAdapterOperation(operation.key)}
+                          disabled={isFormDisabled}
+                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium">{operation.label}</span>
+                          <span className={`block truncate text-[11px] ${mutedText}`}>
+                            {operation.endpoint}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {/* ───── /HEADER ───── */}

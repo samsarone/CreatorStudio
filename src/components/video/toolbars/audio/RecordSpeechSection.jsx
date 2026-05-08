@@ -160,6 +160,21 @@ function getAvatarTaskId(task = {}) {
     || '';
 }
 
+function getTaskUpdatedTime(task = {}) {
+  const timestamp = Date.parse(task?.updatedAt || task?.createdAt || '');
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function shouldUseIncomingAvatarTask(currentTask = null, nextTask = null) {
+  if (!currentTask || !nextTask) {
+    return true;
+  }
+
+  const currentUpdatedAt = getTaskUpdatedTime(currentTask);
+  const nextUpdatedAt = getTaskUpdatedTime(nextTask);
+  return !currentUpdatedAt || !nextUpdatedAt || nextUpdatedAt >= currentUpdatedAt;
+}
+
 function isAvatarTaskPolling(task = {}) {
   const status = normalizeAvatarTaskStatus(task?.status);
   const imageStatus = normalizeAvatarTaskStatus(task?.imageStatus);
@@ -830,7 +845,9 @@ export default function RecordSpeechSection({
       }
 
       return currentTasks.map((task, index) => (
-        index === taskIndex ? { ...task, ...nextTask } : task
+        index === taskIndex && shouldUseIncomingAvatarTask(task, nextTask)
+          ? { ...task, ...nextTask }
+          : task
       ));
     });
 
@@ -885,7 +902,24 @@ export default function RecordSpeechSection({
         },
       });
       const tasks = Array.isArray(response?.data?.tasks) ? response.data.tasks : [];
-      setAvatarTasks(tasks);
+      setAvatarTasks((currentTasks) => {
+        if (!silent) {
+          return tasks;
+        }
+
+        const taskMap = new Map(currentTasks.map((task) => [getAvatarTaskId(task), task]));
+        tasks.forEach((task) => {
+          const taskId = getAvatarTaskId(task);
+          if (!taskId) {
+            return;
+          }
+          const currentTask = taskMap.get(taskId);
+          if (!currentTask || shouldUseIncomingAvatarTask(currentTask, task)) {
+            taskMap.set(taskId, currentTask ? { ...currentTask, ...task } : task);
+          }
+        });
+        return Array.from(taskMap.values());
+      });
       applyAvatarVoices(response?.data?.voices);
       setSelectedAvatarTaskId((currentTaskId) => {
         if (currentTaskId && tasks.some((task) => getAvatarTaskId(task) === currentTaskId)) {
