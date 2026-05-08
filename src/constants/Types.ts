@@ -137,7 +137,7 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
 
 export const VIDEO_GENERATION_MODEL_TYPES = [
   {
-    name: 'Runway Gen-4',
+    name: 'RunwayML Gen 4.5',
     key: 'RUNWAYML',
     isExpressModel: true,
     isTransitionModel: false,
@@ -221,31 +221,31 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
     isExpressModel: false,
   },
   {
-    name: 'Seedance 2.0',
+    name: 'Seedance 1.5',
     key: 'SEEDANCEI2V',
     isImageToVideoModel: true,
     isTextToVideoModel: false,
+    isExpressModel: true,
+    supportedAspectRatios: [
+      '16:9', '9:16',
+    ]
+  },
+  {
+    name: 'Seedance 2.0 I2V',
+    key: 'SEEDANCE2.0I2V',
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
     isExpressModel: false,
     supportedAspectRatios: [
       '16:9', '9:16',
     ]
   },
   {
-    name: 'Seedance 2.0 Text2Vid',
-    key: 'SEEDANCET2V',
+    name: 'Seedance 2.0 T2V',
+    key: 'SEEDANCE2.0T2V',
     isImageToVideoModel: false,
     isTextToVideoModel: true,
     isExpressModel: false,
-    supportedAspectRatios: [
-      '16:9', '9:16',
-    ]
-  },
-  {
-    name: 'Seedance 1.5',
-    key: 'SEEDANCE15I2V',
-    isImageToVideoModel: true,
-    isTextToVideoModel: false,
-    isExpressModel: true,
     supportedAspectRatios: [
       '16:9', '9:16',
     ]

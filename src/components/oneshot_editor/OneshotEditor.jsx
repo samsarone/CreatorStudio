@@ -6,8 +6,9 @@ import React, {
   useMemo,
   useCallback,
 } from 'react';
+import ace from 'ace-builds';
+import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
-import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaChevronCircleDown,
@@ -45,10 +46,15 @@ import {
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import { getExpressVideoCreditsPerSecond } from '../../constants/pricing/ExpressVideoPricingDistribution.js';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
-import { getFontOptionsForLanguage } from '../../constants/fontPreferences.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
+
+import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/theme-monokai';
+import 'ace-builds/src-noconflict/ext-language_tools';
+
+ace.config.set('useWorker', false);
 
 // ───────────────────────────────────────────────────────────
 //  Environment constants
@@ -56,8 +62,8 @@ import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
-const VIDEO_API_BASE = `${API_SERVER}/v1/video`;
-const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v1/status`;
+const VIDEO_API_BASE = `${API_SERVER}/v2`;
+const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v2/status`;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 
 // ───────────────────────────────────────────────────────────
@@ -75,44 +81,61 @@ const VIDGENIE_IMAGE_MODEL_LABELS = {
   NANOBANANA2: 'Nano Banana 2',
   SEEDREAM: 'Seedream',
 };
+const DEFAULT_VIDEO_GENERATION_MODEL = 'RUNWAYML';
 const VIDGENIE_VIDEO_MODEL_ORDER = [
+  'RUNWAYML',
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
-  'RUNWAYML',
 ];
 const VIDGENIE_VIDEO_MODEL_LABELS = {
-  'VEO3.1I2V': 'VEO3.1 I2V (Default)',
+  RUNWAYML: 'RunwayML Gen 4.5 (Default)',
+  'VEO3.1I2V': 'VEO3.1 I2V',
   'VEO3.1I2VFAST': 'VEO3.1 I2V Fast',
-  SEEDANCEI2V: 'Seedance 2.0',
+  SEEDANCEI2V: 'Seedance 1.5',
   KLINGIMGTOVID3PRO: 'Kling 3 Pro',
-  RUNWAYML: 'Runway Gen 4',
 };
 const VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY = 'defaultVIdGPTVideoGenerationModel';
 const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY = 'defaultVidgenieImageListVideoGenerationModel';
 const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
+  'RUNWAYML',
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
-  'RUNWAYML',
 ];
-
+const TEXT_TO_VIDEO_IMAGE_MODEL_KEYS = [
+  'GPTIMAGE2',
+  'NANOBANANA2',
+  'SEEDREAM',
+  'CUSTOM_TEXT_TO_IMAGE',
+];
+const TEXT_TO_VIDEO_VIDEO_MODEL_KEYS = [
+  'RUNWAYML',
+  'VEO3.1I2V',
+  'VEO3.1I2VFAST',
+  'SEEDANCEI2V',
+  'KLINGIMGTOVID3PRO',
+  'CUSTOM_IMAGE_TO_VIDEO',
+];
+const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
+  'RUNWAYML',
+  'VEO3.1I2V',
+  'VEO3.1I2VFAST',
+  'SEEDANCEI2V',
+  'KLINGIMGTOVID3PRO',
+  'CUSTOM_IMAGE_TO_VIDEO',
+];
+const JSON_MODE_ASPECT_RATIOS = ['16:9', '9:16'];
+const JSON_MODE_VIDEO_MODEL_SUB_TYPES = ['anime', '3d_animation', 'clay', 'comic', 'cyberpunk'];
 const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   tone: 'grounded',
-  font_key: '',
-  webhookUrl: '',
-  outro_image_url: '',
   generate_outro_image: false,
-  add_outro_animation: false,
-  add_outro_focus_area: false,
-  outro_focust_area: '',
   cta_url: '',
   cta_text_top: '',
   cta_text_bottom: '',
   cta_logo: '',
-  add_footer_animation: false,
   footer_metadata: '',
   metadata: '',
   image_item_metadata: '',
@@ -142,17 +165,990 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function cloneJsonValue(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function formatAllowedJsonValues(values) {
+  return values.join(', ');
+}
+
+function findDefaultVideoModelOption(options = [], savedValue = '') {
+  const saved = savedValue ? options.find((model) => model.value === savedValue) : null;
+  if (saved) return saved;
+
+  return (
+    options.find((model) => model.value === DEFAULT_VIDEO_GENERATION_MODEL) ||
+    options[0] ||
+    null
+  );
+}
+
+function resolveJsonImageModelAlias(modelKey) {
+  if (modelKey === 'NANOBANANAPRO') {
+    return 'NANOBANANA2';
+  }
+  return modelKey;
+}
+
+function isHttpUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function getJsonModelByKey(modelTypes, modelKey) {
+  if (typeof modelKey !== 'string') {
+    return null;
+  }
+  const normalizedKey = modelKey.trim();
+  return modelTypes.find((model) => model.key === normalizedKey) || null;
+}
+
+function imageModelSupportsAspectRatio(modelKey, aspectRatio) {
+  const normalizedKey = resolveJsonImageModelAlias(modelKey);
+  const pricing = IMAGE_MODEL_PRICES.find((model) => model.key === normalizedKey);
+  if (!pricing || !Array.isArray(pricing.prices)) {
+    return false;
+  }
+  return pricing.prices.some((price) => price.aspectRatio === aspectRatio);
+}
+
+function videoModelSupportsAspectRatio(modelKey, aspectRatio) {
+  const model = getJsonModelByKey(VIDEO_GENERATION_MODEL_TYPES, modelKey);
+  if (!model) {
+    return false;
+  }
+  return Array.isArray(model.supportedAspectRatios)
+    ? model.supportedAspectRatios.includes(aspectRatio)
+    : true;
+}
+
+function normalizeJsonInputAliases(input) {
+  if (!isPlainObject(input)) {
+    return;
+  }
+
+  const aliases = [
+    ['aspect_ratio', ['aspectRatio']],
+    ['image_model', ['imageModel']],
+    ['video_model', ['videoModel']],
+    ['video_model_sub_type', ['videoModelSubType']],
+    ['enable_subtitles', ['enableSubtitles']],
+    ['font_key', ['fontKey']],
+    ['generate_outro_image', ['generateOutroImage']],
+    ['add_outro_animation', ['addOutroAnimation']],
+    ['add_outro_focus_area', ['addOutroFocusArea']],
+    ['outro_focust_area', ['outro_focus_area', 'outroFocustArea', 'outroFocusArea']],
+    ['cta_url', ['ctaUrl']],
+    ['cta_text_top', ['ctaTextTop']],
+    ['cta_text_bottom', ['ctaTextBottom']],
+    ['cta_logo', ['ctaLogo']],
+    ['add_footer_animation', ['addFooterAnimation']],
+    ['footer_metadata', ['footerMetadata']],
+    ['limit_single_narrator', ['limitSingleNarrator']],
+    ['add_narrator_avatar', ['addNarratorAvatar']],
+  ];
+
+  for (const [canonicalName, aliasNames] of aliases) {
+    if (input[canonicalName] !== undefined) {
+      continue;
+    }
+    const aliasName = aliasNames.find((name) => input[name] !== undefined);
+    if (aliasName) {
+      input[canonicalName] = input[aliasName];
+    }
+  }
+}
+
+function buildDefaultJsonModeInput({
+  mode,
+  imageModel,
+  videoModel,
+  duration,
+  aspectRatio,
+  language,
+  enableSubtitles,
+}) {
+  const normalizedAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
+  const normalizedLanguage = language || 'en';
+  const normalizedVideoModel = videoModel || DEFAULT_VIDEO_GENERATION_MODEL;
+
+  if (mode === 'I2V') {
+    return JSON.stringify(
+      {
+        image_urls: [
+          {
+            image_url: 'https://cdn.example.com/frame-1.png',
+            title: 'Opening frame',
+            image_text: 'Describe what should drive the first scene.',
+          },
+          {
+            image_url: 'https://cdn.example.com/frame-2.png',
+            title: 'Second frame',
+            image_text: 'Describe what should drive the second scene.',
+          },
+        ],
+        metadata: {
+          project: 'launch_trailer',
+        },
+        prompt: 'Create a polished short video from these images.',
+        video_model: normalizedVideoModel,
+        aspect_ratio: normalizedAspectRatio,
+        language: normalizedLanguage,
+        font_key: 'Poppins',
+        enable_subtitles: enableSubtitles,
+        limit_single_narrator: false,
+        add_narrator_avatar: false,
+        add_footer_animation: true,
+        footer_metadata: [
+          {
+            url: 'https://example.com',
+            title: 'Learn more',
+          },
+          {
+            url: 'https://example.com',
+            title: 'Get started',
+          },
+        ],
+        generate_outro_image: true,
+        cta_url: 'https://example.com',
+        cta_text_top: 'Build with SamsarOne',
+        cta_text_bottom: 'Scan or visit example.com',
+      },
+      null,
+      2,
+    );
+  }
+
+  return JSON.stringify(
+    {
+      prompt: 'A 30 second launch teaser for a new travel app',
+      image_model: imageModel || 'GPTIMAGE2',
+      video_model: normalizedVideoModel,
+      duration: duration || 30,
+      tone: 'grounded',
+      aspect_ratio: normalizedAspectRatio,
+      language: normalizedLanguage,
+      font_key: 'Poppins',
+      enable_subtitles: enableSubtitles,
+    },
+    null,
+    2,
+  );
+}
+
+function extractJsonLikeSegment(rawJson) {
+  const source = typeof rawJson === 'string' ? rawJson.trim() : '';
+  if (!source || source.startsWith('{') || source.startsWith('[')) {
+    return source;
+  }
+
+  let inString = false;
+  let quote = '';
+  let escaped = false;
+  let startIndex = -1;
+  let depth = 0;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        inString = false;
+        quote = '';
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      inString = true;
+      quote = char;
+      continue;
+    }
+
+    if (char !== '{' && char !== '[') {
+      continue;
+    }
+
+    const opening = char;
+    const closing = opening === '{' ? '}' : ']';
+    startIndex = index;
+    depth = 1;
+
+    for (let cursor = index + 1; cursor < source.length; cursor += 1) {
+      const innerChar = source[cursor];
+
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (innerChar === '\\') {
+          escaped = true;
+        } else if (innerChar === quote) {
+          inString = false;
+          quote = '';
+        }
+        continue;
+      }
+
+      if (innerChar === '"' || innerChar === "'" || innerChar === '`') {
+        inString = true;
+        quote = innerChar;
+        continue;
+      }
+
+      if (innerChar === opening) {
+        depth += 1;
+      } else if (innerChar === closing) {
+        depth -= 1;
+        if (depth === 0) {
+          return source.slice(startIndex, cursor + 1);
+        }
+      }
+    }
+
+    return source.slice(startIndex);
+  }
+
+  return source;
+}
+
+function stripJsonLikeComments(source) {
+  let output = '';
+  let inString = false;
+  let quote = '';
+  let escaped = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+    const nextChar = source[index + 1];
+
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        inString = false;
+        quote = '';
+      }
+      continue;
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      inString = true;
+      quote = char;
+      output += char;
+      continue;
+    }
+
+    if (char === '/' && nextChar === '/') {
+      while (index < source.length && source[index] !== '\n') {
+        index += 1;
+      }
+      output += '\n';
+      continue;
+    }
+
+    if (char === '/' && nextChar === '*') {
+      index += 2;
+      while (index < source.length && !(source[index] === '*' && source[index + 1] === '/')) {
+        index += 1;
+      }
+      index += 1;
+      continue;
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function normalizeSingleQuotedJsonLikeStrings(source) {
+  let output = '';
+  let inDoubleString = false;
+  let escaped = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inDoubleString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inDoubleString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inDoubleString = true;
+      output += char;
+      continue;
+    }
+
+    if (char !== "'") {
+      output += char;
+      continue;
+    }
+
+    let value = '';
+    index += 1;
+
+    for (; index < source.length; index += 1) {
+      const innerChar = source[index];
+      const nextChar = source[index + 1];
+
+      if (innerChar === "'") {
+        break;
+      }
+
+      if (innerChar === '\\') {
+        if (nextChar === undefined) {
+          value += '\\';
+          break;
+        }
+        if (nextChar === 'n') value += '\n';
+        else if (nextChar === 'r') value += '\r';
+        else if (nextChar === 't') value += '\t';
+        else if (nextChar === 'b') value += '\b';
+        else if (nextChar === 'f') value += '\f';
+        else if (nextChar === '\n') {
+          // JavaScript line continuation in a pasted object literal.
+        } else {
+          value += nextChar;
+        }
+        index += 1;
+        continue;
+      }
+
+      value += innerChar;
+    }
+
+    output += JSON.stringify(value);
+  }
+
+  return output;
+}
+
+function quoteUnquotedJsonLikeKeys(source) {
+  let output = '';
+  let inString = false;
+  let quote = '';
+  let escaped = false;
+
+  const isKeyStart = (char) => /[A-Za-z_$]/.test(char);
+  const isKeyChar = (char) => /[A-Za-z0-9_$-]/.test(char);
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        inString = false;
+        quote = '';
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      quote = char;
+      output += char;
+      continue;
+    }
+
+    if (!isKeyStart(char)) {
+      output += char;
+      continue;
+    }
+
+    let previousIndex = output.length - 1;
+    while (previousIndex >= 0 && /\s/.test(output[previousIndex])) {
+      previousIndex -= 1;
+    }
+    const previousChar = previousIndex >= 0 ? output[previousIndex] : '';
+
+    let cursor = index + 1;
+    while (cursor < source.length && isKeyChar(source[cursor])) {
+      cursor += 1;
+    }
+
+    let colonIndex = cursor;
+    while (colonIndex < source.length && /\s/.test(source[colonIndex])) {
+      colonIndex += 1;
+    }
+
+    if ((previousChar === '{' || previousChar === ',') && source[colonIndex] === ':') {
+      output += JSON.stringify(source.slice(index, cursor));
+      index = cursor - 1;
+      continue;
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function removeTrailingJsonLikeCommas(source) {
+  let output = '';
+  let inString = false;
+  let quote = '';
+  let escaped = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === quote) {
+        inString = false;
+        quote = '';
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      quote = char;
+      output += char;
+      continue;
+    }
+
+    if (char === ',') {
+      let nextIndex = index + 1;
+      while (nextIndex < source.length && /\s/.test(source[nextIndex])) {
+        nextIndex += 1;
+      }
+      if (source[nextIndex] === '}' || source[nextIndex] === ']') {
+        continue;
+      }
+    }
+
+    output += char;
+  }
+
+  return output;
+}
+
+function repairJsonLikeInput(rawJson) {
+  return removeTrailingJsonLikeCommas(
+    quoteUnquotedJsonLikeKeys(
+      normalizeSingleQuotedJsonLikeStrings(
+        stripJsonLikeComments(extractJsonLikeSegment(rawJson)),
+      ),
+    ),
+  ).trim();
+}
+
+function parseJsonOrRepair(rawJson) {
+  const trimmed = typeof rawJson === 'string' ? rawJson.trim() : '';
+  try {
+    return {
+      value: JSON.parse(trimmed),
+      normalizedJson: null,
+      repaired: false,
+    };
+  } catch (originalError) {
+    const repairedJson = repairJsonLikeInput(trimmed);
+    try {
+      const value = JSON.parse(repairedJson);
+      return {
+        value,
+        normalizedJson: JSON.stringify(value, null, 2),
+        repaired: repairedJson !== trimmed,
+      };
+    } catch {
+      return { error: originalError };
+    }
+  }
+}
+
+function getJsonErrorLocation(rawJson, error) {
+  const message = error?.message || '';
+  const lineColumnMatch = message.match(/line\s+(\d+)\s+column\s+(\d+)/i);
+  if (lineColumnMatch) {
+    return {
+      row: Math.max(0, Number(lineColumnMatch[1]) - 1),
+      column: Math.max(0, Number(lineColumnMatch[2]) - 1),
+    };
+  }
+
+  const positionMatch = message.match(/position\s+(\d+)/i);
+  if (!positionMatch) {
+    return { row: 0, column: 0 };
+  }
+
+  const errorIndex = Math.max(0, Number(positionMatch[1]));
+  const beforeError = rawJson.slice(0, errorIndex);
+  const lines = beforeError.split('\n');
+  return {
+    row: Math.max(0, lines.length - 1),
+    column: Math.max(0, lines[lines.length - 1]?.length || 0),
+  };
+}
+
+function getJsonParseErrorDetails(rawJson, error) {
+  const trimmed = typeof rawJson === 'string' ? rawJson.trim() : '';
+  const location = getJsonErrorLocation(rawJson, error);
+  if (/^(const|let|var)\s/.test(trimmed) || /^await\s/.test(trimmed) || /samsar\.\w+\(/.test(trimmed)) {
+    return {
+      ...location,
+      error: 'JSON mode accepts raw JSON only. Paste the request body object, not JavaScript or SDK code. JSON needs double-quoted keys and strings, and no const/await/function call wrapper.',
+    };
+  }
+  if (error?.message?.includes('Expected property name') || /[{,]\s*[A-Za-z_$][\w$-]*\s*:/.test(trimmed)) {
+    return {
+      ...location,
+      error: 'Invalid JSON: property names must be wrapped in double quotes. Use "image_urls": instead of image_urls:.',
+    };
+  }
+
+  return {
+    ...location,
+    error: `Invalid JSON: ${error.message}`,
+  };
+}
+
+function normalizeJsonEndpoint(value, input, selectedMode = 'T2V') {
+  const rawEndpoint =
+    typeof value === 'string' && value.trim().length > 0
+      ? value.trim().toLowerCase()
+      : '';
+  const normalizedEndpoint = rawEndpoint
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .replace(/^\/+/, '')
+    .replace(/^v\d+\//, '')
+    .replace(/^video\//, '')
+    .replace(/-/g, '_');
+
+  if (
+    normalizedEndpoint === 'image_list_to_video' ||
+    normalizedEndpoint.endsWith('/image_list_to_video')
+  ) {
+    return { endpoint: 'image_list_to_video' };
+  }
+
+  if (
+    normalizedEndpoint === 'text_to_video' ||
+    normalizedEndpoint.endsWith('/text_to_video')
+  ) {
+    return { endpoint: 'text_to_video' };
+  }
+
+  if (rawEndpoint) {
+    return {
+      error: 'JSON endpoint must be text_to_video, image_list_to_video, /v2/text_to_video, or /v2/image_list_to_video.',
+    };
+  }
+
+  return {
+    endpoint: selectedMode === 'I2V' ? 'image_list_to_video' : 'text_to_video',
+  };
+}
+
+function validateJsonSessionId(payload, input, currentSessionId) {
+  const sessionIds = [
+    payload.session_id,
+    payload.sessionId,
+    payload.sessionID,
+    input.session_id,
+    input.sessionId,
+    input.sessionID,
+  ].filter((value) => typeof value === 'string' && value.trim().length > 0);
+
+  const mismatchedSessionId = sessionIds.find((value) => value.trim() !== currentSessionId);
+  if (mismatchedSessionId) {
+    return {
+      error: 'JSON session_id must match the current Vidgenie session.',
+    };
+  }
+
+  return {};
+}
+
+function hasJsonImageUrlValue(item) {
+  if (typeof item === 'string') {
+    return item.trim().length > 0;
+  }
+  if (!isPlainObject(item)) {
+    return false;
+  }
+  return [
+    item.image_url,
+    item.imageUrl,
+    item.url,
+    item.src,
+    item.enhanced_url,
+    item.enhancedUrl,
+  ].some((value) => typeof value === 'string' && value.trim().length > 0);
+}
+
+function validateCommonJsonInput(input) {
+  if (!isPlainObject(input)) {
+    return 'JSON input must be an object.';
+  }
+
+  const aspectRatio = input.aspect_ratio || '16:9';
+
+  if (
+    input.aspect_ratio !== undefined &&
+    !JSON_MODE_ASPECT_RATIOS.includes(input.aspect_ratio)
+  ) {
+    return `JSON input.aspect_ratio must be one of: ${formatAllowedJsonValues(JSON_MODE_ASPECT_RATIOS)}.`;
+  }
+
+  if (input.language !== undefined) {
+    if (typeof input.language !== 'string') {
+      return 'JSON input.language must be a string when provided.';
+    }
+    const normalizedLanguage = resolveLanguageCode(input.language, '');
+    if (!normalizedLanguage) {
+      const languageValues = ['auto', ...SUPPORTED_LANGUAGES.map((lang) => lang.code)];
+      return `JSON input.language must be one of: ${formatAllowedJsonValues(languageValues)}.`;
+    }
+  }
+
+  if (input.font_key !== undefined && typeof input.font_key !== 'string') {
+    return 'JSON input.font_key must be a string when provided.';
+  }
+
+  if (
+    input.enable_subtitles !== undefined &&
+    typeof input.enable_subtitles !== 'boolean'
+  ) {
+    return 'JSON input.enable_subtitles must be a boolean when provided.';
+  }
+
+  if (
+    input.add_outro_animation !== undefined &&
+    typeof input.add_outro_animation !== 'boolean'
+  ) {
+    return 'JSON input.add_outro_animation must be a boolean when provided.';
+  }
+
+  if (
+    input.add_outro_focus_area !== undefined &&
+    typeof input.add_outro_focus_area !== 'boolean'
+  ) {
+    return 'JSON input.add_outro_focus_area must be a boolean when provided.';
+  }
+
+  if (
+    input.generate_outro_image !== undefined &&
+    typeof input.generate_outro_image !== 'boolean'
+  ) {
+    return 'JSON input.generate_outro_image must be a boolean when provided.';
+  }
+
+  if (
+    input.add_footer_animation !== undefined &&
+    typeof input.add_footer_animation !== 'boolean'
+  ) {
+    return 'JSON input.add_footer_animation must be a boolean when provided.';
+  }
+
+  if (
+    input.footer_metadata !== undefined &&
+    !Array.isArray(input.footer_metadata)
+  ) {
+    return 'JSON input.footer_metadata must be an array when provided.';
+  }
+
+  if (input.cta_url !== undefined && typeof input.cta_url !== 'string') {
+    return 'JSON input.cta_url must be a string when provided.';
+  }
+
+  if (
+    input.generate_outro_image === true &&
+    (typeof input.cta_url !== 'string' || input.cta_url.trim().length === 0)
+  ) {
+    return 'JSON input.cta_url is required when generate_outro_image is true.';
+  }
+
+  if (hasTextValue(input.cta_url) && !isHttpUrl(input.cta_url)) {
+    return 'JSON input.cta_url must be an http or https URL.';
+  }
+
+  if (input.cta_text_top !== undefined && typeof input.cta_text_top !== 'string') {
+    return 'JSON input.cta_text_top must be a string when provided.';
+  }
+
+  if (input.cta_text_bottom !== undefined && typeof input.cta_text_bottom !== 'string') {
+    return 'JSON input.cta_text_bottom must be a string when provided.';
+  }
+
+  if (input.cta_logo !== undefined && typeof input.cta_logo !== 'string') {
+    return 'JSON input.cta_logo must be a string when provided.';
+  }
+
+  if (Array.isArray(input.footer_metadata)) {
+    const invalidFooterIndex = input.footer_metadata.findIndex((entry) => {
+      if (!isPlainObject(entry)) return true;
+      const url = entry.url ?? entry.ctaUrl ?? entry.cta_url;
+      const title = entry.title ?? entry.ctaText ?? entry.cta_text ?? entry.text ?? entry.name ?? entry.label;
+      const logo = entry.logoUrl ?? entry.ctaLogo ?? entry.cta_logo ?? entry.logo_url ?? entry.footer_logo_url;
+      if (url !== undefined && (typeof url !== 'string' || !isHttpUrl(url))) return true;
+      if (title !== undefined && typeof title !== 'string') return true;
+      if (logo !== undefined && typeof logo !== 'string') return true;
+      return !hasTextValue(url) && !hasTextValue(title) && !hasTextValue(logo);
+    });
+    if (invalidFooterIndex >= 0) {
+      return `JSON input.footer_metadata[${invalidFooterIndex}] must include a valid http(s) url, title/text, or logo URL.`;
+    }
+  }
+
+  if (input.add_footer_animation === true && (!Array.isArray(input.footer_metadata) || input.footer_metadata.length === 0)) {
+    return 'JSON input.footer_metadata must include at least one item when add_footer_animation is true.';
+  }
+
+  if (input.add_outro_focus_area === true && input.add_outro_animation !== true) {
+    return 'JSON input.add_outro_focus_area requires add_outro_animation to be true.';
+  }
+
+  if (input.outro_focust_area !== undefined) {
+    if (!isPlainObject(input.outro_focust_area)) {
+      return 'JSON input.outro_focust_area must be an object when provided.';
+    }
+    for (const key of ['x', 'y', 'width', 'height']) {
+      if (!Number.isFinite(Number(input.outro_focust_area[key]))) {
+        return `JSON input.outro_focust_area.${key} must be a finite number.`;
+      }
+    }
+  }
+
+  if (aspectRatio && !JSON_MODE_ASPECT_RATIOS.includes(aspectRatio)) {
+    return `JSON input.aspect_ratio must be one of: ${formatAllowedJsonValues(JSON_MODE_ASPECT_RATIOS)}.`;
+  }
+
+  return null;
+}
+
+function validateTextToVideoJsonInput(input) {
+  const commonError = validateCommonJsonInput(input);
+  if (commonError) return commonError;
+
+  if (typeof input.prompt !== 'string' || input.prompt.trim().length === 0) {
+    return 'JSON input.prompt is required for text_to_video.';
+  }
+
+  if (input.prompt.trim().length > VIDGENIE_PROMPT_MAX_LENGTH) {
+    return `JSON input.prompt must be ${VIDGENIE_PROMPT_MAX_LENGTH} characters or fewer.`;
+  }
+
+  if (typeof input.image_model !== 'string' || input.image_model.trim().length === 0) {
+    return 'JSON input.image_model is required for text_to_video.';
+  }
+
+  const resolvedImageModel = resolveJsonImageModelAlias(input.image_model.trim());
+  const imageModel = getJsonModelByKey(IMAGE_GENERAITON_MODEL_TYPES, resolvedImageModel);
+  if (!imageModel || !TEXT_TO_VIDEO_IMAGE_MODEL_KEYS.includes(resolvedImageModel)) {
+    return `JSON input.image_model must be one of: ${formatAllowedJsonValues(TEXT_TO_VIDEO_IMAGE_MODEL_KEYS)}.`;
+  }
+  if (imageModel.isExpressModel !== true) {
+    return 'JSON input.image_model must be an express model.';
+  }
+  if (!imageModelSupportsAspectRatio(resolvedImageModel, input.aspect_ratio || '16:9')) {
+    return `JSON input.image_model ${resolvedImageModel} does not support aspect_ratio ${input.aspect_ratio || '16:9'}.`;
+  }
+
+  if (typeof input.video_model !== 'string' || input.video_model.trim().length === 0) {
+    return 'JSON input.video_model is required for text_to_video.';
+  }
+
+  const videoModelKey = input.video_model.trim();
+  const videoModel = getJsonModelByKey(VIDEO_GENERATION_MODEL_TYPES, videoModelKey);
+  if (!videoModel || !TEXT_TO_VIDEO_VIDEO_MODEL_KEYS.includes(videoModelKey)) {
+    return `JSON input.video_model must be one of: ${formatAllowedJsonValues(TEXT_TO_VIDEO_VIDEO_MODEL_KEYS)}.`;
+  }
+  if (videoModel.isExpressModel !== true) {
+    return 'JSON input.video_model must be an express model.';
+  }
+  if (!videoModelSupportsAspectRatio(videoModelKey, input.aspect_ratio || '16:9')) {
+    return `JSON input.video_model ${videoModelKey} does not support aspect_ratio ${input.aspect_ratio || '16:9'}.`;
+  }
+
+  if (
+    input.video_model_sub_type !== undefined &&
+    !JSON_MODE_VIDEO_MODEL_SUB_TYPES.includes(input.video_model_sub_type)
+  ) {
+    return `JSON input.video_model_sub_type must be one of: ${formatAllowedJsonValues(JSON_MODE_VIDEO_MODEL_SUB_TYPES)}.`;
+  }
+
+  const durationValue = Number(input.duration);
+  if (!Number.isFinite(durationValue)) {
+    return 'JSON input.duration is required for text_to_video.';
+  }
+
+  if (durationValue < 10 || durationValue > 240) {
+    return 'JSON input.duration must be between 10 and 240 seconds.';
+  }
+
+  return null;
+}
+
+function validateImageListToVideoJsonInput(input) {
+  const commonError = validateCommonJsonInput(input);
+  if (commonError) return commonError;
+
+  if (!Array.isArray(input.image_urls) || input.image_urls.length === 0) {
+    return 'JSON input.image_urls must be a non-empty array for image_list_to_video.';
+  }
+
+  if (input.image_urls.some((item) => !hasJsonImageUrlValue(item))) {
+    return 'JSON input.image_urls entries must be non-empty URL strings or objects with image_url, imageUrl, url, src, enhanced_url, or enhancedUrl.';
+  }
+
+  if (input.metadata !== undefined && !isPlainObject(input.metadata)) {
+    return 'JSON input.metadata must be an object when provided.';
+  }
+
+  if (input.prompt !== undefined && typeof input.prompt !== 'string') {
+    return 'JSON input.prompt must be a string when provided.';
+  }
+
+  if (input.video_model !== undefined && typeof input.video_model !== 'string') {
+    return 'JSON input.video_model must be a string when provided.';
+  }
+
+  if (hasTextValue(input.video_model)) {
+    const videoModelKey = input.video_model.trim();
+    const videoModel = getJsonModelByKey(VIDEO_GENERATION_MODEL_TYPES, videoModelKey);
+    if (!videoModel || !IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS.includes(videoModelKey)) {
+      return `JSON input.video_model must be one of: ${formatAllowedJsonValues(IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS)}.`;
+    }
+    if (!videoModelSupportsAspectRatio(videoModelKey, input.aspect_ratio || '16:9')) {
+      return `JSON input.video_model ${videoModelKey} does not support aspect_ratio ${input.aspect_ratio || '16:9'}.`;
+    }
+  }
+
+  if (
+    input.add_footer_animation === true &&
+    Array.isArray(input.footer_metadata) &&
+    input.footer_metadata.length < input.image_urls.length
+  ) {
+    return 'JSON input.footer_metadata must include one item for each image when add_footer_animation is true.';
+  }
+
+  if (
+    input.limit_single_narrator !== undefined &&
+    typeof input.limit_single_narrator !== 'boolean'
+  ) {
+    return 'JSON input.limit_single_narrator must be a boolean when provided.';
+  }
+
+  if (
+    input.add_narrator_avatar !== undefined &&
+    typeof input.add_narrator_avatar !== 'boolean'
+  ) {
+    return 'JSON input.add_narrator_avatar must be a boolean when provided.';
+  }
+
+  return null;
+}
+
+function buildJsonModeRequest(rawJson, currentSessionId, selectedMode = 'T2V') {
+  if (!hasTextValue(rawJson)) {
+    return { error: 'JSON input is required.' };
+  }
+
+  const parsedInput = parseJsonOrRepair(rawJson);
+  if (parsedInput.error) {
+    return getJsonParseErrorDetails(rawJson, parsedInput.error);
+  }
+  const parsed = parsedInput.value;
+
+  if (!isPlainObject(parsed)) {
+    return { error: 'JSON input must be an object.' };
+  }
+
+  const payload = cloneJsonValue(parsed);
+  const rawEndpoint =
+    payload.endpoint ??
+    payload.route ??
+    payload.path ??
+    payload.url;
+
+  delete payload.endpoint;
+  delete payload.route;
+  delete payload.path;
+  delete payload.url;
+  delete payload.method;
+
+  const input = isPlainObject(payload.input) ? payload.input : payload;
+  normalizeJsonInputAliases(input);
+  const sessionValidation = validateJsonSessionId(payload, input, currentSessionId);
+  if (sessionValidation.error) {
+    return sessionValidation;
+  }
+
+  const endpointResult = normalizeJsonEndpoint(rawEndpoint, input, selectedMode);
+  if (endpointResult.error) {
+    return endpointResult;
+  }
+
+  const inputValidationError =
+    endpointResult.endpoint === 'image_list_to_video'
+      ? validateImageListToVideoJsonInput(input)
+      : validateTextToVideoJsonInput(input);
+  if (inputValidationError) {
+    return { error: inputValidationError };
+  }
+
+  input.session_id = currentSessionId;
+  if (isPlainObject(payload.input)) {
+    payload.input = input;
+  }
+
+  return {
+    endpoint: endpointResult.endpoint,
+    payload,
+    ...(parsedInput.repaired && parsedInput.normalizedJson
+      ? { normalizedJson: parsedInput.normalizedJson }
+      : {}),
+  };
+}
+
 function parseOptionalJsonValue(rawValue, label, validator) {
   if (!hasTextValue(rawValue)) {
     return { value: null };
   }
 
+  const parsedValue = parseJsonOrRepair(rawValue);
+  if (parsedValue.error) {
+    return { error: `${label} must be valid JSON.` };
+  }
+
   try {
-    const value = JSON.parse(rawValue);
-    if (validator && !validator(value)) {
+    if (validator && !validator(parsedValue.value)) {
       return { error: `${label} must be valid JSON in the expected shape.` };
     }
-    return { value };
+    return { value: parsedValue.value, normalizedJson: parsedValue.normalizedJson };
   } catch {
     return { error: `${label} must be valid JSON.` };
   }
@@ -221,70 +1217,28 @@ function buildAdvancedRequestConfiguration({
     input.tone = advancedOptions.tone.trim();
   }
 
-  if (hasTextValue(advancedOptions.font_key)) {
-    input.font_key = advancedOptions.font_key.trim();
-  }
-
-  if (hasTextValue(advancedOptions.webhookUrl)) {
-    root.webhookUrl = advancedOptions.webhookUrl.trim();
-  }
-
-  const hasProvidedOutro = hasTextValue(advancedOptions.outro_image_url);
   const shouldGenerateOutro = advancedOptions.generate_outro_image === true;
-  if (hasProvidedOutro && shouldGenerateOutro) {
-    return { error: 'Use either an outro image URL or generated QR outro, not both.' };
-  }
-
-  if (hasProvidedOutro) {
-    input.outro_image_url = advancedOptions.outro_image_url.trim();
-  }
   if (shouldGenerateOutro) {
     input.generate_outro_image = true;
-    input.add_outro_animation = advancedOptions.add_outro_animation === true;
     if (!hasTextValue(advancedOptions.cta_url)) {
       return { error: 'CTA URL is required when generated QR outro is enabled.' };
     }
-  } else if (advancedOptions.add_outro_animation === true) {
-    input.add_outro_animation = true;
   }
 
-  if (hasTextValue(advancedOptions.cta_url)) {
+  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_url)) {
     input.cta_url = advancedOptions.cta_url.trim();
   }
-  if (hasTextValue(advancedOptions.cta_text_top)) {
+  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_text_top)) {
     input.cta_text_top = advancedOptions.cta_text_top.trim();
   }
-  if (hasTextValue(advancedOptions.cta_text_bottom)) {
+  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_text_bottom)) {
     input.cta_text_bottom = advancedOptions.cta_text_bottom.trim();
   }
-  if (hasTextValue(advancedOptions.cta_logo)) {
+  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_logo)) {
     input.cta_logo = advancedOptions.cta_logo.trim();
   }
 
-  const shouldUseOutroFocusArea =
-    advancedOptions.add_outro_focus_area === true || hasTextValue(advancedOptions.outro_focust_area);
-  if (shouldUseOutroFocusArea) {
-    if (advancedOptions.add_outro_animation !== true) {
-      return { error: 'Add outro animation must be enabled to use an outro focus area.' };
-    }
-    const parsedFocusArea = parseOptionalJsonValue(
-      advancedOptions.outro_focust_area,
-      'Outro focus area',
-      isPlainObject,
-    );
-    if (parsedFocusArea.error) {
-      return { error: parsedFocusArea.error };
-    }
-    if (!parsedFocusArea.value) {
-      return { error: 'Outro focus area is required when outro focus is enabled.' };
-    }
-    input.add_outro_focus_area = true;
-    input.outro_focust_area = parsedFocusArea.value;
-  }
-
-  const shouldUseFooter =
-    advancedOptions.add_footer_animation === true || hasTextValue(advancedOptions.footer_metadata);
-  if (shouldUseFooter) {
+  if (hasTextValue(advancedOptions.footer_metadata)) {
     const parsedFooterMetadata = parseOptionalJsonValue(
       advancedOptions.footer_metadata,
       'Footer metadata',
@@ -296,7 +1250,6 @@ function buildAdvancedRequestConfiguration({
     if (!parsedFooterMetadata.value || parsedFooterMetadata.value.length === 0) {
       return { error: 'Footer metadata must include at least one item.' };
     }
-    input.add_footer_animation = true;
     input.footer_metadata = parsedFooterMetadata.value;
   }
 
@@ -447,6 +1400,12 @@ export default function OneshotEditor() {
   const promptCounterClass =
     promptCharacterCount >= VIDGENIE_PROMPT_MAX_LENGTH ? 'text-amber-500' : mutedText;
   const [generationMode, setGenerationMode] = useState('T2V');
+  const [isJsonMode, setIsJsonMode] = useState(false);
+  const [jsonInputText, setJsonInputText] = useState('');
+  const [isJsonInputDirty, setIsJsonInputDirty] = useState(false);
+  const [jsonValidationMessage, setJsonValidationMessage] = useState('');
+  const [isJsonRequestExpanded, setIsJsonRequestExpanded] = useState(false);
+  const [jsonCopyStatus, setJsonCopyStatus] = useState('');
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -963,12 +1922,6 @@ export default function OneshotEditor() {
       if (key === 'add_narrator_avatar' && value === true) {
         next.limit_single_narrator = true;
       }
-      if (key === 'generate_outro_image' && value === true) {
-        next.add_outro_animation = true;
-      }
-      if (key === 'add_outro_focus_area' && value === true) {
-        next.add_outro_animation = true;
-      }
       return next;
     });
   }, []);
@@ -1002,20 +1955,6 @@ export default function OneshotEditor() {
       return match || defaultLanguageOption;
     });
   }, [languageOptions, defaultLanguageOption]);
-
-  const selectedLanguageCodeForFonts = useMemo(() => {
-    const selectedLanguageValue =
-      typeof selectedLanguageOption === 'string'
-        ? selectedLanguageOption
-        : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
-    const resolvedCode = resolveLanguageCode(selectedLanguageValue);
-    return resolvedCode && resolvedCode !== 'auto' ? resolvedCode : 'en';
-  }, [selectedLanguageOption]);
-
-  const fontKeyOptions = useMemo(
-    () => getFontOptionsForLanguage(selectedLanguageCodeForFonts),
-    [selectedLanguageCodeForFonts],
-  );
 
   // ─────────────────────────────────────────────────────────
   //  Aspect-ratio select
@@ -1158,8 +2097,7 @@ export default function OneshotEditor() {
 
   const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
     const saved = localStorage.getItem(VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY);
-    const found = expressVideoModels.find((m) => m.value === saved);
-    return found || expressVideoModels[0];
+    return findDefaultVideoModelOption(expressVideoModels, saved);
   });
 
   useEffect(() => {
@@ -1172,8 +2110,7 @@ export default function OneshotEditor() {
       }
 
       const saved = localStorage.getItem(VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY);
-      const found = expressVideoModels.find((m) => m.value === saved);
-      return found || expressVideoModels[0];
+      return findDefaultVideoModelOption(expressVideoModels, saved);
     });
   }, [generationMode, expressVideoModels]);
 
@@ -1187,8 +2124,7 @@ export default function OneshotEditor() {
       }
 
       const saved = localStorage.getItem(VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY);
-      const found = imageListVideoModels.find((m) => m.value === saved);
-      return found || imageListVideoModels[0];
+      return findDefaultVideoModelOption(imageListVideoModels, saved);
     });
   }, [generationMode, imageListVideoModels]);
 
@@ -1733,6 +2669,58 @@ export default function OneshotEditor() {
       showLoginDialog();
       return;
     }
+    if (!id) return;
+    if (isVoiceBusy) {
+      stopAllVoiceCapture();
+    }
+
+    if (isJsonMode) {
+      const jsonRequest = buildJsonModeRequest(jsonInputText, id, generationMode);
+      if (jsonRequest.error) {
+        setJsonValidationMessage(jsonRequest.error);
+        setErrorMessage(null);
+        setShowResultDisplay(false);
+        return;
+      }
+
+      if (jsonRequest.normalizedJson && jsonRequest.normalizedJson !== jsonInputText.trim()) {
+        setJsonInputText(jsonRequest.normalizedJson);
+      }
+      setJsonValidationMessage('');
+      setIsJsonRequestExpanded(false);
+      setJsonCopyStatus('');
+      setErrorMessage(null);
+      setIsSubmitting(true);
+      setIsGenerationPending(true);
+      setShowResultDisplay(true);
+      setVideoLink(null);
+      setExpressGenerationStatus(null);
+      setActiveRequestId(null);
+      activeRequestIdRef.current = null;
+
+      try {
+        const { data } = await axios.post(
+          `${VIDEO_API_BASE}/${jsonRequest.endpoint}`,
+          jsonRequest.payload,
+          headers
+        );
+        const requestId = data?.request_id || data?.session_id || data?.sessionID;
+        if (!requestId) {
+          throw new Error('Missing request id in response.');
+        }
+        setActiveRequestId(requestId);
+        activeRequestIdRef.current = requestId;
+        pollGenerationStatus(requestId);
+      } catch (err) {
+        const apiMessage = err?.response?.data?.message || err?.message;
+        setErrorMessage({ error: apiMessage || 'An unexpected error occurred.' });
+        setIsGenerationPending(false);
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     const isTextToVideo = generationMode === 'T2V';
     const trimmedPromptText = promptText.trim();
     if (trimmedPromptText.length > VIDGENIE_PROMPT_MAX_LENGTH) {
@@ -1757,11 +2745,6 @@ export default function OneshotEditor() {
       setErrorMessage({ error: 'Please select a video model before submitting.' });
       return;
     }
-    if (!id) return;
-    if (isVoiceBusy) {
-      stopAllVoiceCapture();
-    }
-
     const advancedRequestConfiguration = buildAdvancedRequestConfiguration({
       isTextToVideo,
       advancedOptions,
@@ -1910,6 +2893,8 @@ export default function OneshotEditor() {
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
     setExpandedVideoId(null);               // ⬅️ NEW
+    setIsJsonInputDirty(false);
+    setJsonValidationMessage('');
   };
 
 
@@ -1917,6 +2902,24 @@ export default function OneshotEditor() {
   //  Utility: view in Studio
   // ─────────────────────────────────────────────────────────
   const viewInStudio = () => navigate(`/video/${id}`);
+
+  const handleGenerationModeChange = (mode) => {
+    setGenerationMode(mode);
+    if (isJsonMode) {
+      setIsJsonInputDirty(false);
+      setJsonValidationMessage('');
+      setErrorMessage(null);
+    }
+  };
+
+  const toggleJsonMode = () => {
+    if (isVoiceBusy) {
+      stopAllVoiceCapture();
+    }
+    setJsonValidationMessage('');
+    setErrorMessage(null);
+    setIsJsonMode((enabled) => !enabled);
+  };
 
   const handleAdvancedVideoEditAccepted = useCallback((requestInfo) => {
     const nextSessionId = requestInfo?.sessionId || requestInfo?.requestId;
@@ -1985,7 +2988,7 @@ export default function OneshotEditor() {
         className={`flex items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
         onClick={togglePricingDetailsDisplay}
       >
-        {currentEnv === 'docker' || hasSelectedCustomAdapters ? (
+        {isJsonMode || currentEnv === 'docker' || hasSelectedCustomAdapters ? (
           <div>{t("vidgenie.pricingApiCharge")}</div>
         ) : (
           <div className="inline-flex items-center">
@@ -1998,7 +3001,7 @@ export default function OneshotEditor() {
       </div>
       {pricingDetailsDisplay && (
         <div className={`mt-2 text-sm text-left ${mutedText} transition-opacity duration-300`}>
-          {currentEnv === 'docker' || hasSelectedCustomAdapters ? (
+          {isJsonMode || currentEnv === 'docker' || hasSelectedCustomAdapters ? (
             <div>{t("vidgenie.pricingApiCharge")}</div>
           ) : (
             <>
@@ -2011,6 +3014,101 @@ export default function OneshotEditor() {
     </div>
   );
 
+  const jsonModeLanguageValue =
+    typeof selectedLanguageOption === 'string'
+      ? selectedLanguageOption
+      : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
+  const jsonModeDefaultInput = useMemo(() => (
+    buildDefaultJsonModeInput({
+      mode: generationMode,
+      imageModel: selectedImageModel?.value || 'GPTIMAGE2',
+      videoModel: selectedVideoModel?.value || 'RUNWAYML',
+      duration: selectedDurationOption?.value || 30,
+      aspectRatio: selectedAspectRatioOption?.value || '16:9',
+      language: resolveLanguageCode(jsonModeLanguageValue, 'en'),
+      enableSubtitles,
+    })
+  ), [
+    enableSubtitles,
+    generationMode,
+    jsonModeLanguageValue,
+    selectedAspectRatioOption?.value,
+    selectedDurationOption?.value,
+    selectedImageModel?.value,
+    selectedVideoModel?.value,
+  ]);
+
+  useEffect(() => {
+    if (!isJsonInputDirty) {
+      setJsonInputText(jsonModeDefaultInput);
+    }
+  }, [isJsonInputDirty, jsonModeDefaultInput]);
+
+  const jsonModeValidation = useMemo(() => {
+    if (!isJsonMode) {
+      return { error: '' };
+    }
+    return buildJsonModeRequest(jsonInputText, id, generationMode);
+  }, [generationMode, id, isJsonMode, jsonInputText]);
+
+  useEffect(() => {
+    const normalizedJson = jsonModeValidation.normalizedJson;
+    if (!isJsonMode || !normalizedJson || normalizedJson === jsonInputText.trim()) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setJsonInputText((current) => {
+        const currentValidation = buildJsonModeRequest(current, id, generationMode);
+        return currentValidation.normalizedJson || current;
+      });
+      setJsonValidationMessage('');
+    }, 600);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [generationMode, id, isJsonMode, jsonInputText, jsonModeValidation.normalizedJson]);
+
+  const jsonRequestDisplayText = jsonModeValidation.normalizedJson || jsonInputText;
+  const copyJsonRequestToClipboard = useCallback(async () => {
+    if (!jsonRequestDisplayText.trim()) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(jsonRequestDisplayText);
+      setJsonCopyStatus('Copied');
+    } catch {
+      setJsonCopyStatus('Copy failed');
+    }
+  }, [jsonRequestDisplayText]);
+
+  useEffect(() => {
+    if (!jsonCopyStatus) {
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => setJsonCopyStatus(''), 1800);
+    return () => window.clearTimeout(timeoutId);
+  }, [jsonCopyStatus]);
+
+  const jsonEditorErrorMessage = isJsonMode ? (jsonModeValidation.error || '') : '';
+  const jsonEditorAnnotations = useMemo(() => {
+    if (!jsonEditorErrorMessage) {
+      return [];
+    }
+
+    return [
+      {
+        row: Number.isFinite(jsonModeValidation.row) ? jsonModeValidation.row : 0,
+        column: Number.isFinite(jsonModeValidation.column) ? jsonModeValidation.column : 0,
+        type: 'error',
+        text: jsonEditorErrorMessage,
+      },
+    ];
+  }, [
+    jsonEditorErrorMessage,
+    jsonModeValidation.column,
+    jsonModeValidation.row,
+  ]);
+
   // ─────────────────────────────────────────────────────────
   //  Render-state helpers
   // ─────────────────────────────────────────────────────────
@@ -2019,9 +3117,14 @@ export default function OneshotEditor() {
     if (videoLink) return 'complete';
     return 'idle';
   }, [isGenerationPending, videoLink]);
+  const shouldCollapseJsonEditorForProgress =
+    isJsonMode && showResultDisplay && (isGenerationPending || Boolean(videoLink));
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
   const isModeToggleDisabled = renderState === 'pending' || isSubmitting;
+  const jsonModeButtonLabel = isJsonMode
+    ? t("vidgenie.wizardMode", {}, "Wizard mode")
+    : t("vidgenie.jsonMode", {}, "JSON mode");
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
   const toggleShell =
     colorMode === 'dark'
@@ -2049,9 +3152,13 @@ export default function OneshotEditor() {
   const advancedLabelClasses = `block text-[11px] font-medium mb-1 ${mutedText}`;
   const advancedSectionBorder = colorMode === 'dark' ? 'border-white/10' : 'border-slate-200';
   const advancedRowBg = colorMode === 'dark' ? 'bg-white/[0.03]' : 'bg-slate-50';
-  const headerTitle = generationMode === 'T2V'
-    ? t("vidgenie.titleTextToVideo")
-    : t("vidgenie.titleImageListToVideo");
+  const headerTitle = isJsonMode
+    ? generationMode === 'I2V'
+      ? t("vidgenie.titleJsonImageListMode", {}, "JSON image-list video request")
+      : t("vidgenie.titleJsonTextMode", {}, "JSON text video request")
+    : generationMode === 'T2V'
+      ? t("vidgenie.titleTextToVideo")
+      : t("vidgenie.titleImageListToVideo");
   if (!sessionDetails) {
     return <VidgenieSkeletonLoader />;
   }
@@ -2078,7 +3185,7 @@ export default function OneshotEditor() {
               <button
                 type="button"
                 disabled={isModeToggleDisabled}
-                onClick={() => setGenerationMode('T2V')}
+                onClick={() => handleGenerationModeChange('T2V')}
                 aria-pressed={generationMode === 'T2V'}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'T2V' ? toggleActive : toggleInactive}`}
               >
@@ -2087,7 +3194,7 @@ export default function OneshotEditor() {
               <button
                 type="button"
                 disabled={isModeToggleDisabled}
-                onClick={() => setGenerationMode('I2V')}
+                onClick={() => handleGenerationModeChange('I2V')}
                 aria-pressed={generationMode === 'I2V'}
                 className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'I2V' ? toggleActive : toggleInactive}`}
               >
@@ -2143,17 +3250,22 @@ export default function OneshotEditor() {
             {renderState !== 'complete' && (
               <button
                 type="button"
-                onClick={viewInStudio}
+                onClick={toggleJsonMode}
+                disabled={isModeToggleDisabled}
+                aria-pressed={isJsonMode}
                 className={`
                   inline-flex items-center gap-2 text-xs sm:text-sm px-3 py-1.5 rounded-full
                   transition-all duration-200
-                  ${colorMode === 'dark'
-                    ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
-                    : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
+                  ${isJsonMode
+                    ? toggleActive
+                    : colorMode === 'dark'
+                      ? 'border border-white/10 hover:border-white/20 hover:bg-white/5 active:scale-[0.98]'
+                      : 'border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98]'
                   }
+                  ${isModeToggleDisabled ? 'opacity-60 cursor-not-allowed' : ''}
                 `}
               >
-                {t("common.viewInStudio")}
+                {jsonModeButtonLabel}
               </button>
             )}
 
@@ -2212,6 +3324,8 @@ export default function OneshotEditor() {
           </div>
         )}
 
+        {!isJsonMode && (
+          <>
         {/* 2️⃣ Options grid */}
         <div className="w-full mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -2396,54 +3510,23 @@ export default function OneshotEditor() {
 
           {isAdvancedOpen && (
             <div className="mt-3 space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {generationMode === 'T2V' && (
-                  <div>
-                    <label className={advancedLabelClasses}>Tone</label>
-                    <select
-                      value={advancedOptions.tone}
-                      onChange={(event) => updateAdvancedOption('tone', event.target.value)}
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                    >
-                      {VIDGENIE_TONE_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
+              {generationMode === 'T2V' && (
                 <div>
-                  <label className={advancedLabelClasses}>Font</label>
+                  <label className={advancedLabelClasses}>Tone</label>
                   <select
-                    value={advancedOptions.font_key}
-                    onChange={(event) => updateAdvancedOption('font_key', event.target.value)}
+                    value={advancedOptions.tone}
+                    onChange={(event) => updateAdvancedOption('tone', event.target.value)}
                     disabled={isFormDisabled}
                     className={advancedInputClasses}
                   >
-                    <option value="">Default font</option>
-                    {fontKeyOptions.map((fontKey) => (
-                      <option key={fontKey} value={fontKey}>
-                        {fontKey}
+                    {VIDGENIE_TONE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
                 </div>
-
-                <div>
-                  <label className={advancedLabelClasses}>Webhook URL</label>
-                  <input
-                    type="url"
-                    value={advancedOptions.webhookUrl}
-                    onChange={(event) => updateAdvancedOption('webhookUrl', event.target.value)}
-                    disabled={isFormDisabled}
-                    className={advancedInputClasses}
-                    placeholder="https://example.com/webhook"
-                  />
-                </div>
-              </div>
+              )}
 
               {generationMode === 'I2V' && (
                 <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
@@ -2508,140 +3591,75 @@ export default function OneshotEditor() {
 
               <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Outro
+                  CTA Outro
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className={advancedLabelClasses}>Outro image URL</label>
-                    <input
-                      type="url"
-                      value={advancedOptions.outro_image_url}
-                      onChange={(event) =>
-                        updateAdvancedOption('outro_image_url', event.target.value)
-                      }
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                      placeholder="https://cdn.example.com/outro.png"
-                    />
+                <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
+                  <input
+                    type="checkbox"
+                    checked={advancedOptions.generate_outro_image}
+                    onChange={(event) =>
+                      updateAdvancedOption('generate_outro_image', event.target.checked)
+                    }
+                    disabled={isFormDisabled}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-medium">Generate CTA outro</span>
+                </label>
+                {advancedOptions.generate_outro_image && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className={advancedLabelClasses}>CTA URL</label>
+                      <input
+                        type="url"
+                        value={advancedOptions.cta_url}
+                        onChange={(event) => updateAdvancedOption('cta_url', event.target.value)}
+                        disabled={isFormDisabled}
+                        className={advancedInputClasses}
+                        placeholder="https://example.com/book"
+                      />
+                    </div>
+                    <div>
+                      <label className={advancedLabelClasses}>CTA top text</label>
+                      <input
+                        type="text"
+                        value={advancedOptions.cta_text_top}
+                        onChange={(event) =>
+                          updateAdvancedOption('cta_text_top', event.target.value)
+                        }
+                        disabled={isFormDisabled}
+                        className={advancedInputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className={advancedLabelClasses}>CTA bottom text</label>
+                      <input
+                        type="text"
+                        value={advancedOptions.cta_text_bottom}
+                        onChange={(event) =>
+                          updateAdvancedOption('cta_text_bottom', event.target.value)
+                        }
+                        disabled={isFormDisabled}
+                        className={advancedInputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className={advancedLabelClasses}>CTA logo URL</label>
+                      <input
+                        type="url"
+                        value={advancedOptions.cta_logo}
+                        onChange={(event) => updateAdvancedOption('cta_logo', event.target.value)}
+                        disabled={isFormDisabled}
+                        className={advancedInputClasses}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className={advancedLabelClasses}>CTA URL</label>
-                    <input
-                      type="url"
-                      value={advancedOptions.cta_url}
-                      onChange={(event) => updateAdvancedOption('cta_url', event.target.value)}
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                      placeholder="https://example.com/book"
-                    />
-                  </div>
-                  <div>
-                    <label className={advancedLabelClasses}>CTA top text</label>
-                    <input
-                      type="text"
-                      value={advancedOptions.cta_text_top}
-                      onChange={(event) =>
-                        updateAdvancedOption('cta_text_top', event.target.value)
-                      }
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                    />
-                  </div>
-                  <div>
-                    <label className={advancedLabelClasses}>CTA bottom text</label>
-                    <input
-                      type="text"
-                      value={advancedOptions.cta_text_bottom}
-                      onChange={(event) =>
-                        updateAdvancedOption('cta_text_bottom', event.target.value)
-                      }
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                    />
-                  </div>
-                  <div>
-                    <label className={advancedLabelClasses}>CTA logo URL</label>
-                    <input
-                      type="url"
-                      value={advancedOptions.cta_logo}
-                      onChange={(event) => updateAdvancedOption('cta_logo', event.target.value)}
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                    />
-                  </div>
-                  <div>
-                    <label className={advancedLabelClasses}>Outro focus area JSON</label>
-                    <TextareaAutosize
-                      minRows={2}
-                      maxRows={5}
-                      value={advancedOptions.outro_focust_area}
-                      onChange={(event) =>
-                        updateAdvancedOption('outro_focust_area', event.target.value)
-                      }
-                      disabled={isFormDisabled}
-                      className={advancedInputClasses}
-                      placeholder='{"x":0,"y":0,"width":512,"height":512}'
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
-                    <input
-                      type="checkbox"
-                      checked={advancedOptions.generate_outro_image}
-                      onChange={(event) =>
-                        updateAdvancedOption('generate_outro_image', event.target.checked)
-                      }
-                      disabled={isFormDisabled}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-sm font-medium">Generate QR outro</span>
-                  </label>
-
-                  <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
-                    <input
-                      type="checkbox"
-                      checked={advancedOptions.add_outro_animation}
-                      onChange={(event) =>
-                        updateAdvancedOption('add_outro_animation', event.target.checked)
-                      }
-                      disabled={isFormDisabled}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-sm font-medium">Add outro animation</span>
-                  </label>
-
-                  <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
-                    <input
-                      type="checkbox"
-                      checked={advancedOptions.add_outro_focus_area}
-                      onChange={(event) =>
-                        updateAdvancedOption('add_outro_focus_area', event.target.checked)
-                      }
-                      disabled={isFormDisabled}
-                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-sm font-medium">Add outro focus area</span>
-                  </label>
-                </div>
+                )}
               </div>
 
               <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Footer
                 </div>
-                <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
-                  <input
-                    type="checkbox"
-                    checked={advancedOptions.add_footer_animation}
-                    onChange={(event) =>
-                      updateAdvancedOption('add_footer_animation', event.target.checked)
-                    }
-                    disabled={isFormDisabled}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm font-medium">Add footer animation</span>
-                </label>
                 <div>
                   <label className={advancedLabelClasses}>Footer metadata JSON</label>
                   <TextareaAutosize
@@ -2690,6 +3708,8 @@ export default function OneshotEditor() {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
       {/* ───── /HEADER ───── */}
 
@@ -2716,7 +3736,140 @@ export default function OneshotEditor() {
 
       {/* ───────── Submission form ───────── */}
       <form onSubmit={handleSubmit}>
-        {generationMode === 'T2V' ? (
+        {isJsonMode && shouldCollapseJsonEditorForProgress ? (
+          <div className={`mt-4 rounded-2xl p-4 ring-1 transition ${
+            colorMode === 'dark'
+              ? 'bg-[#0b1224] text-slate-100 ring-white/10'
+              : 'bg-white text-slate-900 ring-slate-200'
+          }`}>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold">JSON request hidden during render</div>
+                <p className={`mt-1 text-xs ${mutedText}`}>
+                  Progress stays visible. Expand this panel only when you need to inspect or copy the submitted request.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsJsonRequestExpanded((expanded) => !expanded)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    colorMode === 'dark'
+                      ? 'border border-white/10 hover:bg-white/5'
+                      : 'border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {isJsonRequestExpanded ? 'Hide JSON' : 'View JSON'}
+                </button>
+                <button
+                  type="button"
+                  onClick={copyJsonRequestToClipboard}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    colorMode === 'dark'
+                      ? 'border border-white/10 hover:bg-white/5'
+                      : 'border border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {jsonCopyStatus || 'Copy JSON'}
+                </button>
+              </div>
+            </div>
+
+            {isJsonRequestExpanded && (
+              <div className="mt-4 overflow-hidden rounded-xl ring-1 ring-white/10">
+                <AceEditor
+                  mode="json"
+                  theme="monokai"
+                  name="vidgenieJsonSubmittedInput"
+                  width="100%"
+                  height="360px"
+                  fontSize={13}
+                  showPrintMargin={false}
+                  showGutter
+                  highlightActiveLine={false}
+                  readOnly
+                  value={jsonRequestDisplayText}
+                  editorProps={{ $blockScrolling: true }}
+                  setOptions={{
+                    enableBasicAutocompletion: false,
+                    enableLiveAutocompletion: false,
+                    enableSnippets: false,
+                    showLineNumbers: true,
+                    tabSize: 2,
+                    useWorker: false,
+                  }}
+                  className="vidgenie-json-editor"
+                />
+              </div>
+            )}
+          </div>
+        ) : isJsonMode ? (
+          <div className="mt-4">
+            <div className={`overflow-hidden rounded-2xl ring-1 transition ${
+              jsonEditorErrorMessage
+                ? 'ring-red-500/50'
+                : colorMode === 'dark'
+                  ? 'ring-white/10'
+                  : 'ring-slate-200'
+            }`}>
+              <AceEditor
+                mode="json"
+                theme="monokai"
+                name="vidgenieJsonInput"
+                width="100%"
+                height="520px"
+                fontSize={14}
+                showPrintMargin={false}
+                showGutter
+                highlightActiveLine
+                readOnly={isFormDisabled}
+                annotations={jsonEditorAnnotations}
+                placeholder={jsonModeDefaultInput}
+                editorProps={{ $blockScrolling: true }}
+                setOptions={{
+                  enableBasicAutocompletion: true,
+                  enableLiveAutocompletion: true,
+                  enableSnippets: false,
+                  showLineNumbers: true,
+                  tabSize: 2,
+                  useWorker: false,
+                }}
+                className="vidgenie-json-editor"
+                value={jsonInputText}
+                onChange={(value) => {
+                  setJsonInputText(value);
+                  setIsJsonInputDirty(true);
+                  setJsonCopyStatus('');
+                  if (jsonValidationMessage) {
+                    setJsonValidationMessage('');
+                  }
+                }}
+              />
+            </div>
+            <input type="hidden" name="jsonInputText" value={jsonInputText} />
+            {jsonEditorErrorMessage ? (
+              <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm font-medium text-red-500">
+                {Number.isFinite(jsonModeValidation.row) && Number.isFinite(jsonModeValidation.column)
+                  ? `Line ${jsonModeValidation.row + 1}, column ${jsonModeValidation.column + 1}: `
+                  : ''}
+                {jsonEditorErrorMessage}
+              </div>
+            ) : (
+              <div className={`mt-2 rounded-lg border p-3 text-sm font-medium ${
+                colorMode === 'dark'
+                  ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+                  : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700'
+              }`}>
+                Valid JSON for {generationMode === 'I2V' ? 'image-list to video' : 'text to video'}.
+              </div>
+            )}
+            {jsonValidationMessage && jsonValidationMessage !== jsonEditorErrorMessage && (
+              <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm font-medium text-red-500">
+                {jsonValidationMessage}
+              </div>
+            )}
+          </div>
+        ) : generationMode === 'T2V' ? (
           <>
             <div className="relative mt-4">
               <TextareaAutosize
@@ -2884,18 +4037,20 @@ export default function OneshotEditor() {
             </div>
           </div>
         )}
-        <div className="mt-4 relative">
-          <div className="flex justify-center">
-            <PrimaryPublicButton
-              type="submit"
-              isDisabled={isFormDisabled || isSubmitting}
-              className="px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
-            >
-              {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
-            </PrimaryPublicButton>
-          </div>
+        {!shouldCollapseJsonEditorForProgress && (
+          <div className="mt-4 relative">
+            <div className="flex justify-center">
+              <PrimaryPublicButton
+                type="submit"
+                isDisabled={isFormDisabled || isSubmitting || Boolean(jsonEditorErrorMessage)}
+                className="px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+              >
+                {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
+              </PrimaryPublicButton>
+            </div>
 
-        </div>
+          </div>
+        )}
       </form>
 
       {/* ───────── Assistant Chat ───────── */}

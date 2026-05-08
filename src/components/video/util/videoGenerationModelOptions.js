@@ -5,11 +5,12 @@ const getPricingMap = () =>
   new Map(VIDEO_MODEL_PRICES.map((entry) => [entry.key, entry]));
 
 const VIDEO_MODEL_PRIORITY = {
-  "VEO3.1": 0,
-  "VEO3.1FAST": 1,
-  "VEO3.1I2V": 0,
-  "VEO3.1FLIV": 1,
-  "VEO3.1I2VFAST": 2,
+  RUNWAYML: 0,
+  "VEO3.1": 10,
+  "VEO3.1FAST": 11,
+  "VEO3.1I2V": 10,
+  "VEO3.1FLIV": 11,
+  "VEO3.1I2VFAST": 12,
 };
 
 const getVideoModelPriority = (key = "") =>

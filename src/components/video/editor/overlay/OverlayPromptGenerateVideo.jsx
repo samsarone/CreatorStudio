@@ -14,6 +14,8 @@ import "react-tooltip/dist/react-tooltip.css";
 const NATIVE_AUDIO_VIDEO_MODELS = new Set([
   "KLINGIMGTOVID3PRO",
   "KLINGTXTTOVID3PRO",
+  "SEEDANCE2.0I2V",
+  "SEEDANCE2.0T2V",
   "SEEDANCET2V",
   "VEO3.1",
   "VEO3.1FAST",

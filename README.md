@@ -88,9 +88,11 @@ Studio exposes the full video model list. VidGenie `T2V` exposes a curated subse
 
 | Model | Key | `T2V` | `I2V` | Supported ratios | VidGenie `T2V` |
 | --- | --- | --- | --- | --- | --- |
-| Runway Gen-4 | `RUNWAYML` | Yes | Yes | `16:9`, `9:16` | Yes |
+| RunwayML Gen 4.5 | `RUNWAYML` | Yes | Yes | `16:9`, `9:16` | Yes |
 | Kling 3 Pro Img2Vid | `KLINGIMGTOVID3PRO` | Yes | Yes | `16:9`, `9:16`, `1:1` | Yes |
-| Seedance 2.0 | `SEEDANCEI2V` | Yes | Yes | `16:9`, `9:16` | Yes |
+| Seedance 1.5 | `SEEDANCEI2V` | No | Yes | `16:9`, `9:16` | Yes |
+| Seedance 2.0 I2V | `SEEDANCE2.0I2V` | No | Yes | `16:9`, `9:16` | No |
+| Seedance 2.0 T2V | `SEEDANCE2.0T2V` | Yes | No | `16:9`, `9:16` | No |
 | Veo 3.1 Img2Vid | `VEO3.1I2V` | Yes | Yes | `16:9`, `9:16` | Yes |
 | Veo 3.1 Fast Img2Vid | `VEO3.1I2VFAST` | Yes | Yes | `16:9`, `9:16` | Yes |
 | Custom Image to Video | `CUSTOM_IMAGE_TO_VIDEO` | Yes | Yes | `1:1`, `16:9`, `9:16` | Yes |

@@ -52,7 +52,6 @@ function AddSessionDropdown(props) {
     addNewExpressSession,
     addNewVidGPTSession,
     showAddNewAdVideoSession,
-    addNewSnowMakerSession,
 
     showAddNewMovieMakerSession,
     betaOptionVisible,
@@ -286,11 +285,6 @@ function AddSessionDropdown(props) {
 
   const showAddNewVidGPTSession = () => {
     addNewVidGPTSession();
-    setIsOpen(false);
-  };
-
-  const showAddNewShowMakerSession = () => {
-    addNewSnowMakerSession();
     setIsOpen(false);
   };
 

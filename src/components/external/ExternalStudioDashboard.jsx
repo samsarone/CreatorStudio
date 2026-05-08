@@ -8,11 +8,11 @@ import { getHeaders } from '../../utils/web.jsx';
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API || 'http://localhost:3002';
 
 const TEXT_MODELS = [
+  { label: 'RunwayML Gen 4.5', value: 'RUNWAYML' },
   { label: 'Veo 3.1', value: 'VEO3.1I2V' },
   { label: 'Veo 3.1 Fast', value: 'VEO3.1I2VFAST' },
-  { label: 'Seedance 2.0', value: 'SEEDANCEI2V' },
+  { label: 'Seedance 1.5', value: 'SEEDANCEI2V' },
   { label: 'Kling Pro', value: 'KLINGIMGTOVID3PRO' },
-  { label: 'Runway Gen-4', value: 'RUNWAYML' },
   { label: 'Custom Image to Video', value: 'CUSTOM_IMAGE_TO_VIDEO' },
 ];
 
@@ -72,7 +72,7 @@ export default function ExternalStudioDashboard() {
   const [imageForm, setImageForm] = useState({
     prompt: '',
     duration: '10',
-    video_model: 'VEO3.1I2V',
+    video_model: 'RUNWAYML',
     enable_subtitles: true,
   });
   const [imageFiles, setImageFiles] = useState([]);
@@ -471,9 +471,9 @@ export default function ExternalStudioDashboard() {
                   >
                     <option value="VEO3.1I2V">Veo 3.1</option>
                     <option value="VEO3.1I2VFAST">Veo 3.1 Fast</option>
-                    <option value="SEEDANCEI2V">Seedance 2.0</option>
+                    <option value="SEEDANCEI2V">Seedance 1.5</option>
                     <option value="KLINGIMGTOVID3PRO">Kling Pro</option>
-                    <option value="RUNWAYML">Runway Gen-4</option>
+                    <option value="RUNWAYML">RunwayML Gen 4.5</option>
                     <option value="CUSTOM_IMAGE_TO_VIDEO">Custom Image to Video</option>
                   </select>
                   <select

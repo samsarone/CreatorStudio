@@ -39,7 +39,6 @@ import PaymentsFailure from "../payments/PaymentsFailure.jsx";
 import CreatePayment from "../payments/CreatePayment.jsx";
 import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.jsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
-import SnowMakerContainer from "../snowmaker/SnowMakerContainer.jsx";
 import ImageStudioHome from "../image/ImageStudioHome.jsx";
 import ListImageSessions from "../image/sessions/ListImageSessions.jsx";
 import ImageStudioLandingHome from "../image/ImageStudioLandingHome.jsx";
@@ -222,11 +221,6 @@ export default function Home() {
         <Route path="/adcreator" element={<AdVideoCreatorContainer />} />
         <Route path="/adcreator/:id" element={<AdVideoCreatorContainer />} />
 
-        <Route path="/snowmaker" element={<SnowMakerContainer />} />
-        <Route path="/snowmaker/:id" element={<SnowMakerContainer />} />
-
-        <Route path="/infovidcreator" element={<SnowMakerContainer />} />
-        <Route path="/infovidcreator/:id" element={<SnowMakerContainer />} />
         <Route path="/reset_password" element={<ResetPasswordPage />} />
 
 

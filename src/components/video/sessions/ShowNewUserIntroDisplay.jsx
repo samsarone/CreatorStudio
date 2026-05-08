@@ -15,7 +15,7 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 export default function ShowNewUserIntroDisplay(props) {
   const { createNewStudioSession, createNewQuickSession, createNewVidGPTSession, 
     
-    handleImportClick, createNewAdVideoSession, createNewInfoVideoSession } = props;
+    handleImportClick, createNewAdVideoSession } = props;
 
   const [introSessionList, setIntroSessionList] = useState([]);
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(null);

@@ -30,7 +30,7 @@ export default function MobileTopNav(props) {
     location.pathname.includes('/image/') ||
     location.pathname.includes('/iamge/') ||
     location.pathname.includes('/image_sessions');
-  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/') || location.pathname.includes('/infovidcreator/');
+  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/');
   const isGenerationsView = location.pathname.startsWith('/generations');
 
   const navShell =

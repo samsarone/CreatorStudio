@@ -204,21 +204,6 @@ export default function ListVideoSessions() {
     });
   };
 
-  const createNewInfoVideoSession = () => {
-    const headers = getHeaders();
-    const payload = {
-      prompts: [],
-    };
-    axios.post(`${PROCESSOR_API}/video_sessions/create_video_session`, payload, headers).then(function (response) {
-      const session = response.data;
-      const sessionId = session._id.toString();
-      localStorage.setItem('videoSessionId', sessionId);
-      navigate(`/infovidcreator/${session._id}`);
-    });
-  };
-
-
-
   const handleImportClick = (session, editorType) => {
     // ... your existing code ...
   };
@@ -371,7 +356,6 @@ export default function ListVideoSessions() {
             createNewStudioSession={createNewStudioSession}
             createNewVidGPTSession={createNewVidGPTSession}
             createNewAdVideoSession={createNewAdVideoSession}
-            createNewInfoVideoSession={createNewInfoVideoSession}
             handleImportClick={handleImportClick}
           />
         </div>

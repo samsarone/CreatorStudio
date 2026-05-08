@@ -66,7 +66,7 @@ export default function TopNav(props) {
     location.pathname.includes('/image/') ||
     location.pathname.includes('/iamge/') ||
     location.pathname.includes('/image_sessions');
-  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/') || location.pathname.includes('/infovidcreator/');
+  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/');
   const isGenerationsView = location.pathname.startsWith('/generations');
 
   const {
@@ -569,21 +569,6 @@ const showLicenseDialog = () => {
     });
   }
 
-  const addNewSnowMakerSession = () => {
-     const headers = getHeaders();
-    const payload = {
-      prompts: [],
-    };
-    axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
-      const session = response.data;
-      const sessionId = session._id.toString();
-      localStorage.setItem('videoSessionId', sessionId);
-
-      navigate(`/infovidcreator/${session._id}`);
-
-    });   
-  }
-
   let addSessionButton = <span />;
 
   let betaOptionVisible = false;
@@ -602,7 +587,6 @@ const showLicenseDialog = () => {
           showAddNewMovieMakerSession={showAddNewMovieMakerSession}
           betaOptionVisible={betaOptionVisible}
           showAddNewAdVideoSession={showAddNewAdVideoSession}
-          addNewSnowMakerSession={addNewSnowMakerSession}
           aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
           aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
           useImageProjectModal={isImageEditor}
