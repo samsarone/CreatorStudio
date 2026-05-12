@@ -212,10 +212,10 @@ export default function ListImageSessions() {
 
   return (
     <OverflowContainer>
-      <div className={`min-h-screen pt-20 pb-12 ${containerSurface}`}>
-        <div className="max-w-6xl mx-auto px-4">
+      <div className={`min-h-screen px-4 pb-12 pt-20 sm:px-6 lg:px-8 ${containerSurface}`}>
+        <div className="mx-auto w-full max-w-[1600px]">
           {showAddCreditsBanner && (
-            <div className={`mb-6 rounded-2xl p-5 shadow-sm ${bannerSurface}`}>
+            <div className={`mb-6 rounded-lg p-4 shadow-sm sm:p-5 ${bannerSurface}`}>
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <div className="text-base font-semibold">Welcome to Image Studio</div>
@@ -223,16 +223,16 @@ export default function ListImageSessions() {
                     Add credits to start generating and editing images.
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   <button
                     onClick={handleAddCredits}
-                    className={`px-4 py-2 rounded-md text-sm font-semibold transition ${bannerButton}`}
+                    className={`min-h-[40px] px-4 py-2 rounded-md text-sm font-semibold transition ${bannerButton}`}
                   >
                     Add credits
                   </button>
                   <button
                     onClick={dismissAddCreditsBanner}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition ${bannerGhost}`}
+                    className={`min-h-[40px] px-4 py-2 rounded-md text-sm font-medium transition ${bannerGhost}`}
                   >
                     Dismiss
                   </button>
@@ -240,10 +240,10 @@ export default function ListImageSessions() {
               </div>
             </div>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
             <div className="text-lg font-semibold">Image Sessions</div>
-            <div className="flex items-center gap-3">
-              <div className="min-w-[160px]">
+            <div className="grid w-full grid-cols-1 gap-3 sm:w-auto sm:grid-cols-[minmax(160px,220px)_auto]">
+              <div className="min-w-0">
                 <SingleSelect
                   options={aspectRatioFilterOptions}
                   onChange={handleChangeAspectRatio}
@@ -252,14 +252,14 @@ export default function ListImageSessions() {
               </div>
               <button
                 onClick={openCreateDialog}
-                className="px-4 py-2 rounded-md text-sm font-medium bg-rose-500 text-white hover:bg-rose-600"
+                className="min-h-[40px] rounded-md bg-rose-500 px-4 py-2 text-sm font-medium text-white hover:bg-rose-600"
               >
                 New Image Session
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm mb-4">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-sm">
             <div>
               Page {page} of {totalPages}
             </div>
@@ -267,21 +267,21 @@ export default function ListImageSessions() {
               <button
                 onClick={handlePrevPage}
                 disabled={page <= 1}
-                className={`px-3 py-1.5 rounded-md transition disabled:opacity-50 ${paginationButtonClass}`}
+                className={`min-h-[36px] rounded-md px-3 py-1.5 transition disabled:cursor-not-allowed disabled:opacity-50 ${paginationButtonClass}`}
               >
                 Prev
               </button>
               <button
                 onClick={handleNextPage}
                 disabled={page >= totalPages}
-                className={`px-3 py-1.5 rounded-md transition disabled:opacity-50 ${paginationButtonClass}`}
+                className={`min-h-[36px] rounded-md px-3 py-1.5 transition disabled:cursor-not-allowed disabled:opacity-50 ${paginationButtonClass}`}
               >
                 Next
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
+          <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4 sm:gap-5 lg:gap-6">
             {sessionList.map((session, index) => {
               if (!session) return null;
               const thumbnail = session.thumbnail || '';
@@ -294,19 +294,21 @@ export default function ListImageSessions() {
               return (
                 <div
                   key={session?.id ?? session?._id ?? index}
-                  className={`cursor-pointer group ${cardSurface} rounded-2xl overflow-hidden transition-transform duration-200 hover:-translate-y-1`}
+                  className={`group min-w-0 cursor-pointer overflow-hidden rounded-lg ${cardSurface} transition-transform duration-200 hover:-translate-y-1`}
                   onClick={(event) => gotoPage(event, session)}
                 >
-                  <div className="text-sm font-medium text-center mb-2 px-4 pt-4">
+                  <div className="min-h-[54px] px-4 py-3 text-left text-sm font-semibold leading-5">
                     {session.name}
                   </div>
-                  <img
-                    src={sessionPreviewImage}
-                    onError={(e) => (e.target.src = '/q2.png')}
-                    className="w-full h-56 object-cover"
-                    alt={`Session ${index + 1}`}
-                  />
-                  <div className="px-4 pb-4 text-xs text-slate-500">
+                  <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+                    <img
+                      src={sessionPreviewImage}
+                      onError={(e) => (e.target.src = '/q2.png')}
+                      className="h-full w-full object-cover"
+                      alt={`Session ${index + 1}`}
+                    />
+                  </div>
+                  <div className="px-4 py-3 text-xs text-slate-500">
                     Tap to open in Image Studio
                   </div>
                 </div>
@@ -316,14 +318,14 @@ export default function ListImageSessions() {
         </div>
       </div>
       {isCreateDialogOpen && (
-        <div className="fixed inset-0 z-[11060] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[11060] flex items-center justify-center p-3 sm:p-4">
           <button
             type="button"
             aria-label="Close create image session dialog"
             className="absolute inset-0 bg-black/60"
             onClick={closeCreateDialog}
           />
-          <div className={`relative z-10 w-full max-w-md rounded-2xl p-6 shadow-[0_20px_46px_rgba(0,0,0,0.5)] ${dialogSurface}`}>
+          <div className={`relative z-10 max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-xl p-4 shadow-[0_20px_46px_rgba(0,0,0,0.5)] sm:p-6 ${dialogSurface}`}>
             <form onSubmit={handleCreateSessionSubmit}>
               <div className="text-lg font-semibold">Create new Image session</div>
               <div className={`mt-1 text-sm ${dialogSubtleText}`}>
@@ -374,19 +376,19 @@ export default function ListImageSessions() {
                 )}
               </div>
 
-              <div className="mt-6 flex items-center justify-end gap-2">
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <button
                   type="button"
                   onClick={closeCreateDialog}
                   disabled={isCreatePending}
-                  className={`px-3 py-2 rounded-md text-sm transition disabled:opacity-60 ${dialogSecondaryButton}`}
+                  className={`min-h-[40px] px-3 py-2 rounded-md text-sm transition disabled:opacity-60 ${dialogSecondaryButton}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isCreatePending}
-                  className={`px-4 py-2 rounded-md text-sm font-semibold transition disabled:opacity-60 ${dialogPrimaryButton}`}
+                  className={`min-h-[40px] px-4 py-2 rounded-md text-sm font-semibold transition disabled:opacity-60 ${dialogPrimaryButton}`}
                 >
                   {isCreatePending ? 'Creating...' : 'Create session'}
                 </button>

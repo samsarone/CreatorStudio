@@ -201,7 +201,13 @@ const ResizableText = ({
     [shapeState.capitalizeLetters, text]
   );
 
+  const getGroupNode = (event) => groupRef.current || event?.currentTarget || event?.target;
+
   const updateShapePosition = (node) => {
+    if (!node) {
+      return;
+    }
+
     const nextX = node.x();
     const nextY = node.y();
     updateToolbarButtonPosition(id, nextX, nextY);
@@ -214,11 +220,16 @@ const ResizableText = ({
   };
 
   const handleDragMove = (event) => {
-    updateShapePosition(event.target);
+    updateShapePosition(getGroupNode(event));
   };
 
   const handleDragEnd = (event) => {
-    const node = event.target;
+    const node = getGroupNode(event);
+    if (!node) {
+      interactionStateRef.current.dragging = false;
+      return;
+    }
+
     const committedWidth = Math.max(
       MIN_TEXT_DIMENSION,
       previousMeasuredSizeRef.current.width || shapeState.width
@@ -236,6 +247,7 @@ const ResizableText = ({
       width: committedWidth,
       height: committedHeight,
       positionMode: 'center',
+      bringToFront: true,
     });
   };
 
@@ -332,8 +344,9 @@ const ResizableText = ({
           event.cancelBubble = true;
           onSelect();
         }}
-        onDragStart={() => {
+        onDragStart={(event) => {
           interactionStateRef.current.dragging = true;
+          getGroupNode(event)?.moveToTop?.();
         }}
         onDragMove={handleDragMove}
         onDragEnd={handleDragEnd}

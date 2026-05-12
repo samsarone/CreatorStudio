@@ -61,6 +61,7 @@ function AddSessionDropdown(props) {
     onSwitchEditor,
     showVideoOptions = true,
     useImageProjectModal = false,
+    compact = false,
   } = props;
 
   const [aspectRatio, setAspectRatio] = useState(aspectRatioOptions[0] || { value: '1:1', label: '1:1' });
@@ -334,24 +335,23 @@ function AddSessionDropdown(props) {
   };
 
   return (
-    <div className="relative inline-block text-left ">
+    <div className="relative inline-block max-w-full text-left">
       <button
         onClick={handleMainButtonClick}
-        className={`inline-flex justify-center w-32 px-4 py-4
-         text-md font-medium
-          rounded-md shadow-[0_8px_18px_rgba(3,12,28,0.22)] transition-all duration-200 ease-out hover:-translate-y-[1px] focus:outline-none ${textColor} ${bgColor}`}
+        title={t("common.newProject")}
+        className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold shadow-[0_8px_18px_rgba(3,12,28,0.18)] transition-all duration-200 ease-out hover:-translate-y-[1px] focus:outline-none ${compact ? 'w-11 min-w-11 max-w-11 px-0' : 'w-full min-w-[118px] max-w-[152px] px-3'} ${textColor} ${bgColor}`}
       >
-        <FaPlus className="mr-2" />
-        <span className="text-xs">{t("common.newProject")}</span>
+        <FaPlus className="shrink-0" />
+        <span className={compact ? 'sr-only' : 'truncate text-xs'}>{t("common.newProject")}</span>
       </button>
 
       {!useImageProjectModal && isOpen && (
-        <div className={`absolute left-0 z-[1220] mt-2 min-w-[9rem] w-max origin-top-right rounded-md
+        <div className={`absolute right-0 z-[1220] mt-2 min-w-[13rem] max-w-[calc(100vw-1rem)] origin-top-right overflow-hidden rounded-lg
          ${menuSurface}`} >
           <div role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
             <button
 
-              className={`block px-2 py-2 text-sm text-gray-700 w-full text-left ${textColor} ${bgColor}`}
+              className={`block w-full px-3 py-2 text-left text-sm text-gray-700 ${textColor} ${bgColor}`}
               role="menuitem"
             >
 
@@ -369,7 +369,7 @@ function AddSessionDropdown(props) {
             </button>
             <button
               onClick={addNewSession}
-              className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}`}
+              className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
               role="menuitem"
             >
               <MdCreateNewFolder className='inline-flex mb-1' /> {t("common.studio")}
@@ -378,7 +378,7 @@ function AddSessionDropdown(props) {
             {showVideoOptions && (
               <button
                 onClick={showAddNewVidGPTSession}
-                className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}`}
+                className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
                 role="menuitem"
               >
                 <FaStar className='inline-flex mb-1' /> {t("common.vidgenie")}
@@ -388,7 +388,7 @@ function AddSessionDropdown(props) {
             {switchEditorLabel && onSwitchEditor && (
               <button
                 onClick={handleSwitchEditor}
-                className={`block px-2 py-2 text-sm text-gray-700 hover:bg-gray-600 w-full text-left ${textColor} ${bgColor}`}
+                className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
                 role="menuitem"
               >
                 <MdCreateNewFolder className='inline-flex mb-1' /> {switchEditorLabel}
@@ -397,7 +397,7 @@ function AddSessionDropdown(props) {
 
             <button
               onClick={viewSessions}
-              className={`flex w-full items-center gap-2 whitespace-nowrap px-2 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
+              className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
               role="menuitem"
             >
               <MdExplore className="shrink-0" />
@@ -410,14 +410,14 @@ function AddSessionDropdown(props) {
       )}
 
       {useImageProjectModal && isProjectModalOpen && (
-        <div className="fixed inset-0 z-[11060] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[11060] flex items-center justify-center p-3 sm:p-4">
           <button
             type="button"
             aria-label="Close create project dialog"
             className="absolute inset-0 bg-black/60"
             onClick={closeProjectModal}
           />
-          <div className={`relative z-10 w-full max-w-xl rounded-2xl p-6 shadow-[0_20px_46px_rgba(0,0,0,0.5)] ${modalSurface}`}>
+          <div className={`relative z-10 max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-xl p-4 shadow-[0_20px_46px_rgba(0,0,0,0.5)] sm:p-6 ${modalSurface}`}>
             <form onSubmit={handleCreateSessionSubmit}>
               <div className="text-lg font-semibold">Create new Image session</div>
               <div className="mt-1 text-sm opacity-80">
@@ -453,7 +453,7 @@ function AddSessionDropdown(props) {
                 </div>
 
                 {isCustomCanvasSelected && (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-width">
                         Width
@@ -532,12 +532,12 @@ function AddSessionDropdown(props) {
                 )}
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 {switchEditorLabel && onSwitchEditor && (
                   <button
                     type="button"
                     onClick={handleSwitchEditor}
-                    className={`px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                    className={`min-h-[40px] px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
                   >
                     {switchEditorLabel}
                   </button>
@@ -545,21 +545,21 @@ function AddSessionDropdown(props) {
                 <button
                   type="button"
                   onClick={viewSessions}
-                  className={`inline-flex items-center whitespace-nowrap px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                  className={`inline-flex min-h-[40px] items-center justify-center whitespace-nowrap px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
                 >
                   {t("common.viewProjects")}
                 </button>
                 <button
                   type="button"
                   onClick={closeProjectModal}
-                  className={`px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                  className={`min-h-[40px] px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={Boolean(customCanvasValidationMessage)}
-                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalPrimaryButton}`}
+                  className={`min-h-[40px] px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${modalPrimaryButton}`}
                 >
                   Create session
                 </button>

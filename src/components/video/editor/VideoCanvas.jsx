@@ -10,7 +10,6 @@ import DraggableToolbarCircle from "../toolbars/toolbar_shapes/DraggableToolbarC
 import { generateCursor } from "../util/GenerateSVG.jsx";
 import axios from 'axios';
 import debounce from 'lodash/debounce';
-import { isTypeSelectable } from '../util/ImageUtils.jsx';
 import VideoUnderlay from '../util/VideoUnderlay.jsx';
 import CanvasToolbar from "./CanvasToolbar.jsx";
 import { ActiveRenderItem } from './CanvasUtils.jsx';
@@ -63,10 +62,6 @@ function canDragCanvasItems({
   currentCanvasAction,
   selectedEditModelValue,
 }) {
-  if (editorVariant !== "imageStudio") {
-    return isTypeSelectable(currentView, currentCanvasAction);
-  }
-
   const isMaskEditMode =
     currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_MASK_DISPLAY
     || (
@@ -78,9 +73,23 @@ function canDragCanvasItems({
     TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY,
     TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY,
     TOOLBAR_ACTION_VIEW.SHOW_SMART_SELECT_DISPLAY,
+    TOOLBAR_ACTION_VIEW.SHOW_SELECT_SHAPE_DISPLAY,
   ]);
 
-  return !isMaskEditMode && !blockedCanvasActions.has(currentCanvasAction);
+  if (isMaskEditMode || blockedCanvasActions.has(currentCanvasAction)) {
+    return false;
+  }
+
+  if (
+    editorVariant !== "imageStudio"
+    && currentView === CURRENT_TOOLBAR_VIEW.SHOW_SELECT_DISPLAY
+    && currentCanvasAction
+    && currentCanvasAction !== TOOLBAR_ACTION_VIEW.SHOW_SELECT_LAYER_DISPLAY
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 const VideoCanvas = forwardRef((props, ref) => {

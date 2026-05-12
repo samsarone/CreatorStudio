@@ -39,6 +39,7 @@ const AVATAR_VIDEO_BILLING_UNIT_SECONDS = 6;
 const AVATAR_VIDEO_UPFRONT_CREDITS = 2;
 const AVATAR_VIDEO_BASE_CREDITS_PER_UNIT = 2;
 const AVATAR_VIDEO_CREDIT_CONVERSION_MULTIPLIER = 2;
+const DEFAULT_ELEVENLABS_AVATAR_SPEAKER = 'N2lVS1w4EtoT3dr4eOWO';
 const AVATAR_TTS_PROVIDER_OPTIONS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'ELEVENLABS', label: 'ElevenLabs' },
@@ -150,6 +151,23 @@ function normalizeAvatarTtsProvider(value = '') {
     return 'PLAYAI';
   }
   return normalized || 'OPENAI';
+}
+
+function getAvatarSpeechSpeakerOptions(provider = '') {
+  const normalizedProvider = normalizeAvatarTtsProvider(provider);
+  return TTS_COMBINED_SPEAKER_TYPES.filter((speaker) => (
+    normalizeAvatarTtsProvider(speaker.provider) === normalizedProvider
+  ));
+}
+
+function getDefaultAvatarSpeechSpeakerValue(provider = '') {
+  const speakerOptions = getAvatarSpeechSpeakerOptions(provider);
+  if (normalizeAvatarTtsProvider(provider) === 'ELEVENLABS') {
+    return speakerOptions.find((speaker) => speaker.value === DEFAULT_ELEVENLABS_AVATAR_SPEAKER)?.value
+      || speakerOptions[0]?.value
+      || '';
+  }
+  return speakerOptions[0]?.value || '';
 }
 
 function getAvatarTaskId(task = {}) {
@@ -485,6 +503,7 @@ export default function RecordSpeechSection({
   const [facecamError, setFacecamError] = useState('');
   const [avatarPrompt, setAvatarPrompt] = useState('');
   const [avatarTasks, setAvatarTasks] = useState([]);
+  const [userRunwayAvatars, setUserRunwayAvatars] = useState([]);
   const [selectedAvatarTaskId, setSelectedAvatarTaskId] = useState('');
   const [avatarVoices, setAvatarVoices] = useState([]);
   const [selectedAvatarVoiceId, setSelectedAvatarVoiceId] = useState('victoria');
@@ -492,6 +511,8 @@ export default function RecordSpeechSection({
   const [selectedAvatarSpeechSpeaker, setSelectedAvatarSpeechSpeaker] = useState('alloy');
   const [avatarError, setAvatarError] = useState('');
   const [isAvatarTasksLoading, setIsAvatarTasksLoading] = useState(false);
+  const [isUserRunwayAvatarsLoading, setIsUserRunwayAvatarsLoading] = useState(false);
+  const [isUserRunwayAvatarSelecting, setIsUserRunwayAvatarSelecting] = useState(false);
   const [isAvatarImageGenerating, setIsAvatarImageGenerating] = useState(false);
   const [isRunwayAvatarCreating, setIsRunwayAvatarCreating] = useState(false);
   const [isAvatarSpeechGenerating, setIsAvatarSpeechGenerating] = useState(false);
@@ -588,6 +609,16 @@ export default function RecordSpeechSection({
   const generatedAvatarTasks = useMemo(() => avatarTasks.filter((task) => (
     Boolean(task?.avatarImageUrl || task?.avatarImage)
   )), [avatarTasks]);
+  const reusableRunwayAvatars = useMemo(() => {
+    const sessionAvatarIds = new Set(
+      avatarTasks
+        .map((task) => task?.runwayAvatarId)
+        .filter(Boolean)
+    );
+    return userRunwayAvatars.filter((task) => (
+      task?.runwayAvatarId && !sessionAvatarIds.has(task.runwayAvatarId)
+    ));
+  }, [avatarTasks, userRunwayAvatars]);
   const selectedAvatarImageUrl = normalizeProcessorAssetUrl(
     selectedAvatarTask?.avatarImageUrl || selectedAvatarTask?.avatarImage || ''
   );
@@ -668,6 +699,7 @@ export default function RecordSpeechSection({
     || ['FAILED', 'REJECTED'].includes(selectedAvatarStatus);
   const avatarTaskBusy = Boolean(selectedAvatarTask) && isAvatarTaskPolling(selectedAvatarTask);
   const avatarAnyActionPending = isAvatarImageGenerating
+    || isUserRunwayAvatarSelecting
     || isRunwayAvatarCreating
     || isAvatarSpeechGenerating
     || isAvatarVideoGenerating
@@ -679,15 +711,15 @@ export default function RecordSpeechSection({
     : [{ presetId: 'victoria', name: 'Victoria' }];
   const avatarSpeechProviderOptions = AVATAR_TTS_PROVIDER_OPTIONS;
   const avatarSpeechSpeakerOptions = useMemo(() => {
-    const normalizedProvider = normalizeAvatarTtsProvider(selectedAvatarSpeechProvider);
-    return TTS_COMBINED_SPEAKER_TYPES.filter((speaker) => (
-      normalizeAvatarTtsProvider(speaker.provider) === normalizedProvider
-    ));
+    return getAvatarSpeechSpeakerOptions(selectedAvatarSpeechProvider);
   }, [selectedAvatarSpeechProvider]);
+  const selectedAvatarSpeechSpeakerOption = useMemo(() => (
+    avatarSpeechSpeakerOptions.find((option) => option.value === selectedAvatarSpeechSpeaker) || null
+  ), [avatarSpeechSpeakerOptions, selectedAvatarSpeechSpeaker]);
   const selectedAvatarSpeechSpeakerLabel = useMemo(() => {
-    const speaker = avatarSpeechSpeakerOptions.find((option) => option.value === selectedAvatarSpeechSpeaker);
+    const speaker = selectedAvatarSpeechSpeakerOption;
     return speaker?.label || speaker?.name || selectedAvatarSpeechSpeaker;
-  }, [avatarSpeechSpeakerOptions, selectedAvatarSpeechSpeaker]);
+  }, [selectedAvatarSpeechSpeaker, selectedAvatarSpeechSpeakerOption]);
   const selectedAvatarTaskError = selectedAvatarStatus === 'FAILED'
     ? (
       selectedAvatarTask?.imageError
@@ -936,6 +968,31 @@ export default function RecordSpeechSection({
     }
   };
 
+  const loadUserRunwayAvatars = async ({ silent = false } = {}) => {
+    const headers = getHeaders();
+    if (!headers) {
+      setAvatarError('You must be logged in to use avatar voiceover.');
+      return;
+    }
+
+    if (!silent) {
+      setIsUserRunwayAvatarsLoading(true);
+    }
+    setAvatarError('');
+    try {
+      const response = await axios.get(`${PROCESSOR_API_URL}/video_sessions/avatar_voiceover/user_avatars`, headers);
+      const avatars = Array.isArray(response?.data?.avatars) ? response.data.avatars : [];
+      setUserRunwayAvatars(avatars);
+      applyAvatarVoices(response?.data?.voices);
+    } catch (error) {
+      setAvatarError(error?.response?.data?.error || 'Unable to load saved avatars.');
+    } finally {
+      if (!silent) {
+        setIsUserRunwayAvatarsLoading(false);
+      }
+    }
+  };
+
   const refreshAvatarTask = async (taskId) => {
     if (!taskId) {
       return null;
@@ -1019,6 +1076,7 @@ export default function RecordSpeechSection({
       }, headers);
       applyAvatarVoices(response?.data?.voices);
       mergeAvatarTask(response?.data?.task);
+      loadUserRunwayAvatars({ silent: true }).catch(() => {});
       toast.success('Avatar generation started.', {
         position: 'bottom-center',
         className: 'custom-toast',
@@ -1027,6 +1085,46 @@ export default function RecordSpeechSection({
       setAvatarError(error?.response?.data?.error || 'Unable to create avatar.');
     } finally {
       setIsRunwayAvatarCreating(false);
+    }
+  };
+
+  const handleSelectUserRunwayAvatar = async (avatarTask) => {
+    if (!sessionDetails?._id) {
+      setAvatarError('Open a video session before selecting an avatar.');
+      return;
+    }
+
+    const sourceTaskId = getAvatarTaskId(avatarTask);
+    const runwayAvatarId = avatarTask?.runwayAvatarId;
+    if (!sourceTaskId && !runwayAvatarId) {
+      setAvatarError('Choose an avatar first.');
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      setAvatarError('You must be logged in to select an avatar.');
+      return;
+    }
+
+    setIsUserRunwayAvatarSelecting(true);
+    setAvatarError('');
+    try {
+      const response = await axios.post(`${PROCESSOR_API_URL}/video_sessions/avatar_voiceover/select_avatar`, {
+        sessionId: sessionDetails._id.toString(),
+        taskId: sourceTaskId,
+        runwayAvatarId,
+      }, headers);
+      applyAvatarVoices(response?.data?.voices);
+      mergeAvatarTask(response?.data?.task);
+      toast.success('Avatar selected for this session.', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+    } catch (error) {
+      setAvatarError(error?.response?.data?.error || 'Unable to select avatar.');
+    } finally {
+      setIsUserRunwayAvatarSelecting(false);
     }
   };
 
@@ -1039,7 +1137,7 @@ export default function RecordSpeechSection({
       setAvatarError('Timeline hints are required before generating avatar speech.');
       return;
     }
-    if (!selectedAvatarSpeechSpeaker) {
+    if (!selectedAvatarSpeechSpeakerOption) {
       setAvatarError('Choose a speaker before generating avatar speech.');
       return;
     }
@@ -1055,9 +1153,10 @@ export default function RecordSpeechSection({
     try {
       const response = await axios.post(`${PROCESSOR_API_URL}/video_sessions/avatar_voiceover/generate_speech_from_hints`, {
         taskId: selectedAvatarTaskIdValue,
-        provider: selectedAvatarSpeechProvider,
-        speaker: selectedAvatarSpeechSpeaker,
+        provider: normalizeAvatarTtsProvider(selectedAvatarSpeechSpeakerOption.provider),
+        speaker: selectedAvatarSpeechSpeakerOption.value,
         speakerName: selectedAvatarSpeechSpeakerLabel,
+        speakerVoiceId: selectedAvatarSpeechSpeakerOption.voiceId || selectedAvatarSpeechSpeakerOption.value,
       }, headers);
       applyAvatarVoices(response?.data?.voices);
       mergeAvatarTask(response?.data?.task);
@@ -1224,8 +1323,19 @@ export default function RecordSpeechSection({
     if (avatarSpeechSpeakerOptions.some((speaker) => speaker.value === selectedAvatarSpeechSpeaker)) {
       return;
     }
-    setSelectedAvatarSpeechSpeaker(avatarSpeechSpeakerOptions[0]?.value || '');
-  }, [avatarSpeechSpeakerOptions, selectedAvatarSpeechSpeaker]);
+    setSelectedAvatarSpeechSpeaker(getDefaultAvatarSpeechSpeakerValue(selectedAvatarSpeechProvider));
+  }, [avatarSpeechSpeakerOptions, selectedAvatarSpeechProvider, selectedAvatarSpeechSpeaker]);
+
+  const handleAvatarSpeechProviderChange = (nextProviderValue) => {
+    const nextProvider = normalizeAvatarTtsProvider(nextProviderValue);
+    setSelectedAvatarSpeechProvider(nextProvider);
+    setSelectedAvatarSpeechSpeaker(getDefaultAvatarSpeechSpeakerValue(nextProvider));
+  };
+
+  const handleAvatarSpeechSpeakerChange = (nextSpeakerValue) => {
+    const nextSpeaker = avatarSpeechSpeakerOptions.find((option) => option.value === nextSpeakerValue);
+    setSelectedAvatarSpeechSpeaker(nextSpeaker?.value || '');
+  };
 
   useEffect(() => {
     if (facecamVoiceoverMode !== 'avatar_voiceover') {
@@ -1233,6 +1343,7 @@ export default function RecordSpeechSection({
     }
 
     loadAvatarTasks().catch(() => {});
+    loadUserRunwayAvatars().catch(() => {});
   }, [facecamVoiceoverMode, sessionDetails?._id]);
 
   useEffect(() => {
@@ -1243,10 +1354,12 @@ export default function RecordSpeechSection({
     const intervalId = window.setInterval(() => {
       refreshAvatarTask(selectedAvatarTaskIdValue).catch(() => {});
       loadAvatarTasks({ silent: true }).catch(() => {});
+      loadUserRunwayAvatars({ silent: true }).catch(() => {});
     }, AVATAR_VOICEOVER_POLL_INTERVAL_MS);
 
     refreshAvatarTask(selectedAvatarTaskIdValue).catch(() => {});
     loadAvatarTasks({ silent: true }).catch(() => {});
+    loadUserRunwayAvatars({ silent: true }).catch(() => {});
     return () => {
       window.clearInterval(intervalId);
     };
@@ -2427,6 +2540,49 @@ export default function RecordSpeechSection({
               </div>
             )}
 
+            {(isUserRunwayAvatarsLoading || reusableRunwayAvatars.length > 0) && (
+              <div className="grid gap-2">
+                <div className={`text-xs font-semibold ${mutedText}`}>Previously generated RunwayML avatars</div>
+                {isUserRunwayAvatarsLoading ? (
+                  <div className={`flex items-center gap-2 rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
+                    <FaSyncAlt className="shrink-0 animate-spin" aria-hidden="true" />
+                    <span>Loading saved avatars.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {reusableRunwayAvatars.map((task) => {
+                      const taskId = getAvatarTaskId(task);
+                      const imageUrl = normalizeProcessorAssetUrl(task.avatarImageUrl || task.avatarImage);
+                      const label = task.avatarName || task.voicePresetName || task.runwayAvatarId || 'RunwayML avatar';
+                      return (
+                        <button
+                          key={`${task.runwayAvatarId || taskId}-reusable`}
+                          type="button"
+                          onClick={() => handleSelectUserRunwayAvatar(task)}
+                          disabled={avatarAnyActionPending || isUserRunwayAvatarSelecting}
+                          className={avatarThumbnailButtonClass}
+                          title={`Use ${label}`}
+                          aria-label={`Use previously generated avatar: ${label}`}
+                        >
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
+                              <FaUserCircle aria-hidden="true" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {avatarImageReady && (
               <div className="grid gap-2">
                 {speechHintCues.length === 0 ? (
@@ -2446,7 +2602,7 @@ export default function RecordSpeechSection({
                         <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speech provider</span>
                         <select
                           value={selectedAvatarSpeechProvider}
-                          onChange={(event) => setSelectedAvatarSpeechProvider(normalizeAvatarTtsProvider(event.target.value))}
+                          onChange={(event) => handleAvatarSpeechProviderChange(event.target.value)}
                           disabled={avatarAnyActionPending || avatarTaskBusy}
                           className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
                         >
@@ -2461,7 +2617,7 @@ export default function RecordSpeechSection({
                         <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speaker</span>
                         <select
                           value={selectedAvatarSpeechSpeaker}
-                          onChange={(event) => setSelectedAvatarSpeechSpeaker(event.target.value)}
+                          onChange={(event) => handleAvatarSpeechSpeakerChange(event.target.value)}
                           disabled={avatarAnyActionPending || avatarTaskBusy || avatarSpeechSpeakerOptions.length === 0}
                           className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
                         >
@@ -2476,7 +2632,7 @@ export default function RecordSpeechSection({
                     <button
                       type="button"
                       onClick={handleGenerateAvatarSpeechFromHints}
-                      disabled={isAvatarSpeechGenerating || avatarTaskBusy || !selectedAvatarSpeechSpeaker}
+                      disabled={isAvatarSpeechGenerating || avatarTaskBusy || !selectedAvatarSpeechSpeakerOption}
                       className={`${avatarSecondaryButtonClass} w-full`}
                     >
                       {isAvatarSpeechGenerating || ['INIT', 'PENDING', 'PROCESSING'].includes(selectedAvatarSpeechStatus)

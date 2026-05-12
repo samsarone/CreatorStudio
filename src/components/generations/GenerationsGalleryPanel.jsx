@@ -537,9 +537,9 @@ export default function GenerationsGalleryPanel({
 
   return (
     <div className={pageSurface}>
-      <div className={embedded ? '' : 'mx-auto w-full max-w-[1720px] px-4 pb-8 pt-[72px] md:px-6 md:pt-[84px]'}>
+      <div className={embedded ? '' : 'mx-auto w-full max-w-[1720px] px-4 pb-8 pt-[144px] md:px-6 md:pt-[84px]'}>
         <div className={`rounded-[30px] ${panelSurface}`}>
-          <div className={`sticky ${embedded ? 'top-0' : 'top-[56px]'} z-10 rounded-t-[30px] border-b px-4 py-4 backdrop-blur md:px-6 ${headerSurface}`}>
+          <div className={`sticky ${embedded ? 'top-0' : 'top-[124px] md:top-[56px]'} z-10 rounded-t-[30px] border-b px-4 py-4 backdrop-blur md:px-6 ${headerSurface}`}>
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div className="min-w-0">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-sky-500">

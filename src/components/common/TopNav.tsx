@@ -1,30 +1,20 @@
-import React, { useEffect, useState, useContext, useCallback } from 'react';
+import React, { Suspense, lazy, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
-import MusicLibraryHome from '../library/audio/MusicLibraryHome.jsx';
 import { IoMdLogIn } from 'react-icons/io';
 
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import Login from '../auth/Login.tsx';
-import UpgradePlan from '../payments/UpgradePlan.tsx';
-import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
 import { FaStar } from 'react-icons/fa6';
-import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
-import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { toast } from 'react-toastify';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
-
-import  AddLicense  from '../license/AddLicense.jsx';
-
-
 
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
@@ -34,6 +24,19 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const AddCreditsDialog = lazy(() => import("../account/AddCreditsDialog.jsx"));
+const AddLicense = lazy(() => import('../license/AddLicense.jsx'));
+const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
+const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
+const UpgradePlan = lazy(() => import('../payments/UpgradePlan.tsx'));
+const AUTH_DIALOG_OPTIONS = {
+  surface: 'auth',
+  fullBleed: true,
+  centerContent: true,
+  hideBorder: true,
+  hideCloseButton: true,
+};
+const dialogFallback = <div className="p-6 text-sm">Loading...</div>;
 
 export default function TopNav(props) {
   const {
@@ -58,7 +61,7 @@ export default function TopNav(props) {
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
   const location = useLocation();
-  const { openAlertDialog, closeAlertDialog, isAlertDialogOpen } = useAlertDialog();
+  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
   const sessionType = getSessionType();
 
@@ -160,9 +163,11 @@ export default function TopNav(props) {
         setTimeout(() => {
           if (user && !user.isPremiumUser) {
             openAlertDialog(
-              <div className='relative'>
-                <UpgradePlan />
-              </div>
+              <Suspense fallback={dialogFallback}>
+                <div className='relative'>
+                  <UpgradePlan />
+                </div>
+              </Suspense>
             );
           }
 
@@ -182,7 +187,9 @@ const showLicenseDialog = () => {
   openAlertDialog(
     <div className="relative">
       <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-      <AddLicense />
+      <Suspense fallback={dialogFallback}>
+        <AddLicense />
+      </Suspense>
     </div>
   );
 };
@@ -213,10 +220,8 @@ const showLicenseDialog = () => {
     </div>
   );
 
-  const { user, setUser, getUserAPI } = useUser();
+  const { user, getUserAPI } = useUser();
   const navigate = useNavigate();
-
-  const [userProfileData, setUserProfileData] = useState({});
 
   let userProfile = <span />;
 
@@ -229,7 +234,11 @@ const showLicenseDialog = () => {
   };
 
   const showRegisterDialog = () => {
-    const registerComponent = <AuthContainer initView="register" />;
+    const registerComponent = (
+      <Suspense fallback={dialogFallback}>
+        <AuthContainer initView="register" />
+      </Suspense>
+    );
     openAlertDialog(registerComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   }
 
@@ -541,8 +550,12 @@ const showLicenseDialog = () => {
     const alertDialogContent = (
       <div>
         <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser}
-          requestApplyCreditsCoupon={requestApplyCreditsCoupon} />
+        <Suspense fallback={dialogFallback}>
+          <AddCreditsDialog
+            purchaseCreditsForUser={purchaseCreditsForUser}
+            requestApplyCreditsCoupon={requestApplyCreditsCoupon}
+          />
+        </Suspense>
       </div>
     );
 
@@ -579,21 +592,23 @@ const showLicenseDialog = () => {
   if (user && user._id) {
     addSessionButton = (
       <div className="inline-flex items-center">
-        <AddSessionDropdown
-          createNewSession={isImageEditor ? createNewImageSession : createNewSession}
-          gotoViewSessionsPage={gotoViewSessionsPage}
-          addNewExpressSession={addNewExpressSession}
-          addNewVidGPTSession={addNewVidGPTSession}
-          showAddNewMovieMakerSession={showAddNewMovieMakerSession}
-          betaOptionVisible={betaOptionVisible}
-          showAddNewAdVideoSession={showAddNewAdVideoSession}
-          aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
-          aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
-          useImageProjectModal={isImageEditor}
-          switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
-          onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
-          showVideoOptions={!isImageEditor}
-        />
+        <Suspense fallback={<div className="h-11 w-[118px]" />}>
+          <AddSessionDropdown
+            createNewSession={isImageEditor ? createNewImageSession : createNewSession}
+            gotoViewSessionsPage={gotoViewSessionsPage}
+            addNewExpressSession={addNewExpressSession}
+            addNewVidGPTSession={addNewVidGPTSession}
+            showAddNewMovieMakerSession={showAddNewMovieMakerSession}
+            betaOptionVisible={betaOptionVisible}
+            showAddNewAdVideoSession={showAddNewAdVideoSession}
+            aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
+            aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
+            useImageProjectModal={isImageEditor}
+            switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
+            onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+            showVideoOptions={!isImageEditor}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -688,27 +703,27 @@ const showLicenseDialog = () => {
       ? 'rounded-full border border-white/10 bg-black/10 px-2 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.22)]'
       : 'rounded-full border border-white/70 bg-white/80 px-2 py-2 shadow-[0_10px_20px_rgba(15,23,42,0.08)] backdrop-blur';
     controlbarView = (
-      <div className={`flex flex-wrap items-center justify-center gap-3 ${galleryShortcutGroup}`}>
+      <div className={`flex flex-wrap items-center justify-center gap-2 ${galleryShortcutGroup}`}>
         <button
           type="button"
-          className={`inline-flex min-h-[46px] items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition ${galleryShortcutActive}`}
+          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
           onClick={openVideoEditor}
         >
           Video Editor
         </button>
         <button
           type="button"
-          className={`inline-flex min-h-[46px] items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition ${galleryShortcutActive}`}
+          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
           onClick={openImageEditor}
         >
           Image Editor
         </button>
         <button
           type="button"
-          className={`inline-flex min-h-[46px] items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition ${galleryShortcutActive}`}
+          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
           onClick={openStudioWorkspace}
         >
-          Studio
+          VidGenie
         </button>
       </div>
     );
@@ -720,16 +735,16 @@ const showLicenseDialog = () => {
   if (isGenerationsView) {
     return (
       <div className={`${navShell} fixed top-0 inset-x-0 z-[1200] h-[76px]`}>
-        <div className="grid h-full w-full grid-cols-[minmax(220px,1fr)_auto_minmax(220px,1fr)] items-center gap-4 px-4 sm:px-6">
+        <div className="grid h-full w-full grid-cols-[minmax(150px,0.8fr)_minmax(0,auto)_minmax(150px,0.8fr)] items-center gap-3 px-3 sm:px-4 lg:grid-cols-[minmax(190px,1fr)_auto_minmax(190px,1fr)] lg:px-6">
           <div className="flex h-full items-center justify-start">
-            <BrandLogo onClick={gotoHome} className="w-full max-w-[250px]" />
+            <BrandLogo onClick={gotoHome} className="w-full max-w-[210px] lg:max-w-[250px]" />
           </div>
           <div className="flex h-full items-center justify-center">
             {controlbarView}
           </div>
-          <div className="flex min-w-0 items-center justify-end gap-3 text-xs sm:text-sm">
+          <div className="flex min-w-0 items-center justify-end gap-2 text-xs sm:text-sm">
             {errorMessageDisplay}
-            <div className="flex items-center">
+            <div className="hidden items-center lg:flex">
               {addSessionButton}
             </div>
             <div className="hidden flex-col items-end text-xs leading-tight text-right xl:flex">
@@ -749,21 +764,21 @@ const showLicenseDialog = () => {
 
   return (
     <div className={`${navShell} fixed top-0 inset-x-0 z-[1200] h-[56px]`}>
-      <div className="grid h-full w-full grid-cols-[minmax(160px,14%)_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
+      <div className="grid h-full w-full grid-cols-[minmax(132px,14%)_1fr_auto] items-center gap-2 px-[2px] pr-3 lg:gap-4 lg:pr-6">
         <div className="flex h-full items-center justify-center px-2">
-          <BrandLogo onClick={gotoHome} className="w-full max-w-[260px] px-4" />
+          <BrandLogo onClick={gotoHome} className="w-full max-w-[220px] px-2 lg:max-w-[260px] lg:px-4" />
         </div>
         <div className="flex items-center justify-center min-w-0 h-full py-[2px]">
           <div className="flex h-full w-full items-center justify-center translate-y-[4px]">
             {controlbarView}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 flex-shrink-0 text-xs sm:text-sm">
+        <div className="flex flex-shrink-0 items-center justify-end gap-2 text-xs sm:text-sm lg:gap-3">
           {errorMessageDisplay}
           <div className="flex items-center">
             {addSessionButton}
           </div>
-          <div className="flex flex-col items-end text-xs leading-tight text-right">
+          <div className="hidden flex-col items-end text-xs leading-tight text-right xl:flex">
             <div>{userCreditsDisplay}</div>
             <div>{daysToUpdate}</div>
           </div>

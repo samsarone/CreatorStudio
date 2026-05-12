@@ -27,7 +27,7 @@ const aspectRatioOptions = [
 export default function ListVideoSessions() {
   const [sessionList, setSessionList] = useState([]);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(30); // Show 30 items per page by default
+  const [limit] = useState(30); // Show 30 items per page by default
   const [totalPages, setTotalPages] = useState(1);
 
   const [renderType, setRenderType] = useState('All');
@@ -228,13 +228,13 @@ export default function ListVideoSessions() {
   let projectsLabelDisplay = null;
   if (sessionList.length > 0) {
     projectsLabelDisplay = (
-      <div className="text-lg font-bold pl-2 pt-2 text-left ml-2 mb-2">
+      <div className="mx-auto mb-3 w-full max-w-[1600px] text-left text-lg font-bold">
         My Projects
       </div>
     );
   } else {
     projectsLabelDisplay = (
-      <div className="text-lg font-bold pl-2 pt-2 text-left ml-2 mb-2">
+      <div className="mx-auto mb-3 w-full max-w-[1600px] text-left text-lg font-bold">
         Looks like you don't have any projects yet. Get started by creating a new project.
       </div>
     );
@@ -242,15 +242,13 @@ export default function ListVideoSessions() {
 
   return (
     <OverflowContainer>
-      <div
-        className={`p-6 md:p-8 h-full w-full min-h-[100vh] mt-[50px] ${containerSurface}`}
-      >
+      <div className={`min-h-screen w-full px-4 pb-12 pt-20 sm:px-6 lg:px-8 ${containerSurface}`}>
         {/* Top Section: Filters + Reset + Pagination controls */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div className="mx-auto mb-6 flex w-full max-w-[1600px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           {/* Filters */}
-          <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto] lg:w-auto">
             {/* Render Type Filter */}
-            <div className="w-48">
+            <div className="min-w-0">
               <SingleSelect
                 options={renderTypeOptions}
                 value={renderTypeOptions.find((o) => o.value === renderType)}
@@ -261,7 +259,7 @@ export default function ListVideoSessions() {
             </div>
 
             {/* Aspect Ratio Filter */}
-            <div className="w-48">
+            <div className="min-w-0">
               <SingleSelect
                 options={aspectRatioOptions}
                 value={aspectRatioOptions.find((o) => o.value === aspectRatio)}
@@ -274,28 +272,28 @@ export default function ListVideoSessions() {
             {/* Reset Button */}
             <button
               onClick={handleResetFilters}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150 ${resetButtonClass}`}
+              className={`min-h-[40px] rounded-md px-4 py-2 text-sm font-medium transition-colors duration-150 ${resetButtonClass}`}
             >
               Reset
             </button>
           </div>
 
           {/* Pagination controls */}
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
             <button
               onClick={handlePrevPage}
               disabled={page <= 1}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${paginationButtonClass}`}
+              className={`min-h-[40px] rounded-md px-4 py-2 font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${paginationButtonClass}`}
             >
               Prev
             </button>
-            <span>
+            <span className="min-w-[96px] text-center">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={handleNextPage}
               disabled={page >= totalPages}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${paginationButtonClass}`}
+              className={`min-h-[40px] rounded-md px-4 py-2 font-medium transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${paginationButtonClass}`}
             >
               Next
             </button>
@@ -306,7 +304,7 @@ export default function ListVideoSessions() {
         {projectsLabelDisplay}
 
         {/* Sessions grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
+        <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4 sm:gap-5 lg:gap-6">
           {sessionList.map((session, index) => {
             if (!session) return null;
             const sessionPreviewImage = session.thumbnail
@@ -317,11 +315,11 @@ export default function ListVideoSessions() {
             return (
               <div
                 key={session?.id ?? session?._id ?? index}
-                className={`cursor-pointer group ${cardSurface} rounded-2xl overflow-hidden transition-transform duration-200 hover:-translate-y-1`}
+                className={`group min-w-0 cursor-pointer overflow-hidden rounded-lg ${cardSurface} transition-transform duration-200 hover:-translate-y-1`}
                 onClick={(event) => gotoPage(event, session)}
               >
-                <div className="flex min-h-[48px] items-start justify-between gap-2 px-4 pt-4">
-                  <div className="min-w-0 flex-1 text-sm font-medium text-center">
+                <div className="flex min-h-[54px] items-start justify-between gap-2 px-4 py-3">
+                  <div className="min-w-0 flex-1 text-left text-sm font-semibold leading-5">
                     {session.name}
                   </div>
                   {isExpressSession && (
@@ -336,13 +334,15 @@ export default function ListVideoSessions() {
                     </span>
                   )}
                 </div>
-                <img
-                  src={sessionPreviewImage}
-                  onError={(e) => (e.target.src = '/q2.png')}
-                  className="w-full h-56 object-cover"
-                  alt={`Session ${index + 1}`}
-                />
-                <div className="px-4 pb-4 text-xs text-slate-500">
+                <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+                  <img
+                    src={sessionPreviewImage}
+                    onError={(e) => (e.target.src = '/q2.png')}
+                    className="h-full w-full object-cover"
+                    alt={`Session ${index + 1}`}
+                  />
+                </div>
+                <div className="px-4 py-3 text-xs text-slate-500">
                   Tap to open in Studio
                 </div>
               </div>
@@ -351,7 +351,7 @@ export default function ListVideoSessions() {
         </div>
 
         {/* New user intro / create session */}
-        <div className="w-full mt-8">
+        <div className="mx-auto mt-8 w-full max-w-[1600px]">
           <ShowNewUserIntroDisplay
             createNewStudioSession={createNewStudioSession}
             createNewVidGPTSession={createNewVidGPTSession}

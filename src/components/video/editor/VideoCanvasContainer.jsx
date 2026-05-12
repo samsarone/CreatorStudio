@@ -1547,6 +1547,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       text: nextText,
       positionMode,
       styleValueSpace = 'canvas',
+      bringToFront = false,
       ...configChanges
     } = newConfig || {};
 
@@ -1606,9 +1607,10 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     });
   
 
+    let updatedItem = null;
     const newActiveItemList = activeItemList.map((item) => {
       if (item.id === id) {
-        return {
+        updatedItem = {
           ...item,
           ...(typeof nextText === 'string' ? { text: nextText } : {}),
           config: {
@@ -1616,12 +1618,20 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
             ...scaledNewConfig,
           },
         };
+        return updatedItem;
       }
       return item;
     });
   
-    setActiveItemList(newActiveItemList);
-    updateSessionActiveItemList(newActiveItemList);
+    const nextActiveItemList = bringToFront && updatedItem
+      ? [
+        ...newActiveItemList.filter((item) => item.id !== id),
+        updatedItem,
+      ]
+      : newActiveItemList;
+
+    setActiveItemList(nextActiveItemList);
+    updateSessionActiveItemList(nextActiveItemList);
   };
 
 

@@ -1,4 +1,3 @@
-import logo from './logo.svg';
 import './App.css';
 import { UserProvider } from './contexts/UserContext';
 import { LocalizationProvider } from './contexts/LocalizationContext.jsx';

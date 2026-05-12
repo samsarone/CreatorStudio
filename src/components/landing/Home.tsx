@@ -1,49 +1,42 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import axios from "axios";
 import 'react-tooltip/dist/react-tooltip.css';
 
 
-import CommonContainer from "../common/CommonContainer.tsx";
-import EditorHome from "../editor/EditorHome.tsx";
-import EditorLanding from '../editor/EditorLanding.tsx';
-import UserAccount from "../account/UserAccount.tsx";
-import ListProduct from "../product/ListProduct.tsx";
-import PublicationHome from "../publication/PublicationHome.tsx";
-import VerificationHome from "../verification/VerificationHome.tsx";
-import VideoHome from "../video/VideoHome.jsx";
-import MobileVideoHome from "../mobile/MobileVideoHome.jsx";
-import AppHome from "./AppHome.tsx";
-import { getHeaders, clearAuthData, consumePostAuthRedirect, persistAuthToken } from '../../utils/web.jsx';
+import { consumePostAuthRedirect, persistAuthToken } from '../../utils/web.jsx';
 import { useUser } from "../../contexts/UserContext";
-import VideoEditorLandingHome from "../video/VideoEditorLandingHome.jsx";
-import ListVideoSessions from "../video/sessions/ListVideoSessions.jsx";
-import QuickEditorContainer from "../quick_editor/QuickEditorContainer.jsx";
-import EmailVerificationHome from "../verification/EmailVerificationHome.jsx";
-import OneshotEditorContainer from '../oneshot_editor/OneshotEditorContainer.jsx';
-import OnshotEditorCreator from '../oneshot_editor/OnshotEditorCreator.jsx';
-import QuickEditorLandingHome from "../quick_editor/QuickEditorLandingHome.jsx";
-import MobileVideoLandingHome from "../mobile/MobileVideoLandingHome.jsx";
-import LoginPage from "../auth/pages/LoginPage.jsx";
-import ForgotPasswordPage from "../auth/pages/ForgotPasswordPage.jsx";
-import ResetPasswordPage from "../auth/pages/ResetPasswordPage.jsx";
-import RegisterPage from "../auth/pages/RegisterPage.jsx";
-import ExtensionAuthBridge from "../auth/ExtensionAuthBridge.jsx";
-import AdVideoCreatorContainer from "../advideo_creator/AdVideoCreatorContainer.jsx";
-import AdVideoCreator from "../advideo_creator/AdVideoCreator.jsx";
-
-
-import PaymentsSuccess from "../payments/PaymentsSuccess.jsx";
-import PaymentsFailure from "../payments/PaymentsFailure.jsx";
-import CreatePayment from "../payments/CreatePayment.jsx";
-import MovieGeneratorContainer from "../movie_gen/MovieGeneratorContainer.jsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
-import ImageStudioHome from "../image/ImageStudioHome.jsx";
-import ListImageSessions from "../image/sessions/ListImageSessions.jsx";
-import ImageStudioLandingHome from "../image/ImageStudioLandingHome.jsx";
-import ExternalStudioDashboard from "../external/ExternalStudioDashboard.jsx";
-import GenerationsHome from "../generations/GenerationsHome.jsx";
+
+const EditorHome = lazy(() => import("../editor/EditorHome.tsx"));
+const UserAccount = lazy(() => import("../account/UserAccount.tsx"));
+const PublicationHome = lazy(() => import("../publication/PublicationHome.tsx"));
+const VerificationHome = lazy(() => import("../verification/VerificationHome.tsx"));
+const VideoHome = lazy(() => import("../video/VideoHome.jsx"));
+const MobileVideoHome = lazy(() => import("../mobile/MobileVideoHome.jsx"));
+const VideoEditorLandingHome = lazy(() => import("../video/VideoEditorLandingHome.jsx"));
+const ListVideoSessions = lazy(() => import("../video/sessions/ListVideoSessions.jsx"));
+const QuickEditorContainer = lazy(() => import("../quick_editor/QuickEditorContainer.jsx"));
+const EmailVerificationHome = lazy(() => import("../verification/EmailVerificationHome.jsx"));
+const OneshotEditorContainer = lazy(() => import('../oneshot_editor/OneshotEditorContainer.jsx'));
+const QuickEditorLandingHome = lazy(() => import("../quick_editor/QuickEditorLandingHome.jsx"));
+const MobileVideoLandingHome = lazy(() => import("../mobile/MobileVideoLandingHome.jsx"));
+const LoginPage = lazy(() => import("../auth/pages/LoginPage.jsx"));
+const ForgotPasswordPage = lazy(() => import("../auth/pages/ForgotPasswordPage.jsx"));
+const ResetPasswordPage = lazy(() => import("../auth/pages/ResetPasswordPage.jsx"));
+const RegisterPage = lazy(() => import("../auth/pages/RegisterPage.jsx"));
+const ExtensionAuthBridge = lazy(() => import("../auth/ExtensionAuthBridge.jsx"));
+const AdVideoCreatorContainer = lazy(() => import("../advideo_creator/AdVideoCreatorContainer.jsx"));
+const PaymentsSuccess = lazy(() => import("../payments/PaymentsSuccess.jsx"));
+const PaymentsFailure = lazy(() => import("../payments/PaymentsFailure.jsx"));
+const CreatePayment = lazy(() => import("../payments/CreatePayment.jsx"));
+const MovieGeneratorContainer = lazy(() => import("../movie_gen/MovieGeneratorContainer.jsx"));
+const ImageStudioHome = lazy(() => import("../image/ImageStudioHome.jsx"));
+const ListImageSessions = lazy(() => import("../image/sessions/ListImageSessions.jsx"));
+const ImageStudioLandingHome = lazy(() => import("../image/ImageStudioLandingHome.jsx"));
+const ExternalStudioDashboard = lazy(() => import("../external/ExternalStudioDashboard.jsx"));
+const GenerationsHome = lazy(() => import("../generations/GenerationsHome.jsx"));
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -54,7 +47,7 @@ export default function Home() {
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
 
   const { colorMode } = useColorMode();
-  const [extraProps, setExtraProps] = useState({});
+  const [extraProps, setExtraProps] = useState(() => new URLSearchParams());
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -120,19 +113,37 @@ export default function Home() {
     }
   }, [userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
 
-  const channel = new BroadcastChannel('oauth_channel');
-  channel.onmessage = (event) => {
-    if (event.data === 'oauth_complete') {
+  const appendQueryParams = useCallback((url) => {
+    const paramsString = extraProps.toString();
+    return paramsString ? `${url}?${paramsString}` : url;
+  }, [extraProps]);
 
-      getUserAPI();
-      const redirectTarget = consumePostAuthRedirect();
-      if (redirectTarget) {
-        navigate(redirectTarget, { replace: true });
-        return;
-      }
-      navigateToDefaultAuthenticatedView();
+  const navigateToDefaultAuthenticatedView = useCallback(() => {
+    navigate(appendQueryParams('/generations'), { replace: true });
+  }, [appendQueryParams, navigate]);
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') {
+      return undefined;
     }
-  };
+
+    const channel = new BroadcastChannel('oauth_channel');
+    channel.onmessage = (event) => {
+      if (event.data === 'oauth_complete') {
+        getUserAPI();
+        const redirectTarget = consumePostAuthRedirect();
+        if (redirectTarget) {
+          navigate(redirectTarget, { replace: true });
+          return;
+        }
+        navigateToDefaultAuthenticatedView();
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [getUserAPI, navigate, navigateToDefaultAuthenticatedView]);
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -169,17 +180,6 @@ export default function Home() {
     void exchangeLoginToken();
   }, [location.pathname, location.search, getUserAPI, navigate]);
 
-  const appendQueryParams = (url) => {
-
-
-    const paramsString = extraProps.toString();
-    return paramsString ? `${url}?${paramsString}` : url;
-  };
-
-  const navigateToDefaultAuthenticatedView = () => {
-    navigate(appendQueryParams('/generations'), { replace: true });
-  };
-
   let bodyBGColor = "bg-stone-100";
   
   if (colorMode === 'dark') {
@@ -189,61 +189,51 @@ export default function Home() {
   }
   return (
     <div className={bodyBGColor}>
-      <Routes>
-        <Route
-          path="/"
-          element={user && user._id && userInitiated && !userFetching
-            ? <Navigate to="/generations" replace />
-            : <VideoEditorLandingHome />}
-        />
-        <Route path="/generations" element={<GenerationsHome />} />
-        <Route path="/session/:id" element={<EditorHome />} />
-        <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
-        <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />
-        <Route path="/image/studio" element={<ImageStudioLandingHome />} />
-        <Route path="/image/studio/:id" element={<ImageStudioHome />} />
-        <Route path="/iamge/studio" element={<ImageStudioLandingHome />} />
-        <Route path="/iamge/studio/:id" element={<ImageStudioHome />} />
-        <Route path="/external/studio" element={<ExternalStudioDashboard />} />
-        <Route path="/quick_video/:id" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorContainer />} />
-        <Route path="/quick_video" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorLandingHome />} />
-        <Route path="/vidgpt" element={<OneshotEditorContainer />} />
-        <Route path="/vidgpt/:id" element={<OneshotEditorContainer />} />
-        <Route path="/vidgenie" element={<OneshotEditorContainer />} />
-        <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot_password" element={<ForgotPasswordPage />} />
-
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/extension-auth" element={<ExtensionAuthBridge />} />
-        <Route path="/vidgenie" element={<OneshotEditorContainer />} />
-        <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
-        <Route path="/adcreator" element={<AdVideoCreatorContainer />} />
-        <Route path="/adcreator/:id" element={<AdVideoCreatorContainer />} />
-
-        <Route path="/reset_password" element={<ResetPasswordPage />} />
-
-
-
-        <Route path="/videogpt" element={<OneshotEditorContainer />} />
-        <Route path="/videogpt/:id" element={<OneshotEditorContainer />} />
-        <Route path="/movie_maker" element={<MovieGeneratorContainer />} />
-        <Route path="/movie_maker/:id" element={<MovieGeneratorContainer />} />
-
-        <Route path="/my_sessions" element={<ListVideoSessions />} />
-        <Route path="/image_sessions" element={<ListImageSessions />} />
-        <Route path="/create_payment" element={<CreatePayment />} />
-        <Route path="/account/*" element={<UserAccount />} />
-        <Route path="/publication/:id" element={<PublicationHome />} />
-        <Route path="/verify" element={<VerificationHome />} />
-        <Route path="/verify_email" element={<EmailVerificationHome />} />
-        <Route path="/payment_success" element={<PaymentsSuccess />} />
-        <Route path="/payment_cancel" element={<PaymentsFailure />} />
-
-
-
-        {/* Add more routes as needed */}
-      </Routes>
+      <Suspense fallback={<div className="min-h-screen bg-inherit" />}>
+        <Routes>
+          <Route
+            path="/"
+            element={user && user._id && userInitiated && !userFetching
+              ? <Navigate to="/generations" replace />
+              : <VideoEditorLandingHome />}
+          />
+          <Route path="/generations" element={<GenerationsHome />} />
+          <Route path="/session/:id" element={<EditorHome />} />
+          <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
+          <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />
+          <Route path="/image/studio" element={<ImageStudioLandingHome />} />
+          <Route path="/image/studio/:id" element={<ImageStudioHome />} />
+          <Route path="/iamge/studio" element={<ImageStudioLandingHome />} />
+          <Route path="/iamge/studio/:id" element={<ImageStudioHome />} />
+          <Route path="/external/studio" element={<ExternalStudioDashboard />} />
+          <Route path="/quick_video/:id" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorContainer />} />
+          <Route path="/quick_video" element={isMobile ? <OneshotEditorContainer /> : <QuickEditorLandingHome />} />
+          <Route path="/vidgpt" element={<OneshotEditorContainer />} />
+          <Route path="/vidgpt/:id" element={<OneshotEditorContainer />} />
+          <Route path="/vidgenie" element={<OneshotEditorContainer />} />
+          <Route path="/vidgenie/:id" element={<OneshotEditorContainer />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot_password" element={<ForgotPasswordPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/extension-auth" element={<ExtensionAuthBridge />} />
+          <Route path="/adcreator" element={<AdVideoCreatorContainer />} />
+          <Route path="/adcreator/:id" element={<AdVideoCreatorContainer />} />
+          <Route path="/reset_password" element={<ResetPasswordPage />} />
+          <Route path="/videogpt" element={<OneshotEditorContainer />} />
+          <Route path="/videogpt/:id" element={<OneshotEditorContainer />} />
+          <Route path="/movie_maker" element={<MovieGeneratorContainer />} />
+          <Route path="/movie_maker/:id" element={<MovieGeneratorContainer />} />
+          <Route path="/my_sessions" element={<ListVideoSessions />} />
+          <Route path="/image_sessions" element={<ListImageSessions />} />
+          <Route path="/create_payment" element={<CreatePayment />} />
+          <Route path="/account/*" element={<UserAccount />} />
+          <Route path="/publication/:id" element={<PublicationHome />} />
+          <Route path="/verify" element={<VerificationHome />} />
+          <Route path="/verify_email" element={<EmailVerificationHome />} />
+          <Route path="/payment_success" element={<PaymentsSuccess />} />
+          <Route path="/payment_cancel" element={<PaymentsFailure />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }

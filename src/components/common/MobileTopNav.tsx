@@ -1,24 +1,29 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { IoMdLogIn } from 'react-icons/io';
-import ToggleButton from './ToggleButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import Login from '../auth/Login.tsx';
-import UpgradePlan from '../payments/UpgradePlan.tsx';
-import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
 import { FaStar } from 'react-icons/fa6';
-import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import BrandLogo from './BrandLogo.tsx';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
+const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
+const AUTH_DIALOG_OPTIONS = {
+  surface: 'auth',
+  fullBleed: true,
+  centerContent: true,
+  hideBorder: true,
+  hideCloseButton: true,
+};
+const dialogFallback = <div className="p-6 text-sm">Loading...</div>;
 
 export default function MobileTopNav(props) {
   const { resetCurrentSession, addNewVidGPTSession } = props;
@@ -73,10 +78,8 @@ export default function MobileTopNav(props) {
     </div>
   );
 
-  const { user, setUser } = useUser();
+  const { user } = useUser();
   const navigate = useNavigate();
-
-  const [userProfileData, setUserProfileData] = useState({});
 
   let userProfile = <span />;
 
@@ -85,13 +88,16 @@ export default function MobileTopNav(props) {
   };
 
   const showLoginDialog = () => {
-    const loginComponent = <AuthContainer />;
+    const loginComponent = (
+      <Suspense fallback={dialogFallback}>
+        <AuthContainer />
+      </Suspense>
+    );
     openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   const upgradeToPremiumTier = () => {
-    const alertDialogComponent = <UpgradePlan />;
-
+    navigate('/create_payment');
   };
 
   const createNewSession = () => {
@@ -207,11 +213,6 @@ export default function MobileTopNav(props) {
 
   let userTierDisplay = <span />;
 
-  let bottomToggleDisplay = <span />;
-
-  let userCredits;
-  let nextUpdate;
-
   if (user && user._id) {
     if (user.isPremiumUser) {
       userTierDisplay = (
@@ -226,18 +227,6 @@ export default function MobileTopNav(props) {
         </div>
       );
     }
-
-    userCredits = user.generationCredits;
-
-    if (user.isPremiumUser) {
-      const now = new Date();
-      const lastUpdated = new Date(user.premiumUserCreditsLastUpdated);
-      const nextUpdateDate = new Date(lastUpdated);
-      nextUpdateDate.setMonth(nextUpdateDate.getMonth() + 1);
-      const timeDiff = nextUpdateDate.getTime() - now.getTime();
-      nextUpdate = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    }
-
     userProfile = (
       <div className="flex items-center justify-end cursor-pointer" onClick={gotoUserAccount}>
         <div className="flex flex-col text-left mr-2">
@@ -249,12 +238,6 @@ export default function MobileTopNav(props) {
           </div>
         </div>
 
-      </div>
-    );
-
-    bottomToggleDisplay = (
-      <div className="flex justify-end">
-        <ToggleButton />
       </div>
     );
   } else {
@@ -284,49 +267,49 @@ export default function MobileTopNav(props) {
     addSessionButton = (
 
       <div className="">
-        <AddSessionDropdown
-          createNewSession={isImageEditor ? createNewImageSession : createNewSessionDialog}
-          gotoViewSessionsPage={gotoViewSessionsPage}
-          addNewVidGPTSession={addNewVidGPTSession}
-          aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
-          aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
-          useImageProjectModal={isImageEditor}
-          switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
-          onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
-          showVideoOptions={!isImageEditor}
-        />
+        <Suspense fallback={<div className="h-11 w-[118px]" />}>
+          <AddSessionDropdown
+            createNewSession={isImageEditor ? createNewImageSession : createNewSessionDialog}
+            gotoViewSessionsPage={gotoViewSessionsPage}
+            addNewVidGPTSession={addNewVidGPTSession}
+            aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
+            aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
+            useImageProjectModal={isImageEditor}
+            switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
+            onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+            showVideoOptions={!isImageEditor}
+            compact={isGenerationsView}
+          />
+        </Suspense>
       </div>
 
     );
   }
-
-  let daysToUpdate = <span />;
-  let userCreditsDisplay = <span />;
-  if (user && user._id) {
-    if (user.isPremiumUser) {
-      daysToUpdate = <div>{nextUpdate} days until update</div>;
-    } else {
-      daysToUpdate = <div>Free Tier</div>;
-    }
-    userCreditsDisplay = <div>{userCredits} credits</div>;
-  }
-
-
 
   return (
     <div className={`${navShell} fixed z-[1200] w-[100vw] ${isGenerationsView ? 'py-2' : 'h-[50px]'}`}>
       <div className={`${isGenerationsView ? 'flex flex-col gap-3 px-3' : 'flex flex-basis items-center h-full'}`}>
         <div className={isGenerationsView ? 'flex min-h-[44px] items-center justify-between' : 'basis-1/3 pl-2'}>
           <BrandLogo onClick={gotoHome} className={isGenerationsView ? '' : 'mt-1'} />
+          {isGenerationsView && (
+            <div className="flex min-w-0 items-center justify-end gap-2">
+              <div className="text-xs inline-flex items-center">
+                {addSessionButton}
+              </div>
+              <div className="inline-flex items-center">{userProfile}</div>
+            </div>
+          )}
         </div>
-        <div className={isGenerationsView ? 'flex min-h-[40px] items-center justify-between' : 'basis-2/3'}>
-          <div className="text-xs inline-flex items-center">
-            <div>{addSessionButton}</div>
+        {!isGenerationsView && (
+          <div className="basis-2/3">
+            <div className="text-xs inline-flex items-center">
+              <div>{addSessionButton}</div>
+            </div>
+            <div className=" inline-flex float-right mr-2">{userProfile}</div>
           </div>
-          <div className={isGenerationsView ? 'inline-flex items-center' : ' inline-flex float-right mr-2'}>{userProfile}</div>
-        </div>
+        )}
         {isGenerationsView && (
-          <div className={`flex items-center justify-center gap-2 rounded-full px-2 py-2 ${colorMode === 'dark'
+          <div className={`grid w-full grid-cols-3 gap-2 rounded-full px-2 py-2 ${colorMode === 'dark'
             ? 'border border-white/10 bg-black/10'
             : 'border border-white/70 bg-white/80 shadow-[0_8px_18px_rgba(15,23,42,0.08)] backdrop-blur'
           }`}>
@@ -335,7 +318,7 @@ export default function MobileTopNav(props) {
               className={`${colorMode === 'dark'
                 ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
                 : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-              } inline-flex min-h-[42px] items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition`}
+              } inline-flex min-h-[42px] min-w-0 items-center justify-center rounded-full px-2 py-2.5 text-[11px] font-semibold transition sm:text-xs`}
               onClick={openVideoEditor}
             >
               Video Editor
@@ -345,7 +328,7 @@ export default function MobileTopNav(props) {
               className={`${colorMode === 'dark'
                 ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
                 : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-              } inline-flex min-h-[42px] items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition`}
+              } inline-flex min-h-[42px] min-w-0 items-center justify-center rounded-full px-2 py-2.5 text-[11px] font-semibold transition sm:text-xs`}
               onClick={openImageEditor}
             >
               Image Editor
@@ -355,10 +338,10 @@ export default function MobileTopNav(props) {
               className={`${colorMode === 'dark'
                 ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
                 : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
-              } inline-flex min-h-[42px] items-center justify-center rounded-full px-4 py-2.5 text-xs font-semibold transition`}
+              } inline-flex min-h-[42px] min-w-0 items-center justify-center rounded-full px-2 py-2.5 text-[11px] font-semibold transition sm:text-xs`}
               onClick={openStudioWorkspace}
             >
-              Studio
+              VidGenie
             </button>
           </div>
         )}
