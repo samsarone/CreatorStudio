@@ -16,8 +16,12 @@ import {
   FaChevronRight,
   FaCog,
   FaSpinner,
-  FaTimes,
   FaImage,
+  FaUpload,
+  FaPlus,
+  FaArrowUp,
+  FaArrowDown,
+  FaTrash,
   FaMicrophone,
   FaStopCircle,
 } from 'react-icons/fa';
@@ -167,6 +171,42 @@ function isPlainObject(value) {
 
 function cloneJsonValue(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function createEmptyImageListItem() {
+  return {
+    image_url: '',
+    title: '',
+    image_text: '',
+  };
+}
+
+function titleFromFileName(fileName = '') {
+  const fallback = 'Uploaded image';
+  const normalized = typeof fileName === 'string' ? fileName.trim() : '';
+  if (!normalized) {
+    return fallback;
+  }
+  return normalized
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || fallback;
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string' && reader.result.trim()) {
+        resolve(reader.result);
+        return;
+      }
+      reject(new Error('Could not read image file.'));
+    };
+    reader.onerror = () => reject(new Error('Could not read image file.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 function formatAllowedJsonValues(values) {
@@ -1491,9 +1531,9 @@ export default function OneshotEditor() {
   const [latestVideos, setLatestVideos] = useState([]);
   const [error, setError] = useState('');
   const [expandedVideoId, setExpandedVideoId] = useState(null);
-  const [uploadedImageFiles, setUploadedImageFiles] = useState([]);
-  const [uploadedImageDataUrls, setUploadedImageDataUrls] = useState([]);
-  const fileInputRef = useRef(null);
+  const [imageListItems, setImageListItems] = useState(() => [createEmptyImageListItem()]);
+  const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
+  const [imageUploadError, setImageUploadError] = useState('');
   const [voiceStatusMessage, setVoiceStatusMessage] = useState(null);
   const [voiceError, setVoiceError] = useState(null);
   const [isBrowserRecognitionActive, setIsBrowserRecognitionActive] = useState(false);
@@ -2624,35 +2664,117 @@ export default function OneshotEditor() {
   };
 
   // ─────────────────────────────────────────────────────────
-  //  Handle prompt-starter image upload
+  //  Image-list source controls
   // ─────────────────────────────────────────────────────────
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    setUploadedImageFiles(files);
-
-    const dataUrls = await Promise.all(
-      files.map(
-        (file) =>
-          new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () =>
-              resolve(typeof reader.result === 'string' ? reader.result : '');
-            reader.onerror = () => resolve('');
-            reader.readAsDataURL(file);
-          })
+  const updateImageListItem = useCallback((index, patch) => {
+    setImageListItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index ? { ...item, ...patch } : item
       )
     );
-    setUploadedImageDataUrls(dataUrls.filter(Boolean));
-  };
-
-  const clearUploadedImage = useCallback(() => {
-    setUploadedImageFiles([]);
-    setUploadedImageDataUrls([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   }, []);
+
+  const addImageListItem = useCallback(() => {
+    setImageListItems((current) => [...current, createEmptyImageListItem()]);
+  }, []);
+
+  const removeImageListItem = useCallback((index) => {
+    setImageListItems((current) => {
+      const next = current.filter((_, itemIndex) => itemIndex !== index);
+      return next.length ? next : [createEmptyImageListItem()];
+    });
+  }, []);
+
+  const moveImageListItem = useCallback((fromIndex, toIndex) => {
+    setImageListItems((current) => {
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= current.length ||
+        toIndex >= current.length
+      ) {
+        return current;
+      }
+      const next = [...current];
+      const [movedItem] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, movedItem);
+      return next;
+    });
+  }, []);
+
+  const uploadImageListFile = useCallback(async (index, file) => {
+    if (!file || uploadingImageIndex !== null) {
+      return;
+    }
+    if (!file.type?.startsWith('image/')) {
+      setImageUploadError('Upload an image file.');
+      return;
+    }
+    if (!user) {
+      showLoginDialog();
+      return;
+    }
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    setUploadingImageIndex(index);
+    setImageUploadError('');
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      const { data } = await axios.post(
+        `${VIDEO_API_BASE}/upload_image_data`,
+        { input: { image_data: [imageDataUrl] } },
+        headers
+      );
+      const uploadedUrl = Array.isArray(data?.image_urls)
+        ? data.image_urls.find((url) => typeof url === 'string' && url.trim())
+        : '';
+      if (!uploadedUrl) {
+        throw new Error('Upload did not return an image URL.');
+      }
+      setImageListItems((current) =>
+        current.map((item, itemIndex) =>
+          itemIndex === index
+            ? {
+                ...item,
+                image_url: uploadedUrl.trim(),
+                title: item.title.trim() ? item.title : titleFromFileName(file.name),
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      const apiMessage = err?.response?.data?.message || err?.message;
+      setImageUploadError(apiMessage || 'Image upload failed.');
+    } finally {
+      setUploadingImageIndex(null);
+    }
+  }, [showLoginDialog, uploadingImageIndex, user]);
+
+  const handleImageListUploadInput = useCallback((index, event) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (file) {
+      uploadImageListFile(index, file).catch(() => undefined);
+    }
+  }, [uploadImageListFile]);
+
+  const handleImageListUploadDrop = useCallback((index, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = Array.from(event.dataTransfer.files || []).find((candidate) =>
+      candidate.type?.startsWith('image/')
+    );
+    if (file) {
+      uploadImageListFile(index, file).catch(() => undefined);
+      return;
+    }
+    setImageUploadError('Drop an image file.');
+  }, [uploadImageListFile]);
 
   // ─────────────────────────────────────────────────────────
   //  Submit the text-to-video request
@@ -2737,8 +2859,21 @@ export default function OneshotEditor() {
       setErrorMessage({ error: 'Please enter some text before submitting.' });
       return;
     }
-    if (!isTextToVideo && uploadedImageDataUrls.length === 0) {
-      setErrorMessage({ error: 'Please select one or more images before submitting.' });
+    const normalizedImageListItems = imageListItems
+      .map((item) => ({
+        image_url: item.image_url.trim(),
+        title: item.title.trim(),
+        image_text: item.image_text.trim(),
+      }))
+      .filter((item) => item.image_url);
+
+    const invalidImageUrl = normalizedImageListItems.find((item) => !isHttpUrl(item.image_url));
+    if (!isTextToVideo && normalizedImageListItems.length === 0) {
+      setErrorMessage({ error: 'Please add at least one image URL or upload an image.' });
+      return;
+    }
+    if (!isTextToVideo && invalidImageUrl) {
+      setErrorMessage({ error: 'Image URLs must be valid http(s) URLs.' });
       return;
     }
     if (isTextToVideo && !selectedVideoModel?.value) {
@@ -2795,37 +2930,23 @@ export default function OneshotEditor() {
 
     try {
       if (!isTextToVideo) {
-        const uploadPayload = {
-          input: {
-            image_data: uploadedImageDataUrls.filter(Boolean),
-          },
-        };
-        const { data: uploadData } = await axios.post(
-          `${VIDEO_API_BASE}/upload_image_data`,
-          uploadPayload,
-          headers
-        );
-        const uploadedImageUrls = Array.isArray(uploadData?.image_urls)
-          ? uploadData.image_urls
-          : [];
-        const normalizedImageUrls = uploadedImageUrls
-          .map((url) => (typeof url === 'string' ? url.trim() : ''))
-          .filter(Boolean);
-        if (normalizedImageUrls.length === 0) {
-          throw new Error('Image upload did not return any URLs.');
-        }
         const imageItemMetadata = Array.isArray(advancedRequestConfiguration.imageItemMetadata)
           ? advancedRequestConfiguration.imageItemMetadata
           : null;
-        requestInput.image_urls = normalizedImageUrls.map((url, index) => {
+        requestInput.image_urls = normalizedImageListItems.map((item, index) => {
           const itemMetadata = imageItemMetadata?.[index];
+          const imagePayload = {};
           if (isPlainObject(itemMetadata) && Object.keys(itemMetadata).length > 0) {
-            return {
-              ...itemMetadata,
-              image_url: url,
-            };
+            Object.assign(imagePayload, itemMetadata);
           }
-          return url;
+          imagePayload.image_url = item.image_url;
+          if (item.title) {
+            imagePayload.title = item.title;
+          }
+          if (item.image_text) {
+            imagePayload.image_text = item.image_text;
+          }
+          return imagePayload;
         });
         if (selectedVideoModel?.value) {
           requestInput.video_model = selectedVideoModel.value;
@@ -2883,8 +3004,9 @@ export default function OneshotEditor() {
     setIsAssistantQueryGenerating(false);   // ⬅️ NEW
     setIsPaused(false);                     // ⬅️ NEW
     setSessionDetails(null);                // ⬅️ NEW
-    setUploadedImageFiles([]);
-    setUploadedImageDataUrls([]);
+    setImageListItems([createEmptyImageListItem()]);
+    setUploadingImageIndex(null);
+    setImageUploadError('');
     setEnableSubtitles(false);
     setSelectedImageStyle(null);
     setIsAdvancedOpen(false);
@@ -3971,68 +4093,219 @@ export default function OneshotEditor() {
             <div className={`text-right text-xs tabular-nums ${promptCounterClass}`}>
               {promptCounterLabel}
             </div>
-            <div className="relative">
-              <div className={`relative rounded-2xl ring-1 transition ${imagePickerShell}`}>
-                <label
-                  className={`flex min-h-[220px] w-full flex-col items-center justify-center gap-3 px-4 py-6 text-center ${
-                    isFormDisabled ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
-                  }`}
+            <div className={`rounded-lg ring-1 p-3 transition ${imagePickerShell}`}>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold">Image scenes</div>
+                  <div className={`mt-0.5 text-[11px] ${mutedText}`}>
+                    Paste public URLs or upload local images to create URLs.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={addImageListItem}
+                  disabled={isFormDisabled || uploadingImageIndex !== null}
+                  className={`
+                    inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition
+                    ${colorMode === 'dark'
+                      ? 'bg-white/10 text-white hover:bg-white/15 disabled:opacity-50'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50'
+                    }
+                  `}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,image/heic,image/heif,.heic,.heif"
-                    multiple
-                    onChange={handleFileChange}
-                    disabled={isFormDisabled}
-                    className="sr-only"
-                  />
-                  {uploadedImageDataUrls.length ? (
-                    <>
-                      <div className="grid w-full grid-cols-2 sm:grid-cols-3 gap-3">
-                        {uploadedImageDataUrls.map((imageUrl, index) => (
-                          <div key={`image-${index}`} className="flex flex-col items-center gap-1">
+                  <FaPlus className="text-xs" />
+                  Add image
+                </button>
+              </div>
+
+              {imageUploadError && (
+                <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm font-medium text-red-500">
+                  {imageUploadError}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {imageListItems.map((item, index) => {
+                  const imageUrl = item.image_url.trim();
+                  const isUploadingThisImage = uploadingImageIndex === index;
+                  return (
+                    <div
+                      key={`image-list-item-${index}`}
+                      className={`
+                        rounded-lg p-3 ring-1
+                        ${colorMode === 'dark'
+                          ? 'bg-white/[0.03] ring-white/10'
+                          : 'bg-slate-50 ring-slate-200'
+                        }
+                      `}
+                    >
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-sm font-medium">Image {index + 1}</div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveImageListItem(index, index - 1)}
+                            disabled={isFormDisabled || uploadingImageIndex !== null || index === 0}
+                            title="Move image up"
+                            aria-label="Move image up"
+                            className={`
+                              inline-flex h-8 w-8 items-center justify-center rounded-lg transition
+                              ${colorMode === 'dark'
+                                ? 'text-slate-200 hover:bg-white/10 disabled:opacity-40'
+                                : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
+                              }
+                            `}
+                          >
+                            <FaArrowUp className="text-xs" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveImageListItem(index, index + 1)}
+                            disabled={isFormDisabled || uploadingImageIndex !== null || index === imageListItems.length - 1}
+                            title="Move image down"
+                            aria-label="Move image down"
+                            className={`
+                              inline-flex h-8 w-8 items-center justify-center rounded-lg transition
+                              ${colorMode === 'dark'
+                                ? 'text-slate-200 hover:bg-white/10 disabled:opacity-40'
+                                : 'text-slate-600 hover:bg-slate-200 disabled:opacity-40'
+                              }
+                            `}
+                          >
+                            <FaArrowDown className="text-xs" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeImageListItem(index)}
+                            disabled={isFormDisabled || uploadingImageIndex !== null}
+                            title="Remove image"
+                            aria-label="Remove image"
+                            className={`
+                              inline-flex h-8 w-8 items-center justify-center rounded-lg transition
+                              ${colorMode === 'dark'
+                                ? 'text-rose-200 hover:bg-rose-500/15 disabled:opacity-40'
+                                : 'text-rose-600 hover:bg-rose-50 disabled:opacity-40'
+                              }
+                            `}
+                          >
+                            <FaTrash className="text-xs" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[112px_minmax(0,1fr)]">
+                        <div
+                          className={`
+                            flex aspect-square w-full max-w-[112px] items-center justify-center overflow-hidden rounded-lg ring-1
+                            ${colorMode === 'dark'
+                              ? 'bg-black/20 ring-white/10'
+                              : 'bg-white ring-slate-200'
+                            }
+                          `}
+                        >
+                          {imageUrl ? (
                             <img
                               src={imageUrl}
-                              alt={`Selected prompt ${index + 1}`}
-                              className="h-20 w-20 rounded-lg object-cover shadow-sm ring-1 ring-black/5"
+                              alt={item.title || `Image ${index + 1}`}
+                              className="h-full w-full object-cover"
                             />
-                            <div className={`text-[11px] ${mutedText} max-w-[96px] truncate`}>
-                              {uploadedImageFiles[index]?.name || `Image ${index + 1}`}
+                          ) : (
+                            <FaImage className={`text-xl ${mutedText}`} />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 space-y-3">
+                          <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+                            <div>
+                              <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
+                                Image URL
+                              </label>
+                              <input
+                                type="url"
+                                value={item.image_url}
+                                onChange={(event) => {
+                                  updateImageListItem(index, { image_url: event.target.value });
+                                  if (imageUploadError) {
+                                    setImageUploadError('');
+                                  }
+                                }}
+                                disabled={isFormDisabled}
+                                className={advancedInputClasses}
+                                placeholder="https://..."
+                              />
+                            </div>
+                            <label
+                              className={`
+                                mt-auto inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs font-semibold transition
+                                ${isFormDisabled || uploadingImageIndex !== null ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+                                ${colorMode === 'dark'
+                                  ? 'border-indigo-300/30 bg-indigo-400/10 text-indigo-100 hover:bg-indigo-400/15'
+                                  : 'border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100'
+                                }
+                              `}
+                              onDragOver={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                              }}
+                              onDrop={(event) => {
+                                if (isFormDisabled || uploadingImageIndex !== null) {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  return;
+                                }
+                                handleImageListUploadDrop(index, event);
+                              }}
+                            >
+                              <input
+                                type="file"
+                                accept="image/*,image/heic,image/heif,.heic,.heif"
+                                onChange={(event) => handleImageListUploadInput(index, event)}
+                                disabled={isFormDisabled || uploadingImageIndex !== null}
+                                className="sr-only"
+                              />
+                              {isUploadingThisImage ? (
+                                <FaSpinner className="animate-spin text-xs" />
+                              ) : (
+                                <FaUpload className="text-xs" />
+                              )}
+                              {isUploadingThisImage ? 'Uploading...' : 'Upload to URL'}
+                            </label>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <div>
+                              <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
+                                Title
+                              </label>
+                              <input
+                                type="text"
+                                value={item.title}
+                                onChange={(event) => updateImageListItem(index, { title: event.target.value })}
+                                disabled={isFormDisabled}
+                                className={advancedInputClasses}
+                                placeholder="Opening frame"
+                              />
+                            </div>
+                            <div>
+                              <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
+                                Image text
+                              </label>
+                              <TextareaAutosize
+                                minRows={1}
+                                maxRows={4}
+                                value={item.image_text}
+                                onChange={(event) => updateImageListItem(index, { image_text: event.target.value })}
+                                disabled={isFormDisabled}
+                                className={advancedInputClasses}
+                                placeholder="Scene direction or product detail"
+                              />
                             </div>
                           </div>
-                        ))}
+                        </div>
                       </div>
-                      <div className={`mt-3 text-[11px] ${mutedText}`}>Click to replace images</div>
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        className={`flex h-12 w-12 items-center justify-center rounded-full ${
-                          colorMode === 'dark' ? 'bg-white/10' : 'bg-slate-100'
-                        }`}
-                      >
-                        <FaImage className="text-lg" />
-                      </div>
-                      <div className="text-sm font-medium">Choose images</div>
-                      <div className={`text-[11px] ${mutedText}`}>PNG, JPG, or HEIC</div>
-                    </>
-                  )}
-                </label>
-                {uploadedImageDataUrls.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearUploadedImage}
-                    className={`absolute top-3 right-3 h-8 w-8 rounded-full flex items-center justify-center transition ${
-                      colorMode === 'dark'
-                        ? 'bg-white/10 text-white hover:bg-white/20'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                    }`}
-                    aria-label="Remove selected images"
-                  >
-                    <FaTimes className="text-sm" />
-                  </button>
-                )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
