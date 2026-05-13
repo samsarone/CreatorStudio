@@ -67,7 +67,8 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
 const VIDEO_API_BASE = `${API_SERVER}/v2`;
-const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v2/status`;
+const VIDEO_STATUS_DETAILED_ENDPOINT = `${API_SERVER}/v2/status_detailed`;
+const VIDEO_STEP_API_BASE = `${VIDEO_API_BASE}/video/step`;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 
 // ───────────────────────────────────────────────────────────
@@ -133,6 +134,9 @@ const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
 ];
 const JSON_MODE_ASPECT_RATIOS = ['16:9', '9:16'];
 const JSON_MODE_VIDEO_MODEL_SUB_TYPES = ['anime', '3d_animation', 'clay', 'comic', 'cyberpunk'];
+const GENERATION_STEP_MODE_ONE_STEP = 'one_step';
+const GENERATION_STEP_MODE_TWO_STEP = 'two_step';
+const TWO_STEP_MANUAL_STAGES = ['ai_video_generation'];
 const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   tone: 'grounded',
   generate_outro_image: false,
@@ -150,6 +154,19 @@ const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
 const VIDGENIE_TONE_OPTIONS = [
   { value: 'grounded', label: 'Grounded' },
   { value: 'cinematic', label: 'Cinematic' },
+];
+
+const VIDGENIE_STEP_MODE_OPTIONS = [
+  {
+    value: GENERATION_STEP_MODE_ONE_STEP,
+    label: '1-step',
+    description: 'Render the full video automatically.',
+  },
+  {
+    value: GENERATION_STEP_MODE_TWO_STEP,
+    label: '2-step',
+    description: 'Review images before video generation.',
+  },
 ];
 
 const CUSTOM_ADAPTER_OPERATION_OPTIONS = [
@@ -789,6 +806,8 @@ function normalizeJsonEndpoint(value, input, selectedMode = 'T2V') {
 
   if (
     normalizedEndpoint === 'image_list_to_video' ||
+    normalizedEndpoint === 'image_to_video' ||
+    normalizedEndpoint.endsWith('/image_to_video') ||
     normalizedEndpoint.endsWith('/image_list_to_video')
   ) {
     return { endpoint: 'image_list_to_video' };
@@ -803,7 +822,7 @@ function normalizeJsonEndpoint(value, input, selectedMode = 'T2V') {
 
   if (rawEndpoint) {
     return {
-      error: 'JSON endpoint must be text_to_video, image_list_to_video, /v2/text_to_video, or /v2/image_list_to_video.',
+      error: 'JSON endpoint must be text_to_video, image_list_to_video, image_to_video, or a matching /v2/video/step route.',
     };
   }
 
@@ -1341,6 +1360,76 @@ function buildAdvancedRequestConfiguration({
     imageItemMetadata,
   };
 }
+
+function buildStepGenerationInput(stepMode) {
+  if (stepMode === GENERATION_STEP_MODE_TWO_STEP) {
+    return {
+      auto_render_full_video: false,
+      manual_step_stages: TWO_STEP_MANUAL_STAGES,
+    };
+  }
+
+  return {
+    auto_render_full_video: true,
+    manual_step_stages: [],
+  };
+}
+
+function attachStepGenerationInput(payload, stepMode) {
+  const nextPayload = cloneJsonValue(payload);
+  const stepInput = buildStepGenerationInput(stepMode);
+
+  if (isPlainObject(nextPayload.input)) {
+    nextPayload.input = {
+      ...nextPayload.input,
+      ...stepInput,
+    };
+    return nextPayload;
+  }
+
+  return {
+    ...nextPayload,
+    ...stepInput,
+  };
+}
+
+function getStepGenerationEndpoint(endpoint) {
+  return endpoint === 'image_list_to_video'
+    ? `${VIDEO_STEP_API_BASE}/image_to_video`
+    : `${VIDEO_STEP_API_BASE}/text_to_video`;
+}
+
+function extractVideoResultUrl(data) {
+  return (
+    data?.result_url
+    || (Array.isArray(data?.result_urls) ? data.result_urls[0] : null)
+    || data?.remoteURL
+    || data?.videoLink
+    || data?.session?.result?.url
+    || data?.session?.result?.remoteURL
+    || data?.session?.result?.videoLink
+    || null
+  );
+}
+
+function isStepStatusWaitingForApproval(data) {
+  const step = data?.step || {};
+  return Boolean(
+    data?.requires_user_action ||
+    data?.requiresUserAction ||
+    data?.can_process_next ||
+    data?.canProcessNext ||
+    step.requires_user_action ||
+    step.requiresUserAction ||
+    step.can_process_next ||
+    step.canProcessNext
+  );
+}
+
+function isFailedGenerationStatus(status) {
+  const normalizedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
+  return normalizedStatus === 'FAILED' || normalizedStatus === 'ERROR' || normalizedStatus === 'CANCELLED';
+}
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Context / Router hooks
@@ -1440,6 +1529,7 @@ export default function OneshotEditor() {
   const promptCounterClass =
     promptCharacterCount >= VIDGENIE_PROMPT_MAX_LENGTH ? 'text-amber-500' : mutedText;
   const [generationMode, setGenerationMode] = useState('T2V');
+  const [generationStepMode, setGenerationStepMode] = useState(GENERATION_STEP_MODE_ONE_STEP);
   const [isJsonMode, setIsJsonMode] = useState(false);
   const [jsonInputText, setJsonInputText] = useState('');
   const [isJsonInputDirty, setIsJsonInputDirty] = useState(false);
@@ -1503,7 +1593,10 @@ export default function OneshotEditor() {
   //  Generation state
   // ─────────────────────────────────────────────────────────
   const [isGenerationPending, setIsGenerationPending] = useState(false);
+  const [isGenerationWaitingForApproval, setIsGenerationWaitingForApproval] = useState(false);
+  const [isProcessingNextStep, setIsProcessingNextStep] = useState(false);
   const [expressGenerationStatus, setExpressGenerationStatus] = useState(null);
+  const [generationStatusDetails, setGenerationStatusDetails] = useState(null);
   const [videoLink, setVideoLink] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [showResultDisplay, setShowResultDisplay] = useState(false);
@@ -2468,6 +2561,27 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Generation-status poller
   // ─────────────────────────────────────────────────────────
+  const fetchDetailedGenerationStatus = async (requestId, headers) => {
+    try {
+      const { data } = await axios.get(
+        `${VIDEO_STEP_API_BASE}/${encodeURIComponent(requestId)}/status_detailed`,
+        headers
+      );
+      return data;
+    } catch (error) {
+      const statusCode = error?.response?.status;
+      if (statusCode && statusCode !== 400 && statusCode !== 404) {
+        throw error;
+      }
+      const query = new URLSearchParams({ request_id: requestId }).toString();
+      const { data } = await axios.get(
+        `${VIDEO_STATUS_DETAILED_ENDPOINT}?${query}`,
+        headers
+      );
+      return data;
+    }
+  };
+
   const pollGenerationStatus = (requestId = activeRequestIdRef.current || id, immediate = false) => {
     if (!requestId) return;
 
@@ -2490,34 +2604,36 @@ export default function OneshotEditor() {
 
       try {
         const headers = getHeaders();
-        const query = new URLSearchParams({ request_id: requestId }).toString();
-        const { data } = await axios.get(
-          `${VIDEO_STATUS_ENDPOINT}?${query}`,
-          headers
-        );
+        const data = await fetchDetailedGenerationStatus(requestId, headers);
 
         pollDelayRef.current = DEFAULT_POLL;
         if (data?.expressGenerationStatus) {
           setExpressGenerationStatus(data.expressGenerationStatus);
         }
+        setGenerationStatusDetails(data);
 
-        if (data.status === 'COMPLETED') {
+        const isWaitingForApproval = isStepStatusWaitingForApproval(data);
+        if (isWaitingForApproval) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(true);
+          return;
+        }
+
+        setIsGenerationWaitingForApproval(false);
+
+        const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
+        if (data.status === 'COMPLETED' && videoActualLink) {
           continuePolling = false;
           setIsGenerationPending(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
-          const videoActualLink = normalizeVideoUrl(
-            data.result_url
-              || (Array.isArray(data.result_urls) ? data.result_urls[0] : null)
-              || data.remoteURL
-              || data.videoLink
-              || null
-          );
           setVideoLink(videoActualLink);
         }
 
-        if (data.status === 'FAILED' || data.status === 'ERROR') {
+        if (isFailedGenerationStatus(data.status)) {
           continuePolling = false;
           setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           const errorText = data.expressGenerationError || data.message || 'Video generation failed.';
           const normalizedError = errorText.startsWith('Video generation failed')
@@ -2541,6 +2657,45 @@ export default function OneshotEditor() {
 
     doPoll();
   };
+
+  const handleProcessNextStep = useCallback(async () => {
+    const requestId = activeRequestIdRef.current || activeRequestId || id;
+    if (!requestId || isProcessingNextStep) {
+      return;
+    }
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    setIsProcessingNextStep(true);
+    setErrorMessage(null);
+    try {
+      const { data } = await axios.post(
+        `${VIDEO_STEP_API_BASE}/${encodeURIComponent(requestId)}/process_next`,
+        {},
+        headers
+      );
+      if (data?.expressGenerationStatus) {
+        setExpressGenerationStatus(data.expressGenerationStatus);
+      }
+      setGenerationStatusDetails(data);
+      setIsGenerationWaitingForApproval(false);
+      setIsGenerationPending(true);
+      pollGenerationStatus(requestId, true);
+    } catch (error) {
+      const apiMessage = error?.response?.data?.message || error?.message;
+      setErrorMessage({ error: apiMessage || 'Unable to continue video generation.' });
+    } finally {
+      setIsProcessingNextStep(false);
+    }
+  }, [
+    activeRequestId,
+    id,
+    isProcessingNextStep,
+    showLoginDialog,
+  ]);
 
 
   // ─────────────────────────────────────────────────────────
@@ -2817,13 +2972,15 @@ export default function OneshotEditor() {
       setShowResultDisplay(true);
       setVideoLink(null);
       setExpressGenerationStatus(null);
+      setGenerationStatusDetails(null);
+      setIsGenerationWaitingForApproval(false);
       setActiveRequestId(null);
       activeRequestIdRef.current = null;
 
       try {
         const { data } = await axios.post(
-          `${VIDEO_API_BASE}/${jsonRequest.endpoint}`,
-          jsonRequest.payload,
+          getStepGenerationEndpoint(jsonRequest.endpoint),
+          attachStepGenerationInput(jsonRequest.payload, generationStepMode),
           headers
         );
         const requestId = data?.request_id || data?.session_id || data?.sessionID;
@@ -2837,6 +2994,7 @@ export default function OneshotEditor() {
         const apiMessage = err?.response?.data?.message || err?.message;
         setErrorMessage({ error: apiMessage || 'An unexpected error occurred.' });
         setIsGenerationPending(false);
+        setIsGenerationWaitingForApproval(false);
       } finally {
         setIsSubmitting(false);
       }
@@ -2897,6 +3055,8 @@ export default function OneshotEditor() {
     setShowResultDisplay(true);
     setVideoLink(null);
     setExpressGenerationStatus(null);
+    setGenerationStatusDetails(null);
+    setIsGenerationWaitingForApproval(false);
     setActiveRequestId(null);
     activeRequestIdRef.current = null;
 
@@ -2927,6 +3087,7 @@ export default function OneshotEditor() {
       requestInput.enable_subtitles = false;
     }
     Object.assign(requestInput, advancedRequestConfiguration.input);
+    Object.assign(requestInput, buildStepGenerationInput(generationStepMode));
 
     try {
       if (!isTextToVideo) {
@@ -2961,8 +3122,8 @@ export default function OneshotEditor() {
         ...advancedRequestConfiguration.root,
       };
       const endpoint = isTextToVideo
-        ? `${VIDEO_API_BASE}/text_to_video`
-        : `${VIDEO_API_BASE}/image_list_to_video`;
+        ? `${VIDEO_STEP_API_BASE}/text_to_video`
+        : `${VIDEO_STEP_API_BASE}/image_to_video`;
       const { data } = await axios.post(endpoint, payload, headers);
       const requestId = data?.request_id || data?.session_id || data?.sessionID;
       if (!requestId) {
@@ -2976,6 +3137,7 @@ export default function OneshotEditor() {
       const apiMessage = err?.response?.data?.message;
       setErrorMessage({ error: apiMessage || 'An unexpected error occurred.' });
       setIsGenerationPending(false);
+      setIsGenerationWaitingForApproval(false);
     } finally {
       setIsSubmitting(false);
     }
@@ -2995,7 +3157,10 @@ export default function OneshotEditor() {
     setErrorMessage(null);
     setVideoLink(null);
     setExpressGenerationStatus(null);
+    setGenerationStatusDetails(null);
     setIsGenerationPending(false);
+    setIsGenerationWaitingForApproval(false);
+    setIsProcessingNextStep(false);
     setIsSubmitting(false);
     setActiveRequestId(null);
     activeRequestIdRef.current = null;
@@ -3008,6 +3173,7 @@ export default function OneshotEditor() {
     setUploadingImageIndex(null);
     setImageUploadError('');
     setEnableSubtitles(false);
+    setGenerationStepMode(GENERATION_STEP_MODE_ONE_STEP);
     setSelectedImageStyle(null);
     setIsAdvancedOpen(false);
     setAdvancedOptions({ ...DEFAULT_ADVANCED_OPTIONS });
@@ -3235,15 +3401,16 @@ export default function OneshotEditor() {
   //  Render-state helpers
   // ─────────────────────────────────────────────────────────
   const renderState = useMemo(() => {
-    if (isGenerationPending) return 'pending';
+    if (isGenerationPending || isGenerationWaitingForApproval) return 'pending';
     if (videoLink) return 'complete';
     return 'idle';
-  }, [isGenerationPending, videoLink]);
+  }, [isGenerationPending, isGenerationWaitingForApproval, videoLink]);
   const shouldCollapseJsonEditorForProgress =
-    isJsonMode && showResultDisplay && (isGenerationPending || Boolean(videoLink));
+    isJsonMode && showResultDisplay && (isGenerationPending || isGenerationWaitingForApproval || Boolean(videoLink));
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
   const isModeToggleDisabled = renderState === 'pending' || isSubmitting;
+  const isGenerationActionDisabled = isFormDisabled || isSubmitting || Boolean(jsonEditorErrorMessage);
   const jsonModeButtonLabel = isJsonMode
     ? t("vidgenie.wizardMode", {}, "Wizard mode")
     : t("vidgenie.jsonMode", {}, "JSON mode");
@@ -3274,6 +3441,22 @@ export default function OneshotEditor() {
   const advancedLabelClasses = `block text-[11px] font-medium mb-1 ${mutedText}`;
   const advancedSectionBorder = colorMode === 'dark' ? 'border-white/10' : 'border-slate-200';
   const advancedRowBg = colorMode === 'dark' ? 'bg-white/[0.03]' : 'bg-slate-50';
+  const stepModeShell =
+    colorMode === 'dark'
+      ? 'bg-white/[0.03] ring-white/10'
+      : 'bg-slate-50 ring-slate-200';
+  const stepModeSelectedClasses =
+    colorMode === 'dark'
+      ? 'bg-white/10 text-slate-100 ring-white/10'
+      : 'bg-white text-slate-900 ring-slate-200 shadow-sm';
+  const stepModeInactiveClasses =
+    colorMode === 'dark'
+      ? 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-200'
+      : 'text-slate-500 hover:bg-white hover:text-slate-800';
+  const secondaryActionClasses =
+    colorMode === 'dark'
+      ? 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'
+      : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-white';
   const headerTitle = isJsonMode
     ? generationMode === 'I2V'
       ? t("vidgenie.titleJsonImageListMode", {}, "JSON image-list video request")
@@ -3281,6 +3464,72 @@ export default function OneshotEditor() {
     : generationMode === 'T2V'
       ? t("vidgenie.titleTextToVideo")
       : t("vidgenie.titleImageListToVideo");
+  const renderGenerationControlsRow = ({ showAdvancedToggle = true, className = '' } = {}) => (
+    <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          className={`inline-flex items-center gap-1 rounded-xl p-1 text-sm ring-1 ${stepModeShell}`}
+          role="radiogroup"
+          aria-label="Generation steps"
+        >
+          {VIDGENIE_STEP_MODE_OPTIONS.map((option) => {
+            const isSelected = generationStepMode === option.value;
+            return (
+              <label
+                key={option.value}
+                title={option.description}
+                className={`
+                  inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 font-medium ring-1 ring-transparent transition
+                  ${isSelected ? stepModeSelectedClasses : stepModeInactiveClasses}
+                  ${isFormDisabled ? 'cursor-not-allowed opacity-60' : ''}
+                `}
+              >
+                <input
+                  type="radio"
+                  name="generationStepMode"
+                  value={option.value}
+                  checked={isSelected}
+                  disabled={isFormDisabled}
+                  onChange={() => setGenerationStepMode(option.value)}
+                  className="sr-only"
+                />
+                <span>{option.label}</span>
+              </label>
+            );
+          })}
+        </div>
+
+        {showAdvancedToggle && (
+          <button
+            type="button"
+            onClick={() => setIsAdvancedOpen((open) => !open)}
+            aria-expanded={isAdvancedOpen}
+            className={`
+              inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium ring-1 transition
+              ${secondaryActionClasses}
+            `}
+          >
+            <span>Advanced</span>
+            {isAdvancedOpen ? (
+              <FaChevronDown className="h-3 w-3" aria-hidden="true" />
+            ) : (
+              <FaChevronRight className="h-3 w-3" aria-hidden="true" />
+            )}
+          </button>
+        )}
+      </div>
+
+      {!shouldCollapseJsonEditorForProgress && (
+        <PrimaryPublicButton
+          onClick={handleSubmit}
+          isDisabled={isGenerationActionDisabled}
+          extraClasses="!m-0 !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
+        >
+          {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
+        </PrimaryPublicButton>
+      )}
+    </div>
+  );
   if (!sessionDetails) {
     return <VidgenieSkeletonLoader />;
   }
@@ -3610,25 +3859,12 @@ export default function OneshotEditor() {
                 </div>
               </label>
             </div>
+
           </div>
         </div>
 
         <div className={`mt-4 border-t ${advancedSectionBorder} pt-3`}>
-          <button
-            type="button"
-            onClick={() => setIsAdvancedOpen((open) => !open)}
-            aria-expanded={isAdvancedOpen}
-            className={`
-              inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition
-              ${colorMode === 'dark'
-                ? 'text-slate-200 hover:bg-white/5'
-                : 'text-slate-700 hover:bg-slate-100'
-              }
-            `}
-          >
-            {isAdvancedOpen ? <FaChevronDown aria-hidden="true" /> : <FaChevronRight aria-hidden="true" />}
-            Advanced
-          </button>
+          {renderGenerationControlsRow({ showAdvancedToggle: true })}
 
           {isAdvancedOpen && (
             <div className="mt-3 space-y-5">
@@ -3847,11 +4083,15 @@ export default function OneshotEditor() {
         <div className="mt-5 transition-all duration-500 ease-out">
           <ProgressIndicator
             isGenerationPending={isGenerationPending}
+            isGenerationWaitingForApproval={isGenerationWaitingForApproval}
+            isProcessingNextStep={isProcessingNextStep}
             expressGenerationStatus={expressGenerationStatus}
+            generationStatusDetails={generationStatusDetails}
             videoLink={videoLink}
             errorMessage={errorMessage}
             purchaseCreditsForUser={purchaseCreditsForUser}
             viewInStudio={viewInStudio}
+            onProcessNextStep={handleProcessNextStep}
           />
         </div>
       )}
@@ -3927,6 +4167,7 @@ export default function OneshotEditor() {
           </div>
         ) : isJsonMode ? (
           <div className="mt-4">
+            {renderGenerationControlsRow({ showAdvancedToggle: false, className: 'mb-3' })}
             <div className={`overflow-hidden rounded-2xl ring-1 transition ${
               jsonEditorErrorMessage
                 ? 'ring-red-500/50'
@@ -4308,20 +4549,6 @@ export default function OneshotEditor() {
                 })}
               </div>
             </div>
-          </div>
-        )}
-        {!shouldCollapseJsonEditorForProgress && (
-          <div className="mt-4 relative">
-            <div className="flex justify-center">
-              <PrimaryPublicButton
-                type="submit"
-                isDisabled={isFormDisabled || isSubmitting || Boolean(jsonEditorErrorMessage)}
-                className="px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
-              >
-                {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
-              </PrimaryPublicButton>
-            </div>
-
           </div>
         )}
       </form>
