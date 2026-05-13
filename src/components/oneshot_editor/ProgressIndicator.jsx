@@ -8,7 +8,12 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+const STATIC_ASSET_BASE_URL = (
+  import.meta.env.VITE_STATIC_CDN_URL ||
+  'https://static.samsar.one'
+).replace(/\/+$/, '');
 const PREVIEW_MUSIC_DUCKED_VOLUME_RATIO = 0.225;
+const USER_RESOURCES_PREFIX = 'user_resources/';
 
 const STAGE_ORDER = [
   'prompt_generation',
@@ -48,7 +53,20 @@ function normalizeAssetUrl(url) {
   if (typeof url !== 'string') return null;
   const trimmed = url.trim();
   if (!trimmed) return null;
+  const relativePath = trimmed.replace(/^\/+/, '');
+  if (relativePath.startsWith(USER_RESOURCES_PREFIX)) {
+    return `${STATIC_ASSET_BASE_URL}/${relativePath}`;
+  }
   if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    try {
+      const parsedUrl = new URL(trimmed);
+      const pathname = parsedUrl.pathname.replace(/^\/+/, '');
+      if (pathname.startsWith(USER_RESOURCES_PREFIX)) {
+        return `${STATIC_ASSET_BASE_URL}/${pathname}${parsedUrl.search || ''}`;
+      }
+    } catch {
+      return trimmed;
+    }
     return trimmed;
   }
   return `${PROCESSOR_API_URL}/${trimmed.replace(/^\/+/, '')}`;
@@ -268,6 +286,14 @@ function formatTime(seconds) {
   return `${minutes}:${wholeSeconds.toString().padStart(2, '0')}`;
 }
 
+function normalizePreviewAspectRatio(sessionPreview) {
+  const value =
+    sessionPreview?.aspectRatio ||
+    sessionPreview?.aspect_ratio ||
+    sessionPreview?.input?.aspect_ratio;
+  return value === '9:16' ? '9:16' : '16:9';
+}
+
 export default function ProgressIndicator(props) {
   const {
     isGenerationPending,
@@ -277,6 +303,7 @@ export default function ProgressIndicator(props) {
     generationStatusDetails,
     videoLink,
     errorMessage,
+    canProcessNextStep = false,
     purchaseCreditsForUser,
     viewInStudio,
     getSessionImageLayers,
@@ -323,7 +350,18 @@ export default function ProgressIndicator(props) {
     () => findActiveVisualSegment(visualSegments, previewTime),
     [previewTime, visualSegments],
   );
-  const aspectRatio = sessionPreview?.aspectRatio === '9:16' ? '9 / 16' : '16 / 9';
+  const previewAspectRatio = normalizePreviewAspectRatio(sessionPreview);
+  const isPortraitPreview = previewAspectRatio === '9:16';
+  const aspectRatio = isPortraitPreview ? '9 / 16' : '16 / 9';
+  const previewFrameStyle = {
+    aspectRatio,
+    width: isPortraitPreview
+      ? 'min(100%, 31.5vh, 292px)'
+      : 'min(100%, 78vh, 640px)',
+    maxHeight: isPortraitPreview
+      ? 'min(56vh, 520px)'
+      : 'min(44vh, 360px)',
+  };
 
   useEffect(() => {
     if (
@@ -408,10 +446,7 @@ export default function ProgressIndicator(props) {
     );
   };
 
-  let videoActualLink = videoLink;
-  if (videoLink && !videoLink.startsWith('http')) {
-    videoActualLink = `${PROCESSOR_API_URL}/${videoLink}`;
-  }
+  const videoActualLink = normalizeAssetUrl(videoLink);
 
   const panelShell =
     colorMode === 'dark'
@@ -464,7 +499,7 @@ export default function ProgressIndicator(props) {
         </div>
       ) : null}
 
-      {isGenerationWaitingForApproval && (
+      {isGenerationWaitingForApproval && canProcessNextStep && onProcessNextStep && (
         <div className={`mt-4 rounded-xl border p-3 ${waitingPanel}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -501,17 +536,18 @@ export default function ProgressIndicator(props) {
           </div>
 
           <div
-            className={`mx-auto flex w-full max-w-[640px] items-center justify-center overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
-            style={{ aspectRatio }}
+            className={`mx-auto flex items-center justify-center overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
+            style={previewFrameStyle}
           >
             {activeVisualSegment?.url ? (
               activeVisualSegment.type === 'video' ? (
                 <video
-                  key={activeVisualSegment.key}
+                  key={`${activeVisualSegment.key}-${activeVisualSegment.stage}-${activeVisualSegment.url}`}
                   ref={activeVideoRef}
                   src={activeVisualSegment.url}
                   muted
                   playsInline
+                  preload="auto"
                   className="h-full w-full object-contain"
                 />
               ) : (
@@ -613,12 +649,17 @@ export default function ProgressIndicator(props) {
         </div>
       )}
 
-      {videoLink && !isGenerationPending && (
+      {videoActualLink && !isGenerationPending && (
         <div className="mt-5 clear-both">
-          <video controls className="md:w-[512px] w-full mx-auto max-h-[300px]">
-            <source src={`${videoActualLink}`} type="video/mp4" />
-            {t("progress.videoUnsupported")}
-          </video>
+          <div
+            className={`mx-auto overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
+            style={previewFrameStyle}
+          >
+            <video controls className="h-full w-full object-contain">
+              <source src={`${videoActualLink}`} type="video/mp4" />
+              {t("progress.videoUnsupported")}
+            </video>
+          </div>
         </div>
       )}
     </div>

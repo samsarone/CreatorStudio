@@ -70,6 +70,7 @@ const VIDEO_API_BASE = `${API_SERVER}/v2`;
 const VIDEO_STATUS_DETAILED_ENDPOINT = `${API_SERVER}/v2/status_detailed`;
 const VIDEO_STEP_API_BASE = `${VIDEO_API_BASE}/video/step`;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
+const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
 
 // ───────────────────────────────────────────────────────────
 //  Polling constants
@@ -1362,35 +1363,72 @@ function buildAdvancedRequestConfiguration({
 }
 
 function buildStepGenerationInput(stepMode) {
-  if (stepMode === GENERATION_STEP_MODE_TWO_STEP) {
-    return {
-      auto_render_full_video: false,
-      manual_step_stages: TWO_STEP_MANUAL_STAGES,
-    };
-  }
+  const isTwoStep = stepMode === GENERATION_STEP_MODE_TWO_STEP;
+  const autoRenderFullVideo = !isTwoStep;
+  const manualStepStages = isTwoStep ? TWO_STEP_MANUAL_STAGES : [];
 
   return {
-    auto_render_full_video: true,
-    manual_step_stages: [],
+    auto_render_full_video: autoRenderFullVideo,
+    autoRenderFullVideo,
+    manual_step_stages: manualStepStages,
+    manualStepStages,
   };
 }
 
+function normalizeGenerationStepMode(stepMode) {
+  return stepMode === GENERATION_STEP_MODE_TWO_STEP
+    ? GENERATION_STEP_MODE_TWO_STEP
+    : GENERATION_STEP_MODE_ONE_STEP;
+}
+
+function getRequestStepModeStorageKey(requestId) {
+  return requestId ? `${VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX}:${requestId}` : null;
+}
+
+function persistRequestStepMode(requestIds, stepMode) {
+  if (typeof window === 'undefined') return;
+  const normalizedStepMode = normalizeGenerationStepMode(stepMode);
+  const ids = Array.isArray(requestIds) ? requestIds : [requestIds];
+  ids.forEach((requestId) => {
+    const storageKey = getRequestStepModeStorageKey(requestId);
+    if (!storageKey) return;
+    try {
+      window.localStorage.setItem(storageKey, normalizedStepMode);
+    } catch {
+      // Ignore storage failures; the in-memory request mode still protects the active request.
+    }
+  });
+}
+
+function getPersistedRequestStepMode(requestId) {
+  if (typeof window === 'undefined') return null;
+  const storageKey = getRequestStepModeStorageKey(requestId);
+  if (!storageKey) return null;
+  try {
+    const storedStepMode = window.localStorage.getItem(storageKey);
+    return storedStepMode === GENERATION_STEP_MODE_ONE_STEP || storedStepMode === GENERATION_STEP_MODE_TWO_STEP
+      ? storedStepMode
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 function attachStepGenerationInput(payload, stepMode) {
-  const nextPayload = cloneJsonValue(payload);
   const stepInput = buildStepGenerationInput(stepMode);
+  const nextPayload = {
+    ...cloneJsonValue(payload),
+    ...stepInput,
+  };
 
   if (isPlainObject(nextPayload.input)) {
     nextPayload.input = {
       ...nextPayload.input,
       ...stepInput,
     };
-    return nextPayload;
   }
 
-  return {
-    ...nextPayload,
-    ...stepInput,
-  };
+  return nextPayload;
 }
 
 function getStepGenerationEndpoint(endpoint) {
@@ -1412,7 +1450,7 @@ function extractVideoResultUrl(data) {
   );
 }
 
-function isStepStatusWaitingForApproval(data) {
+function isStepStatusRequestingProcessNext(data) {
   const step = data?.step || {};
   return Boolean(
     data?.requires_user_action ||
@@ -1424,6 +1462,13 @@ function isStepStatusWaitingForApproval(data) {
     step.can_process_next ||
     step.canProcessNext
   );
+}
+
+function isStepStatusWaitingForApproval(data, activeStepMode) {
+  if (normalizeGenerationStepMode(activeStepMode) !== GENERATION_STEP_MODE_TWO_STEP) {
+    return false;
+  }
+  return isStepStatusRequestingProcessNext(data);
 }
 
 function isFailedGenerationStatus(status) {
@@ -1576,6 +1621,8 @@ export default function OneshotEditor() {
   //  Polling handles / refs
   // ─────────────────────────────────────────────────────────
   const pollIntervalRef = useRef(null);   // generation poll (setTimeout)
+  const activeRequestStepModeRef = useRef(GENERATION_STEP_MODE_ONE_STEP);
+  const autoProcessNextRequestIdsRef = useRef(new Set());
   const assistantPollRef = useRef(null);   // assistant poll (setInterval)
   const pollErrorCountRef = useRef(0);
   const assistantErrorCountRef = useRef(0);
@@ -2582,8 +2629,30 @@ export default function OneshotEditor() {
     }
   };
 
+  const processNextStepRequest = async (requestId, headers) => {
+    const { data } = await axios.post(
+      `${VIDEO_STEP_API_BASE}/${encodeURIComponent(requestId)}/process_next`,
+      {},
+      headers
+    );
+    if (data?.expressGenerationStatus) {
+      setExpressGenerationStatus(data.expressGenerationStatus);
+    }
+    setGenerationStatusDetails(data);
+    setIsGenerationWaitingForApproval(false);
+    setIsGenerationPending(true);
+    return data;
+  };
+
   const pollGenerationStatus = (requestId = activeRequestIdRef.current || id, immediate = false) => {
     if (!requestId) return;
+
+    const persistedStepMode =
+      getPersistedRequestStepMode(requestId) ||
+      getPersistedRequestStepMode(id);
+    if (persistedStepMode) {
+      activeRequestStepModeRef.current = persistedStepMode;
+    }
 
     currentPollRequestIdRef.current = requestId;
     if (activeRequestIdRef.current !== requestId) {
@@ -2612,7 +2681,9 @@ export default function OneshotEditor() {
         }
         setGenerationStatusDetails(data);
 
-        const isWaitingForApproval = isStepStatusWaitingForApproval(data);
+        const currentStepMode = normalizeGenerationStepMode(activeRequestStepModeRef.current);
+        const isRequestingProcessNext = isStepStatusRequestingProcessNext(data);
+        const isWaitingForApproval = isStepStatusWaitingForApproval(data, currentStepMode);
         if (isWaitingForApproval) {
           continuePolling = false;
           setIsGenerationPending(false);
@@ -2621,6 +2692,21 @@ export default function OneshotEditor() {
         }
 
         setIsGenerationWaitingForApproval(false);
+
+        if (isRequestingProcessNext && currentStepMode !== GENERATION_STEP_MODE_TWO_STEP) {
+          const autoProcessKey = data?.session_id || data?.request_id || requestId;
+          if (!autoProcessNextRequestIdsRef.current.has(autoProcessKey)) {
+            autoProcessNextRequestIdsRef.current.add(autoProcessKey);
+            try {
+              await processNextStepRequest(requestId, headers);
+              pollDelayRef.current = 0;
+            } catch (error) {
+              autoProcessNextRequestIdsRef.current.delete(autoProcessKey);
+              throw error;
+            }
+          }
+          return;
+        }
 
         const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
         if (data.status === 'COMPLETED' && videoActualLink) {
@@ -2660,7 +2746,11 @@ export default function OneshotEditor() {
 
   const handleProcessNextStep = useCallback(async () => {
     const requestId = activeRequestIdRef.current || activeRequestId || id;
-    if (!requestId || isProcessingNextStep) {
+    if (
+      !requestId ||
+      isProcessingNextStep ||
+      activeRequestStepModeRef.current !== GENERATION_STEP_MODE_TWO_STEP
+    ) {
       return;
     }
     const headers = getHeaders();
@@ -2672,17 +2762,7 @@ export default function OneshotEditor() {
     setIsProcessingNextStep(true);
     setErrorMessage(null);
     try {
-      const { data } = await axios.post(
-        `${VIDEO_STEP_API_BASE}/${encodeURIComponent(requestId)}/process_next`,
-        {},
-        headers
-      );
-      if (data?.expressGenerationStatus) {
-        setExpressGenerationStatus(data.expressGenerationStatus);
-      }
-      setGenerationStatusDetails(data);
-      setIsGenerationWaitingForApproval(false);
-      setIsGenerationPending(true);
+      await processNextStepRequest(requestId, headers);
       pollGenerationStatus(requestId, true);
     } catch (error) {
       const apiMessage = error?.response?.data?.message || error?.message;
@@ -2696,6 +2776,22 @@ export default function OneshotEditor() {
     isProcessingNextStep,
     showLoginDialog,
   ]);
+
+  useEffect(() => {
+    if (
+      !isGenerationWaitingForApproval ||
+      activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP
+    ) {
+      return;
+    }
+
+    const requestId = activeRequestIdRef.current || activeRequestId || id;
+    setIsGenerationWaitingForApproval(false);
+    setIsGenerationPending(true);
+    if (requestId) {
+      pollGenerationStatus(requestId, true);
+    }
+  }, [activeRequestId, id, isGenerationWaitingForApproval]);
 
 
   // ─────────────────────────────────────────────────────────
@@ -2937,6 +3033,8 @@ export default function OneshotEditor() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const submittedGenerationStepMode = normalizeGenerationStepMode(generationStepMode);
+
     if (!user) {
       showLoginDialog();
       return;
@@ -2976,11 +3074,13 @@ export default function OneshotEditor() {
       setIsGenerationWaitingForApproval(false);
       setActiveRequestId(null);
       activeRequestIdRef.current = null;
+      activeRequestStepModeRef.current = submittedGenerationStepMode;
+      autoProcessNextRequestIdsRef.current.clear();
 
       try {
         const { data } = await axios.post(
           getStepGenerationEndpoint(jsonRequest.endpoint),
-          attachStepGenerationInput(jsonRequest.payload, generationStepMode),
+          attachStepGenerationInput(jsonRequest.payload, submittedGenerationStepMode),
           headers
         );
         const requestId = data?.request_id || data?.session_id || data?.sessionID;
@@ -2989,6 +3089,7 @@ export default function OneshotEditor() {
         }
         setActiveRequestId(requestId);
         activeRequestIdRef.current = requestId;
+        persistRequestStepMode([requestId, id], submittedGenerationStepMode);
         pollGenerationStatus(requestId);
       } catch (err) {
         const apiMessage = err?.response?.data?.message || err?.message;
@@ -3059,6 +3160,8 @@ export default function OneshotEditor() {
     setIsGenerationWaitingForApproval(false);
     setActiveRequestId(null);
     activeRequestIdRef.current = null;
+    activeRequestStepModeRef.current = submittedGenerationStepMode;
+    autoProcessNextRequestIdsRef.current.clear();
 
     const requestInput = {};
     if (isTextToVideo) {
@@ -3087,7 +3190,8 @@ export default function OneshotEditor() {
       requestInput.enable_subtitles = false;
     }
     Object.assign(requestInput, advancedRequestConfiguration.input);
-    Object.assign(requestInput, buildStepGenerationInput(generationStepMode));
+    const stepGenerationInput = buildStepGenerationInput(submittedGenerationStepMode);
+    Object.assign(requestInput, stepGenerationInput);
 
     try {
       if (!isTextToVideo) {
@@ -3118,6 +3222,7 @@ export default function OneshotEditor() {
       }
 
       const payload = {
+        ...stepGenerationInput,
         input: { ...requestInput, session_id: id },
         ...advancedRequestConfiguration.root,
       };
@@ -3131,6 +3236,7 @@ export default function OneshotEditor() {
       }
       setActiveRequestId(requestId);
       activeRequestIdRef.current = requestId;
+      persistRequestStepMode([requestId, id], submittedGenerationStepMode);
       pollGenerationStatus(requestId);
     } catch (err) {
       
@@ -3164,7 +3270,9 @@ export default function OneshotEditor() {
     setIsSubmitting(false);
     setActiveRequestId(null);
     activeRequestIdRef.current = null;
+    activeRequestStepModeRef.current = GENERATION_STEP_MODE_ONE_STEP;
     currentPollRequestIdRef.current = null;
+    autoProcessNextRequestIdsRef.current.clear();
     setSessionMessages([]);
     setIsAssistantQueryGenerating(false);   // ⬅️ NEW
     setIsPaused(false);                     // ⬅️ NEW
@@ -3222,8 +3330,11 @@ export default function OneshotEditor() {
     setVideoLink(null);
     setShowResultDisplay(true);
     setIsGenerationPending(requestInfo?.status !== 'CANCELLED');
+    setIsGenerationWaitingForApproval(false);
     setActiveRequestId(nextRequestId);
     activeRequestIdRef.current = nextRequestId;
+    activeRequestStepModeRef.current = GENERATION_STEP_MODE_ONE_STEP;
+    autoProcessNextRequestIdsRef.current.clear();
 
     if (nextSessionId && nextSessionId !== id) {
       setAdvancedVideoEditPendingSession(nextSessionId);
@@ -4089,6 +4200,7 @@ export default function OneshotEditor() {
             generationStatusDetails={generationStatusDetails}
             videoLink={videoLink}
             errorMessage={errorMessage}
+            canProcessNextStep={activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP}
             purchaseCreditsForUser={purchaseCreditsForUser}
             viewInStudio={viewInStudio}
             onProcessNextStep={handleProcessNextStep}
@@ -4313,27 +4425,6 @@ export default function OneshotEditor() {
           </>
         ) : (
           <div className="mt-4 space-y-4">
-            <TextareaAutosize
-              minRows={4}
-              maxRows={12}
-              disabled={isFormDisabled}
-              className={`
-                w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
-                focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
-                ${colorMode === 'dark'
-                  ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
-                  : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
-                }
-              `}
-              placeholder={t("vidgenie.promptPlaceholder")}
-              name="promptText"
-              value={promptText}
-              maxLength={VIDGENIE_PROMPT_MAX_LENGTH}
-              onChange={handlePromptTextChange}
-            />
-            <div className={`text-right text-xs tabular-nums ${promptCounterClass}`}>
-              {promptCounterLabel}
-            </div>
             <div className={`rounded-lg ring-1 p-3 transition ${imagePickerShell}`}>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
@@ -4548,6 +4639,31 @@ export default function OneshotEditor() {
                   );
                 })}
               </div>
+            </div>
+            <TextareaAutosize
+              minRows={4}
+              maxRows={12}
+              disabled={isFormDisabled}
+              className={`
+                w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
+                focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+                ${colorMode === 'dark'
+                  ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                  : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
+                }
+              `}
+              placeholder={t(
+                "vidgenie.imageListPromptPlaceholder",
+                {},
+                "Describe the motion, pacing, and story that should connect these images…"
+              )}
+              name="promptText"
+              value={promptText}
+              maxLength={VIDGENIE_PROMPT_MAX_LENGTH}
+              onChange={handlePromptTextChange}
+            />
+            <div className={`text-right text-xs tabular-nums ${promptCounterClass}`}>
+              {promptCounterLabel}
             </div>
           </div>
         )}
