@@ -94,6 +94,7 @@ const VIDGENIE_VIDEO_MODEL_ORDER = [
   'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
+  'HAPPYHORSEI2V',
 ];
 const VIDGENIE_VIDEO_MODEL_LABELS = {
   RUNWAYML: 'RunwayML Gen 4.5 (Default)',
@@ -101,6 +102,7 @@ const VIDGENIE_VIDEO_MODEL_LABELS = {
   'VEO3.1I2VFAST': 'VEO3.1 I2V Fast',
   SEEDANCEI2V: 'Seedance 1.5',
   KLINGIMGTOVID3PRO: 'Kling 3 Pro',
+  HAPPYHORSEI2V: 'Happy Horse 1.0 I2V',
 };
 const VIDGENIE_TEXT_VIDEO_MODEL_STORAGE_KEY = 'defaultVIdGPTVideoGenerationModel';
 const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_STORAGE_KEY = 'defaultVidgenieImageListVideoGenerationModel';
@@ -110,6 +112,7 @@ const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
   'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
+  'HAPPYHORSEI2V',
 ];
 const TEXT_TO_VIDEO_IMAGE_MODEL_KEYS = [
   'GPTIMAGE2',
@@ -123,6 +126,7 @@ const TEXT_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
+  'HAPPYHORSEI2V',
   'CUSTOM_IMAGE_TO_VIDEO',
 ];
 const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
@@ -131,6 +135,7 @@ const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'VEO3.1I2VFAST',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
+  'HAPPYHORSEI2V',
   'CUSTOM_IMAGE_TO_VIDEO',
 ];
 const JSON_MODE_ASPECT_RATIOS = ['16:9', '9:16'];
@@ -138,6 +143,8 @@ const JSON_MODE_VIDEO_MODEL_SUB_TYPES = ['anime', '3d_animation', 'clay', 'comic
 const GENERATION_STEP_MODE_ONE_STEP = 'one_step';
 const GENERATION_STEP_MODE_TWO_STEP = 'two_step';
 const TWO_STEP_MANUAL_STAGES = ['ai_video_generation'];
+const STEP_IMAGE_GENERATION_POLL_MS = 1_500;
+const STEP_IMAGE_GENERATION_TIMEOUT_MS = 180_000;
 const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   tone: 'grounded',
   generate_outro_image: false,
@@ -189,6 +196,12 @@ function isPlainObject(value) {
 
 function cloneJsonValue(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function createEmptyImageListItem() {
@@ -1218,8 +1231,58 @@ function normalizeSavedCustomAdapters(customAdapters) {
   return isPlainObject(customAdapters) ? customAdapters : {};
 }
 
-function getAvailableCustomAdapterOperations(customAdapters) {
+function getCustomAdapterOperationLabel(operationKey) {
+  return (
+    CUSTOM_ADAPTER_OPERATION_OPTIONS.find((operation) => operation.key === operationKey)?.label ||
+    operationKey
+  );
+}
+
+function getSavedCustomEndpointRows(customAdapters) {
   const savedAdapters = normalizeSavedCustomAdapters(customAdapters);
+  const configuredEndpoints = Array.isArray(savedAdapters.custom_endpoints)
+    ? savedAdapters.custom_endpoints
+    : Array.isArray(savedAdapters.customEndpoints)
+      ? savedAdapters.customEndpoints
+      : [];
+
+  const endpointRows = configuredEndpoints
+    .map((endpoint, index) => {
+      if (!isPlainObject(endpoint)) {
+        return null;
+      }
+      const operationKey =
+        hasTextValue(endpoint.operation) && CUSTOM_ADAPTER_OPERATION_OPTIONS.some(
+          (operation) => operation.key === endpoint.operation.trim()
+        )
+          ? endpoint.operation.trim()
+          : 'image_to_video';
+      const baseUrl = endpoint.base_url || endpoint.baseUrl;
+      const modelEndpoint =
+        endpoint.endpoint ||
+        endpoint.path ||
+        endpoint.route ||
+        endpoint.url ||
+        endpoint[operationKey];
+      if (!hasTextValue(baseUrl) || !hasTextValue(modelEndpoint)) {
+        return null;
+      }
+      return {
+        id: hasTextValue(endpoint.id) ? endpoint.id.trim() : `custom_endpoint_${index + 1}`,
+        name: hasTextValue(endpoint.name) ? endpoint.name.trim() : modelEndpoint.trim(),
+        provider: hasTextValue(endpoint.provider) ? endpoint.provider.trim() : 'fal',
+        operationKey,
+        operationLabel: getCustomAdapterOperationLabel(operationKey),
+        baseUrl: baseUrl.trim(),
+        endpoint: modelEndpoint.trim(),
+      };
+    })
+    .filter(Boolean);
+
+  if (endpointRows.length > 0) {
+    return endpointRows;
+  }
+
   if (!hasTextValue(savedAdapters.base_url)) {
     return [];
   }
@@ -1231,32 +1294,42 @@ function getAvailableCustomAdapterOperations(customAdapters) {
         return null;
       }
       return {
-        ...operation,
+        id: `legacy_${operation.key}`,
+        name: operation.label,
+        provider: 'fal',
+        operationKey: operation.key,
+        operationLabel: operation.label,
+        baseUrl: savedAdapters.base_url.trim(),
         endpoint: endpoint.trim(),
       };
     })
     .filter(Boolean);
 }
 
-function buildSelectedCustomAdaptersPayload(customAdapters, selectedOperationKeys = []) {
-  const savedAdapters = normalizeSavedCustomAdapters(customAdapters);
-  const selectedKeys = new Set(selectedOperationKeys);
-  if (!hasTextValue(savedAdapters.base_url) || selectedKeys.size === 0) {
+function getAvailableCustomAdapterEndpoints(customAdapters) {
+  return getSavedCustomEndpointRows(customAdapters);
+}
+
+function buildSelectedCustomAdaptersPayload(customAdapters, selectedEndpointId = '') {
+  if (!hasTextValue(selectedEndpointId)) {
+    return null;
+  }
+
+  const selectedEndpoint = getSavedCustomEndpointRows(customAdapters).find(
+    (endpoint) => endpoint.id === selectedEndpointId
+  );
+  if (!selectedEndpoint) {
     return null;
   }
 
   const payload = {
-    base_url: savedAdapters.base_url.trim(),
+    base_url: selectedEndpoint.baseUrl,
+    custom_endpoint_id: selectedEndpoint.id,
+    custom_endpoint_name: selectedEndpoint.name,
+    custom_endpoint_provider: selectedEndpoint.provider,
   };
-  if (hasTextValue(savedAdapters.api_key)) {
-    payload.api_key = savedAdapters.api_key.trim();
-  }
-
-  for (const operation of CUSTOM_ADAPTER_OPERATION_OPTIONS) {
-    if (!selectedKeys.has(operation.key) || !hasTextValue(savedAdapters[operation.key])) {
-      continue;
-    }
-    payload[operation.key] = savedAdapters[operation.key].trim();
+  if (hasTextValue(selectedEndpoint.operationKey) && hasTextValue(selectedEndpoint.endpoint)) {
+    payload[selectedEndpoint.operationKey] = selectedEndpoint.endpoint;
   }
 
   return CUSTOM_ADAPTER_OPERATION_OPTIONS.some((operation) => payload[operation.key])
@@ -1268,7 +1341,7 @@ function buildAdvancedRequestConfiguration({
   isTextToVideo,
   advancedOptions,
   customAdapters,
-  selectedCustomAdapterOperations,
+  selectedCustomAdapterEndpointId,
 }) {
   const input = {};
   const root = {};
@@ -1347,7 +1420,7 @@ function buildAdvancedRequestConfiguration({
 
   const selectedCustomAdapters = buildSelectedCustomAdaptersPayload(
     customAdapters,
-    selectedCustomAdapterOperations,
+    selectedCustomAdapterEndpointId,
   );
   if (selectedCustomAdapters) {
     root.configuration = {
@@ -1479,7 +1552,7 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Context / Router hooks
   // ─────────────────────────────────────────────────────────
-  const { user } = useUser();
+  const { user, getUserAPI } = useUser();
   const { colorMode } = useColorMode();
   const { t, language } = useLocalization();
   const { id } = useParams();
@@ -2091,7 +2164,7 @@ export default function OneshotEditor() {
   const [advancedOptions, setAdvancedOptions] = useState(() => ({
     ...DEFAULT_ADVANCED_OPTIONS,
   }));
-  const [selectedCustomAdapterOperations, setSelectedCustomAdapterOperations] = useState([]);
+  const [selectedCustomAdapterEndpointId, setSelectedCustomAdapterEndpointId] = useState('');
 
   const updateAdvancedOption = useCallback((key, value) => {
     setAdvancedOptions((prev) => {
@@ -2106,28 +2179,28 @@ export default function OneshotEditor() {
     });
   }, []);
 
-  const toggleSelectedCustomAdapterOperation = useCallback((operationKey) => {
-    setSelectedCustomAdapterOperations((prev) => (
-      prev.includes(operationKey)
-        ? prev.filter((key) => key !== operationKey)
-        : [...prev, operationKey]
+  const toggleSelectedCustomAdapterEndpoint = useCallback((endpointId) => {
+    setSelectedCustomAdapterEndpointId((current) => (
+      current === endpointId ? '' : endpointId
     ));
   }, []);
 
-  const availableCustomAdapterOperations = useMemo(
-    () => getAvailableCustomAdapterOperations(user?.custom_adapters),
+  const availableCustomAdapterEndpoints = useMemo(
+    () => getAvailableCustomAdapterEndpoints(user?.custom_adapters),
     [user?.custom_adapters],
   );
 
   useEffect(() => {
-    if (!availableCustomAdapterOperations.length) {
-      setSelectedCustomAdapterOperations([]);
+    if (!availableCustomAdapterEndpoints.length) {
+      setSelectedCustomAdapterEndpointId('');
       return;
     }
 
-    const availableKeys = new Set(availableCustomAdapterOperations.map((operation) => operation.key));
-    setSelectedCustomAdapterOperations((prev) => prev.filter((key) => availableKeys.has(key)));
-  }, [availableCustomAdapterOperations]);
+    const availableIds = new Set(availableCustomAdapterEndpoints.map((endpoint) => endpoint.id));
+    setSelectedCustomAdapterEndpointId((current) => (
+      current && availableIds.has(current) ? current : ''
+    ));
+  }, [availableCustomAdapterEndpoints]);
 
   useEffect(() => {
     setSelectedLanguageOption((prev) => {
@@ -2627,6 +2700,93 @@ export default function OneshotEditor() {
       );
       return data;
     }
+  };
+
+  const refreshDetailedGenerationStatus = async (requestId, headers) => {
+    const data = await fetchDetailedGenerationStatus(requestId, headers);
+    if (data?.expressGenerationStatus) {
+      setExpressGenerationStatus(data.expressGenerationStatus);
+    }
+    setGenerationStatusDetails(data);
+    return data;
+  };
+
+  const pollStepImageGeneration = async ({ requestId, layerId, headers }) => {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < STEP_IMAGE_GENERATION_TIMEOUT_MS) {
+      const { data } = await axios.get(
+        `${PROCESSOR_API_URL}/image_sessions/generate_status?id=${encodeURIComponent(requestId)}&layerId=${encodeURIComponent(layerId)}`,
+        headers
+      );
+      const normalizedStatus = typeof data?.status === 'string' ? data.status.trim().toUpperCase() : '';
+      if (normalizedStatus === 'COMPLETED') {
+        return data;
+      }
+      if (normalizedStatus === 'FAILED' || normalizedStatus === 'ERROR') {
+        throw new Error(data?.generationError || 'Image generation failed.');
+      }
+      await wait(STEP_IMAGE_GENERATION_POLL_MS);
+    }
+    throw new Error('Image generation timed out.');
+  };
+
+  const handleSelectStepImage = async ({ scene, activeItemList }) => {
+    const requestId = activeRequestIdRef.current || activeRequestId || id;
+    const layerId = scene?.id;
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    if (!requestId || !layerId || !Array.isArray(activeItemList) || !activeItemList.length) {
+      return;
+    }
+
+    await axios.post(
+      `${PROCESSOR_API_URL}/image_sessions/update_active_item_list`,
+      {
+        sessionId: requestId,
+        layerId,
+        activeItemList,
+        prompt: activeItemList[0]?.prompt || activeItemList[0]?.generationPrompt || scene?.prompt || null,
+      },
+      headers
+    );
+    await refreshDetailedGenerationStatus(requestId, headers);
+  };
+
+  const handleRegenerateStepImage = async ({ scene, item, prompt, isPrimary }) => {
+    const requestId = activeRequestIdRef.current || activeRequestId || id;
+    const layerId = scene?.id;
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    if (!requestId || !layerId || !prompt?.trim()) {
+      return;
+    }
+
+    await axios.post(
+      `${PROCESSOR_API_URL}/image_sessions/request_generate`,
+      {
+        videoSessionId: requestId,
+        layerId,
+        prompt: prompt.trim(),
+        model: selectedImageModel?.value || 'GPTIMAGE2',
+        imageStyle: selectedImageStyle?.value,
+        aspectRatio: generationStatusDetails?.session?.aspectRatio || selectedAspectRatioOption?.value || '16:9',
+        skipApplyThemeToPrompt: true,
+        preserveLayerPrompt: true,
+        preserveActiveSelectedImage: true,
+        appendGeneratedImageCandidate: true,
+        replaceActiveItemId: isPrimary ? null : item?.id || item?.itemId || item?.item_id || null,
+      },
+      headers
+    );
+    await pollStepImageGeneration({ requestId, layerId, headers });
+    await refreshDetailedGenerationStatus(requestId, headers);
+    getUserAPI();
   };
 
   const processNextStepRequest = async (requestId, headers) => {
@@ -3143,7 +3303,7 @@ export default function OneshotEditor() {
       isTextToVideo,
       advancedOptions,
       customAdapters: user?.custom_adapters,
-      selectedCustomAdapterOperations,
+      selectedCustomAdapterEndpointId,
     });
     if (advancedRequestConfiguration.error) {
       setErrorMessage({ error: advancedRequestConfiguration.error });
@@ -3285,7 +3445,7 @@ export default function OneshotEditor() {
     setSelectedImageStyle(null);
     setIsAdvancedOpen(false);
     setAdvancedOptions({ ...DEFAULT_ADVANCED_OPTIONS });
-    setSelectedCustomAdapterOperations([]);
+    setSelectedCustomAdapterEndpointId('');
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
     setExpandedVideoId(null);               // ⬅️ NEW
@@ -3371,7 +3531,7 @@ export default function OneshotEditor() {
   const togglePricingDetailsDisplay = () => setPricingDetailsDisplay(!pricingDetailsDisplay);
 
   const selectedVideoModelKey = selectedVideoModel?.value || '';
-  const hasSelectedCustomAdapters = selectedCustomAdapterOperations.length > 0;
+  const hasSelectedCustomAdapters = hasTextValue(selectedCustomAdapterEndpointId);
   const creditsPerSecondVideo = useMemo(() => {
     return getExpressVideoCreditsPerSecond(selectedVideoModelKey) ?? (generationMode === 'I2V' ? 60 : 30);
   }, [generationMode, selectedVideoModelKey]);
@@ -4145,28 +4305,32 @@ export default function OneshotEditor() {
                 </div>
               </div>
 
-              {availableCustomAdapterOperations.length > 0 && (
+              {availableCustomAdapterEndpoints.length > 0 && (
                 <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Custom Adapters
+                    Custom Endpoint
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {availableCustomAdapterOperations.map((operation) => (
+                    {availableCustomAdapterEndpoints.map((endpoint) => (
                       <label
-                        key={operation.key}
+                        key={endpoint.id}
                         className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}
                       >
                         <input
-                          type="checkbox"
-                          checked={selectedCustomAdapterOperations.includes(operation.key)}
-                          onChange={() => toggleSelectedCustomAdapterOperation(operation.key)}
+                          type="radio"
+                          name="vidgenie-custom-endpoint"
+                          checked={selectedCustomAdapterEndpointId === endpoint.id}
+                          onChange={() => toggleSelectedCustomAdapterEndpoint(endpoint.id)}
                           disabled={isFormDisabled}
                           className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
                         <span className="min-w-0">
-                          <span className="block text-sm font-medium">{operation.label}</span>
+                          <span className="block text-sm font-medium">{endpoint.name}</span>
+                          <span className={`block text-[11px] ${mutedText}`}>
+                            {endpoint.operationLabel}
+                          </span>
                           <span className={`block truncate text-[11px] ${mutedText}`}>
-                            {operation.endpoint}
+                            {endpoint.endpoint}
                           </span>
                         </span>
                       </label>
@@ -4201,9 +4365,18 @@ export default function OneshotEditor() {
             videoLink={videoLink}
             errorMessage={errorMessage}
             canProcessNextStep={activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP}
+            canReviewStepImages={
+              activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP &&
+              (
+                generationMode === 'T2V' ||
+                generationStatusDetails?.session?.generationType === 'TEXT_TO_VIDEO'
+              )
+            }
             purchaseCreditsForUser={purchaseCreditsForUser}
             viewInStudio={viewInStudio}
             onProcessNextStep={handleProcessNextStep}
+            onSelectStepImage={handleSelectStepImage}
+            onRegenerateStepImage={handleRegenerateStepImage}
           />
         </div>
       )}

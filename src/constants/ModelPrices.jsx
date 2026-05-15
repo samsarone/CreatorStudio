@@ -131,6 +131,20 @@ export const VIDEO_MODEL_PRICES = [
     units: [5, 10],
   },
   {
+    key: 'HAPPYHORSEI2V',
+    name: 'Happy Horse 1.0 I2V',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    prices: [
+      { aspectRatio: '1:1', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.HAPPYHORSEI2V },
+      { aspectRatio: '16:9', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.HAPPYHORSEI2V },
+      { aspectRatio: '9:16', price: EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL.HAPPYHORSEI2V },
+    ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('HAPPYHORSEI2V'),
+    units: [5, 10, 15],
+  },
+  {
     key: 'KLINGTXTTOVID3PRO',
     isExpressModel: false,
     isImageToVideoModel: false,

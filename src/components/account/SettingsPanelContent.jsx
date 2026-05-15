@@ -47,6 +47,19 @@ const CUSTOM_ADAPTER_FIELDS = [
   "text_to_music",
   "text_to_sound_effect",
 ];
+const CUSTOM_ENDPOINT_OPERATION_OPTIONS = [
+  { key: "image_to_video", label: "Image to video" },
+  { key: "text_to_image", label: "Text to image" },
+  { key: "text_to_video", label: "Text to video" },
+  { key: "text_to_speech", label: "Text to speech" },
+  { key: "text_to_music", label: "Text to music" },
+  { key: "text_to_sound_effect", label: "Text to sound effect" },
+];
+const CUSTOM_ENDPOINT_OPERATION_KEYS = new Set(
+  CUSTOM_ENDPOINT_OPERATION_OPTIONS.map((option) => option.key)
+);
+const DEFAULT_CUSTOM_ENDPOINT_BASE_URL = "https://queue.fal.run";
+const DEFAULT_HAPPY_HORSE_ENDPOINT = "alibaba/happy-horse/image-to-video";
 
 function resolveSettingsTabFromPath(pathname) {
   const segments = pathname.split("/").filter(Boolean);
@@ -58,15 +71,173 @@ function getSettingsTabPath(tabKey) {
   return tabKey === "general" ? "/account/settings" : `/account/settings/${tabKey}`;
 }
 
+function createCustomEndpointId() {
+  return `custom_endpoint_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createEmptyCustomEndpoint(overrides = {}) {
+  return {
+    id: createCustomEndpointId(),
+    name: "",
+    operation: "image_to_video",
+    base_url: DEFAULT_CUSTOM_ENDPOINT_BASE_URL,
+    api_key: "",
+    endpoint: DEFAULT_HAPPY_HORSE_ENDPOINT,
+    provider: "fal",
+    ...overrides,
+  };
+}
+
+function normalizeCustomEndpointForForm(endpoint, index = 0) {
+  const source = endpoint && typeof endpoint === "object" ? endpoint : {};
+  const rawOperation =
+    typeof source.operation === "string" ? source.operation.trim() : "image_to_video";
+  const operation = CUSTOM_ENDPOINT_OPERATION_KEYS.has(rawOperation)
+    ? rawOperation
+    : "image_to_video";
+  const fallbackId =
+    typeof source.id === "string" && source.id.trim()
+      ? source.id.trim()
+      : `custom_endpoint_${index + 1}`;
+
+  return {
+    id: fallbackId,
+    name: typeof source.name === "string" ? source.name : "",
+    operation,
+    base_url:
+      typeof source.base_url === "string"
+        ? source.base_url
+        : typeof source.baseUrl === "string"
+          ? source.baseUrl
+          : "",
+    api_key:
+      typeof source.api_key === "string"
+        ? source.api_key
+        : typeof source.apiKey === "string"
+          ? source.apiKey
+          : "",
+    has_api_key: source.has_api_key === true || source.hasApiKey === true,
+    endpoint:
+      typeof source.endpoint === "string"
+        ? source.endpoint
+        : typeof source.path === "string"
+          ? source.path
+          : typeof source.route === "string"
+            ? source.route
+            : typeof source.url === "string"
+              ? source.url
+              : "",
+    provider: typeof source.provider === "string" && source.provider.trim()
+      ? source.provider.trim()
+      : "fal",
+  };
+}
+
+function normalizeCustomEndpointsForForm(customAdapters) {
+  const source = customAdapters && typeof customAdapters === "object" ? customAdapters : {};
+  const configuredEndpoints = Array.isArray(source.custom_endpoints)
+    ? source.custom_endpoints
+    : Array.isArray(source.customEndpoints)
+      ? source.customEndpoints
+      : [];
+
+  const endpointRows = configuredEndpoints
+    .map((endpoint, index) => normalizeCustomEndpointForForm(endpoint, index))
+    .filter((endpoint) => endpoint.base_url || endpoint.endpoint || endpoint.api_key || endpoint.name);
+
+  if (endpointRows.length > 0) {
+    return endpointRows;
+  }
+
+  const legacyBaseUrl = typeof source.base_url === "string" ? source.base_url : "";
+  const legacyApiKey = typeof source.api_key === "string" ? source.api_key : "";
+  const legacyRows = CUSTOM_ENDPOINT_OPERATION_OPTIONS
+    .map((operation) => {
+      const endpoint = typeof source[operation.key] === "string" ? source[operation.key] : "";
+      if (!endpoint.trim()) {
+        return null;
+      }
+      return normalizeCustomEndpointForForm({
+        id: `legacy_${operation.key}`,
+        name: operation.label,
+        operation: operation.key,
+        base_url: legacyBaseUrl,
+        api_key: legacyApiKey,
+        endpoint,
+        provider: "fal",
+      });
+    })
+    .filter(Boolean);
+
+  return legacyRows.length > 0 ? legacyRows : [createEmptyCustomEndpoint()];
+}
+
 function normalizeCustomAdaptersForForm(customAdapters) {
   const source = customAdapters && typeof customAdapters === "object" ? customAdapters : {};
-  return CUSTOM_ADAPTER_FIELDS.reduce((acc, field) => {
+  const normalized = CUSTOM_ADAPTER_FIELDS.reduce((acc, field) => {
     acc[field] = typeof source[field] === "string" ? source[field] : "";
     return acc;
   }, {});
+  normalized.custom_endpoints = normalizeCustomEndpointsForForm(source);
+  return normalized;
 }
 
 function buildCustomAdaptersPayload(customAdapters) {
+  const endpointRows = Array.isArray(customAdapters.custom_endpoints)
+    ? customAdapters.custom_endpoints
+    : [];
+  const customEndpoints = [];
+
+  for (let index = 0; index < endpointRows.length; index += 1) {
+    const row = endpointRows[index] || {};
+    const hasAnyValue = [
+      row.name,
+      row.base_url,
+      row.api_key,
+      row.endpoint,
+    ].some((value) => typeof value === "string" && value.trim());
+
+    if (!hasAnyValue) {
+      continue;
+    }
+
+    const operation = typeof row.operation === "string" ? row.operation.trim() : "";
+    if (!CUSTOM_ENDPOINT_OPERATION_KEYS.has(operation)) {
+      return { error: `Endpoint ${index + 1} has an unsupported operation.` };
+    }
+
+    const baseUrl = row.base_url?.trim();
+    const endpoint = row.endpoint?.trim();
+    if (!baseUrl) {
+      return { error: `Base URL is required for endpoint ${index + 1}.` };
+    }
+    if (!endpoint) {
+      return { error: `Model endpoint is required for endpoint ${index + 1}.` };
+    }
+    if (!row.api_key?.trim() && row.has_api_key !== true) {
+      return { error: `API key is required for endpoint ${index + 1}.` };
+    }
+
+    customEndpoints.push({
+      id: row.id?.trim() || `custom_endpoint_${index + 1}`,
+      name: row.name?.trim() || endpoint,
+      provider: row.provider?.trim() || "fal",
+      operation,
+      base_url: baseUrl,
+      ...(row.api_key?.trim() ? { api_key: row.api_key.trim() } : {}),
+      ...(row.has_api_key === true ? { has_api_key: true } : {}),
+      endpoint,
+    });
+  }
+
+  if (customEndpoints.length > 0) {
+    return {
+      customAdapters: {
+        custom_endpoints: customEndpoints,
+      },
+    };
+  }
+
   const payload = CUSTOM_ADAPTER_FIELDS.reduce((acc, field) => {
     const value = customAdapters[field]?.trim();
     if (value) {
@@ -221,11 +392,41 @@ export default function SettingsPanelContent(props) {
     }
   };
 
-  const handleCustomAdapterFieldChange = (field, value) => {
+  const handleCustomEndpointFieldChange = (index, field, value) => {
+    setCustomAdapters((prev) => {
+      const currentEndpoints = Array.isArray(prev.custom_endpoints)
+        ? prev.custom_endpoints
+        : [];
+      return {
+        ...prev,
+        custom_endpoints: currentEndpoints.map((endpoint, endpointIndex) =>
+          endpointIndex === index ? { ...endpoint, [field]: value } : endpoint
+        ),
+      };
+    });
+  };
+
+  const handleAddCustomEndpoint = () => {
     setCustomAdapters((prev) => ({
       ...prev,
-      [field]: value,
+      custom_endpoints: [
+        ...(Array.isArray(prev.custom_endpoints) ? prev.custom_endpoints : []),
+        createEmptyCustomEndpoint(),
+      ],
     }));
+  };
+
+  const handleRemoveCustomEndpoint = (index) => {
+    setCustomAdapters((prev) => {
+      const currentEndpoints = Array.isArray(prev.custom_endpoints)
+        ? prev.custom_endpoints
+        : [];
+      const nextEndpoints = currentEndpoints.filter((_, endpointIndex) => endpointIndex !== index);
+      return {
+        ...prev,
+        custom_endpoints: nextEndpoints.length > 0 ? nextEndpoints : [createEmptyCustomEndpoint()],
+      };
+    });
   };
 
   const handleUpdateCustomAdapters = (evt) => {
@@ -450,116 +651,110 @@ export default function SettingsPanelContent(props) {
       {activeTab === "custom" && (
         <form onSubmit={handleUpdateCustomAdapters}>
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Custom proxy server</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 w-full gap-4">
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Base URL
-                </label>
-                <input
-                  type="url"
-                  value={customAdapters.base_url}
-                  placeholder="https://proxy.example.com"
-                  onChange={(e) => handleCustomAdapterFieldChange("base_url", e.target.value)}
-                  className={formInputClasses}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>API key</label>
-                <input
-                  type="password"
-                  value={customAdapters.api_key}
-                  onChange={(e) => handleCustomAdapterFieldChange("api_key", e.target.value)}
-                  className={formInputClasses}
-                  autoComplete="off"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Text-to-video path
-                </label>
-                <input
-                  type="text"
-                  value={customAdapters.text_to_video}
-                  placeholder="/custom_text_to_video"
-                  onChange={(e) =>
-                    handleCustomAdapterFieldChange("text_to_video", e.target.value)
-                  }
-                  className={formInputClasses}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Text-to-image path
-                </label>
-                <input
-                  type="text"
-                  value={customAdapters.text_to_image}
-                  placeholder="/custom_text_to_image"
-                  onChange={(e) =>
-                    handleCustomAdapterFieldChange("text_to_image", e.target.value)
-                  }
-                  className={formInputClasses}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Image-to-video path
-                </label>
-                <input
-                  type="text"
-                  value={customAdapters.image_to_video}
-                  placeholder="/custom_image_to_video"
-                  onChange={(e) =>
-                    handleCustomAdapterFieldChange("image_to_video", e.target.value)
-                  }
-                  className={formInputClasses}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Text-to-speech path
-                </label>
-                <input
-                  type="text"
-                  value={customAdapters.text_to_speech}
-                  placeholder="/custom_text_to_speech"
-                  onChange={(e) =>
-                    handleCustomAdapterFieldChange("text_to_speech", e.target.value)
-                  }
-                  className={formInputClasses}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Text-to-music path
-                </label>
-                <input
-                  type="text"
-                  value={customAdapters.text_to_music}
-                  placeholder="/custom_text_to_music"
-                  onChange={(e) =>
-                    handleCustomAdapterFieldChange("text_to_music", e.target.value)
-                  }
-                  className={formInputClasses}
-                />
-              </div>
-              <div>
-                <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
-                  Text-to-sound-effect path
-                </label>
-                <input
-                  type="text"
-                  value={customAdapters.text_to_sound_effect}
-                  placeholder="/custom_text_to_sound_effect"
-                  onChange={(e) =>
-                    handleCustomAdapterFieldChange("text_to_sound_effect", e.target.value)
-                  }
-                  className={formInputClasses}
-                />
-              </div>
+            <div>
+              <h3 className="text-lg font-semibold">Custom FAL-compatible endpoints</h3>
+            </div>
+            <div className="space-y-4">
+              {(Array.isArray(customAdapters.custom_endpoints)
+                ? customAdapters.custom_endpoints
+                : []
+              ).map((endpoint, index) => (
+                <div
+                  key={endpoint.id || index}
+                  className={`rounded-lg border ${borderColor} ${mutedBg} p-4 space-y-4`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">Endpoint {index + 1}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCustomEndpoint(index)}
+                      className={`rounded px-3 py-1 text-sm border ${borderColor} ${inputBgColor}`}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 w-full gap-4">
+                    <div>
+                      <label className={`block text-sm mb-1 ${secondaryTextColor}`}>Name</label>
+                      <input
+                        type="text"
+                        value={endpoint.name}
+                        placeholder="Happy Horse 1.0"
+                        onChange={(e) =>
+                          handleCustomEndpointFieldChange(index, "name", e.target.value)
+                        }
+                        className={formInputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                        Pipeline stage
+                      </label>
+                      <select
+                        value={endpoint.operation}
+                        onChange={(e) =>
+                          handleCustomEndpointFieldChange(index, "operation", e.target.value)
+                        }
+                        className={formInputClasses}
+                      >
+                        {CUSTOM_ENDPOINT_OPERATION_OPTIONS.map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                        FAL base URL
+                      </label>
+                      <input
+                        type="url"
+                        value={endpoint.base_url}
+                        placeholder={DEFAULT_CUSTOM_ENDPOINT_BASE_URL}
+                        onChange={(e) =>
+                          handleCustomEndpointFieldChange(index, "base_url", e.target.value)
+                        }
+                        className={formInputClasses}
+                      />
+                    </div>
+                    <div>
+                      <label className={`block text-sm mb-1 ${secondaryTextColor}`}>API key</label>
+                      <input
+                        type="password"
+                        value={endpoint.api_key}
+                        placeholder={endpoint.has_api_key ? "Saved on server" : ""}
+                        onChange={(e) =>
+                          handleCustomEndpointFieldChange(index, "api_key", e.target.value)
+                        }
+                        className={formInputClasses}
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className={`block text-sm mb-1 ${secondaryTextColor}`}>
+                        Model endpoint
+                      </label>
+                      <input
+                        type="text"
+                        value={endpoint.endpoint}
+                        placeholder={DEFAULT_HAPPY_HORSE_ENDPOINT}
+                        onChange={(e) =>
+                          handleCustomEndpointFieldChange(index, "endpoint", e.target.value)
+                        }
+                        className={formInputClasses}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="flex flex-wrap gap-3">
+              <SecondaryButton type="button" onClick={handleAddCustomEndpoint}>
+                Add Endpoint
+              </SecondaryButton>
               <SecondaryButton type="submit">Save Custom Configuration</SecondaryButton>
               <SecondaryButton type="button" onClick={handleClearCustomAdapters}>
                 Clear Configuration

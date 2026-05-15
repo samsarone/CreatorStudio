@@ -6,6 +6,7 @@ import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
+import StepImageReviewPanel from './StepImageReviewPanel.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const STATIC_ASSET_BASE_URL = (
@@ -304,10 +305,13 @@ export default function ProgressIndicator(props) {
     videoLink,
     errorMessage,
     canProcessNextStep = false,
+    canReviewStepImages = false,
     purchaseCreditsForUser,
     viewInStudio,
     getSessionImageLayers,
     onProcessNextStep,
+    onSelectStepImage,
+    onRegenerateStepImage,
   } = props;
 
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
@@ -519,6 +523,15 @@ export default function ProgressIndicator(props) {
             </button>
           </div>
         </div>
+      )}
+
+      {isGenerationWaitingForApproval && canReviewStepImages && (
+        <StepImageReviewPanel
+          sessionPreview={sessionPreview}
+          colorMode={colorMode}
+          onSelectImage={onSelectStepImage}
+          onRegenerateImage={onRegenerateStepImage}
+        />
       )}
 
       {hasTimelinePreview && !videoLink && (
