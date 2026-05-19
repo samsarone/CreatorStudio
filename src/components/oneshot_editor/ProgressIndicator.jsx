@@ -14,7 +14,14 @@ const STATIC_ASSET_BASE_URL = (
   'https://static.samsar.one'
 ).replace(/\/+$/, '');
 const PREVIEW_MUSIC_DUCKED_VOLUME_RATIO = 0.225;
+const PREVIEW_MEDIA_PRELOAD_TIMEOUT_MS = 15000;
+const PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS = 0.12;
+const PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS = 0.12;
+const PREVIEW_VIDEO_METADATA_READY_STATE = 1;
+const PREVIEW_VIDEO_FRAME_READY_STATE = 2;
 const USER_RESOURCES_PREFIX = 'user_resources/';
+const previewVisualReadyCache = new Set();
+const previewVisualPreloadPromises = new Map();
 
 const STAGE_ORDER = [
   'prompt_generation',
@@ -295,6 +302,107 @@ function normalizePreviewAspectRatio(sessionPreview) {
   return value === '9:16' ? '9:16' : '16:9';
 }
 
+function getPreviewVisualCacheKey(segment) {
+  if (!segment?.url) return null;
+  return `${segment.type || 'media'}:${segment.url}`;
+}
+
+function markPreviewVisualReady(cacheKey) {
+  if (!cacheKey) return;
+  previewVisualReadyCache.add(cacheKey);
+  previewVisualPreloadPromises.delete(cacheKey);
+}
+
+function preloadPreviewImage(url, cacheKey) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    let settled = false;
+    let timeoutId = null;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      markPreviewVisualReady(cacheKey);
+      resolve();
+    };
+
+    image.onload = () => {
+      if (typeof image.decode === 'function') {
+        image.decode().then(finish).catch(finish);
+        return;
+      }
+      finish();
+    };
+    image.onerror = finish;
+    timeoutId = window.setTimeout(finish, PREVIEW_MEDIA_PRELOAD_TIMEOUT_MS);
+    image.src = url;
+
+    if (image.complete) {
+      finish();
+    }
+  });
+}
+
+function preloadPreviewVideo(url, cacheKey) {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    let settled = false;
+    let timeoutId = null;
+
+    const cleanup = () => {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      video.removeEventListener('loadeddata', finish);
+      video.removeEventListener('canplay', finish);
+      video.removeEventListener('error', finish);
+      video.removeAttribute('src');
+      try {
+        video.load();
+      } catch {
+        // Ignore cleanup failures from detached media elements.
+      }
+    };
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      markPreviewVisualReady(cacheKey);
+      resolve();
+    };
+
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.addEventListener('loadeddata', finish);
+    video.addEventListener('canplay', finish);
+    video.addEventListener('error', finish);
+    timeoutId = window.setTimeout(finish, PREVIEW_MEDIA_PRELOAD_TIMEOUT_MS);
+    video.src = url;
+    video.load();
+  });
+}
+
+function preloadPreviewVisualSegment(segment) {
+  const cacheKey = getPreviewVisualCacheKey(segment);
+  if (!cacheKey || previewVisualReadyCache.has(cacheKey)) {
+    return Promise.resolve();
+  }
+  if (previewVisualPreloadPromises.has(cacheKey)) {
+    return previewVisualPreloadPromises.get(cacheKey);
+  }
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    markPreviewVisualReady(cacheKey);
+    return Promise.resolve();
+  }
+
+  const promise = segment.type === 'video'
+    ? preloadPreviewVideo(segment.url, cacheKey)
+    : preloadPreviewImage(segment.url, cacheKey);
+  previewVisualPreloadPromises.set(cacheKey, promise);
+  return promise;
+}
+
 export default function ProgressIndicator(props) {
   const {
     isGenerationPending,
@@ -318,6 +426,8 @@ export default function ProgressIndicator(props) {
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
+  const [visualPreloadVersion, setVisualPreloadVersion] = useState(0);
+  const [activeVideoReadyKey, setActiveVideoReadyKey] = useState(null);
   const audioRefs = useRef(new Map());
   const activeVideoRef = useRef(null);
   const { colorMode } = useColorMode();
@@ -354,6 +464,25 @@ export default function ProgressIndicator(props) {
     () => findActiveVisualSegment(visualSegments, previewTime),
     [previewTime, visualSegments],
   );
+  const activeVisualCacheKey = getPreviewVisualCacheKey(activeVisualSegment);
+  const activeVisualRenderKey = activeVisualSegment
+    ? `${activeVisualSegment.key}-${activeVisualSegment.stage}-${activeVisualSegment.url}`
+    : null;
+  const isVisualSegmentPreloaded = useCallback((segment) => {
+    // visualPreloadVersion intentionally forces recalculation after async preloads settle.
+    const cacheKey = getPreviewVisualCacheKey(segment);
+    return !cacheKey || previewVisualReadyCache.has(cacheKey);
+  }, [visualPreloadVersion]);
+  const isPreviewMediaReadyAtTime = useCallback((time) => {
+    const segmentAtTime = findActiveVisualSegment(visualSegments, time);
+    return isVisualSegmentPreloaded(segmentAtTime);
+  }, [isVisualSegmentPreloaded, visualSegments]);
+  const isActiveVisualPreloaded = isVisualSegmentPreloaded(activeVisualSegment);
+  const isActiveVideoElementReady = activeVisualSegment?.type !== 'video'
+    || activeVideoReadyKey === activeVisualRenderKey
+    || (activeVideoRef.current?.readyState ?? 0) >= PREVIEW_VIDEO_FRAME_READY_STATE;
+  const isActiveVisualReady = !activeVisualSegment
+    || (isActiveVisualPreloaded && isActiveVideoElementReady);
   const previewAspectRatio = normalizePreviewAspectRatio(sessionPreview);
   const isPortraitPreview = previewAspectRatio === '9:16';
   const aspectRatio = isPortraitPreview ? '9 / 16' : '16 / 9';
@@ -387,29 +516,67 @@ export default function ProgressIndicator(props) {
   }, [previewTime, timelineDuration]);
 
   useEffect(() => {
-    if (!hasTimelinePreview || !timelineDuration || !isPreviewPlaying || videoLink) {
+    if (!visualSegments.length) return undefined;
+    let isMounted = true;
+    visualSegments.forEach((segment) => {
+      preloadPreviewVisualSegment(segment).then(() => {
+        if (isMounted) {
+          setVisualPreloadVersion((version) => version + 1);
+        }
+      });
+    });
+    setVisualPreloadVersion((version) => version + 1);
+    return () => {
+      isMounted = false;
+    };
+  }, [visualSegments]);
+
+  useEffect(() => {
+    if (activeVisualSegment?.type !== 'video') {
+      setActiveVideoReadyKey(null);
+      return;
+    }
+    const element = activeVideoRef.current;
+    setActiveVideoReadyKey(
+      (element?.readyState ?? 0) >= PREVIEW_VIDEO_FRAME_READY_STATE
+        ? activeVisualRenderKey
+        : null
+    );
+  }, [activeVisualRenderKey, activeVisualSegment?.type]);
+
+  useEffect(() => {
+    if (!hasTimelinePreview || !timelineDuration || !isPreviewPlaying || videoLink || !isActiveVisualReady) {
       return undefined;
     }
     const intervalId = window.setInterval(() => {
       setPreviewTime((current) => {
         const next = current + 0.25;
-        return next >= timelineDuration ? 0 : next;
+        const nextTime = next >= timelineDuration ? 0 : next;
+        return isPreviewMediaReadyAtTime(nextTime) ? nextTime : current;
       });
     }, 250);
     return () => window.clearInterval(intervalId);
-  }, [hasTimelinePreview, isPreviewPlaying, timelineDuration, videoLink]);
+  }, [
+    hasTimelinePreview,
+    isActiveVisualReady,
+    isPreviewMediaReadyAtTime,
+    isPreviewPlaying,
+    timelineDuration,
+    videoLink,
+  ]);
 
   useEffect(() => {
+    const canPlayPreviewMedia = isPreviewPlaying && !videoLink && isActiveVisualReady;
     audioSegments.forEach((segment) => {
       const element = audioRefs.current.get(segment.key);
       if (!element) return;
       const isActive = isSegmentActiveAtTime(segment, previewTime);
-      if (!isActive || !isPreviewPlaying || videoLink) {
+      if (!isActive || !canPlayPreviewMedia) {
         element.pause();
         return;
       }
       const localTime = Math.max(0, previewTime - segment.startTime + segment.sourceTrimStartTime);
-      if (Math.abs(element.currentTime - localTime) > 0.45) {
+      if (Math.abs(element.currentTime - localTime) > PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS) {
         element.currentTime = localTime;
       }
       element.volume = Math.max(0, Math.min(1, resolveAudioVolume(segment, audioSegments, previewTime)));
@@ -417,21 +584,50 @@ export default function ProgressIndicator(props) {
         element.play().catch(() => undefined);
       }
     });
-  }, [audioSegments, isPreviewPlaying, previewTime, videoLink]);
+  }, [audioSegments, isActiveVisualReady, isPreviewPlaying, previewTime, videoLink]);
 
   useEffect(() => {
     const element = activeVideoRef.current;
     if (!element || activeVisualSegment?.type !== 'video') return;
     const localTime = Math.max(0, previewTime - activeVisualSegment.startTime);
-    if (Math.abs(element.currentTime - localTime) > 0.45) {
+    if (
+      (element.readyState ?? 0) >= PREVIEW_VIDEO_METADATA_READY_STATE &&
+      Math.abs(element.currentTime - localTime) > PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS
+    ) {
       element.currentTime = localTime;
     }
-    if (isPreviewPlaying && !videoLink) {
+    if (isPreviewPlaying && !videoLink && isActiveVisualReady) {
       element.play().catch(() => undefined);
     } else {
       element.pause();
     }
-  }, [activeVisualSegment, isPreviewPlaying, previewTime, videoLink]);
+  }, [activeVisualSegment, isActiveVisualReady, isPreviewPlaying, previewTime, videoLink]);
+
+  const handleActiveVideoReady = useCallback((event) => {
+    const element = event.currentTarget;
+    if (!element || activeVisualSegment?.type !== 'video') {
+      setActiveVideoReadyKey(activeVisualRenderKey);
+      return;
+    }
+    const localTime = Math.max(0, previewTime - activeVisualSegment.startTime);
+    if (
+      (element.readyState ?? 0) >= PREVIEW_VIDEO_METADATA_READY_STATE &&
+      Math.abs(element.currentTime - localTime) > PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS
+    ) {
+      element.currentTime = localTime;
+      if (element.seeking) return;
+    }
+    setActiveVideoReadyKey(activeVisualRenderKey);
+  }, [activeVisualRenderKey, activeVisualSegment, previewTime]);
+
+  const handleActiveVideoWaiting = useCallback(() => {
+    setActiveVideoReadyKey(null);
+  }, []);
+
+  const handleActiveImageReady = useCallback(() => {
+    markPreviewVisualReady(activeVisualCacheKey);
+    setVisualPreloadVersion((version) => version + 1);
+  }, [activeVisualCacheKey]);
 
   const registerAudioRef = useCallback((key, element) => {
     if (element) {
@@ -554,21 +750,42 @@ export default function ProgressIndicator(props) {
           >
             {activeVisualSegment?.url ? (
               activeVisualSegment.type === 'video' ? (
-                <video
-                  key={`${activeVisualSegment.key}-${activeVisualSegment.stage}-${activeVisualSegment.url}`}
-                  ref={activeVideoRef}
-                  src={activeVisualSegment.url}
-                  muted
-                  playsInline
-                  preload="auto"
-                  className="h-full w-full object-contain"
-                />
-              ) : (
+                <div className="relative h-full w-full">
+                  <video
+                    key={activeVisualRenderKey}
+                    ref={activeVideoRef}
+                    src={activeVisualSegment.url}
+                    muted
+                    playsInline
+                    preload="auto"
+                    onLoadedData={handleActiveVideoReady}
+                    onCanPlay={handleActiveVideoReady}
+                    onSeeked={handleActiveVideoReady}
+                    onError={handleActiveVideoReady}
+                    onWaiting={handleActiveVideoWaiting}
+                    onStalled={handleActiveVideoWaiting}
+                    className={`h-full w-full object-contain transition-opacity duration-150 ${isActiveVisualReady ? 'opacity-100' : 'opacity-0'}`}
+                  />
+                  {!isActiveVisualReady && (
+                    <div className={`absolute inset-0 flex items-center justify-center gap-2 text-sm ${mutedText}`}>
+                      <FaSpinner className="animate-spin" />
+                      Loading preview media
+                    </div>
+                  )}
+                </div>
+              ) : isActiveVisualReady ? (
                 <img
                   src={activeVisualSegment.url}
                   alt={activeVisualSegment.title || 'Generated preview'}
+                  onLoad={handleActiveImageReady}
+                  onError={handleActiveImageReady}
                   className="h-full w-full object-contain"
                 />
+              ) : (
+                <div className={`flex h-full w-full items-center justify-center gap-2 text-sm ${mutedText}`}>
+                  <FaSpinner className="animate-spin" />
+                  Loading preview media
+                </div>
               )
             ) : (
               <div className={`flex h-full w-full items-center justify-center text-sm ${mutedText}`}>

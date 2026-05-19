@@ -4159,20 +4159,7 @@ export default function OneshotEditor() {
 
               {generationMode === 'I2V' && (
                 <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
-                      <input
-                        type="checkbox"
-                        checked={advancedOptions.limit_single_narrator || advancedOptions.add_narrator_avatar}
-                        onChange={(event) =>
-                          updateAdvancedOption('limit_single_narrator', event.target.checked)
-                        }
-                        disabled={isFormDisabled || advancedOptions.add_narrator_avatar}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm font-medium">Limit single narrator</span>
-                    </label>
-
+                  <div className="grid grid-cols-1 gap-3">
                     <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
                       <input
                         type="checkbox"
