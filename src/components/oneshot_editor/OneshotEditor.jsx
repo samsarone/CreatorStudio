@@ -9,7 +9,7 @@ import React, {
 import ace from 'ace-builds';
 import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   FaChevronCircleDown,
   FaChevronDown,
@@ -40,6 +40,10 @@ import PrimaryPublicButton from '../common/buttons/PrimaryPublicButton.tsx';
 import PublishOptionsDialog from '../video/toolbars/frame_toolbar/PublishOptionsDialog.jsx';
 import VidgenieSkeletonLoader from './VidgenieSkeletonLoader.jsx';
 import VideoEditAdvancedDialog from '../video/advanced/VideoEditAdvancedDialog.jsx';
+import PurchaseCreditsPromptDialog, {
+  PURCHASE_CREDITS_PROMPT_STORAGE_KEY,
+  PURCHASE_CREDITS_ROUTE,
+} from '../account/PurchaseCreditsPromptDialog.jsx';
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
@@ -52,11 +56,13 @@ import { getExpressVideoCreditsPerSecond } from '../../constants/pricing/Express
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
+import { hasNoGenerationCredits } from '../../utils/defaultRoutes.js';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 
 import 'ace-builds/src-noconflict/mode-json';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
+import './mobileStyles.css';
 
 ace.config.set('useWorker', false);
 
@@ -1557,10 +1563,62 @@ export default function OneshotEditor() {
   const { t, language } = useLocalization();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const showLoginDialog = useCallback(() => {
     openAlertDialog(<AuthContainer />, undefined, false, AUTH_DIALOG_OPTIONS);
   }, [openAlertDialog]);
+  const hasOpenedPurchaseCreditsPromptRef = useRef(false);
+
+  const goToPurchaseCredits = useCallback(() => {
+    closeAlertDialog();
+    navigate(PURCHASE_CREDITS_ROUTE);
+  }, [closeAlertDialog, navigate]);
+
+  const closePurchaseCreditsPrompt = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY);
+    }
+    closeAlertDialog();
+  }, [closeAlertDialog]);
+
+  const openPurchaseCreditsPrompt = useCallback(() => {
+    hasOpenedPurchaseCreditsPromptRef.current = true;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY);
+    }
+    openAlertDialog(
+      <PurchaseCreditsPromptDialog
+        onClose={closePurchaseCreditsPrompt}
+        onPurchaseCredits={goToPurchaseCredits}
+      />,
+      undefined,
+      false,
+      {
+        centerContent: true,
+        fullBleed: true,
+        hideBorder: true,
+        hideCloseButton: true,
+      }
+    );
+  }, [closePurchaseCreditsPrompt, goToPurchaseCredits, openAlertDialog]);
+
+  useEffect(() => {
+    if (!user?._id || hasOpenedPurchaseCreditsPromptRef.current) return;
+
+    const params = new URLSearchParams(location.search);
+    const requestedByRoute = params.get('purchaseCredits') === '1';
+    const requestedBySignup = typeof window !== 'undefined'
+      ? localStorage.getItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY) === 'true'
+      : false;
+
+    if (!requestedByRoute && !requestedBySignup && !hasNoGenerationCredits(user)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(openPurchaseCreditsPrompt, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [location.search, openPurchaseCreditsPrompt, user]);
 
   const activeSessionIdRef = useRef(id);
   const currentPollRequestIdRef = useRef(null);
@@ -3520,9 +3578,9 @@ export default function OneshotEditor() {
   }, [closeAlertDialog, handleAdvancedVideoEditAccepted, id, openAlertDialog, sessionDetails]);
 
   // ─────────────────────────────────────────────────────────
-  //  Placeholder: purchase credits
+  //  Purchase credits
   // ─────────────────────────────────────────────────────────
-  const purchaseCreditsForUser = () => { /* ... */ };
+  const purchaseCreditsForUser = goToPurchaseCredits;
 
   // ─────────────────────────────────────────────────────────
   //  Pricing info
@@ -3737,9 +3795,9 @@ export default function OneshotEditor() {
       : t("vidgenie.titleImageListToVideo");
   const renderGenerationControlsRow = ({ showAdvancedToggle = true, className = '' } = {}) => (
     <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <div
-          className={`inline-flex items-center gap-1 rounded-xl p-1 text-sm ring-1 ${stepModeShell}`}
+          className={`grid w-full grid-cols-2 items-center gap-1 rounded-xl p-1 text-sm ring-1 sm:inline-flex sm:w-auto ${stepModeShell}`}
           role="radiogroup"
           aria-label="Generation steps"
         >
@@ -3750,7 +3808,7 @@ export default function OneshotEditor() {
                 key={option.value}
                 title={option.description}
                 className={`
-                  inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 font-medium ring-1 ring-transparent transition
+                  inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-center font-medium ring-1 ring-transparent transition sm:px-3
                   ${isSelected ? stepModeSelectedClasses : stepModeInactiveClasses}
                   ${isFormDisabled ? 'cursor-not-allowed opacity-60' : ''}
                 `}
@@ -3776,7 +3834,7 @@ export default function OneshotEditor() {
             onClick={() => setIsAdvancedOpen((open) => !open)}
             aria-expanded={isAdvancedOpen}
             className={`
-              inline-flex min-h-9 items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium ring-1 transition
+              inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium ring-1 transition sm:w-auto
               ${secondaryActionClasses}
             `}
           >
@@ -3794,7 +3852,7 @@ export default function OneshotEditor() {
         <PrimaryPublicButton
           onClick={handleSubmit}
           isDisabled={isGenerationActionDisabled}
-          extraClasses="!m-0 !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          extraClasses="!m-0 w-full sm:w-auto !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
         >
           {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
         </PrimaryPublicButton>
@@ -3809,27 +3867,27 @@ export default function OneshotEditor() {
   //  JSX
   // ─────────────────────────────────────────────────────────
   return (
-    <div className="mt-5 relative max-w-6xl mx-auto px-3 sm:px-6">
+    <div className="vidgenie-editor-shell relative mx-auto mt-2 w-full max-w-6xl overflow-x-hidden px-2 sm:mt-5 sm:px-6">
       {/* ───────── HEADER ───────── */}
       <div
         className={`
           ${surfaceCard}
-          relative flex flex-col p-6 sm:p-8 mt-6 rounded-2xl transition-shadow duration-300 hover:shadow-xl
+          vidgenie-editor-card relative mt-2 flex flex-col rounded-2xl p-3 transition-shadow duration-300 hover:shadow-xl sm:mt-6 sm:p-8
         `}
       >
         {/* 1️⃣ Heading */}
-        <div className="flex flex-wrap items-center gap-2 text-center sm:text-left">
-          <div className="flex-1 flex flex-wrap items-center justify-center sm:justify-start gap-3">
-            <div className="text-xl sm:text-2xl font-semibold tracking-tight">
+        <div className="flex flex-col gap-3 text-left sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+          <div className="flex min-w-0 flex-1 flex-col items-stretch justify-center gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start">
+            <div className="min-w-0 break-words text-lg font-semibold leading-tight tracking-tight sm:text-2xl">
               {headerTitle}
             </div>
-            <div className={`inline-flex items-center gap-1 rounded-full p-1 ${toggleShell}`}>
+            <div className={`inline-flex w-full items-center justify-center gap-1 rounded-full p-1 sm:w-auto ${toggleShell}`}>
               <button
                 type="button"
                 disabled={isModeToggleDisabled}
                 onClick={() => handleGenerationModeChange('T2V')}
                 aria-pressed={generationMode === 'T2V'}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'T2V' ? toggleActive : toggleInactive}`}
+                className={`flex-1 rounded-full px-4 py-1.5 text-xs font-semibold transition sm:flex-none ${generationMode === 'T2V' ? toggleActive : toggleInactive}`}
               >
                 T2V
               </button>
@@ -3838,17 +3896,17 @@ export default function OneshotEditor() {
                 disabled={isModeToggleDisabled}
                 onClick={() => handleGenerationModeChange('I2V')}
                 aria-pressed={generationMode === 'I2V'}
-                className={`px-4 py-1.5 text-xs font-semibold rounded-full transition ${generationMode === 'I2V' ? toggleActive : toggleInactive}`}
+                className={`flex-1 rounded-full px-4 py-1.5 text-xs font-semibold transition sm:flex-none ${generationMode === 'I2V' ? toggleActive : toggleInactive}`}
               >
                 I2V
               </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-center sm:justify-end sm:ml-auto">
+          <div className="vidgenie-header-actions flex w-full flex-wrap items-center justify-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
             <div
               className={`
-                px-3 py-1.5 rounded-full text-center transition
+                vidgenie-pricing-pill px-3 py-1.5 rounded-full text-center transition
                 ${colorMode === 'dark'
                   ? 'bg-[#111a2f] text-slate-100 ring-1 ring-[#1f2a3d]'
                   : 'bg-white text-slate-900 ring-1 ring-slate-200'
@@ -3927,15 +3985,15 @@ export default function OneshotEditor() {
 
         {/* Mobile action buttons (complete state) */}
         {renderState === 'complete' && sessionDetails && (
-          <div className="flex justify-center gap-2 mt-4 mb-2">
+          <div className="mt-4 mb-2 flex flex-col justify-center gap-2 sm:flex-row">
             <PrimaryPublicButton
-              className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+              extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
               onClick={viewInStudio}
             >
               View&nbsp;in&nbsp;Studio
             </PrimaryPublicButton>
             <PrimaryPublicButton
-              extraClasses="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+              extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
               onClick={
                 sessionDetails.ispublishedVideo
                   ? handleUnpublishClick
@@ -3954,7 +4012,7 @@ export default function OneshotEditor() {
                   ? t("vidgenie.publishing")
                   : t("vidgenie.publish")}
             </PrimaryPublicButton>
-            <PrimaryPublicButton className="px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
+            <PrimaryPublicButton extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
               <a
                 href={videoLink}
                 download={`Rendition_${dateNowStr}.mp4`}
@@ -3969,7 +4027,7 @@ export default function OneshotEditor() {
         {!isJsonMode && (
           <>
         {/* 2️⃣ Options grid */}
-        <div className="w-full mt-4">
+        <div className="vidgenie-options-section w-full mt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {/* Aspect Ratio */}
             <div className="group w-full">
@@ -4134,7 +4192,7 @@ export default function OneshotEditor() {
           </div>
         </div>
 
-        <div className={`mt-4 border-t ${advancedSectionBorder} pt-3`}>
+        <div className={`vidgenie-advanced-section mt-4 border-t ${advancedSectionBorder} pt-3`}>
           {renderGenerationControlsRow({ showAdvancedToggle: true })}
 
           {isAdvancedOpen && (
@@ -4383,11 +4441,11 @@ export default function OneshotEditor() {
                   Progress stays visible. Expand this panel only when you need to inspect or copy the submitted request.
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setIsJsonRequestExpanded((expanded) => !expanded)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`w-full rounded-full px-3 py-1.5 text-xs font-semibold transition sm:w-auto ${
                     colorMode === 'dark'
                       ? 'border border-white/10 hover:bg-white/5'
                       : 'border border-slate-200 hover:bg-slate-50'
@@ -4398,7 +4456,7 @@ export default function OneshotEditor() {
                 <button
                   type="button"
                   onClick={copyJsonRequestToClipboard}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                  className={`w-full rounded-full px-3 py-1.5 text-xs font-semibold transition sm:w-auto ${
                     colorMode === 'dark'
                       ? 'border border-white/10 hover:bg-white/5'
                       : 'border border-slate-200 hover:bg-slate-50'
@@ -4410,7 +4468,7 @@ export default function OneshotEditor() {
             </div>
 
             {isJsonRequestExpanded && (
-              <div className="mt-4 overflow-hidden rounded-xl ring-1 ring-white/10">
+              <div className="mt-4 max-w-full overflow-hidden rounded-xl ring-1 ring-white/10">
                 <AceEditor
                   mode="json"
                   theme="monokai"
@@ -4440,7 +4498,7 @@ export default function OneshotEditor() {
         ) : isJsonMode ? (
           <div className="mt-4">
             {renderGenerationControlsRow({ showAdvancedToggle: false, className: 'mb-3' })}
-            <div className={`overflow-hidden rounded-2xl ring-1 transition ${
+            <div className={`max-w-full overflow-hidden rounded-2xl ring-1 transition ${
               jsonEditorErrorMessage
                 ? 'ring-red-500/50'
                 : colorMode === 'dark'
@@ -4513,6 +4571,7 @@ export default function OneshotEditor() {
                 disabled={isFormDisabled}
                 readOnly={isVoiceBusy}
                 className={`
+                  vidgenie-prompt-textarea
                   w-full pl-4 pt-4 pr-16 p-2 rounded-2xl resize-none placeholder:opacity-60
                   focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
                   ${colorMode === 'dark'
@@ -4688,7 +4747,7 @@ export default function OneshotEditor() {
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[112px_minmax(0,1fr)]">
                         <div
                           className={`
-                            flex aspect-square w-full max-w-[112px] items-center justify-center overflow-hidden rounded-lg ring-1
+                            mx-auto flex aspect-square w-full max-w-[112px] items-center justify-center overflow-hidden rounded-lg ring-1 lg:mx-0
                             ${colorMode === 'dark'
                               ? 'bg-black/20 ring-white/10'
                               : 'bg-white ring-slate-200'
@@ -4805,6 +4864,7 @@ export default function OneshotEditor() {
               maxRows={12}
               disabled={isFormDisabled}
               className={`
+                vidgenie-prompt-textarea
                 w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
                 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
                 ${colorMode === 'dark'
@@ -4830,7 +4890,7 @@ export default function OneshotEditor() {
       </form>
 
       {/* ───────── Assistant Chat ───────── */}
-      <div className={`mt-6 rounded-2xl p-3 sm:p-4 ring-1 transition-shadow hover:shadow-sm ${
+      <div className={`vidgenie-assistant-anchor mt-6 rounded-2xl p-3 sm:p-4 ring-1 transition-shadow hover:shadow-sm ${
         colorMode === 'dark'
           ? 'bg-[#0f1629] text-slate-100 ring-[#1f2a3d]'
           : 'bg-white text-slate-900 ring-slate-200'

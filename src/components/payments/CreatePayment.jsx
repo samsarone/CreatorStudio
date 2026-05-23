@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import UpgradePlan from './UpgradePlan.tsx';
 import AddCreditsDialog from '../account/AddCreditsDialog.jsx';
@@ -7,6 +7,7 @@ import { getHeaders } from '../../utils/web.jsx';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { ToastContainer, toast } from "react-toastify";
+import { useLocation } from 'react-router-dom';
 
 import 'react-toastify/dist/ReactToastify.css';
 
@@ -16,7 +17,18 @@ const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 export default function CreatePayment() {
   const [selectedTab, setSelectedTab] = useState('upgradePlan');
   const { colorMode } = useColorMode();
-    const { getUserAPI } = useUser();
+  const { getUserAPI } = useUser();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab === 'purchaseCredits' || tab === 'credits') {
+      setSelectedTab('purchaseCredits');
+    } else if (tab === 'upgradePlan' || tab === 'plan') {
+      setSelectedTab('upgradePlan');
+    }
+  }, [location.search]);
 
   // Helper function to derive button styles based on selection and theme
   const getButtonClass = (isActive) => {

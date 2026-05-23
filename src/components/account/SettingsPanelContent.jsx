@@ -467,11 +467,17 @@ export default function SettingsPanelContent(props) {
     updateUserDetails({ fontPreferences });
   };
 
-  const handleSpeakerProviderSelection = (allowKey) => {
-    setSpeakerOptions((prev) => ({
-      ...prev,
-      [allowKey]: !prev[allowKey],
-    }));
+  const handleSpeakerProviderSelection = (group) => {
+    setSpeakerOptions((prev) => {
+      const nextEnabled = !prev[group.allowKey];
+      return {
+        ...prev,
+        [group.allowKey]: nextEnabled,
+        [group.selectionKey]: nextEnabled
+          ? group.speakers.map((speaker) => speaker.value)
+          : [],
+      };
+    });
   };
 
   const handleSpeakerSelectionChange = (selectionKey, speakerValue) => {
@@ -862,7 +868,7 @@ export default function SettingsPanelContent(props) {
                   speakerOptions={speakerOptions}
                   isExpanded={expandedSpeakerProvider === group.key}
                   currentlyPlayingSpeaker={currentlyPlayingSpeaker}
-                  onToggleProvider={() => handleSpeakerProviderSelection(group.allowKey)}
+                  onToggleProvider={() => handleSpeakerProviderSelection(group)}
                   onToggleExpand={() => handleSpeakerProviderExpand(group.key)}
                   onToggleSpeaker={(speakerValue) =>
                     handleSpeakerSelectionChange(group.selectionKey, speakerValue)

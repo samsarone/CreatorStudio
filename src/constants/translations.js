@@ -5,6 +5,7 @@ export const translations = {
       login: "Login",
       auth: {
         ageConfirmation: "I am 18 years or older",
+        newsletterOptIn: "Send me the weekly Samsar newsletter.",
       },
       yes: "Yes",
       no: "No",

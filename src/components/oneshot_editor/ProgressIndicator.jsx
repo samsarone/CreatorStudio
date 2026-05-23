@@ -490,7 +490,8 @@ export default function ProgressIndicator(props) {
     aspectRatio,
     width: isPortraitPreview
       ? 'min(100%, 31.5vh, 292px)'
-      : 'min(100%, 78vh, 640px)',
+      : 'min(100%, calc(100vw - 48px), 640px)',
+    maxWidth: '100%',
     maxHeight: isPortraitPreview
       ? 'min(56vh, 520px)'
       : 'min(44vh, 360px)',
@@ -665,7 +666,7 @@ export default function ProgressIndicator(props) {
       : 'border-amber-200 bg-amber-50 text-amber-900';
 
   return (
-    <div className={`${panelShell} rounded-2xl p-4 pt-3 transition-shadow duration-200`}>
+    <div className={`vidgenie-progress-panel ${panelShell} rounded-xl p-3 pt-3 transition-shadow duration-200 sm:rounded-2xl sm:p-4`}>
       {errorMessage && (
         <div className={`${errorPanel} p-3 rounded-xl mb-3`}>
           {errorMessage.error}
@@ -682,14 +683,14 @@ export default function ProgressIndicator(props) {
       )}
 
       {(isGenerationPending || isGenerationWaitingForApproval) && hasProgressStatus ? (
-        <div className="clear-both mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="clear-both mt-4 flex flex-col gap-2 text-left sm:flex-row sm:items-center">
           <div className={`w-full ${progressTrack} rounded-full overflow-hidden h-3`}>
             <div
               className="h-full bg-blue-500 transition-all duration-300"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
-          <div className="text-sm whitespace-nowrap">
+          <div className="min-w-0 break-words text-sm sm:whitespace-nowrap">
             {Math.round(progressPercentage)}% - {currentStep || 'Preparing generation'}
           </div>
         </div>
@@ -731,11 +732,11 @@ export default function ProgressIndicator(props) {
       )}
 
       {hasTimelinePreview && !videoLink && (
-        <div className="mt-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
+        <div className="vidgenie-preview-section mt-5">
+          <div className="vidgenie-preview-header mb-3 flex flex-wrap items-center justify-between gap-2 text-left">
+            <div className="min-w-0">
               <div className="text-sm font-semibold">Timeline preview</div>
-              <div className={`mt-0.5 text-xs ${mutedText}`}>
+              <div className={`mt-0.5 break-words text-xs ${mutedText}`}>
                 {sessionPreview?.previewStage ? getStageLabel(sessionPreview.previewStage, t) : currentStep}
               </div>
             </div>
@@ -745,7 +746,7 @@ export default function ProgressIndicator(props) {
           </div>
 
           <div
-            className={`mx-auto flex items-center justify-center overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
+            className={`vidgenie-preview-frame ${isPortraitPreview ? 'vidgenie-preview-frame-portrait' : 'vidgenie-preview-frame-landscape'} mx-auto flex items-center justify-center overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
             style={previewFrameStyle}
           >
             {activeVisualSegment?.url ? (
@@ -794,7 +795,7 @@ export default function ProgressIndicator(props) {
             )}
           </div>
 
-          <div className="mt-3 flex items-center gap-3">
+          <div className="vidgenie-preview-controls mt-3 flex items-center gap-3">
             <button
               type="button"
               onClick={() => setIsPreviewPlaying((playing) => !playing)}
@@ -819,48 +820,52 @@ export default function ProgressIndicator(props) {
             />
           </div>
 
-          <div className="mt-3 space-y-2">
+          <div className="vidgenie-timeline-group mt-3 space-y-2">
             {visualSegments.length > 0 && (
               <div>
                 <div className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${mutedText}`}>Visuals</div>
-                <div className={`relative h-9 overflow-hidden rounded-lg ${timelineTrack}`}>
-                  {visualSegments.map((segment) => {
-                    const left = timelineDuration > 0 ? (segment.startTime / timelineDuration) * 100 : 0;
-                    const width = timelineDuration > 0 ? (segment.duration / timelineDuration) * 100 : 100;
-                    return (
-                      <div
-                        key={segment.key}
-                        className="absolute top-1 h-7 rounded-md bg-indigo-500/80 px-2 text-[11px] font-semibold leading-7 text-white"
-                        style={{ left: `${left}%`, width: `${Math.max(width, 2)}%` }}
-                        title={segment.title}
-                      >
-                        <span className="block truncate">{segment.type === 'video' ? 'Video' : 'Image'}</span>
-                      </div>
-                    );
-                  })}
+                <div className="vidgenie-timeline-scroller overflow-x-auto pb-1">
+                  <div className={`vidgenie-timeline-strip relative h-9 overflow-hidden rounded-lg ${timelineTrack}`}>
+                    {visualSegments.map((segment) => {
+                      const left = timelineDuration > 0 ? (segment.startTime / timelineDuration) * 100 : 0;
+                      const width = timelineDuration > 0 ? (segment.duration / timelineDuration) * 100 : 100;
+                      return (
+                        <div
+                          key={segment.key}
+                          className="absolute top-1 h-7 rounded-md bg-indigo-500/80 px-2 text-[11px] font-semibold leading-7 text-white"
+                          style={{ left: `${left}%`, width: `${Math.max(width, 2)}%` }}
+                          title={segment.title}
+                        >
+                          <span className="block truncate">{segment.type === 'video' ? 'Video' : 'Image'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
             {audioSegments.length > 0 && (
               <div>
                 <div className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${mutedText}`}>Audio</div>
-                <div className={`relative h-9 overflow-hidden rounded-lg ${timelineTrack}`}>
-                  {audioSegments.map((segment) => {
-                    const left = timelineDuration > 0 ? (segment.startTime / timelineDuration) * 100 : 0;
-                    const width = timelineDuration > 0 ? (segment.duration / timelineDuration) * 100 : 100;
-                    return (
-                      <div
-                        key={segment.key}
-                        className={`absolute top-1 h-7 rounded-md px-2 text-[11px] font-semibold leading-7 text-white ${
-                          isSpeechAudio(segment) ? 'bg-emerald-500/80' : 'bg-cyan-500/80'
-                        }`}
-                        style={{ left: `${left}%`, width: `${Math.max(width, 2)}%` }}
-                        title={segment.title}
-                      >
-                        <span className="block truncate">{isSpeechAudio(segment) ? 'Speech' : 'Audio'}</span>
-                      </div>
-                    );
-                  })}
+                <div className="vidgenie-timeline-scroller overflow-x-auto pb-1">
+                  <div className={`vidgenie-timeline-strip relative h-9 overflow-hidden rounded-lg ${timelineTrack}`}>
+                    {audioSegments.map((segment) => {
+                      const left = timelineDuration > 0 ? (segment.startTime / timelineDuration) * 100 : 0;
+                      const width = timelineDuration > 0 ? (segment.duration / timelineDuration) * 100 : 100;
+                      return (
+                        <div
+                          key={segment.key}
+                          className={`absolute top-1 h-7 rounded-md px-2 text-[11px] font-semibold leading-7 text-white ${
+                            isSpeechAudio(segment) ? 'bg-emerald-500/80' : 'bg-cyan-500/80'
+                          }`}
+                          style={{ left: `${left}%`, width: `${Math.max(width, 2)}%` }}
+                          title={segment.title}
+                        >
+                          <span className="block truncate">{isSpeechAudio(segment) ? 'Speech' : 'Audio'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -880,9 +885,9 @@ export default function ProgressIndicator(props) {
       )}
 
       {videoActualLink && !isGenerationPending && (
-        <div className="mt-5 clear-both">
+        <div className="vidgenie-preview-section mt-5 clear-both">
           <div
-            className={`mx-auto overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
+            className={`vidgenie-preview-frame ${isPortraitPreview ? 'vidgenie-preview-frame-portrait' : 'vidgenie-preview-frame-landscape'} mx-auto overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
             style={previewFrameStyle}
           >
             <video controls className="h-full w-full object-contain">

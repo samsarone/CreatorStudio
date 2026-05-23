@@ -35,7 +35,7 @@ export default function Login(props) {
         persistAuthToken(authToken);
         setUser(userData);
         closeAlertDialog();
-        getOrCreateUserSession();
+        getOrCreateUserSession(userData);
       })
       .catch((err) => {
         if (err.response && err.response.data && err.response.data.message) {

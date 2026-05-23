@@ -6,6 +6,11 @@ import 'react-tooltip/dist/react-tooltip.css';
 
 
 import { consumePostAuthRedirect, persistAuthToken } from '../../utils/web.jsx';
+import {
+  getDefaultAuthenticatedPath,
+  hasNoGenerationCredits,
+  hasStudioAccess as userHasStudioAccess,
+} from '../../utils/defaultRoutes.js';
 import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 
@@ -65,17 +70,15 @@ export default function Home() {
     getUserAPI();
   }, [getUserAPI, location.pathname, location.search]);
 
-  const credits = Number(user?.generationCredits || 0);
   const isExternalUser = Boolean(user?.isExternalUser);
   const hasStudioAccess = Boolean(
     isExternalUser ||
-    user?.isPremiumUser ||
-    credits >= 100 ||
-    user?.autoRechargePaymentMethodId ||
-    user?.autoRechargeEnabled
+    userHasStudioAccess(user)
   );
+  const isVidgeniePath = location.pathname.startsWith('/vidgenie');
   const isAccessAllowedPath = (() => {
     if (location.pathname.startsWith('/external/studio') && isExternalUser) return true;
+    if (user && isVidgeniePath) return true;
     if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
     if (location.pathname === '/image_sessions' && user) return true;
     const allowed = new Set([
@@ -107,7 +110,11 @@ export default function Home() {
     if (hasStudioAccess) return;
     if (isAccessAllowedPath) return;
 
-    const redirectTarget = user ? '/account/billing' : '/login';
+    const redirectTarget = user && hasNoGenerationCredits(user)
+      ? '/vidgenie?purchaseCredits=1'
+      : user
+        ? '/account/billing'
+        : '/login';
     if (location.pathname !== redirectTarget) {
       navigate(redirectTarget, { replace: true });
     }
@@ -118,9 +125,12 @@ export default function Home() {
     return paramsString ? `${url}?${paramsString}` : url;
   }, [extraProps]);
 
-  const navigateToDefaultAuthenticatedView = useCallback(() => {
-    navigate(appendQueryParams('/generations'), { replace: true });
-  }, [appendQueryParams, navigate]);
+  const navigateToDefaultAuthenticatedView = useCallback((resolvedUser = user) => {
+    navigate(
+      appendQueryParams(getDefaultAuthenticatedPath(resolvedUser, { isMobile })),
+      { replace: true }
+    );
+  }, [appendQueryParams, isMobile, navigate, user]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') {
@@ -128,15 +138,15 @@ export default function Home() {
     }
 
     const channel = new BroadcastChannel('oauth_channel');
-    channel.onmessage = (event) => {
+    channel.onmessage = async (event) => {
       if (event.data === 'oauth_complete') {
-        getUserAPI();
+        const resolvedUser = await getUserAPI();
         const redirectTarget = consumePostAuthRedirect();
         if (redirectTarget) {
           navigate(redirectTarget, { replace: true });
           return;
         }
-        navigateToDefaultAuthenticatedView();
+        navigateToDefaultAuthenticatedView(resolvedUser);
       }
     };
 
@@ -161,7 +171,7 @@ export default function Home() {
         const resolvedAuthToken = response?.data?.authToken;
         if (resolvedAuthToken) {
           persistAuthToken(resolvedAuthToken);
-          await getUserAPI();
+          const resolvedUser = await getUserAPI();
 
           const redirectTarget = consumePostAuthRedirect();
           if (redirectTarget) {
@@ -169,7 +179,7 @@ export default function Home() {
             return;
           }
 
-          getOrCreateUserSession();
+          navigateToDefaultAuthenticatedView(resolvedUser);
           return;
         }
       } catch (error) {
@@ -194,7 +204,7 @@ export default function Home() {
           <Route
             path="/"
             element={user && user._id && userInitiated && !userFetching
-              ? <Navigate to="/generations" replace />
+              ? <Navigate to={appendQueryParams(getDefaultAuthenticatedPath(user, { isMobile }))} replace />
               : <VideoEditorLandingHome />}
           />
           <Route path="/generations" element={<GenerationsHome />} />

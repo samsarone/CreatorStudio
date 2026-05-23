@@ -3,8 +3,11 @@ import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../../utils/web.jsx';
+import { getDefaultAuthenticatedPath } from '../../../utils/defaultRoutes.js';
 import Register from '../Register.tsx';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
+import { useMediaQuery } from 'react-responsive';
+import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../../account/PurchaseCreditsPromptDialog.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -12,6 +15,7 @@ export default function RegisterPage() {
   const { setUser } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
 
   // No-op if you don't need a dialog close
   const closeAlertDialog = () => { };
@@ -23,16 +27,19 @@ export default function RegisterPage() {
     }
   };
 
-  const registerWithGoogle = () => {
+  const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
     const params = new URLSearchParams({ origin, cookieConsent });
     params.set('responseMode', 'redirect');
+    params.set('subscribeToWeeklyNewsletter', String(subscribeToWeeklyNewsletter));
     localStorage.setItem('setShowSetPaymentFlow', true);
+    localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+    localStorage.setItem('currentMediaFlowPath', isMobile ? 'quick_video' : 'video');
     window.location.href = `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
   };
 
-  const getOrCreateUserSession = () => {
+  const getOrCreateUserSession = (resolvedUser = null) => {
     const headers = getHeaders();
     axios
       .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
@@ -41,13 +48,18 @@ export default function RegisterPage() {
         if (sessionData) {
           localStorage.setItem('videoSessionId', sessionData._id);
           const currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
-          if (currentMediaFlowPath === 'quick_video') {
+          const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
+          if (
+            currentMediaFlowPath === 'quick_video' ||
+            currentMediaFlowPath === 'vidgpt' ||
+            defaultPath === '/vidgenie'
+          ) {
             navigate(`/vidgenie/${sessionData._id}`);
           } else {
             navigate(`/video/${sessionData._id}`);
           }
         } else {
-          navigate('/my_sessions');
+          navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
         }
       })
       .catch((error) => {
@@ -65,7 +77,8 @@ export default function RegisterPage() {
         persistAuthToken(authToken);
         setUser(userData);
         closeAlertDialog(); // no-op here
-        getOrCreateUserSession();
+        localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+        getOrCreateUserSession(userData);
         localStorage.setItem('setShowSetPaymentFlow', 'true');
       })
       .catch((error) => {

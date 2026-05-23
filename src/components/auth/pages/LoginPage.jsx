@@ -3,8 +3,10 @@ import axios from 'axios';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getHeaders, hasAcceptedCookies } from '../../../utils/web.jsx';
+import { getDefaultAuthenticatedPath } from '../../../utils/defaultRoutes.js';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
 import OverflowContainer from '../../common/OverflowContainer.tsx';
+import { useMediaQuery } from 'react-responsive';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -12,6 +14,7 @@ export default function LoginPage() {
   const { setUser } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
 
   // In a page (vs. a modal), we can define a no-op or minimal function:
   const closeAlertDialog = () => {
@@ -27,9 +30,9 @@ export default function LoginPage() {
 
   // signInWithGoogle logic copied from your AuthContainer
   const signInWithGoogle = () => {
-    let currentMediaFlowPath = 'video';
+    let currentMediaFlowPath = isMobile ? 'quick_video' : 'video';
     if (location.pathname.includes('/vidgenie/')) {
-      currentMediaFlowPath = 'vidgpt';
+      currentMediaFlowPath = 'quick_video';
     }
     localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
 
@@ -41,7 +44,7 @@ export default function LoginPage() {
   };
 
   // Similar to AuthContainer
-  const getOrCreateUserSession = () => {
+  const getOrCreateUserSession = (resolvedUser = null) => {
     const headers = getHeaders();
     axios
       .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
@@ -51,13 +54,18 @@ export default function LoginPage() {
           localStorage.setItem('videoSessionId', sessionData._id);
           // If user wanted quick_video, navigate there; else normal /video route
           const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
-          if (currentMediaFlow === 'quick_video') {
-            navigate(`//vidgenie/${sessionData._id}`);
+          const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
+          if (
+            currentMediaFlow === 'quick_video' ||
+            currentMediaFlow === 'vidgpt' ||
+            defaultPath === '/vidgenie'
+          ) {
+            navigate(`/vidgenie/${sessionData._id}`);
           } else {
             navigate(`/video/${sessionData._id}`);
           }
         } else {
-          navigate('/my_sessions');
+          navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
         }
       })
       .catch((error) => {

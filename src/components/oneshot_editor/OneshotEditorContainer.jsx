@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import axios from 'axios';
 import { getHeaders } from '../../utils/web';
@@ -13,6 +13,7 @@ export default function OneshotEditorContainer() {
 
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { colorMode } = useColorMode();
 
@@ -22,10 +23,10 @@ export default function OneshotEditorContainer() {
       const headers = getHeaders();
       axios.post(`${API_SERVER}/vidgenie/create_blank`, {}, headers).then(function (response) {
         const {sessionId} = response.data;
-        navigate(`/vidgenie/${sessionId}`);
+        navigate(`/vidgenie/${sessionId}${location.search || ''}`);
       });
     }
-  }, []);
+  }, [id, location.search, navigate]);
 
   useEffect(() => {
 
@@ -46,7 +47,7 @@ export default function OneshotEditorContainer() {
   return (
     <div className={`${outerShell} ${subtleGradient} min-h-screen`}>
       <OverflowContainer>
-        <div className='container m-auto py-6 md:py-10'>
+        <div className="vidgenie-page-shell mx-auto w-full max-w-6xl px-2 py-4 pt-[58px] sm:px-4 sm:py-6 sm:pt-6 md:py-10">
           <OneshotEditor />
         </div>
       </OverflowContainer>

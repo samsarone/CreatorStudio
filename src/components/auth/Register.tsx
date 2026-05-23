@@ -22,6 +22,7 @@ export default function Register(props) {
   const [error, setError] = useState(null);
   const [isTermsChecked, setIsTermsChecked] = useState(true);
   const [is18Checked, setIs18Checked] = useState(true);
+  const [isNewsletterChecked, setIsNewsletterChecked] = useState(true);
   const [preferredLanguage, setPreferredLanguage] = useState(language || 'en');
 
   useEffect(() => {
@@ -91,7 +92,13 @@ export default function Register(props) {
     }
 
     setError(null);
-    const payload = { email, password, username, preferredLanguage };
+    const payload = {
+      email,
+      password,
+      username,
+      preferredLanguage,
+      subscribeToWeeklyNewsletter: isNewsletterChecked,
+    };
 
     registerUserWithEmail(payload, (serverErrorMessage) => {
       setError(serverErrorMessage);
@@ -111,13 +118,18 @@ export default function Register(props) {
     }
 
     setError(null);
-    registerWithGoogle();
+    registerWithGoogle({ subscribeToWeeklyNewsletter: isNewsletterChecked });
   };
 
   const ageConfirmationLabel = t(
     'common.auth.ageConfirmation',
     {},
     'I am 18 years or older'
+  );
+  const newsletterLabel = t(
+    'common.auth.newsletterOptIn',
+    {},
+    'Send me the weekly Samsar newsletter.'
   );
 
   return (
@@ -256,6 +268,19 @@ export default function Register(props) {
             />
             <label htmlFor="age-checkbox" className="text-xs leading-snug">
               {ageConfirmationLabel}
+            </label>
+          </div>
+
+          <div className="flex items-start gap-2">
+            <input
+              id="newsletter-checkbox"
+              type="checkbox"
+              checked={isNewsletterChecked}
+              onChange={() => setIsNewsletterChecked(!isNewsletterChecked)}
+              className="mt-0.5 h-4 w-4 outline outline-1 outline-neutral-300 focus:outline-2 focus:outline-blue-500"
+            />
+            <label htmlFor="newsletter-checkbox" className="text-xs leading-snug">
+              {newsletterLabel}
             </label>
           </div>
 

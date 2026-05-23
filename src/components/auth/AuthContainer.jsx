@@ -14,6 +14,9 @@ import {
   setPostAuthRedirect,
 } from '../../utils/web.jsx';
 import { FaTimes } from 'react-icons/fa';
+import { useMediaQuery } from 'react-responsive';
+import { getDefaultAuthenticatedPath } from '../../utils/defaultRoutes.js';
+import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../account/PurchaseCreditsPromptDialog.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -34,14 +37,18 @@ export default function AuthContainer(props) {
   const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
   const { closeAlertDialog } = useAlertDialog();
   const { setUser } = useUser();
 
-  const buildGoogleLoginUrl = () => {
+  const buildGoogleLoginUrl = ({ subscribeToWeeklyNewsletter } = {}) => {
     const origin = window.location.origin;
     const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
     const params = new URLSearchParams({ origin, cookieConsent });
     params.set('responseMode', 'redirect');
+    if (subscribeToWeeklyNewsletter !== undefined) {
+      params.set('subscribeToWeeklyNewsletter', String(subscribeToWeeklyNewsletter));
+    }
     if (normalizedRedirect) {
       params.set('redirect', normalizedRedirect);
     }
@@ -75,16 +82,17 @@ export default function AuthContainer(props) {
     closeAlertDialog();
   };
 
-  const registerWithGoogle = () => {
+  const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
     if (normalizedRedirect) {
       setPostAuthRedirect(normalizedRedirect);
     }
     localStorage.setItem("setShowSetPaymentFlow", true);
-    window.location.href = buildGoogleLoginUrl();
+    localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+    window.location.href = buildGoogleLoginUrl({ subscribeToWeeklyNewsletter });
     closeAlertDialog();
   };
 
-  const navigateAfterAuth = () => {
+  const navigateAfterAuth = (resolvedUser = null) => {
     if (normalizedRedirect) {
       consumePostAuthRedirect();
       navigate(normalizedRedirect, { replace: true });
@@ -97,7 +105,7 @@ export default function AuthContainer(props) {
       return;
     }
 
-    getOrCreateUserSession();
+    getOrCreateUserSession(resolvedUser);
   };
 
   const verifyAndSetUserProfile = (profile) => {
@@ -115,7 +123,7 @@ export default function AuthContainer(props) {
       });
   };
 
-  const getOrCreateUserSession = () => {
+  const getOrCreateUserSession = (resolvedUser = null) => {
     const headers = getHeaders();
 
     axios.get(`${API_SERVER}/video_sessions/get_session`, headers)
@@ -125,14 +133,19 @@ export default function AuthContainer(props) {
         if (sessionData && sessionData._id) {
           localStorage.setItem('videoSessionId', sessionData._id);
 
-          // Navigate based on the current path
           if (location.pathname.includes('/video/')) {
             navigate(`/video/${sessionData._id}`);
-          } else {
+          } else if (
+            location.pathname.includes('/vidgenie/') ||
+            location.pathname.includes('/vidgpt/') ||
+            getDefaultAuthenticatedPath(resolvedUser, { isMobile }) === '/vidgenie'
+          ) {
             navigate(`/vidgenie/${sessionData._id}`);
+          } else {
+            navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
           }
         } else {
-          navigate('/my_sessions');
+          navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
         }
       })
       .catch((error) => {
@@ -153,7 +166,8 @@ export default function AuthContainer(props) {
       persistAuthToken(authToken);
       setUser(userData);
       closeAlertDialog();
-      navigateAfterAuth();
+      localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+      navigateAfterAuth(userData);
 
       localStorage.setItem("setShowSetPaymentFlow", true);
     } catch (error) {
