@@ -3793,6 +3793,23 @@ export default function OneshotEditor() {
     : generationMode === 'T2V'
       ? t("vidgenie.titleTextToVideo")
       : t("vidgenie.titleImageListToVideo");
+  const renderSubmitButton = () => {
+    if (shouldCollapseJsonEditorForProgress) {
+      return null;
+    }
+
+    return (
+      <div className="mt-4 flex w-full justify-end">
+        <PrimaryPublicButton
+          onClick={handleSubmit}
+          isDisabled={isGenerationActionDisabled}
+          extraClasses="!m-0 w-full sm:w-auto !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
+        >
+          {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
+        </PrimaryPublicButton>
+      </div>
+    );
+  };
   const renderGenerationControlsRow = ({ showAdvancedToggle = true, className = '' } = {}) => (
     <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between ${className}`}>
       <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -3847,16 +3864,6 @@ export default function OneshotEditor() {
           </button>
         )}
       </div>
-
-      {!shouldCollapseJsonEditorForProgress && (
-        <PrimaryPublicButton
-          onClick={handleSubmit}
-          isDisabled={isGenerationActionDisabled}
-          extraClasses="!m-0 w-full sm:w-auto !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
-        >
-          {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
-        </PrimaryPublicButton>
-      )}
     </div>
   );
   if (!sessionDetails) {
@@ -4888,6 +4895,7 @@ export default function OneshotEditor() {
           </div>
         )}
       </form>
+      {renderSubmitButton()}
 
       {/* ───────── Assistant Chat ───────── */}
       <div className={`vidgenie-assistant-anchor mt-6 rounded-2xl p-3 sm:p-4 ring-1 transition-shadow hover:shadow-sm ${
