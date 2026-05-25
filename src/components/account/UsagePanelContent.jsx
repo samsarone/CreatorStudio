@@ -14,8 +14,7 @@ const numberFormatter = new Intl.NumberFormat("en-US");
 const SOURCE_LABELS = {
   chat_enhance: "Chat Enhance",
   image_update_set: "Image list to set",
-  image_remove_branding: "Image brand removal",
-  image_replace_branding: "Image brand replace",
+  image_remove_branding: "Image text removal",
   image_enhance: "Image upscale",
   image_list_to_video: "Image list to video",
 };

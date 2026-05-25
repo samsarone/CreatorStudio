@@ -3361,7 +3361,7 @@ export default function VideoHome(props) {
           restartExpressRenderFromCheckpoint={restartExpressRenderFromCheckpoint}
           cancelPendingRender={cancelPendingRender}
           isExpressSession={Boolean(videoSessionDetails?.isExpressGeneration)}
-          framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
+          framesPerSecond={videoSessionDetails?.framesPerSecond ?? 24}
         />
       </div>
     )
@@ -3389,7 +3389,7 @@ export default function VideoHome(props) {
         applyAudioDucking={applyAudioDucking}
         audioLayers={previewAudioLayers}
         currentLayerSeek={currentLayerSeek}
-        framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
+        framesPerSecond={videoSessionDetails?.framesPerSecond ?? 24}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setCurrentLayerSeek={setCurrentLayerSeek}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
@@ -3483,7 +3483,7 @@ export default function VideoHome(props) {
                 restartExpressRenderFromCheckpoint={restartExpressRenderFromCheckpoint}
                 cancelPendingRender={cancelPendingRender}
                 isExpressSession={Boolean(videoSessionDetails?.isExpressGeneration)}
-                framesPerSecond={videoSessionDetails?.framesPerSecond ?? 16}
+                framesPerSecond={videoSessionDetails?.framesPerSecond ?? 24}
               />
             </div>
             <div

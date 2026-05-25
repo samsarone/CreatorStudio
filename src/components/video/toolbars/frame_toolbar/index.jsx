@@ -1041,7 +1041,7 @@ export default function FrameToolbar(props) {
     isUpdateLayerPending,
     isVideoPreviewPlaying = false,
     isExpressSession = false,
-    framesPerSecond = 16,
+    framesPerSecond = 24,
     updateGlobalVideos,
     updateSessionHints,
     focusHintsPanelRequest = 0,
@@ -1052,11 +1052,9 @@ export default function FrameToolbar(props) {
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
   const DISPLAY_FRAMES_PER_SECOND = 30;
   const numericFramesPerSecond = Number(framesPerSecond);
-  const sessionFramesPerSecond = numericFramesPerSecond === 30
-    ? 30
-    : numericFramesPerSecond === 24
-      ? 24
-      : 16;
+  const sessionFramesPerSecond = [16, 24, 30].includes(numericFramesPerSecond)
+    ? numericFramesPerSecond
+    : 24;
 
   const secondsToDisplayFrames = (value) => Math.max(
     0,

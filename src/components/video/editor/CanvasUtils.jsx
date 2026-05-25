@@ -6,7 +6,7 @@ import ResizableCircle from "../../editor/shapes/ResizableCircle.tsx";
 import ResizableDialogBubble from "../../editor/shapes/ResizableDialogBubble.tsx";
 
 const FPS = 30;
-const DEFAULT_SESSION_FRAMES_PER_SECOND = 16;
+const DEFAULT_SESSION_FRAMES_PER_SECOND = 24;
 const VALID_SESSION_FRAME_RATES = new Set([16, 24, 30]);
 const SHAPE_CONFIG_SCALE_KEYS = [
   'x',

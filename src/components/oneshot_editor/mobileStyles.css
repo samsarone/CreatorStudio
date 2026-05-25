@@ -109,8 +109,8 @@
   }
 
   .vidgenie-preview-frame-portrait {
-    width: min(100%, 260px) !important;
-    max-height: min(50dvh, 460px) !important;
+    width: min(100%, 31.5dvh, 292px) !important;
+    max-height: min(56dvh, 520px) !important;
   }
 
   .vidgenie-preview-frame video,

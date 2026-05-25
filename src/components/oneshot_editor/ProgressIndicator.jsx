@@ -19,6 +19,7 @@ const PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS = 0.12;
 const PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS = 0.12;
 const PREVIEW_VIDEO_METADATA_READY_STATE = 1;
 const PREVIEW_VIDEO_FRAME_READY_STATE = 2;
+const MOBILE_PREVIEW_MEDIA_QUERY = '(hover: none), (pointer: coarse), (max-width: 767px)';
 const USER_RESOURCES_PREFIX = 'user_resources/';
 const previewVisualReadyCache = new Set();
 const previewVisualPreloadPromises = new Map();
@@ -226,6 +227,7 @@ function buildAudioSegments(sessionPreview) {
   ];
 
   return audioLayers
+    .filter((layer) => isPreviewAudioLayerPlayable(layer))
     .map((layer, index) => {
       const url = normalizeAssetUrl(layer.url);
       if (!url) return null;
@@ -268,8 +270,55 @@ function findActiveVisualSegment(segments, previewTime) {
   );
 }
 
+function normalizeAudioType(value) {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'background_music' ||
+    normalized === 'background music' ||
+    normalized === 'bgm' ||
+    normalized === 'backing_track' ||
+    normalized === 'backing track'
+  ) {
+    return 'music';
+  }
+  if (
+    normalized === 'custom_speech' ||
+    normalized === 'custom speech' ||
+    normalized === 'recorded_speech' ||
+    normalized === 'recorded speech'
+  ) {
+    return 'speech';
+  }
+  if (normalized === 'sound') {
+    return 'sound_effect';
+  }
+  if (normalized === 'lip sync') {
+    return 'lip_sync';
+  }
+  return normalized;
+}
+
+function isPreviewAudioLayerPlayable(layer = {}) {
+  const hasExplicitSelectionState =
+    typeof layer.isEnabled === 'boolean' || typeof layer.defaultSelected === 'boolean';
+  const isSelectedLayer = hasExplicitSelectionState
+    ? Boolean(layer.isEnabled || layer.defaultSelected)
+    : true;
+  const status = normalizeStatus(layer.status);
+
+  return isSelectedLayer && status !== 'PENDING' && status !== 'FAILED';
+}
+
 function isSpeechAudio(segment) {
-  return segment?.type === 'speech' || segment?.type === 'voice' || segment?.type === 'voiceover';
+  const type = normalizeAudioType(segment?.type);
+  return (
+    type === 'speech' ||
+    type === 'voice' ||
+    type === 'voiceover' ||
+    type === 'lip_sync' ||
+    type === 'user_video'
+  );
 }
 
 function isSegmentActiveAtTime(segment, previewTime) {
@@ -305,6 +354,48 @@ function normalizePreviewAspectRatio(sessionPreview) {
 function getPreviewVisualCacheKey(segment) {
   if (!segment?.url) return null;
   return `${segment.type || 'media'}:${segment.url}`;
+}
+
+function shouldAutoplayPreview() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return true;
+  }
+  return !window.matchMedia(MOBILE_PREVIEW_MEDIA_QUERY).matches;
+}
+
+function primeInactiveAudioElement(element) {
+  if (!element) return;
+  const previousTime = element.currentTime;
+  const previousVolume = element.volume;
+  const previousMuted = element.muted;
+
+  const restore = () => {
+    element.pause();
+    if (Number.isFinite(previousTime)) {
+      try {
+        element.currentTime = previousTime;
+      } catch {
+        // Ignore best-effort media priming restore failures.
+      }
+    }
+    element.volume = previousVolume;
+    element.muted = previousMuted;
+  };
+
+  element.muted = true;
+  element.volume = 0;
+  let playPromise = null;
+  try {
+    playPromise = element.play();
+  } catch {
+    restore();
+    return;
+  }
+  if (playPromise?.then) {
+    playPromise.then(restore).catch(restore);
+  } else {
+    restore();
+  }
 }
 
 function markPreviewVisualReady(cacheKey) {
@@ -425,7 +516,7 @@ export default function ProgressIndicator(props) {
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
-  const [isPreviewPlaying, setIsPreviewPlaying] = useState(true);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(() => shouldAutoplayPreview());
   const [visualPreloadVersion, setVisualPreloadVersion] = useState(0);
   const [activeVideoReadyKey, setActiveVideoReadyKey] = useState(null);
   const audioRefs = useRef(new Map());
@@ -489,13 +580,77 @@ export default function ProgressIndicator(props) {
   const previewFrameStyle = {
     aspectRatio,
     width: isPortraitPreview
-      ? 'min(100%, 31.5vh, 292px)'
+      ? 'min(100%, 31.5dvh, 292px)'
       : 'min(100%, calc(100vw - 48px), 640px)',
     maxWidth: '100%',
     maxHeight: isPortraitPreview
-      ? 'min(56vh, 520px)'
-      : 'min(44vh, 360px)',
+      ? 'min(56dvh, 520px)'
+      : 'min(44dvh, 360px)',
   };
+
+  const syncActiveAudioElements = useCallback((time, shouldPlay, options = {}) => {
+    const activeAudioKeys = new Set();
+
+    audioSegments.forEach((segment) => {
+      const element = audioRefs.current.get(segment.key);
+      if (!element) return;
+      const isActive = isSegmentActiveAtTime(segment, time);
+      if (!isActive || videoLink) {
+        element.pause();
+        return;
+      }
+
+      const localTime = Math.max(0, time - segment.startTime + segment.sourceTrimStartTime);
+      if (Math.abs(element.currentTime - localTime) > PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS) {
+        element.currentTime = localTime;
+      }
+      element.volume = Math.max(0, Math.min(1, resolveAudioVolume(segment, audioSegments, time)));
+      activeAudioKeys.add(segment.key);
+
+      if (shouldPlay && element.paused) {
+        element.play().catch(() => undefined);
+      } else if (!shouldPlay) {
+        element.pause();
+      }
+    });
+
+    if (shouldPlay && options.primeInactive) {
+      audioRefs.current.forEach((element, key) => {
+        if (!activeAudioKeys.has(key)) {
+          primeInactiveAudioElement(element);
+        }
+      });
+    }
+  }, [audioSegments, videoLink]);
+
+  const syncActiveVideoElement = useCallback((time, shouldPlay) => {
+    const element = activeVideoRef.current;
+    if (!element || activeVisualSegment?.type !== 'video') return;
+    const localTime = Math.max(0, time - activeVisualSegment.startTime);
+    if (
+      (element.readyState ?? 0) >= PREVIEW_VIDEO_METADATA_READY_STATE &&
+      Math.abs(element.currentTime - localTime) > PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS
+    ) {
+      element.currentTime = localTime;
+    }
+    if (shouldPlay && !videoLink) {
+      element.play().catch(() => undefined);
+    } else {
+      element.pause();
+    }
+  }, [activeVisualSegment, videoLink]);
+
+  const handlePreviewPlaybackToggle = useCallback(() => {
+    const shouldPlay = !isPreviewPlaying;
+    syncActiveVideoElement(previewTime, shouldPlay);
+    syncActiveAudioElements(previewTime, shouldPlay, { primeInactive: shouldPlay });
+    setIsPreviewPlaying(shouldPlay);
+  }, [
+    isPreviewPlaying,
+    previewTime,
+    syncActiveAudioElements,
+    syncActiveVideoElement,
+  ]);
 
   useEffect(() => {
     if (
@@ -568,41 +723,12 @@ export default function ProgressIndicator(props) {
 
   useEffect(() => {
     const canPlayPreviewMedia = isPreviewPlaying && !videoLink && isActiveVisualReady;
-    audioSegments.forEach((segment) => {
-      const element = audioRefs.current.get(segment.key);
-      if (!element) return;
-      const isActive = isSegmentActiveAtTime(segment, previewTime);
-      if (!isActive || !canPlayPreviewMedia) {
-        element.pause();
-        return;
-      }
-      const localTime = Math.max(0, previewTime - segment.startTime + segment.sourceTrimStartTime);
-      if (Math.abs(element.currentTime - localTime) > PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS) {
-        element.currentTime = localTime;
-      }
-      element.volume = Math.max(0, Math.min(1, resolveAudioVolume(segment, audioSegments, previewTime)));
-      if (element.paused) {
-        element.play().catch(() => undefined);
-      }
-    });
-  }, [audioSegments, isActiveVisualReady, isPreviewPlaying, previewTime, videoLink]);
+    syncActiveAudioElements(previewTime, canPlayPreviewMedia);
+  }, [isActiveVisualReady, isPreviewPlaying, previewTime, syncActiveAudioElements, videoLink]);
 
   useEffect(() => {
-    const element = activeVideoRef.current;
-    if (!element || activeVisualSegment?.type !== 'video') return;
-    const localTime = Math.max(0, previewTime - activeVisualSegment.startTime);
-    if (
-      (element.readyState ?? 0) >= PREVIEW_VIDEO_METADATA_READY_STATE &&
-      Math.abs(element.currentTime - localTime) > PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS
-    ) {
-      element.currentTime = localTime;
-    }
-    if (isPreviewPlaying && !videoLink && isActiveVisualReady) {
-      element.play().catch(() => undefined);
-    } else {
-      element.pause();
-    }
-  }, [activeVisualSegment, isActiveVisualReady, isPreviewPlaying, previewTime, videoLink]);
+    syncActiveVideoElement(previewTime, isPreviewPlaying && !videoLink && isActiveVisualReady);
+  }, [isActiveVisualReady, isPreviewPlaying, previewTime, syncActiveVideoElement, videoLink]);
 
   const handleActiveVideoReady = useCallback((event) => {
     const element = event.currentTarget;
@@ -798,7 +924,7 @@ export default function ProgressIndicator(props) {
           <div className="vidgenie-preview-controls mt-3 flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsPreviewPlaying((playing) => !playing)}
+              onClick={handlePreviewPlaybackToggle}
               className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition ${
                 colorMode === 'dark'
                   ? 'bg-white/10 text-white hover:bg-white/15'
@@ -890,7 +1016,7 @@ export default function ProgressIndicator(props) {
             className={`vidgenie-preview-frame ${isPortraitPreview ? 'vidgenie-preview-frame-portrait' : 'vidgenie-preview-frame-landscape'} mx-auto overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
             style={previewFrameStyle}
           >
-            <video controls className="h-full w-full object-contain">
+            <video controls playsInline preload="metadata" className="h-full w-full object-contain">
               <source src={`${videoActualLink}`} type="video/mp4" />
               {t("progress.videoUnsupported")}
             </video>

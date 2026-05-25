@@ -79,7 +79,7 @@ function mergeTranscriptRows(rows = [], frameDurationSeconds = 1 / 16) {
 }
 
 export function buildSubtitleTranscriptRows(sessionDetails = {}) {
-  const framesPerSecond = Math.max(1, toFiniteNumber(sessionDetails.framesPerSecond, 16));
+  const framesPerSecond = Math.max(1, toFiniteNumber(sessionDetails.framesPerSecond, 24));
   const audioLayerMap = new Map();
   const audioLayers = Array.isArray(sessionDetails.audioLayers) ? sessionDetails.audioLayers : [];
 

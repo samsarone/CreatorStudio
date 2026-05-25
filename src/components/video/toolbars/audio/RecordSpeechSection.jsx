@@ -560,7 +560,10 @@ export default function RecordSpeechSection({
   const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
   const currentLayerStartTime = resolveLayerStartTime(currentLayer);
   const currentPreviewTime = Math.max(0, (Number(currentLayerSeek) || 0) / DISPLAY_FRAMES_PER_SECOND);
-  const facecamFramesPerSecond = Number(sessionDetails?.framesPerSecond) === 30 ? 30 : 16;
+  const requestedFacecamFramesPerSecond = Number(sessionDetails?.framesPerSecond);
+  const facecamFramesPerSecond = [16, 24, 30].includes(requestedFacecamFramesPerSecond)
+    ? requestedFacecamFramesPerSecond
+    : 24;
   const hintTimelineTime = currentPreviewTime;
   const canUseRecorder = typeof navigator !== 'undefined'
     && Boolean(navigator.mediaDevices?.getUserMedia)

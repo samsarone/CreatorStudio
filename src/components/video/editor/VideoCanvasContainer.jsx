@@ -25,7 +25,7 @@ const SHAPE_CONFIG_SCALE_KEYS = [
 
 
 const DISPLAY_FRAMES_PER_SECOND = 30;
-const DEFAULT_SESSION_FRAMES_PER_SECOND = 16;
+const DEFAULT_SESSION_FRAMES_PER_SECOND = 24;
 const VALID_SESSION_FRAME_RATES = new Set([16, 24, 30]);
 
 function normalizeSessionFramesPerSecond(value) {
