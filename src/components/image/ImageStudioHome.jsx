@@ -2044,7 +2044,7 @@ export default function ImageStudioHome() {
     const canvasSurface =
       colorMode === 'dark'
         ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_16px_36px_rgba(57,217,129,0.12)]'
-        : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_16px_34px_rgba(57,217,129,0.14)]';
+        : 'bg-[#f1f5f9] border border-slate-300';
     const canvasDropSurfaceHighlight = isCanvasDragActive
       ? colorMode === 'dark'
         ? 'ring-2 ring-[#46bfff] bg-[#13203a]'
@@ -2186,7 +2186,7 @@ export default function ImageStudioHome() {
   const toolbarShell =
     colorMode === 'dark'
       ? 'bg-[#0f1629] border-l border-[#1f2a3d] shadow-[0_1px_0_rgba(255,255,255,0.04)]'
-      : 'bg-white border-l border-slate-200 shadow-sm';
+      : 'bg-white border-l border-slate-200';
   const imageStudioRightPanelWidth = 'clamp(360px, 24vw, 460px)';
   const canvasViewportLayout = isCanvasStudioDisplay
     ? 'flex items-start justify-center overflow-auto'

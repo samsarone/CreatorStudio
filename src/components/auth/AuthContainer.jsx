@@ -16,6 +16,7 @@ import {
 import { FaTimes } from 'react-icons/fa';
 import { useMediaQuery } from 'react-responsive';
 import { getDefaultAuthenticatedPath } from '../../utils/defaultRoutes.js';
+import { resolveAuthenticatedEntryPath } from '../../utils/vidgenieRouting.js';
 import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../account/PurchaseCreditsPromptDialog.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -123,8 +124,29 @@ export default function AuthContainer(props) {
       });
   };
 
-  const getOrCreateUserSession = (resolvedUser = null) => {
+  const getOrCreateUserSession = async (resolvedUser = null) => {
     const headers = getHeaders();
+    const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
+    const shouldOpenVidgenie =
+      location.pathname.includes('/vidgenie/') ||
+      location.pathname.includes('/vidgpt/') ||
+      defaultPath === '/vidgenie';
+
+    if (shouldOpenVidgenie) {
+      try {
+        const targetPath = await resolveAuthenticatedEntryPath({
+          user: resolvedUser,
+          isMobile,
+          apiServer: API_SERVER,
+          headers,
+          createIfMissing: true,
+        });
+        navigate(targetPath || defaultPath, { replace: true });
+      } catch (error) {
+        setError('Unable to create or get a session.');
+      }
+      return;
+    }
 
     axios.get(`${API_SERVER}/video_sessions/get_session`, headers)
       .then((res) => {
@@ -135,17 +157,11 @@ export default function AuthContainer(props) {
 
           if (location.pathname.includes('/video/')) {
             navigate(`/video/${sessionData._id}`);
-          } else if (
-            location.pathname.includes('/vidgenie/') ||
-            location.pathname.includes('/vidgpt/') ||
-            getDefaultAuthenticatedPath(resolvedUser, { isMobile }) === '/vidgenie'
-          ) {
-            navigate(`/vidgenie/${sessionData._id}`);
           } else {
-            navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
+            navigate(defaultPath, { replace: true });
           }
         } else {
-          navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
+          navigate(defaultPath, { replace: true });
         }
       })
       .catch((error) => {

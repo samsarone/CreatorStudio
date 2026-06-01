@@ -813,11 +813,11 @@ export default function VideoEditorToolbar(props) {
   const panelSurface =
     colorMode === 'dark'
       ? 'bg-[#0f1629] border border-[#1f2a3d] text-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)]'
-      : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
+      : 'bg-white border border-slate-200 text-slate-900';
   const inputSurface =
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d]'
-      : 'bg-white border border-slate-200 shadow-sm';
+      : 'bg-white border border-slate-200';
   const interactiveTile =
     colorMode === 'dark'
       ? 'bg-rose-500/10 border border-rose-400/30 text-rose-100'
@@ -825,7 +825,7 @@ export default function VideoEditorToolbar(props) {
   const buttonBgcolor =
     colorMode === 'dark'
       ? 'bg-[#131c33] border border-[#24314d] text-white'
-      : 'bg-slate-100 border border-slate-200 text-slate-900 shadow-sm';
+      : 'bg-slate-100 border border-slate-200 text-slate-900';
   const textInnerColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
   const text2Color = colorMode === 'dark' ? 'text-slate-100' : 'text-neutral-900';
   const formSelectBgColor = colorMode === 'dark' ? '#0f1629' : '#f8fafc';
@@ -835,7 +835,7 @@ export default function VideoEditorToolbar(props) {
   const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
   const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
   const compactFieldLabelClass = `block mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${text2Color}`;
-  const compactInputClass = `w-full rounded-lg ${inputSurface} ${text2Color} px-3 py-2.5 text-sm leading-5 shadow-sm transition-colors duration-200 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20`;
+  const compactInputClass = `w-full rounded-lg ${inputSurface} ${text2Color} px-3 py-2.5 text-sm leading-5 ${colorMode === 'dark' ? 'shadow-sm' : ''} transition-colors duration-200 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20`;
   const compactNumericInputClass = `${compactInputClass} min-w-0 text-center text-base font-semibold tabular-nums`;
   const compactTextareaClass = `${compactInputClass} min-h-[96px]`;
   const compactActionGridClass = 'grid w-full gap-2';
@@ -1390,7 +1390,7 @@ export default function VideoEditorToolbar(props) {
     let actionsSubOptionsDisplay = <span />;
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
       actionsSubOptionsDisplay = (
-        <div className="mt-2 rounded shadow-lg">
+        <div className={`mt-2 rounded ${colorMode === 'dark' ? 'shadow-lg' : ''}`}>
           <label className="block mb-2">Width:</label>
           <input
             type="range"
@@ -1411,7 +1411,7 @@ export default function VideoEditorToolbar(props) {
       );
     } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
       actionsSubOptionsDisplay = (
-        <div className="mt-2 rounded shadow-lg">
+        <div className={`mt-2 rounded ${colorMode === 'dark' ? 'shadow-lg' : ''}`}>
           <label className="block mb-2">Width:</label>
           <input
             type="range"
@@ -1818,9 +1818,9 @@ export default function VideoEditorToolbar(props) {
     >
       <div>
         <div
-          className={`sticky top-0 z-10 rounded-xl transition-colors duration-200 ${stickyHeaderPaddingClass} ${colorMode === 'dark'
-            ? 'bg-[#111a2f] border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.35)]'
-            : 'bg-white/95 border border-slate-200 shadow-sm'}`}
+            className={`sticky top-0 z-10 rounded-xl transition-colors duration-200 ${stickyHeaderPaddingClass} ${colorMode === 'dark'
+              ? 'bg-[#111a2f] border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.35)]'
+            : 'bg-white/95 border border-slate-200'}`}
         >
           {collapseButton}
           <div

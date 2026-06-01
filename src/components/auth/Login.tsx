@@ -23,8 +23,15 @@ export default function Login(props) {
 
   const submitUserLogin = (e) => {
     e.preventDefault();
-    const email = e.target.email.value;
+    const email = e.target.email.value.trim().toLowerCase();
     const password = e.target.password.value;
+
+    if (!email || !password) {
+      setError('Email and password are required.');
+      return;
+    }
+
+    setError(null);
     const payload = { email, password };
 
     axios
@@ -48,10 +55,10 @@ export default function Login(props) {
 
   const cardClasses =
     colorMode === 'light'
-      ? 'bg-white text-slate-900 border border-slate-200 shadow-lg'
+      ? 'bg-[#f8fafc] text-slate-900 border border-slate-200'
       : 'bg-slate-950 text-slate-100 border border-slate-800 shadow-xl';
   const tabBase =
-    'px-3 py-1.5 text-xs font-semibold rounded-full transition focus:outline-none focus:ring-2 focus:ring-blue-500/40';
+    'rounded-md px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-blue-500/40';
   const tabActive = colorMode === 'light' ? 'bg-blue-600 text-white' : 'bg-blue-500/20 text-blue-200';
   const tabInactive =
     colorMode === 'light'
@@ -60,40 +67,51 @@ export default function Login(props) {
 
   const inputClasses =
     colorMode === 'light'
-      ? 'bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-200'
+      ? 'bg-[#ffffff] border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-200'
       : 'bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-400 focus:ring-blue-500/30';
 
   const googleButtonClasses =
     colorMode === 'light'
-      ? 'bg-white text-slate-900 border border-slate-200 hover:border-blue-400/70 hover:bg-slate-50'
+      ? 'bg-[#ffffff] text-slate-900 border border-slate-200 hover:border-blue-400/70 hover:bg-slate-50'
       : 'bg-slate-900 text-slate-100 border border-slate-700 hover:border-blue-400/60 hover:bg-slate-800';
+  const tabShellClasses =
+    colorMode === 'light'
+      ? 'border border-slate-200 bg-slate-100'
+      : 'border border-slate-300/30 bg-black/5';
+  const subduedText = colorMode === 'light' ? 'text-slate-500' : 'text-slate-400';
+  const fieldClasses = 'space-y-1.5';
+  const labelClasses = 'block text-xs font-semibold';
+  const controlClasses = `w-full rounded-lg border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 ${inputClasses}`;
 
   return (
-    <div className={`w-full max-w-md rounded-2xl p-6 space-y-5 ${cardClasses}`}>
+    <div className={`w-full max-w-[420px] rounded-xl p-5 sm:p-6 space-y-4 ${cardClasses}`}>
       <div className="text-center space-y-1">
-        <h2 className="text-2xl font-semibold">Welcome back</h2>
-        <p className="text-xs text-slate-400">Sign in to continue</p>
+        <h2 className="text-xl font-semibold">Welcome back</h2>
+        <p className={`text-xs ${subduedText}`}>Sign in to continue</p>
       </div>
 
-      <div className="flex justify-center">
-        <div className="inline-flex items-center gap-1 rounded-full border border-slate-300/30 bg-black/5 p-1">
-          <button type="button" className={`${tabBase} ${tabActive}`}>
-            Login
-          </button>
-          <button
-            type="button"
-            className={`${tabBase} ${tabInactive}`}
-            onClick={() => setCurrentLoginView('register')}
-          >
-            Sign up
-          </button>
-        </div>
+      <div className={`grid grid-cols-2 rounded-lg p-1 ${tabShellClasses}`}>
+        <button type="button" className={`${tabBase} ${tabActive}`}>
+          Login
+        </button>
+        <button
+          type="button"
+          className={`${tabBase} ${tabInactive}`}
+          onClick={() => setCurrentLoginView('register')}
+        >
+          Sign up
+        </button>
       </div>
 
-      {error && <div className="text-red-500 text-center text-sm">{error}</div>}
+      {error && (
+        <p className="rounded-md bg-red-500/10 px-3 py-2 text-center text-sm text-red-500" role="alert">
+          {error}
+        </p>
+      )}
 
       <button
-        className={`flex items-center justify-center w-full py-3 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${googleButtonClasses}`}
+        type="button"
+        className={`flex items-center justify-center w-full rounded-lg py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${googleButtonClasses}`}
         onClick={signInWithGoogle}
       >
         <FaGoogle className="inline-block mr-2 text-blue-600" />
@@ -106,23 +124,33 @@ export default function Login(props) {
         <span className="flex-1 h-px bg-slate-300/50" />
       </div>
 
-      <form onSubmit={submitUserLogin} className="space-y-4">
-        <div className="space-y-1">
-          <div className="text-xs font-semibold">Email</div>
+      <form onSubmit={submitUserLogin} className="space-y-3.5">
+        <div className={fieldClasses}>
+          <label htmlFor="login-email" className={labelClasses}>
+            Email
+          </label>
           <input
+            id="login-email"
             type="email"
             name="email"
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
-            placeholder="Email"
+            autoComplete="email"
+            className={controlClasses}
+            placeholder="you@example.com"
+            required
           />
         </div>
-        <div className="space-y-1">
-          <div className="text-xs font-semibold">Password</div>
+        <div className={fieldClasses}>
+          <label htmlFor="login-password" className={labelClasses}>
+            Password
+          </label>
           <input
+            id="login-password"
             type="password"
             name="password"
-            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${inputClasses}`}
+            autoComplete="current-password"
+            className={controlClasses}
             placeholder="Password"
+            required
           />
         </div>
         <LoginButton type="submit" extraClasses="w-full">Login</LoginButton>
@@ -135,7 +163,7 @@ export default function Login(props) {
       </div>
 
       {showSignupButton && (
-        <div className="text-center text-sm text-slate-400">
+        <div className={`text-center text-sm ${subduedText}`}>
           Don't have an account?{' '}
           <button
             type="button"

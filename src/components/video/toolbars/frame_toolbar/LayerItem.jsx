@@ -32,6 +32,11 @@ const LayerItem = ({
   borderColor,
 }) => {
   const layerDuration = layer.duration; // in seconds
+  const isLightMode = textColor?.includes('slate-800') || textColor?.includes('black');
+  const durationUnitClassName = isLightMode ? 'text-slate-500' : 'text-slate-200';
+  const updateButtonClassName = isLightMode
+    ? 'bg-sky-600 text-white border border-sky-600 hover:bg-sky-500'
+    : 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d]';
 
   const layerItem = (
     <div
@@ -87,13 +92,13 @@ const LayerItem = ({
                       durationChanged ? 'highlight' : ''
                     }`}
                   />
-                  <label className='inline-block text-xs text-slate-200 ml-[-30px]'>s</label>
+                  <label className={`inline-block text-xs ml-[-30px] ${durationUnitClassName}`}>s</label>
                 </div>
                 {durationChanged && (
                   <div className='mt-1 mb-2'>
                     <button
                       onClick={onUpdateDuration}
-                      className={`px-4 py-2 text-xs text-slate-100 rounded bg-[#111a2f] border border-[#1f2a3d] m-auto ${
+                      className={`px-4 py-2 text-xs rounded m-auto ${updateButtonClassName} ${
                         durationChanged ? 'highlight' : ''
                       }`}
                     >

@@ -95,10 +95,10 @@ export default function CanvasControlBar(props) {
 
   const sectionSurfaceClassName = colorMode === 'dark'
     ? 'inline-flex items-center gap-1.5 rounded-2xl border border-[#23324a] bg-[#0a1526]/82 px-2 py-1.5 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md'
-    : 'inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/82 px-2 py-1.5 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-md';
+    : 'inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/82 px-2 py-1.5 backdrop-blur-md';
   const metricSurfaceClassName = colorMode === 'dark'
     ? 'inline-flex items-stretch divide-x divide-[#22314a] overflow-hidden rounded-2xl border border-[#23324a] bg-[#0a1526]/82 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md'
-    : 'inline-flex items-stretch divide-x divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/82 shadow-[0_10px_24px_rgba(15,23,42,0.08)] backdrop-blur-md';
+    : 'inline-flex items-stretch divide-x divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/82 backdrop-blur-md';
   const metricValueClassName = colorMode === 'dark'
     ? 'text-xs font-semibold text-slate-100'
     : 'text-xs font-semibold text-slate-800';

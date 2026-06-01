@@ -95,7 +95,7 @@ function AddSessionDropdown(props) {
   const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-700';
   const menuSurface = colorMode === 'dark'
     ? 'bg-[#0f172a]/98 ring-1 ring-white/10 shadow-[0_18px_38px_rgba(0,0,0,0.45)]'
-    : 'bg-white ring-1 ring-slate-200 shadow-[0_12px_26px_rgba(15,23,42,0.12)]';
+    : 'bg-white ring-1 ring-slate-200';
   const modalSurface = colorMode === 'dark'
     ? 'bg-[#0f172a] text-slate-100'
     : 'bg-white text-slate-900';
@@ -104,10 +104,11 @@ function AddSessionDropdown(props) {
     : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500';
   const modalSecondaryButton = colorMode === 'dark'
     ? 'bg-[#17253f] text-slate-100 hover:bg-[#1c3153] hover:shadow-[0_8px_18px_rgba(70,191,255,0.16)]'
-    : 'bg-slate-100 text-slate-800 hover:bg-white hover:shadow-[0_8px_16px_rgba(15,23,42,0.12)]';
+    : 'bg-slate-100 text-slate-800 hover:bg-white';
   const modalPrimaryButton = colorMode === 'dark'
     ? 'bg-gradient-to-r from-[#46bfff] to-[#39d881] text-[#041420] hover:from-[#60cbff] hover:to-[#55e8a2] hover:shadow-[0_10px_24px_rgba(70,191,255,0.24)]'
-    : 'bg-rose-500 text-white hover:bg-rose-600 hover:shadow-[0_10px_20px_rgba(244,63,94,0.22)]';
+    : 'bg-rose-500 text-white hover:bg-rose-600';
+  const triggerShadow = colorMode === 'dark' ? 'shadow-[0_8px_18px_rgba(3,12,28,0.18)]' : '';
 
   const selectedAspectRatio = aspectRatio?.value || aspectRatioOptions?.[0]?.value || '1:1';
   const selectedCanvasDimensions = useMemo(
@@ -339,7 +340,7 @@ function AddSessionDropdown(props) {
       <button
         onClick={handleMainButtonClick}
         title={t("common.newProject")}
-        className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold shadow-[0_8px_18px_rgba(3,12,28,0.18)] transition-all duration-200 ease-out hover:-translate-y-[1px] focus:outline-none ${compact ? 'w-11 min-w-11 max-w-11 px-0' : 'w-full min-w-[118px] max-w-[152px] px-3'} ${textColor} ${bgColor}`}
+        className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] focus:outline-none ${compact ? 'w-11 min-w-11 max-w-11 px-0' : 'w-full min-w-[118px] max-w-[152px] px-3'} ${textColor} ${bgColor} ${triggerShadow}`}
       >
         <FaPlus className="shrink-0" />
         <span className={compact ? 'sr-only' : 'truncate text-xs'}>{t("common.newProject")}</span>

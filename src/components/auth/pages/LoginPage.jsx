@@ -4,6 +4,7 @@ import { useUser } from '../../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getHeaders, hasAcceptedCookies } from '../../../utils/web.jsx';
 import { getDefaultAuthenticatedPath } from '../../../utils/defaultRoutes.js';
+import { resolveAuthenticatedEntryPath } from '../../../utils/vidgenieRouting.js';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 import { useMediaQuery } from 'react-responsive';
@@ -44,8 +45,32 @@ export default function LoginPage() {
   };
 
   // Similar to AuthContainer
-  const getOrCreateUserSession = (resolvedUser = null) => {
+  const getOrCreateUserSession = async (resolvedUser = null) => {
     const headers = getHeaders();
+    const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
+    const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
+    const shouldOpenVidgenie =
+      currentMediaFlow === 'quick_video' ||
+      currentMediaFlow === 'vidgpt' ||
+      defaultPath === '/vidgenie';
+
+    if (shouldOpenVidgenie) {
+      try {
+        const targetPath = await resolveAuthenticatedEntryPath({
+          user: resolvedUser,
+          isMobile,
+          apiServer: PROCESSOR_SERVER,
+          headers,
+          search: location.search,
+          createIfMissing: true,
+        });
+        navigate(targetPath || defaultPath, { replace: true });
+      } catch (error) {
+        navigate(defaultPath, { replace: true });
+      }
+      return;
+    }
+
     axios
       .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
       .then((res) => {
@@ -53,19 +78,9 @@ export default function LoginPage() {
         if (sessionData) {
           localStorage.setItem('videoSessionId', sessionData._id);
           // If user wanted quick_video, navigate there; else normal /video route
-          const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
-          const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
-          if (
-            currentMediaFlow === 'quick_video' ||
-            currentMediaFlow === 'vidgpt' ||
-            defaultPath === '/vidgenie'
-          ) {
-            navigate(`/vidgenie/${sessionData._id}`);
-          } else {
-            navigate(`/video/${sessionData._id}`);
-          }
+          navigate(`/video/${sessionData._id}`);
         } else {
-          navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
+          navigate(defaultPath, { replace: true });
         }
       })
       .catch((error) => {
@@ -75,23 +90,18 @@ export default function LoginPage() {
 
   return (
     <OverflowContainer>
-
-
-      <div className="w-full flex flex-col items-center justify-center pt-20">
-      {/* You can style the container as you prefer */}
-      <div className="rounded-lg p-6 max-w-md w-full">
-        {/* Reuse your existing <Login> component. 
-            Pass in only the props it needs. */}
-        <Login
-          signInWithGoogle={signInWithGoogle}
-          setUser={setUser}
-          closeAlertDialog={closeAlertDialog}
-          getOrCreateUserSession={getOrCreateUserSession}
-          showSignupButton={false}
-          setCurrentLoginView={handleViewChange}
-        />
+      <div className="flex min-h-[calc(100vh-96px)] w-full flex-col items-center justify-center px-4 py-6 sm:py-8">
+        <div className="w-full max-w-md">
+          <Login
+            signInWithGoogle={signInWithGoogle}
+            setUser={setUser}
+            closeAlertDialog={closeAlertDialog}
+            getOrCreateUserSession={getOrCreateUserSession}
+            showSignupButton={false}
+            setCurrentLoginView={handleViewChange}
+          />
+        </div>
       </div>
-    </div>
     </OverflowContainer>
   );
 }

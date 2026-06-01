@@ -22,6 +22,7 @@ export function AlertDialog() {
   const dialogPaddingClass = dialogOptions?.fullBleed ? 'p-0' : 'pt-1 pb-5 p-5';
   const dialogPositionClass = dialogOptions?.centerContent ? '' : 'top-20';
   const dialogRadiusClass = dialogOptions?.fullBleed ? 'rounded-2xl' : 'rounded-md';
+  const dialogShadowClass = isAuthSurface && colorMode === 'light' ? '' : 'shadow-lg';
   const overlayClass = dialogOptions?.centerContent
     ? 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-center justify-center'
     : 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full m-auto';
@@ -37,7 +38,7 @@ export function AlertDialog() {
       onClick={closeAlertDialog}
     >
       <div
-        className={`relative mx-auto shadow-lg ${dialogPositionClass} ${dialogPaddingClass} ${dialogRadiusClass} ${bgColor} ${dialogWidthClass} ${dialogBorderClass}`}
+        className={`relative mx-auto ${dialogShadowClass} ${dialogPositionClass} ${dialogPaddingClass} ${dialogRadiusClass} ${bgColor} ${dialogWidthClass} ${dialogBorderClass}`}
         onClick={(event) => event.stopPropagation()}
       >
         {!dialogOptions?.hideCloseButton && (

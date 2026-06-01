@@ -544,3 +544,48 @@
   border-radius: 4px;
   cursor: pointer;
 }
+
+body.theme-light .vertical-slider {
+  background-color: #e4ebf5;
+  border: 1px solid #cbd6e6;
+}
+
+body.theme-light .vertical-slider .track-0 {
+  background: #2563eb;
+}
+
+body.theme-light .dual-thumb-slider-rail {
+  background-color: #cbd6e6;
+}
+
+body.theme-light .dual-thumb-slider .thumb {
+  background-color: #f8fafc;
+  border: 1px solid #9aaac0;
+  box-shadow: none;
+}
+
+body.theme-light .time-ruler {
+  color: #334155;
+}
+
+body.theme-light .samsar-slider-arrow {
+  background: #e4ebf5;
+  border: 1px solid #cbd6e6;
+  color: #1f2a3d;
+}
+
+body.theme-light .samsar-slider-arrow:hover {
+  background: #dbe4f0;
+}
+
+body.theme-light .toolbar-container,
+body.theme-light .text-track-container {
+  scrollbar-color: #b9c6d8 #e8edf6;
+}
+
+body.theme-light .video-edit-range-thumb,
+body.theme-light .video-edit-rail-thumb,
+body.theme-light .video-diamond-thumb {
+  border-color: #f8fafc;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.26);
+}

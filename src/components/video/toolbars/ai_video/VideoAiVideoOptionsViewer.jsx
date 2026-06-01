@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import SingleSelect from '../../../common/SingleSelect.jsx'; // <-- Update path as needed
+import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
 export default function VideoAiVideoOptionsViewer(props) {
   const {
@@ -22,6 +23,10 @@ export default function VideoAiVideoOptionsViewer(props) {
 
   const [showSoundEffectPrompt, setShowSoundEffectPrompt] = useState(false);
   const [soundEffectPrompt, setSoundEffectPrompt] = useState('');
+  const { colorMode } = useColorMode();
+  const soundEffectPromptClassName = colorMode === 'dark'
+    ? 'w-full text-sm p-1 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] rounded'
+    : 'w-full text-sm p-1 bg-white text-slate-900 border border-slate-200 rounded placeholder:text-slate-400';
 
   // Lip sync options
   const lipSyncOptions = [
@@ -177,7 +182,7 @@ export default function VideoAiVideoOptionsViewer(props) {
         {showSoundEffectPrompt && (
           <div className="flex flex-col items-center mt-2 w-full">
             <textarea
-              className="w-full text-sm p-1 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] rounded"
+              className={soundEffectPromptClassName}
               placeholder="Enter prompt for effect"
               value={soundEffectPrompt}
               onChange={(e) => setSoundEffectPrompt(e.target.value)}

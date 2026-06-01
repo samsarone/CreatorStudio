@@ -13,7 +13,7 @@ export default function VideoEditorToolbarMinimal(props) {
       className={`h-full m-auto fixed top-0 overflow-y-auto pl-1 w-[2%] pr-0 transition-colors duration-200 ${disabledShellClass} ${
         colorMode === 'dark'
           ? 'bg-[#0f1629] border-l border-[#1f2a3d] text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
-          : 'bg-white border-l border-slate-200 text-slate-700 shadow-sm'
+          : 'bg-white border-l border-slate-200 text-slate-700'
       }`}
       aria-disabled={isRenderPending}
     >

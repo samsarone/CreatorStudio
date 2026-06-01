@@ -14,6 +14,25 @@ export default function DefaultsUIEditor(props) {
     return <div className={`${text2Color}`}>No data available</div>;
   }
 
+  const isDark = colorMode === 'dark';
+  const chipClassName = isDark
+    ? 'bg-neutral-800 text-white'
+    : 'bg-slate-100 text-slate-800 border border-slate-200';
+  const chipInputClassName = isDark
+    ? 'bg-transparent border-none outline-none text-white'
+    : 'bg-transparent border-none outline-none text-slate-800';
+  const addButtonClassName = isDark
+    ? 'bg-gray-700 text-white hover:bg-gray-600'
+    : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200';
+  const objectCardClassName = isDark
+    ? `${bgColor} border border-neutral-700`
+    : `${bgColor} border border-slate-200`;
+  const objectNameInputClassName = isDark
+    ? 'bg-neutral-800 text-white p-1 rounded w-full'
+    : 'bg-white text-slate-900 border border-slate-200 p-1 rounded w-full';
+  const keywordLabelClassName = isDark ? 'text-neutral-300' : 'text-slate-500';
+  const editorShellClassName = isDark ? 'bg-gray-950' : 'bg-transparent';
+
   // Helpers for arrays of strings
   const addStringItem = (key) => {
     setEditorData(prev => ({
@@ -93,12 +112,12 @@ export default function DefaultsUIEditor(props) {
         <h3 className={`font-semibold ${text2Color} mb-2 capitalize`}>{key}</h3>
         <div className="flex flex-wrap gap-2">
           {editorData[key].map((item, idx) => (
-            <div key={idx} className="flex items-center bg-neutral-800 text-white px-2 py-1 rounded">
+            <div key={idx} className={`flex items-center px-2 py-1 rounded ${chipClassName}`}>
               <input
                 type="text"
                 value={item}
                 onChange={(e) => updateStringItem(key, idx, e.target.value)}
-                className={`bg-transparent border-none outline-none text-white`}
+                className={chipInputClassName}
               />
               <FaTimes
                 className="ml-2 text-red-300 cursor-pointer"
@@ -108,7 +127,7 @@ export default function DefaultsUIEditor(props) {
           ))}
           <button
             type="button"
-            className="flex items-center px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
+            className={`flex items-center px-2 py-1 rounded ${addButtonClassName}`}
             onClick={() => addStringItem(key)}
           >
             <FaPlus className="mr-1" /> Add
@@ -124,11 +143,11 @@ export default function DefaultsUIEditor(props) {
       <div className="mb-4">
         <h3 className={`font-semibold ${text2Color} mb-2 capitalize`}>{key}</h3>
         {editorData[key].map((obj, i) => (
-          <div key={i} className={`p-2 mb-2 rounded ${bgColor} border border-neutral-700`}>
+          <div key={i} className={`p-2 mb-2 rounded ${objectCardClassName}`}>
             <div className="flex items-center justify-between mb-2">
               <input
                 type="text"
-                className={`bg-neutral-800 text-white p-1 rounded w-full`}
+                className={objectNameInputClassName}
                 placeholder="Name"
                 value={obj.name}
                 onChange={(e) => updateObjectName(key, i, e.target.value)}
@@ -139,15 +158,15 @@ export default function DefaultsUIEditor(props) {
               />
             </div>
             <div className="mb-2">
-              <div className="font-semibold text-sm text-neutral-300 mb-1">Keywords:</div>
+              <div className={`font-semibold text-sm mb-1 ${keywordLabelClassName}`}>Keywords:</div>
               <div className="flex flex-wrap gap-2">
                 {obj.keywords.map((kw, kwIndex) => (
-                  <div key={kwIndex} className="flex items-center bg-neutral-800 text-white px-2 py-1 rounded">
+                  <div key={kwIndex} className={`flex items-center px-2 py-1 rounded ${chipClassName}`}>
                     <input
                       type="text"
                       value={kw}
                       onChange={(e) => updateObjectKeyword(key, i, kwIndex, e.target.value)}
-                      className={`bg-transparent border-none outline-none text-white`}
+                      className={chipInputClassName}
                     />
                     <FaTimes
                       className="ml-2 text-red-300 cursor-pointer"
@@ -157,7 +176,7 @@ export default function DefaultsUIEditor(props) {
                 ))}
                 <button
                   type="button"
-                  className="flex items-center px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
+                  className={`flex items-center px-2 py-1 rounded ${addButtonClassName}`}
                   onClick={() => addKeywordToObject(key, i)}
                 >
                   <FaPlus className="mr-1" /> Add Keyword
@@ -168,7 +187,7 @@ export default function DefaultsUIEditor(props) {
         ))}
         <button
           type="button"
-          className="flex items-center px-2 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
+          className={`flex items-center px-2 py-1 rounded ${addButtonClassName}`}
           onClick={() => addObjectItem(key)}
         >
           <FaPlus className="mr-1" /> Add {key.slice(0, -1)}
@@ -178,7 +197,7 @@ export default function DefaultsUIEditor(props) {
   };
 
   return (
-    <div className={`text-sm bg-gray-950`}>
+    <div className={`text-sm ${editorShellClassName}`}>
       {renderStringList("subject")}
       {renderObjectList("actors")}
       {renderObjectList("places")}

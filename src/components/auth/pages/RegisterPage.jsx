@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../../utils/web.jsx';
 import { getDefaultAuthenticatedPath } from '../../../utils/defaultRoutes.js';
+import { resolveAuthenticatedEntryPath } from '../../../utils/vidgenieRouting.js';
 import Register from '../Register.tsx';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 import { useMediaQuery } from 'react-responsive';
@@ -39,27 +40,41 @@ export default function RegisterPage() {
     window.location.href = `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
   };
 
-  const getOrCreateUserSession = (resolvedUser = null) => {
+  const getOrCreateUserSession = async (resolvedUser = null) => {
     const headers = getHeaders();
+    const currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
+    const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
+    const shouldOpenVidgenie =
+      currentMediaFlowPath === 'quick_video' ||
+      currentMediaFlowPath === 'vidgpt' ||
+      defaultPath === '/vidgenie';
+
+    if (shouldOpenVidgenie) {
+      try {
+        const targetPath = await resolveAuthenticatedEntryPath({
+          user: resolvedUser,
+          isMobile,
+          apiServer: PROCESSOR_SERVER,
+          headers,
+          search: location.search,
+          createIfMissing: true,
+        });
+        navigate(targetPath || defaultPath, { replace: true });
+      } catch (error) {
+        navigate(defaultPath, { replace: true });
+      }
+      return;
+    }
+
     axios
       .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
       .then((res) => {
         const sessionData = res.data;
         if (sessionData) {
           localStorage.setItem('videoSessionId', sessionData._id);
-          const currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
-          const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
-          if (
-            currentMediaFlowPath === 'quick_video' ||
-            currentMediaFlowPath === 'vidgpt' ||
-            defaultPath === '/vidgenie'
-          ) {
-            navigate(`/vidgenie/${sessionData._id}`);
-          } else {
-            navigate(`/video/${sessionData._id}`);
-          }
+          navigate(`/video/${sessionData._id}`);
         } else {
-          navigate(getDefaultAuthenticatedPath(resolvedUser, { isMobile }), { replace: true });
+          navigate(defaultPath, { replace: true });
         }
       })
       .catch((error) => {

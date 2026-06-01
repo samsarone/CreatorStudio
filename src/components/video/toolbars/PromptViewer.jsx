@@ -3,6 +3,7 @@ import SecondaryButton from '../../common/SecondaryButton.tsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import { IMAGE_MODEL_PRICES } from '../../../constants/ModelPrices.jsx';
 import { IMAGE_GENERAITON_MODEL_TYPES } from "../../../constants/Types.ts";
+import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 export default function PromptViewer(props) {
   const {
@@ -21,6 +22,7 @@ export default function PromptViewer(props) {
   const [selectedModel, setSelectedModel] = useState(IMAGE_GENERAITON_MODEL_TYPES[0].key);
   // Selected image style, if the model supports it
   const [selectedImageStyle, setSelectedImageStyle] = useState(null);
+  const { colorMode } = useColorMode();
 
   // ─────────────────────────────────────────────────────────
   //  On mount, try to load default model from localStorage
@@ -104,6 +106,14 @@ export default function PromptViewer(props) {
     ? modelPricing.prices.find((price) => price.aspectRatio === aspectRatio)
     : null;
   const modelPrice = priceObj ? priceObj.price : 0;
+  const panelClassName = colorMode === 'dark'
+    ? 'bg-neutral-800 text-slate-100'
+    : 'bg-white/90 text-slate-900 border border-slate-200';
+  const helperTextClassName = colorMode === 'dark' ? 'text-gray-300' : 'text-slate-600';
+  const creditTextClassName = colorMode === 'dark' ? 'text-blue-300' : 'text-blue-700';
+  const fieldClassName = colorMode === 'dark'
+    ? 'border-[#1f2a3d] bg-[#171717] text-[#fafafa]'
+    : 'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400';
 
   // Build the model dropdown
   const modelOptionMap = IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -113,11 +123,11 @@ export default function PromptViewer(props) {
   ));
 
   return (
-    <div className="flex flex-col items-center space-y-2 bg-neutral-800 p-2 rounded-lg">
+    <div className={`flex flex-col items-center space-y-2 p-2 rounded-lg ${panelClassName}`}>
       {/* ───────────── Display Cost & Retry Option ───────────── */}
       <div className="w-full">
-        <div className="text-xs font-semibold text-gray-300">
-          Incurs <span className="text-blue-300">{modelPrice} Credits</span>
+        <div className={`text-xs font-semibold ${helperTextClassName}`}>
+          Incurs <span className={creditTextClassName}>{modelPrice} Credits</span>
           <label className="ml-2 items-center">
             <input
               type="checkbox"
@@ -138,7 +148,7 @@ export default function PromptViewer(props) {
         <select
           onChange={handleModelChange}
           value={selectedModel}
-          className="w-[75%] p-2 border rounded bg-[#171717] text-[#fafafa]"
+          className={`w-[75%] p-2 border rounded ${fieldClassName}`}
         >
           {modelOptionMap}
         </select>
@@ -156,7 +166,7 @@ export default function PromptViewer(props) {
               <select
                 onChange={handleImageStyleChange}
                 value={selectedImageStyle || ''}
-                className="w-[75%] p-2 border rounded bg-[#171717] text-[#fafafa]"
+                className={`w-[75%] p-2 border rounded ${fieldClassName}`}
               >
                 {modelDef.imageStyles.map((style) => (
                   <option key={style} value={style}>
@@ -172,7 +182,7 @@ export default function PromptViewer(props) {
 
       {/* ───────────── Prompt Textarea ───────────── */}
       <TextareaAutosize
-        className="text-left max-h-64 overflow-y-auto w-full px-2 py-2 border rounded bg-[#171717] text-[#fafafa]"
+        className={`text-left max-h-64 overflow-y-auto w-full px-2 py-2 border rounded ${fieldClassName}`}
         value={promptText}
         onChange={handleInputChange}
         minRows={3}

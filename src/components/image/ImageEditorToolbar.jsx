@@ -125,7 +125,7 @@ export default function ImageEditorToolbar(props) {
       ? 'bg-[#111a2f] text-slate-300 hover:text-rose-200 border border-[#1f2a3d]'
       : 'bg-slate-100 text-slate-600 hover:text-rose-600 border border-slate-200';
   const sectionButtonClass = `w-full rounded-2xl px-4 py-2.5 text-[15px] font-medium transition flex items-center justify-between ${
-    colorMode === 'dark' ? 'shadow-[0_10px_22px_rgba(2,6,23,0.22)]' : 'shadow-sm'
+    colorMode === 'dark' ? 'shadow-[0_10px_22px_rgba(2,6,23,0.22)]' : ''
   }`;
   const actionIconClass = 'text-[30px] m-auto cursor-pointer';
   const actionLabelClass = 'mt-2 text-[13px] font-medium tracking-tight';

@@ -55,7 +55,7 @@ function ActionButton({
   const surfaceClassName = isActive
     ? (colorMode === 'dark'
       ? 'bg-cyan-500/22 border-cyan-300/55 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.18)]'
-      : 'bg-sky-100 border-sky-400/55 text-sky-700 shadow-[0_0_18px_rgba(14,165,233,0.12)]')
+      : 'bg-sky-100 border-sky-400/55 text-sky-700')
     : (colorMode === 'dark'
       ? 'bg-[#111a2f]/72 border-[#1f2a3d] text-slate-300 hover:bg-[#16213a]'
       : 'bg-white/80 border-slate-200 text-slate-600 hover:bg-slate-100');
@@ -148,7 +148,7 @@ export default function SelectedVideoTrackDisplay(props) {
 
   const toolbarSurfaceClassName = colorMode === 'dark'
     ? 'bg-[#0b1224]/68 border border-[#1f2a3d] backdrop-blur-md'
-    : 'bg-white/72 border border-slate-200 shadow-sm backdrop-blur-md';
+    : 'bg-white/72 border border-slate-200 backdrop-blur-md';
   const inputSurfaceClassName = colorMode === 'dark'
     ? 'bg-[#111a2f]/82 border border-[#1f2a3d] text-slate-100'
     : 'bg-white/88 border border-slate-200 text-slate-700';

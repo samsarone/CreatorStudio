@@ -1075,7 +1075,7 @@ export default function FrameToolbar(props) {
 
   const bgColor =
     colorMode === 'light'
-      ? 'bg-white/72 text-slate-900 border border-slate-200/90 shadow-sm backdrop-blur-md'
+      ? 'bg-white/72 text-slate-900 border border-slate-200/90 backdrop-blur-md'
       : 'bg-[#0f1629]/72 text-slate-100 border border-[#1f2a3d]/90 shadow-[0_10px_28px_rgba(0,0,0,0.35)] backdrop-blur-md';
   const bg2Color =
     colorMode === 'light'
@@ -3976,7 +3976,7 @@ export default function FrameToolbar(props) {
       : 'Point';
     const audioToolbarSurface =
       colorMode === 'light'
-        ? 'bg-white/72 border border-slate-200 shadow-sm backdrop-blur-md'
+        ? 'bg-white/72 border border-slate-200 backdrop-blur-md'
         : 'bg-[#0b1224]/68 border border-[#1f2a3d] backdrop-blur-md';
     const compactInputClassName =
       colorMode === 'light'
@@ -4571,6 +4571,7 @@ export default function FrameToolbar(props) {
       <SelectedTextToolbarDisplay selectedTextTrack={selectedTextTrackDisplay}
         newTextAnimationSelected={newTextAnimationSelected}
         bgColor={bgColor} textColor={textColor}
+        colorMode={colorMode}
         setShowTextTrackAnimations={setShowTextTrackAnimations}
         showTextTrackAnimations={showTextTrackAnimations}
         handleSaveChanges={handleSaveChanges}
@@ -5742,8 +5743,34 @@ export default function FrameToolbar(props) {
   };
 
   const showSelectedHintTrack = () => {
-    const inputClassName = 'h-8 w-20 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs';
-    const labelClassName = 'flex flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-400';
+    const inputClassName = colorMode === 'light'
+      ? 'h-8 w-20 rounded-md border border-slate-300 bg-white/80 px-2 text-xs text-slate-700'
+      : 'h-8 w-20 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs';
+    const fullHintInputClassName = colorMode === 'light'
+      ? 'h-8 rounded-md border border-slate-300 bg-white/80 px-2 text-xs normal-case tracking-normal text-slate-700'
+      : 'h-8 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs normal-case tracking-normal';
+    const labelClassName = colorMode === 'light'
+      ? 'flex flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-500'
+      : 'flex flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-400';
+    const toolbarButtonClassName = colorMode === 'light'
+      ? 'inline-flex h-8 items-center gap-1 rounded-md border border-slate-300 bg-white/80 px-3 text-xs font-semibold text-slate-700 disabled:opacity-50'
+      : 'inline-flex h-8 items-center gap-1 rounded-md border border-slate-500/40 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50';
+    const addHintButtonClassName = colorMode === 'light'
+      ? 'inline-flex h-8 items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-3 text-xs font-semibold text-sky-700 disabled:opacity-50'
+      : 'inline-flex h-8 items-center gap-1 rounded-md border border-cyan-500/50 px-3 text-xs font-semibold text-cyan-200 disabled:opacity-50';
+    const saveHintButtonClassName = colorMode === 'light'
+      ? 'inline-flex h-8 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 disabled:opacity-50'
+      : 'inline-flex h-8 items-center rounded-md border border-emerald-500/50 px-3 text-xs font-semibold text-emerald-200 disabled:opacity-50';
+    const dangerHintButtonClassName = colorMode === 'light'
+      ? 'inline-flex h-8 items-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 disabled:opacity-50'
+      : 'inline-flex h-8 items-center rounded-md border border-red-500/50 px-3 text-xs font-semibold text-red-300 disabled:opacity-50';
+    const addHintPanelClassName = colorMode === 'light'
+      ? 'flex min-w-[260px] flex-1 items-end gap-2 rounded-md border border-slate-200 bg-white/70 px-2 py-2'
+      : 'flex min-w-[260px] flex-1 items-end gap-2 rounded-md border border-slate-500/30 px-2 py-2';
+    const addHintTextareaClassName = colorMode === 'light'
+      ? 'min-h-[42px] rounded-md border border-slate-300 bg-white/80 px-2 py-1 text-xs normal-case tracking-normal text-slate-700'
+      : 'min-h-[42px] rounded-md border border-slate-500/40 bg-transparent px-2 py-1 text-xs normal-case tracking-normal text-slate-100';
+    const hintMutedTextClassName = colorMode === 'light' ? 'text-slate-500' : 'text-slate-400';
     const selectedLayerLabel = selectedHintLayerData && selectedHintLayerIndex >= 0
       ? `Scene ${selectedHintLayerIndex + 1}`
       : 'No scene selected';
@@ -5761,7 +5788,7 @@ export default function FrameToolbar(props) {
           type="button"
           onClick={() => hintsFileInputRef.current?.click()}
           disabled={isSavingHints}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-500/40 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50"
+          className={toolbarButtonClassName}
         >
           <FaUpload aria-hidden="true" />
           Upload hints file
@@ -5770,7 +5797,7 @@ export default function FrameToolbar(props) {
           type="button"
           onClick={importHintsFromTranscripts}
           disabled={isSavingHints}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-500/40 px-3 text-xs font-semibold text-slate-200 disabled:opacity-50"
+          className={toolbarButtonClassName}
         >
           <FaDownload aria-hidden="true" />
           Import speech transcript hints
@@ -5785,7 +5812,7 @@ export default function FrameToolbar(props) {
             setHintsStatusMessage('');
           }}
           disabled={!selectedHintLayerData || isSavingHints}
-          className="inline-flex h-8 items-center gap-1 rounded-md border border-cyan-500/50 px-3 text-xs font-semibold text-cyan-200 disabled:opacity-50"
+          className={addHintButtonClassName}
           title={selectedLayerLabel}
         >
           <FaPlus aria-hidden="true" />
@@ -5795,7 +5822,7 @@ export default function FrameToolbar(props) {
           type="button"
           onClick={saveTimelineHints}
           disabled={!hintsDirty || isSavingHints || typeof updateSessionHints !== 'function'}
-          className="inline-flex h-8 items-center rounded-md border border-emerald-500/50 px-3 text-xs font-semibold text-emerald-200 disabled:opacity-50"
+          className={saveHintButtonClassName}
         >
           {isSavingHints ? 'Saving' : 'Save'}
         </button>
@@ -5803,7 +5830,7 @@ export default function FrameToolbar(props) {
           type="button"
           onClick={deleteSelectedHint}
           disabled={isSavingHints || (!selectedHintTrack && !selectedHintId)}
-          className="inline-flex h-8 items-center rounded-md border border-red-500/50 px-3 text-xs font-semibold text-red-300 disabled:opacity-50"
+          className={dangerHintButtonClassName}
         >
           Remove selected
         </button>
@@ -5811,20 +5838,20 @@ export default function FrameToolbar(props) {
           type="button"
           onClick={removeAllHints}
           disabled={timelineHintsDraft.length === 0 || isSavingHints}
-          className="inline-flex h-8 items-center rounded-md border border-red-500/60 px-3 text-xs font-semibold text-red-200 disabled:opacity-50"
+          className={dangerHintButtonClassName}
         >
           Remove all hints
         </button>
 
         {showAddHintForm && (
-          <div className="flex min-w-[260px] flex-1 items-end gap-2 rounded-md border border-slate-500/30 px-2 py-2">
-            <label className="flex min-w-[180px] flex-1 flex-col gap-1 text-[10px] uppercase tracking-wide text-slate-400">
+          <div className={addHintPanelClassName}>
+            <label className={`${labelClassName} min-w-[180px] flex-1`}>
               <span>{selectedLayerLabel}</span>
               <textarea
                 rows={2}
                 value={newHintText}
                 onChange={(event) => setNewHintText(event.target.value)}
-                className="min-h-[42px] rounded-md border border-slate-500/40 bg-transparent px-2 py-1 text-xs normal-case tracking-normal text-slate-100"
+                className={addHintTextareaClassName}
                 placeholder="Hint text"
               />
             </label>
@@ -5832,7 +5859,7 @@ export default function FrameToolbar(props) {
               type="button"
               onClick={addHintFromSelectedLayer}
               disabled={isSavingHints}
-              className="inline-flex h-8 items-center rounded-md border border-cyan-500/50 px-3 text-xs font-semibold text-cyan-200 disabled:opacity-50"
+              className={addHintButtonClassName}
             >
               Add
             </button>
@@ -5847,7 +5874,7 @@ export default function FrameToolbar(props) {
                 type="text"
                 value={selectedHintTrack.text || ''}
                 onChange={(event) => updateSelectedHintText(event.target.value)}
-                className="h-8 rounded-md border border-slate-500/40 bg-transparent px-2 text-xs normal-case tracking-normal"
+                className={fullHintInputClassName}
               />
             </label>
             <label className={labelClassName}>
@@ -5882,14 +5909,14 @@ export default function FrameToolbar(props) {
             </label>
           </>
         ) : (
-          <div className="inline-flex h-8 items-center gap-2 text-[11px] text-slate-400">
+          <div className={`inline-flex h-8 items-center gap-2 text-[11px] ${hintMutedTextClassName}`}>
             <FaLightbulb aria-hidden="true" />
             Select a hint track to edit text or timing.
           </div>
         )}
 
         {hintsStatusMessage ? (
-          <div className="inline-flex h-8 items-center text-[11px] text-slate-400">
+          <div className={`inline-flex h-8 items-center text-[11px] ${hintMutedTextClassName}`}>
             {hintsStatusMessage}
           </div>
         ) : null}
@@ -6298,11 +6325,11 @@ export default function FrameToolbar(props) {
   const collapsedToggleSurface =
     colorMode === 'dark'
       ? 'bg-[#111a2f]/78 text-slate-100 border border-[#1f2a3d]/90 shadow-[0_10px_28px_rgba(0,0,0,0.35)] backdrop-blur-md'
-      : 'bg-white/80 text-slate-700 border border-slate-200 shadow-sm backdrop-blur-md';
+      : 'bg-white/80 text-slate-700 border border-slate-200 backdrop-blur-md';
   const expandedToggleSurface =
     colorMode === 'dark'
       ? 'bg-[#0f1629]/78 text-slate-100 border border-[#1f2a3d]/90 shadow-[0_12px_32px_rgba(0,0,0,0.4)] backdrop-blur-md'
-      : 'bg-white/80 text-slate-700 border border-slate-200 shadow-sm backdrop-blur-md';
+      : 'bg-white/80 text-slate-700 border border-slate-200 backdrop-blur-md';
   let expandButtonLabel = (
     <button
       type="button"
@@ -6359,10 +6386,10 @@ export default function FrameToolbar(props) {
 
   const sceneCardClassName = colorMode === 'dark'
     ? 'bg-[#0f172a]/70 border border-[#1f2a3d]/90 text-slate-100'
-    : 'bg-white/70 border border-slate-200/90 text-slate-700 shadow-sm';
+    : 'bg-white/70 border border-slate-200/90 text-slate-700';
   const panelSectionClassName = colorMode === 'dark'
     ? 'bg-[#111a2f]/58 border border-[#1f2a3d]/90'
-    : 'bg-white/58 border border-slate-200/90 shadow-sm';
+    : 'bg-white/58 border border-slate-200/90';
   const sceneButtonClassName = colorMode === 'dark'
     ? 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-200 transition hover:bg-slate-800/80 disabled:opacity-50'
     : 'inline-flex cursor-pointer rounded-md px-1.5 py-1 text-slate-600 transition hover:bg-slate-200/80 disabled:opacity-50';
@@ -6372,10 +6399,10 @@ export default function FrameToolbar(props) {
     } ${showUpdateLayerPortal
       ? (colorMode === 'dark' ? 'text-cyan-100' : 'text-sky-600')
       : (colorMode === 'dark' ? 'text-slate-500' : 'text-slate-400')
-    } inline-flex h-[34px] w-[26px] shrink-0 items-center justify-center rounded-lg text-[11px] shadow-sm transition-colors duration-150`;
+    } inline-flex h-[34px] w-[26px] shrink-0 items-center justify-center rounded-lg text-[11px] ${colorMode === 'dark' ? 'shadow-sm' : ''} transition-colors duration-150`;
   const gridToggleClassName = colorMode === 'dark'
     ? 'inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-950/65 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-200 shadow-[0_12px_28px_rgba(2,6,23,0.34)] backdrop-blur-md transition hover:border-cyan-400/30'
-    : 'inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 shadow-sm backdrop-blur-md transition hover:border-sky-300/70';
+    : 'inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-white/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600 backdrop-blur-md transition hover:border-sky-300/70';
   const gridToggleInputClassName = colorMode === 'dark'
     ? 'h-4 w-4 rounded border-slate-600 bg-slate-900/90 text-cyan-400 focus:ring-2 focus:ring-cyan-400/35 focus:ring-offset-0'
     : 'h-4 w-4 rounded border-slate-300 bg-white text-sky-500 focus:ring-2 focus:ring-sky-400/35 focus:ring-offset-0';
@@ -6675,11 +6702,11 @@ export default function FrameToolbar(props) {
             Render
           </CommonButton>
         </div>
-        <button
-          type="button"
-          onClick={cancelPendingRender}
-          className={`inline-flex items-center justify-center rounded-lg px-2 py-2 shadow-[0_6px_14px_rgba(3,12,28,0.2)] transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0 ${cancelButtonClasses}`}
-          title="Cancel render"
+          <button
+            type="button"
+            onClick={cancelPendingRender}
+            className={`inline-flex items-center justify-center rounded-lg px-2 py-2 ${colorMode === 'dark' ? 'shadow-[0_6px_14px_rgba(3,12,28,0.2)]' : ''} transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0 ${cancelButtonClasses}`}
+            title="Cancel render"
           aria-label="Cancel render"
         >
           <FaTimes />
@@ -6805,7 +6832,7 @@ export default function FrameToolbar(props) {
   const settingsSummaryCardClassName = `${panelSectionClassName} rounded-2xl p-3`;
   const promptDropdownSurfaceClassName = colorMode === 'dark'
     ? 'border border-[#24324a] bg-[#08111d]/95 text-slate-100 shadow-[0_18px_45px_rgba(0,0,0,0.45)]'
-    : 'border border-slate-200 bg-white/98 text-slate-800 shadow-[0_18px_45px_rgba(15,23,42,0.18)]';
+    : 'border border-slate-200 bg-white/98 text-slate-800';
   const selectedSceneLabel = selectedLayerIndex >= 0
     ? `Scene ${selectedLayerIndex + 1}`
     : 'No scene selected';
@@ -7189,39 +7216,53 @@ export default function FrameToolbar(props) {
     // Define the base class name for the tab buttons
     const baseTabClassName =
       'inline-flex items-center justify-center rounded-lg px-2 py-1 text-[10px] font-semibold cursor-pointer expanded-menu-item transition-colors duration-150';
+    const inactiveTabClassName = colorMode === 'light'
+      ? 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+      : 'bg-gray-700/80 text-gray-300';
+    const getExpandedTabClassName = (viewName, darkActiveClassName, lightActiveClassName) => `${currentLayerActionSuperView === viewName
+      ? (colorMode === 'light' ? lightActiveClassName : darkActiveClassName)
+      : inactiveTabClassName
+      } ${baseTabClassName}`;
 
     // Conditional class for the "Audio" tab
-    const audioTabClassName = `${currentLayerActionSuperView === 'AUDIO'
-      ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
+    const audioTabClassName = getExpandedTabClassName(
+      'AUDIO',
+      'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white',
+      'bg-sky-50 text-sky-700 border border-sky-200'
+    );
 
-    const imageTabClassName = `${currentLayerActionSuperView === 'IMAGE'
-      ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
-    const videoTabClassName = `${currentLayerActionSuperView === 'VIDEO'
-      ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
-    const globalVideoTabClassName = `${currentLayerActionSuperView === 'GLOBAL_VIDEO'
-      ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
+    const imageTabClassName = getExpandedTabClassName(
+      'IMAGE',
+      'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white',
+      'bg-sky-50 text-sky-700 border border-sky-200'
+    );
+    const videoTabClassName = getExpandedTabClassName(
+      'VIDEO',
+      'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white',
+      'bg-cyan-50 text-cyan-700 border border-cyan-200'
+    );
+    const globalVideoTabClassName = getExpandedTabClassName(
+      'GLOBAL_VIDEO',
+      'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white',
+      'bg-cyan-50 text-cyan-700 border border-cyan-200'
+    );
 
     // Conditional class for the "Text" tab
-    const textTabClassName = `${currentLayerActionSuperView === 'TEXT'
-      ? 'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
-    const hintsTabClassName = `${currentLayerActionSuperView === 'HINTS'
-      ? 'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
-    const settingsTabClassName = `${currentLayerActionSuperView === 'SETTINGS'
-      ? 'bg-gradient-to-r from-gray-900 via-emerald-900 to-gray-900 text-white'
-      : 'bg-gray-700/80 text-gray-300'
-      } ${baseTabClassName}`;
+    const textTabClassName = getExpandedTabClassName(
+      'TEXT',
+      'bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 text-white',
+      'bg-indigo-50 text-indigo-700 border border-indigo-200'
+    );
+    const hintsTabClassName = getExpandedTabClassName(
+      'HINTS',
+      'bg-gradient-to-r from-gray-900 via-cyan-900 to-gray-900 text-white',
+      'bg-cyan-50 text-cyan-700 border border-cyan-200'
+    );
+    const settingsTabClassName = getExpandedTabClassName(
+      'SETTINGS',
+      'bg-gradient-to-r from-gray-900 via-emerald-900 to-gray-900 text-white',
+      'bg-emerald-50 text-emerald-700 border border-emerald-200'
+    );
     const canUseLayerActionTab = (viewName) => !isRenderPending || viewName === 'SETTINGS';
     const getLayerActionTabProps = (viewName, className) => {
       const canUseTab = canUseLayerActionTab(viewName);
@@ -7267,13 +7308,13 @@ export default function FrameToolbar(props) {
 
   return (
     <div
-      className={`shadow-lg m-auto fixed ${containerWdidth} ${textColor} ${panelShellSurface}
+      className={`${colorMode === 'dark' ? 'shadow-lg' : ''} m-auto fixed ${containerWdidth} ${textColor} ${panelShellSurface}
        text-left toolbar-container overflow-visible`}
       aria-disabled={isRenderPending}
       style={frameToolbarInsetStyle}
     >
       <div className='grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]'>
-        <div className={`relative z-[240] w-full shrink-0 overflow-visible pb-1 border-r-2 ${bgColor} border-stone-600`}>
+        <div className={`relative z-[240] w-full shrink-0 overflow-visible pb-1 ${bgColor} ${colorMode === 'dark' ? 'border-r-2 border-stone-600' : 'border-r border-slate-200'}`}>
           {isExpandedToolbarView ? (
             <div className='flex min-w-0 flex-col gap-1 px-1.5 pt-1 pb-1'>
               <div className='flex min-w-0 items-center gap-1 overflow-hidden pb-[1px]'>
@@ -7452,7 +7493,7 @@ export default function FrameToolbar(props) {
       {openPopupLayerIndex !== null && showUpdateLayerPortal && !isRenderPending &&
         createPortal(
           <div
-            className={`fixed z-[200] p-1 rounded-lg ${bg3Color} shadow-lg border border-neutral-500`}
+            className={`fixed z-[200] p-1 rounded-lg ${bg3Color} ${colorMode === 'dark' ? 'shadow-lg border border-neutral-500' : 'border border-slate-200'}`}
             style={{
               top: popupPosition.top, // Use the calculated top position
               left: popupPosition.left,
@@ -7486,13 +7527,13 @@ export default function FrameToolbar(props) {
                     inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${durationChanged ? 'highlight' : ''
                     }`}
                 />
-                <label className='inline-block text-xs text-slate-200 ml-[-30px]'>s</label>
+                <label className={`inline-block text-xs ml-[-30px] ${colorMode === 'light' ? 'text-slate-500' : 'text-slate-200'}`}>s</label>
               </div>
               {durationChanged && (
                 <div className='mt-1 mb-2'>
                   <button
                     onClick={onUpdateDuration}
-                  className={`px-4 py-2 mt-1 text-xs text-slate-100 rounded bg-[#111a2f] border border-[#1f2a3d] m-auto ${durationChanged ? 'highlight' : ''
+                  className={`px-4 py-2 mt-1 text-xs rounded m-auto ${colorMode === 'light' ? 'bg-sky-600 text-white border border-sky-600 hover:bg-sky-500' : 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d]'} ${durationChanged ? 'highlight' : ''
                       }`}
                   >
                     Update
@@ -7502,7 +7543,7 @@ export default function FrameToolbar(props) {
               <div className='mt-auto absolute bottom-1 left-0 right-0'>
                 <button
                   onClick={() => removeLayer(openPopupLayerIndex)}
-                  className='px-3 py-1 text-xs rounded w-[80px] bg-red-900 text-neutral-100 hover:bg-red-800'
+                  className={`px-3 py-1 text-xs rounded w-[80px] ${colorMode === 'light' ? 'bg-rose-600 text-white hover:bg-rose-500' : 'bg-red-900 text-neutral-100 hover:bg-red-800'}`}
                 >
                   <div className='flex m-auto'>
                     <div className='inline-flex'>

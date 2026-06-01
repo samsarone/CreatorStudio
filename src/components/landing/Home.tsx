@@ -1,16 +1,20 @@
-import React, { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import axios from "axios";
 import 'react-tooltip/dist/react-tooltip.css';
 
 
-import { consumePostAuthRedirect, persistAuthToken } from '../../utils/web.jsx';
+import { consumePostAuthRedirect, getAuthToken, getHeaders, persistAuthToken } from '../../utils/web.jsx';
 import {
-  getDefaultAuthenticatedPath,
   hasNoGenerationCredits,
   hasStudioAccess as userHasStudioAccess,
 } from '../../utils/defaultRoutes.js';
+import {
+  appendRouteSearch,
+  resolveAuthenticatedEntryPath,
+  upsertRouteSearchParam,
+} from '../../utils/vidgenieRouting.js';
 import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 
@@ -45,6 +49,74 @@ const GenerationsHome = lazy(() => import("../generations/GenerationsHome.jsx"))
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
+function RouteLoadingScreen({ label = 'Loading...' }) {
+  const { colorMode } = useColorMode();
+  const isDark = colorMode === 'dark';
+
+  return (
+    <div
+      className={`flex min-h-screen items-center justify-center ${
+        isDark
+          ? 'bg-[#0b1021] text-slate-100'
+          : 'bg-[#f7f9fc] text-slate-700'
+      }`}
+    >
+      <div className="flex flex-col items-center gap-4">
+        <div
+          className={`h-10 w-10 animate-spin rounded-full border-4 border-t-transparent ${
+            isDark ? 'border-cyan-300/70' : 'border-sky-500/70'
+          }`}
+          aria-hidden="true"
+        />
+        <p className="text-sm font-medium">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+function DefaultAuthenticatedRoute({ user, isMobile, search }) {
+  const [targetPath, setTargetPath] = useState(null);
+  const resolutionStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (!user?._id || resolutionStartedRef.current) {
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      setTargetPath(appendRouteSearch('/login', search));
+      return;
+    }
+
+    resolutionStartedRef.current = true;
+
+    const resolveRoute = async () => {
+      try {
+        const resolvedPath = await resolveAuthenticatedEntryPath({
+          user,
+          isMobile,
+          apiServer: PROCESSOR_SERVER,
+          headers,
+          search,
+          createIfMissing: true,
+        });
+        setTargetPath(resolvedPath || appendRouteSearch('/vidgenie', search));
+      } catch (error) {
+        setTargetPath(appendRouteSearch('/vidgenie', search));
+      }
+    };
+
+    void resolveRoute();
+  }, [isMobile, search, user]);
+
+  if (targetPath) {
+    return <Navigate to={targetPath} replace />;
+  }
+
+  return <RouteLoadingScreen label="Opening VidGenie..." />;
+}
+
 export default function Home() {
   const { user, getUserAPI, userFetching, userInitiated } = useUser();
   const navigate = useNavigate();
@@ -53,6 +125,24 @@ export default function Home() {
 
   const { colorMode } = useColorMode();
   const [extraProps, setExtraProps] = useState(() => new URLSearchParams());
+  const initialUserFetchStartedRef = useRef(false);
+  const initialEntryRef = useRef(null);
+  if (initialEntryRef.current === null && typeof window !== 'undefined') {
+    const initialSearchParams = new URLSearchParams(window.location.search);
+    initialEntryRef.current = {
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hasAuthToken: Boolean(getAuthToken()),
+      hasLoginToken: Boolean(initialSearchParams.get('loginToken')),
+    };
+  }
+  const shouldResolveInitialAuthenticatedRoot =
+    Boolean(initialEntryRef.current?.hasAuthToken) &&
+    !initialEntryRef.current?.hasLoginToken &&
+    initialEntryRef.current?.pathname === '/';
+  const [initialAuthenticatedRootStatus, setInitialAuthenticatedRootStatus] = useState(
+    shouldResolveInitialAuthenticatedRoot ? 'pending' : 'done'
+  );
 
   useEffect(() => {
     const queryParams = new URLSearchParams(location.search);
@@ -62,13 +152,28 @@ export default function Home() {
   }, [location.search]);
 
   useEffect(() => {
+    if (shouldResolveInitialAuthenticatedRoot && initialAuthenticatedRootStatus === 'pending') {
+      return;
+    }
+
+    if (initialUserFetchStartedRef.current) {
+      return;
+    }
+
     const queryParams = new URLSearchParams(location.search);
     const loginToken = queryParams.get('loginToken');
     if (loginToken && location.pathname !== '/verify') {
       return;
     }
+    initialUserFetchStartedRef.current = true;
     getUserAPI();
-  }, [getUserAPI, location.pathname, location.search]);
+  }, [
+    getUserAPI,
+    initialAuthenticatedRootStatus,
+    location.pathname,
+    location.search,
+    shouldResolveInitialAuthenticatedRoot,
+  ]);
 
   const isExternalUser = Boolean(user?.isExternalUser);
   const hasStudioAccess = Boolean(
@@ -100,7 +205,9 @@ export default function Home() {
   })();
 
   useEffect(() => {
+    if (initialAuthenticatedRootStatus === 'pending') return;
     if (!userInitiated || userFetching) return;
+    if (location.pathname === '/') return;
     if (isExternalUser) {
       if (location.pathname !== '/external/studio' && location.pathname !== '/verify') {
         navigate('/external/studio', { replace: true });
@@ -118,19 +225,108 @@ export default function Home() {
     if (location.pathname !== redirectTarget) {
       navigate(redirectTarget, { replace: true });
     }
-  }, [userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
+  }, [initialAuthenticatedRootStatus, userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
 
   const appendQueryParams = useCallback((url) => {
     const paramsString = extraProps.toString();
     return paramsString ? `${url}?${paramsString}` : url;
   }, [extraProps]);
+  const sanitizedRouteSearch = extraProps.toString() ? `?${extraProps.toString()}` : '';
 
-  const navigateToDefaultAuthenticatedView = useCallback((resolvedUser = user) => {
-    navigate(
-      appendQueryParams(getDefaultAuthenticatedPath(resolvedUser, { isMobile })),
-      { replace: true }
-    );
-  }, [appendQueryParams, isMobile, navigate, user]);
+  const navigateToDefaultAuthenticatedView = useCallback(async (resolvedUser = user) => {
+    const headers = getHeaders();
+    if (!headers) {
+      navigate(appendQueryParams('/login'), { replace: true });
+      return;
+    }
+
+    const resolvedSearch = hasNoGenerationCredits(resolvedUser)
+      ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
+      : sanitizedRouteSearch;
+    const targetPath = await resolveAuthenticatedEntryPath({
+      user: resolvedUser,
+      isMobile,
+      apiServer: PROCESSOR_SERVER,
+      headers,
+      search: resolvedSearch,
+      createIfMissing: true,
+    });
+    navigate(targetPath || appendQueryParams('/vidgenie'), { replace: true });
+  }, [appendQueryParams, isMobile, navigate, sanitizedRouteSearch, user]);
+
+  useEffect(() => {
+    if (!shouldResolveInitialAuthenticatedRoot || initialAuthenticatedRootStatus !== 'pending') {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const resolveInitialRoute = async () => {
+      initialUserFetchStartedRef.current = true;
+
+      try {
+        const resolvedUser = userInitiated && !userFetching ? user : await getUserAPI();
+        if (isCancelled) return;
+
+        if (!resolvedUser?._id) {
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        if (resolvedUser.isExternalUser) {
+          navigate('/external/studio', { replace: true });
+          return;
+        }
+
+        const resolvedHasStudioAccess = userHasStudioAccess(resolvedUser);
+        if (!resolvedHasStudioAccess && !hasNoGenerationCredits(resolvedUser)) {
+          navigate('/account/billing', { replace: true });
+          return;
+        }
+
+        const headers = getHeaders();
+        if (!headers) {
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        const resolvedSearch = !resolvedHasStudioAccess && hasNoGenerationCredits(resolvedUser)
+          ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
+          : sanitizedRouteSearch;
+        const targetPath = await resolveAuthenticatedEntryPath({
+          user: resolvedUser,
+          isMobile,
+          apiServer: PROCESSOR_SERVER,
+          headers,
+          search: resolvedSearch,
+          createIfMissing: true,
+        });
+        if (isCancelled) return;
+
+        navigate(targetPath || '/vidgenie', { replace: true });
+      } finally {
+        if (!isCancelled) {
+          setInitialAuthenticatedRootStatus('done');
+        }
+      }
+    };
+
+    void resolveInitialRoute();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    getUserAPI,
+    initialAuthenticatedRootStatus,
+    isMobile,
+    navigate,
+    sanitizedRouteSearch,
+    shouldResolveInitialAuthenticatedRoot,
+    user,
+    userFetching,
+    userInitiated,
+  ]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') {
@@ -146,7 +342,7 @@ export default function Home() {
           navigate(redirectTarget, { replace: true });
           return;
         }
-        navigateToDefaultAuthenticatedView(resolvedUser);
+        void navigateToDefaultAuthenticatedView(resolvedUser);
       }
     };
 
@@ -179,7 +375,7 @@ export default function Home() {
             return;
           }
 
-          navigateToDefaultAuthenticatedView(resolvedUser);
+          void navigateToDefaultAuthenticatedView(resolvedUser);
           return;
         }
       } catch (error) {
@@ -197,15 +393,33 @@ export default function Home() {
   } else {
     bodyBGColor = "bg-[#f7f9fc] text-slate-900";
   }
+  const rootAuthenticatedSearch = !hasStudioAccess && hasNoGenerationCredits(user)
+    ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
+    : sanitizedRouteSearch;
+
+  if (initialAuthenticatedRootStatus === 'pending') {
+    return (
+      <div className={bodyBGColor}>
+        <RouteLoadingScreen label="Opening VidGenie..." />
+      </div>
+    );
+  }
+
   return (
     <div className={bodyBGColor}>
-      <Suspense fallback={<div className="min-h-screen bg-inherit" />}>
+      <Suspense fallback={<RouteLoadingScreen />}>
         <Routes>
           <Route
             path="/"
-            element={user && user._id && userInitiated && !userFetching
-              ? <Navigate to={appendQueryParams(getDefaultAuthenticatedPath(user, { isMobile }))} replace />
-              : <VideoEditorLandingHome />}
+            element={
+              !userInitiated || userFetching
+                ? <RouteLoadingScreen />
+                : user && user._id
+                  ? !hasStudioAccess && !hasNoGenerationCredits(user)
+                    ? <Navigate to="/account/billing" replace />
+                    : <DefaultAuthenticatedRoute user={user} isMobile={isMobile} search={rootAuthenticatedSearch} />
+                  : <VideoEditorLandingHome />
+            }
           />
           <Route path="/generations" element={<GenerationsHome />} />
           <Route path="/session/:id" element={<EditorHome />} />

@@ -1,6 +1,6 @@
 // ProgressIndicator.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaPause, FaPlay, FaSpinner, FaStepForward, FaTimes } from 'react-icons/fa';
+import { FaPause, FaPlay, FaSpinner, FaStepForward } from 'react-icons/fa';
 import './mobileStyles.css';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
@@ -766,10 +766,18 @@ export default function ProgressIndicator(props) {
 
   const showBuyCreditsDialog = () => {
     openAlertDialog(
-      <div>
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser} />
-      </div>
+      <AddCreditsDialog
+        onClose={closeAlertDialog}
+        purchaseCreditsForUser={purchaseCreditsForUser}
+      />,
+      undefined,
+      false,
+      {
+        centerContent: true,
+        fullBleed: true,
+        hideBorder: true,
+        hideCloseButton: true,
+      }
     );
   };
 

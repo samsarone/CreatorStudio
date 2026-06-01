@@ -795,9 +795,22 @@ const VideoCanvas = forwardRef((props, ref) => {
     stageZoomScale,
   ]);
 
+  const videoLayerControlClassName = colorMode === 'dark'
+    ? 'border border-[#1f2a3d] bg-[#0f1629]/95 text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
+    : 'border border-slate-200 bg-white/95 text-slate-800';
+  const videoLayerRemoveButtonClassName = colorMode === 'dark'
+    ? 'bg-rose-500/15 text-rose-100 hover:bg-rose-500/25 hover:text-white'
+    : 'bg-rose-50 text-rose-700 hover:bg-rose-100';
+  const videoLayerTypePillClassName = colorMode === 'dark'
+    ? 'border border-[#e45a26]/30 bg-[#e45a26]/20 text-orange-100'
+    : 'border border-orange-200 bg-orange-50 text-orange-700';
+  const maskActionClassName = colorMode === 'dark'
+    ? 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
+    : 'bg-white text-slate-800 border border-slate-200';
+
   const videoLayerRemoveControl = aiVideoLayer ? (
     <div
-      className="fixed z-[900] flex items-center justify-end gap-2 overflow-visible rounded-lg border border-[#1f2a3d] bg-[#0f1629]/95 px-2 py-1 text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]"
+      className={`fixed z-[900] flex items-center justify-end gap-2 overflow-visible rounded-lg px-2 py-1 ${videoLayerControlClassName}`}
       style={{
         right: `${videoLayerControlPosition?.right ?? 12}px`,
         top: `${videoLayerControlPosition?.top ?? 72}px`,
@@ -806,7 +819,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     >
       <button
         type="button"
-        className="inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/25 hover:text-white"
+        className={`inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold transition ${videoLayerRemoveButtonClassName}`}
         onClick={handleRemoveVideoLayerClick}
         aria-label="Remove video from layer"
         title="Remove video from layer"
@@ -814,7 +827,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         <FaTimes className="text-[11px]" aria-hidden="true" />
         <span>Remove from layer</span>
       </button>
-      <span className="min-w-0 truncate rounded-full border border-[#e45a26]/30 bg-[#e45a26]/20 px-2.5 py-1 text-xs font-semibold text-orange-100">
+      <span className={`min-w-0 truncate rounded-full px-2.5 py-1 text-xs font-semibold ${videoLayerTypePillClassName}`}>
         {getVideoTypeLabel(aiVideoLayerType)}
       </span>
     </div>
@@ -966,7 +979,7 @@ const VideoCanvas = forwardRef((props, ref) => {
   const canvasSurfaceClassName =
     colorMode === 'dark'
       ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_16px_34px_rgba(2,6,23,0.18)]'
-      : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_14px_28px_rgba(15,23,42,0.08)]';
+      : 'bg-[#f1f5f9] border border-slate-300';
   const canvasShellClassName =
     editorVariant === "imageStudio"
       ? "m-auto relative py-6 pl-0 pr-0"
@@ -1113,7 +1126,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         editorVariant={editorVariant}
       />
       {showAddRemoveMaskedItemButton && (
-        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[#111a2f] text-slate-100 border border-[#1f2a3d] p-2 rounded-lg shadow-[0_10px_28px_rgba(0,0,0,0.35)] z-50">
+        <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 p-2 rounded-lg z-50 ${maskActionClassName}`}>
           <button className="mr-4" onClick={handleAddButtonClick}>Add</button>
           <button onClick={handleRemoveButtonClick}>Remove</button>
         </div>

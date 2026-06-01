@@ -206,7 +206,7 @@ export default function FrameToolbarHorizontal({
         className={`px-3 py-2 rounded-lg text-xs inline-flex items-center gap-2 transition-colors duration-150 ${
           colorMode === "dark"
             ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-            : "bg-white text-slate-700 border border-slate-200 shadow-sm hover:bg-slate-100"
+            : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
         }`}
       >
         <FaDownload />
@@ -220,7 +220,7 @@ export default function FrameToolbarHorizontal({
       className={`${
         colorMode === "dark"
           ? "bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.32)]"
-          : "bg-white/90 text-slate-800 border border-slate-200 shadow-[0_14px_32px_rgba(15,23,42,0.06)] backdrop-blur-sm"
+          : "bg-white/90 text-slate-800 border border-slate-200 backdrop-blur-sm"
       } w-full overflow-hidden`}
       aria-disabled={isRenderPending}
     >
@@ -258,7 +258,7 @@ export default function FrameToolbarHorizontal({
               const baseClass =
                 colorMode === "dark"
                   ? "bg-white border border-white/40 shadow-[0_4px_14px_rgba(148,163,184,0.35)]"
-                  : "bg-amber-400 border border-amber-200 shadow-[0_4px_16px_rgba(251,191,36,0.25)]";
+                  : "bg-amber-400 border border-amber-200";
               return (
                 <div
                   key={key}
@@ -281,8 +281,8 @@ export default function FrameToolbarHorizontal({
                 className={`absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full p-2 transition-colors duration-150 ${
                   colorMode === "dark"
                     ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-                    : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
-                } shadow-sm`}
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                } ${colorMode === "dark" ? "shadow-sm" : ""}`}
                 onClick={() => scrollByAmount(-1)}
                 aria-label="Scroll left"
               >
@@ -295,8 +295,8 @@ export default function FrameToolbarHorizontal({
                 className={`absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full p-2 transition-colors duration-150 ${
                   colorMode === "dark"
                     ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-                    : "bg-white text-slate-600 border border-slate-200 shadow-sm hover:bg-slate-50"
-                } shadow-sm`}
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                } ${colorMode === "dark" ? "shadow-sm" : ""}`}
                 onClick={() => scrollByAmount(1)}
                 aria-label="Scroll right"
               >
@@ -347,7 +347,7 @@ export default function FrameToolbarHorizontal({
                                     isSelected
                                       ? colorMode === "dark"
                                         ? "border-rose-400/60 bg-rose-500/20 shadow-[0_6px_18px_rgba(248,113,113,0.18)]"
-                                        : "border-amber-300 bg-amber-50 shadow-[0_6px_20px_rgba(251,191,36,0.16)]"
+                                        : "border-amber-300 bg-amber-50"
                                       : colorMode === "dark"
                                         ? "border-[#1f2a3d] bg-[#111a2f] hover:border-rose-400/30"
                                         : "border-slate-200 bg-slate-100 hover:border-slate-300"

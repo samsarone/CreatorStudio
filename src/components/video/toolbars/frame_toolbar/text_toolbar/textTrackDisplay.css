@@ -68,3 +68,19 @@
 
 
 }
+
+body.theme-light .text-track-slider-component .train-thumb {
+  background-color: #9aaac0;
+}
+
+body.theme-light .text-track-slider-component .track {
+  background-color: #dbe4f0;
+}
+
+body.theme-light .text-track-slider-component .track:nth-child(2) {
+  background-color: #cbd6e6;
+}
+
+body.theme-light .text-track-slider-component .user-selected-track:nth-child(2) {
+  background-color: #93c5fd;
+}

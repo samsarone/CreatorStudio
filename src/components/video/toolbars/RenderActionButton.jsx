@@ -56,6 +56,7 @@ export default function RenderActionButton(props) {
   const cancelButtonClasses = colorMode === 'light'
     ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
     : 'border border-[#31405e] bg-[#111a2f] text-slate-200 hover:bg-[#16213a]';
+  const cancelButtonShadow = colorMode === 'dark' ? 'shadow-[0_6px_14px_rgba(3,12,28,0.2)]' : '';
 
   const submitDownloadVideo = () => {
     if (!resolvedDownloadLink) {
@@ -132,7 +133,7 @@ export default function RenderActionButton(props) {
         <button
           type="button"
           onClick={cancelPendingRender}
-          className={`inline-flex items-center justify-center rounded-lg shadow-[0_6px_14px_rgba(3,12,28,0.2)] transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0 ${cancelButtonSizeClasses} ${cancelButtonClasses}`}
+          className={`inline-flex items-center justify-center rounded-lg transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0 ${cancelButtonSizeClasses} ${cancelButtonClasses} ${cancelButtonShadow}`}
           title="Cancel render"
           aria-label="Cancel render"
         >

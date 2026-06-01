@@ -12,8 +12,10 @@ import {
   FaCompressAlt,
 } from 'react-icons/fa';
 import * as Tone from 'tone';
+import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
 const AudioEffectsToolbar = ({ selectedAudioTrack, onSaveAudioEffects }) => {
+  const { colorMode } = useColorMode();
   const [tempo, setTempo] = useState(1.0); // 1.0 is normal speed
   const [reverb, setReverb] = useState(0);
   const [echo, setEcho] = useState(0);
@@ -93,9 +95,12 @@ const AudioEffectsToolbar = ({ selectedAudioTrack, onSaveAudioEffects }) => {
     // Pass the processed audio back to parent
     onSaveAudioEffects(audioBlob);
   };
+  const panelClassName = colorMode === 'dark'
+    ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
+    : 'bg-white text-slate-900 border border-slate-200';
 
   return (
-    <div className='p-4 bg-[#0f1629] text-slate-100 border border-[#1f2a3d] rounded-lg shadow-[0_10px_28px_rgba(0,0,0,0.35)]'>
+    <div className={`p-4 rounded-lg ${panelClassName}`}>
       <div className='flex items-center mb-4'>
         <FaMusic className='mr-2' />
         <h3 className='text-lg font-bold'>Audio Effects</h3>

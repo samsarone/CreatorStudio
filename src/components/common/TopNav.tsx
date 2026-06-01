@@ -89,7 +89,7 @@ export default function TopNav(props) {
   const navShell =
     colorMode === 'dark'
       ? 'bg-gradient-to-r from-[#071223] via-[#0d1d35] to-[#0a1b2d] text-slate-100 border-b border-[#2a4e70] shadow-[0_16px_48px_rgba(0,0,0,0.45)]'
-      : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef] shadow-[0_10px_24px_rgba(15,23,42,0.08)]';
+      : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef]';
 
   const resetSession = () => {
     closeAlertDialog();
@@ -462,7 +462,7 @@ const showLicenseDialog = () => {
           inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0
           ${colorMode === 'dark'
             ? 'text-slate-100 bg-[#111a2f] hover:bg-[#162744] hover:text-[#d7ffeb] shadow-[0_8px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_24px_rgba(70,191,255,0.2)]'
-            : 'text-slate-900 bg-white/90 hover:bg-white hover:text-slate-900 shadow-[0_8px_16px_rgba(15,23,42,0.08)] hover:shadow-[0_12px_22px_rgba(15,23,42,0.14)]'}
+            : 'border border-slate-200 text-slate-900 bg-white/80 hover:bg-white hover:text-slate-900'}
         `}
         type="button"
         onClick={showLoginDialog}
@@ -548,18 +548,21 @@ const showLicenseDialog = () => {
   const openPurchaseCreditsDialog = useCallback(() => {
 
     const alertDialogContent = (
-      <div>
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        <Suspense fallback={dialogFallback}>
-          <AddCreditsDialog
-            purchaseCreditsForUser={purchaseCreditsForUser}
-            requestApplyCreditsCoupon={requestApplyCreditsCoupon}
-          />
-        </Suspense>
-      </div>
+      <Suspense fallback={dialogFallback}>
+        <AddCreditsDialog
+          onClose={closeAlertDialog}
+          purchaseCreditsForUser={purchaseCreditsForUser}
+          requestApplyCreditsCoupon={requestApplyCreditsCoupon}
+        />
+      </Suspense>
     );
 
-    openAlertDialog(alertDialogContent, undefined, false);
+    openAlertDialog(alertDialogContent, undefined, false, {
+      centerContent: true,
+      fullBleed: true,
+      hideBorder: true,
+      hideCloseButton: true,
+    });
 
   }, [closeAlertDialog, openAlertDialog, purchaseCreditsForUser, requestApplyCreditsCoupon]);
 
@@ -701,7 +704,7 @@ const showLicenseDialog = () => {
       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300';
     const galleryShortcutGroup = colorMode === 'dark'
       ? 'rounded-full border border-white/10 bg-black/10 px-2 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.22)]'
-      : 'rounded-full border border-white/70 bg-white/80 px-2 py-2 shadow-[0_10px_20px_rgba(15,23,42,0.08)] backdrop-blur';
+      : 'rounded-full border border-white/70 bg-white/80 px-2 py-2 backdrop-blur';
     controlbarView = (
       <div className={`flex flex-wrap items-center justify-center gap-2 ${galleryShortcutGroup}`}>
         <button

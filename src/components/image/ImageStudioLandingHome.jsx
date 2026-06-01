@@ -118,11 +118,11 @@ export default function ImageStudioLandingHome() {
   const toolbarShell =
     colorMode === 'dark'
       ? 'bg-[#0f1629] border-l border-[#1f2a3d] shadow-[0_1px_0_rgba(255,255,255,0.04)]'
-      : 'bg-white border-l border-slate-200 shadow-sm';
+      : 'bg-white border-l border-slate-200';
   const canvasSurface =
     colorMode === 'dark'
       ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_20px_50px_rgba(0,0,0,0.55)]'
-      : 'bg-[#f1f5f9] border border-slate-300 shadow-[0_18px_40px_rgba(15,23,42,0.18)]';
+      : 'bg-[#f1f5f9] border border-slate-300';
   const placeholderSurface =
     colorMode === 'dark'
       ? 'bg-gradient-to-br from-[#081426] via-[#0e2238] to-[#10253a] border border-[#2a4e70]'

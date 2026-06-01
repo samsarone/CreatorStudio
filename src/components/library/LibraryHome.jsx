@@ -71,6 +71,9 @@ export default function LibraryHome(props) {
     ? 'border border-cyan-400/30 bg-gradient-to-r from-cyan-500 via-sky-500 to-indigo-500 text-white shadow-lg shadow-cyan-500/20'
     : 'border border-sky-300 bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 text-white shadow';
   const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+  const loadingOverlay = colorMode === 'dark'
+    ? 'bg-black bg-opacity-50 text-white'
+    : 'bg-slate-100/75 text-slate-700';
 
   return (
     <div className={`library-home mt-[60px] flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] ${panelSurface}`}>
@@ -115,8 +118,8 @@ export default function LibraryHome(props) {
         {renderContent()}
 
         {isLoading && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 opacity-50">
-            <FaSpinner className="text-white text-4xl animate-spin" />
+          <div className={`fixed inset-0 z-50 flex items-center justify-center opacity-70 ${loadingOverlay}`}>
+            <FaSpinner className="text-4xl animate-spin" />
           </div>
         )}
       </div>

@@ -22,7 +22,7 @@ export default function BrandLogo({ onClick, className = '' }: BrandLogoProps) {
       className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-[8px] text-center transition-all duration-200 ease-out hover:-translate-y-[1px] ${
         isDark
           ? 'bg-gradient-to-r from-[#081425] via-[#0f233a] to-[#0a1a2e] text-[#e8edf7] shadow-[0_10px_24px_rgba(0,0,0,0.42)] hover:brightness-[1.03] hover:shadow-[0_14px_30px_rgba(70,191,255,0.2)]'
-          : 'bg-gradient-to-r from-[#d9e2f0] via-[#cfd9eb] to-[#e6ecf7] text-[#0f1a2f] shadow-[0_8px_18px_rgba(15,23,42,0.1)] hover:shadow-[0_12px_24px_rgba(15,23,42,0.16)]'
+          : 'border border-[#cbd6e6] bg-gradient-to-r from-[#d9e2f0] via-[#cfd9eb] to-[#e6ecf7] text-[#0f1a2f]'
       } ${className}`}
       aria-label={ariaLabel}
     >

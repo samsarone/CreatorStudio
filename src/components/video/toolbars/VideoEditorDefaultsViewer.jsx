@@ -93,14 +93,28 @@ export default function VideoEditorDefaultsViewer(props) {
 
   const bgColor =
     colorMode === 'light'
-      ? 'bg-white text-slate-900 border border-slate-200 shadow-sm'
+      ? 'bg-white text-slate-900 border border-slate-200'
       : 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]';
   const buttonBgcolor =
     colorMode === 'light'
-      ? 'bg-slate-100 text-slate-900 border border-slate-200 shadow-sm'
+      ? 'bg-slate-100 text-slate-900 border border-slate-200'
       : 'bg-[#131c33] text-white border border-[#24314d]';
   const text2Color =
     colorMode === 'dark' ? 'text-slate-100' : 'text-neutral-900';
+  const compactControlButtonClassName = colorMode === 'light'
+    ? 'text-slate-700 bg-slate-100 border border-slate-200 hover:bg-slate-200'
+    : 'text-white bg-neutral-900 hover:bg-neutral-800';
+  const getThemeTypeButtonClassName = (isActive) => {
+    if (colorMode === 'light') {
+      return isActive
+        ? 'bg-sky-600 text-white border border-sky-600'
+        : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200';
+    }
+
+    return isActive
+      ? 'bg-neutral-900 text-white'
+      : 'bg-gradient-to-r from-gray-900 to-gray-800 text-gray-200 rounded';
+  };
 
   const handleJsonThemeChange = (value) => {
     setThemeJson(value);
@@ -203,7 +217,7 @@ export default function VideoEditorDefaultsViewer(props) {
     if (isExpandedView) {
       let toggleExpandPanelLabel = isEditorPanelExpanded ? 'Collapse' : 'Expand';
       expandPanelButton = (
-        <div className='inline-flex text-white pl-2 pr-2 cursor-pointer bg-neutral-900 rounded m-auto text-center ' onClick={toggleExpandPanel}>
+        <div className={`inline-flex pl-2 pr-2 cursor-pointer rounded m-auto text-center ${compactControlButtonClassName}`} onClick={toggleExpandPanel}>
           <MdExpand className='m-auto mt-1 mb-1 mr-1'/> {toggleExpandPanelLabel}
         </div>
       );
@@ -220,7 +234,7 @@ export default function VideoEditorDefaultsViewer(props) {
 
           <div className="flex items-center space-x-2">
             <div
-              className='flex text-white pl-2 pr-2 cursor-pointer bg-neutral-900 rounded text-center' 
+              className={`flex pl-2 pr-2 cursor-pointer rounded text-center ${compactControlButtonClassName}`}
               type="button"
               onClick={handleReset}
             >
@@ -302,20 +316,14 @@ export default function VideoEditorDefaultsViewer(props) {
           <div className="button-group flex mb-2">
             <button
               type="button"
-              className={`mr-2 px-4 py-2 rounded ${themeType === 'basic'
-                  ? 'bg-neutral-900 text-white'
-                  : 'bg-gradient-to-r from-gray-900 to-gray-800 text-gray-200 rounded'
-                }`}
+              className={`mr-2 px-4 py-2 rounded ${getThemeTypeButtonClassName(themeType === 'basic')}`}
               onClick={() => setThemeType('basic')}
             >
               Basic
             </button>
             <button
               type="button"
-              className={`px-4 py-2 rounded ${themeType === 'advanced'
-                  ? 'bg-neutral-900 text-white'
-                  : 'bg-gradient-to-r from-gray-900 to-gray-800 text-gray-200 rounded'
-                }`}
+              className={`px-4 py-2 rounded ${getThemeTypeButtonClassName(themeType === 'advanced')}`}
               onClick={() => setThemeType('advanced')}
             >
               Advanced

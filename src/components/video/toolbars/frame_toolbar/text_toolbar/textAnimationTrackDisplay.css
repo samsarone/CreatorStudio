@@ -8,6 +8,17 @@
 }
 
 
+body.theme-light .text-animation-track-slider .track {
+  background-color: #dbe4f0;
+}
+
+body.theme-light .text-animation-track-slider .track:nth-child(2) {
+  background-color: #cbd6e6;
+}
+
+body.theme-light .text-animation-track-slider .user-selected-track:nth-child(2) {
+  background-color: #c4b5fd;
+}
 
 .text-animation-track-slider {
 
@@ -33,5 +44,4 @@
   }
 
 }
-
 

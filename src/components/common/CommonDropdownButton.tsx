@@ -48,7 +48,15 @@ export default function CommonDropdownButton({
   const interactionClasses =
     colorMode === "dark"
       ? "transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_12px_24px_rgba(70,191,255,0.22)] active:translate-y-0"
-      : "transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_18px_rgba(15,23,42,0.14)] active:translate-y-0";
+      : "transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0";
+  const buttonShadow = colorMode === "dark" ? "shadow-lg" : "";
+  const mainButtonShadow = colorMode === "dark" ? "shadow-sm" : "";
+  const menuSurface =
+    colorMode === "dark"
+      ? "bg-neutral-900/95 ring-1 ring-white/10 shadow-[0_16px_30px_rgba(0,0,0,0.42)]"
+      : "bg-white ring-1 ring-slate-200";
+  const menuItemBase = colorMode === "dark" ? "text-gray-300" : "text-slate-700";
+  const menuItemActive = colorMode === "dark" ? "bg-gray-800 text-white" : "bg-slate-100 text-slate-900";
 
   const mainButtonSizeClasses = compact
     ? "min-h-[34px] px-3 py-1.5 text-sm"
@@ -59,14 +67,14 @@ export default function CommonDropdownButton({
 
   return (
     <Menu as="div" className="relative z-[260] inline-block text-left">
-      <div className="flex shadow-lg">
+      <div className={`flex ${buttonShadow}`}>
         {/* Main (left) portion of the split-button */}
         <button
           onClick={onMainClick}
           disabled={isBtnDisabled}
           className={`
             relative m-auto inline-flex min-w-16 items-center justify-center text-center
-            rounded-l-lg shadow-sm
+            rounded-l-lg ${mainButtonShadow}
             font-bold bg-gradient-to-r
             whitespace-nowrap leading-none
             cursor-pointer
@@ -116,8 +124,7 @@ export default function CommonDropdownButton({
         <Menu.Items
           className={`
             origin-top-right absolute right-0 mt-2
-            w-36 rounded bg-neutral-900/95 ring-1 ring-white/10
-            shadow-[0_16px_30px_rgba(0,0,0,0.42)] z-[320]
+            w-36 rounded z-[320] ${menuSurface}
           `}
         >
           {dropdownItems.map((item, idx) => (
@@ -126,8 +133,9 @@ export default function CommonDropdownButton({
                 <div
                   onClick={item.onClick}
                   className={`
-                    block pl-8 py-2 text-sm text-gray-300
-                    ${active ? "bg-gray-800 text-white" : ""}
+                    block pl-8 py-2 text-sm
+                    ${menuItemBase}
+                    ${active ? menuItemActive : ""}
                     cursor-pointer
                   `}
                 >

@@ -26,7 +26,8 @@ export default function SecondaryButton(props) {
   const interactionClasses =
     colorMode === 'dark'
       ? 'transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_20px_rgba(70,191,255,0.18)] active:translate-y-0'
-      : 'transition-all duration-200 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_18px_rgba(15,23,42,0.14)] active:translate-y-0';
+      : 'transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0';
+  const buttonShadow = colorMode === 'dark' ? 'shadow-[0_6px_14px_rgba(3,12,28,0.2)]' : '';
   const additionalClasses = [extraClasses, className].filter(Boolean).join(" ");
   return (
     <button type={type} onClick={onClick} className={`m-auto text-center min-w-8
@@ -35,7 +36,7 @@ export default function SecondaryButton(props) {
     font-bold
     bg-gradient-to-r 
     pl-2 pr-2 pt-1 pb-1 text-bold
-    shadow-[0_6px_14px_rgba(3,12,28,0.2)]
+    ${buttonShadow}
     ${interactionClasses}
     cursor:pointer text-sm
     disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-neutral-100 ${additionalClasses}`}

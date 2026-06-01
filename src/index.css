@@ -22,6 +22,23 @@
   --surface-light-strong: #c3cedf;
 }
 
+html {
+  min-height: 100%;
+  background-color: var(--surface-light);
+}
+
+html.dark {
+  background-color: var(--ink-950);
+  color: #e8edf7;
+}
+
+html.dark body,
+html.dark #root,
+html.dark .App {
+  background-color: var(--ink-950);
+  color: #e8edf7;
+}
+
 body {
   margin: 0;
   background-color: var(--surface-light);
@@ -49,6 +66,34 @@ body.theme-light {
     radial-gradient(circle at 55% 82%, rgba(255, 184, 105, 0.12), transparent 22%),
     linear-gradient(165deg, var(--surface-light) 0%, var(--surface-light-strong) 45%, #e6edf7 100%);
   color: #0f172a;
+  scrollbar-color: #b9c6d8 #e8edf6;
+}
+
+body.theme-light * {
+  scrollbar-color: #b9c6d8 #e8edf6;
+}
+
+body.theme-light::-webkit-scrollbar,
+body.theme-light *::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+body.theme-light::-webkit-scrollbar-track,
+body.theme-light *::-webkit-scrollbar-track {
+  background: #e8edf6;
+}
+
+body.theme-light::-webkit-scrollbar-thumb,
+body.theme-light *::-webkit-scrollbar-thumb {
+  background-color: #b9c6d8;
+  border: 2px solid #e8edf6;
+  border-radius: 999px;
+}
+
+body.theme-light::-webkit-scrollbar-thumb:hover,
+body.theme-light *::-webkit-scrollbar-thumb:hover {
+  background-color: #99a8bd;
 }
 
 body .material-surface {
@@ -68,6 +113,28 @@ code {
     monospace;
 }
 
+@keyframes purchase-credits-prompt-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.purchase-credits-prompt {
+  animation: purchase-credits-prompt-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .purchase-credits-prompt {
+    animation: none;
+  }
+}
+
 .spinner-container {
   display: flex;
   justify-content: center;
@@ -75,6 +142,11 @@ code {
   height: 100vh; /* Full height */
   width: 100vw; /* Full width */
   background-color: var(--ink-900); /* Background color */
+}
+
+body.theme-light .spinner-container {
+  background-color: #eef3fb;
+  color: #1f2a3d;
 }
 
 /* Dark palette overrides to align legacy accent utilities to neocardina blue/green */
@@ -166,6 +238,10 @@ body.theme-light .text-slate-700 { color: #1f2a3d !important; }
   animation: spin 1s linear infinite;
 }
 
+body.theme-light .spinner {
+  color: #2563eb;
+}
+
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
@@ -178,6 +254,16 @@ body.theme-light .text-slate-700 { color: #1f2a3d !important; }
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+body.theme-light .no-scrollbar {
+  scrollbar-width: none;
+}
+
+body.theme-light .no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .pending-disabled-shell {

@@ -56,6 +56,10 @@ export default function ForgotPassword(props) {
 
   const formBgColor = colorMode === 'light' ? 'bg-neutral-50' : 'bg-neutral-900';
   const formTextColor = colorMode === 'light' ? 'text-neutral-900' : 'text-neutral-50';
+  const selectClasses = colorMode === 'light'
+    ? 'bg-white text-slate-900 border border-slate-200'
+    : 'bg-neutral-800 text-white';
+  const mutedText = colorMode === 'light' ? 'text-slate-500' : 'text-neutral-400';
   const copy = translations[language] || translations.en;
 
   useEffect(() => {
@@ -88,11 +92,11 @@ export default function ForgotPassword(props) {
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
       {success && <div className="text-blue-500 text-center mb-4">{success}</div>}
       <div className="mb-4">
-        <label className="block text-sm mb-1 text-neutral-400">{copy.language}</label>
+        <label className={`block text-sm mb-1 ${mutedText}`}>{copy.language}</label>
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="w-full rounded-lg p-2 bg-neutral-800 text-white"
+          className={`w-full rounded-lg p-2 ${selectClasses}`}
         >
           {SUPPORTED_LANGUAGES.map((lang) => (
             <option key={lang.code} value={lang.code}>
@@ -101,7 +105,7 @@ export default function ForgotPassword(props) {
           ))}
         </select>
       </div>
-      <p className="text-neutral-400 text-center mb-6">{copy.intro}</p>
+      <p className={`${mutedText} text-center mb-6`}>{copy.intro}</p>
       <form onSubmit={handleForgotPassword} className={`w-full ${formTextColor}` }>
         <div className="form-group">
           <div className="text-xs text-left font-bold pl-1">{copy.emailLabel}</div>

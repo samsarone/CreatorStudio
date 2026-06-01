@@ -77,6 +77,7 @@ const VIDEO_STATUS_DETAILED_ENDPOINT = `${API_SERVER}/v2/status_detailed`;
 const VIDEO_STEP_API_BASE = `${VIDEO_API_BASE}/video/step`;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
+const PURCHASE_CREDITS_PROMPT_DELAY_MS = 2200;
 
 // ───────────────────────────────────────────────────────────
 //  Polling constants
@@ -1554,6 +1555,96 @@ function isFailedGenerationStatus(status) {
   const normalizedStatus = typeof status === 'string' ? status.trim().toUpperCase() : '';
   return normalizedStatus === 'FAILED' || normalizedStatus === 'ERROR' || normalizedStatus === 'CANCELLED';
 }
+
+function normalizeGenerationStatus(status) {
+  return typeof status === 'string' ? status.trim().toUpperCase() : '';
+}
+
+function extractErrorText(value) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (!isPlainObject(value)) {
+    return '';
+  }
+  return (
+    extractErrorText(value.message) ||
+    extractErrorText(value.error) ||
+    extractErrorText(value.detail) ||
+    extractErrorText(value.details)
+  );
+}
+
+function getDetailedGenerationFailureStatus(data) {
+  if (!isPlainObject(data)) {
+    return '';
+  }
+
+  const topLevelStatus = normalizeGenerationStatus(data.status);
+  if (
+    topLevelStatus === 'COMPLETED' ||
+    topLevelStatus === 'SUCCESS' ||
+    topLevelStatus === 'SUCCEEDED' ||
+    topLevelStatus === 'DONE'
+  ) {
+    return '';
+  }
+
+  if (data.expressGenerationCancelled) {
+    return 'CANCELLED';
+  }
+  if (data.expressGenerationFailed) {
+    return 'FAILED';
+  }
+
+  const statusCandidates = [
+    data.status,
+    data.step_status,
+    data.stepStatus,
+    data.step?.status,
+    data.expressGenerationStatus?.status,
+  ];
+
+  if (isPlainObject(data.expressGenerationStatus)) {
+    statusCandidates.push(...Object.values(data.expressGenerationStatus));
+  }
+  if (isPlainObject(data.session?.stages)) {
+    statusCandidates.push(...Object.values(data.session.stages));
+  }
+
+  return statusCandidates
+    .map(normalizeGenerationStatus)
+    .find(isFailedGenerationStatus) || '';
+}
+
+function getDetailedGenerationErrorMessage(data, failureStatus = '') {
+  const candidates = [
+    data?.expressGenerationError,
+    data?.generationError,
+    data?.errorMessage,
+    data?.message,
+    data?.error,
+    data?.step?.error,
+    data?.step?.errorMessage,
+    data?.step?.message,
+    data?.session?.error,
+    data?.session?.errorMessage,
+    data?.session?.message,
+    data?.session?.generationError,
+    data?.session?.result?.error,
+    data?.session?.result?.message,
+  ];
+
+  const errorText = candidates.map(extractErrorText).find(Boolean);
+  if (errorText) {
+    return errorText;
+  }
+
+  return normalizeGenerationStatus(failureStatus) === 'CANCELLED'
+    ? 'Video generation was cancelled.'
+    : 'Video generation failed.';
+}
+
 export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Context / Router hooks
@@ -1616,7 +1707,7 @@ export default function OneshotEditor() {
       return;
     }
 
-    const timeoutId = window.setTimeout(openPurchaseCreditsPrompt, 350);
+    const timeoutId = window.setTimeout(openPurchaseCreditsPrompt, PURCHASE_CREDITS_PROMPT_DELAY_MS);
     return () => window.clearTimeout(timeoutId);
   }, [location.search, openPurchaseCreditsPrompt, user]);
 
@@ -1753,7 +1844,6 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   const pollIntervalRef = useRef(null);   // generation poll (setTimeout)
   const activeRequestStepModeRef = useRef(GENERATION_STEP_MODE_ONE_STEP);
-  const autoProcessNextRequestIdsRef = useRef(new Set());
   const assistantPollRef = useRef(null);   // assistant poll (setInterval)
   const pollErrorCountRef = useRef(0);
   const assistantErrorCountRef = useRef(0);
@@ -2900,7 +2990,6 @@ export default function OneshotEditor() {
         setGenerationStatusDetails(data);
 
         const currentStepMode = normalizeGenerationStepMode(activeRequestStepModeRef.current);
-        const isRequestingProcessNext = isStepStatusRequestingProcessNext(data);
         const isWaitingForApproval = isStepStatusWaitingForApproval(data, currentStepMode);
         if (isWaitingForApproval) {
           continuePolling = false;
@@ -2911,21 +3000,6 @@ export default function OneshotEditor() {
 
         setIsGenerationWaitingForApproval(false);
 
-        if (isRequestingProcessNext && currentStepMode !== GENERATION_STEP_MODE_TWO_STEP) {
-          const autoProcessKey = data?.session_id || data?.request_id || requestId;
-          if (!autoProcessNextRequestIdsRef.current.has(autoProcessKey)) {
-            autoProcessNextRequestIdsRef.current.add(autoProcessKey);
-            try {
-              await processNextStepRequest(requestId, headers);
-              pollDelayRef.current = 0;
-            } catch (error) {
-              autoProcessNextRequestIdsRef.current.delete(autoProcessKey);
-              throw error;
-            }
-          }
-          return;
-        }
-
         const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
         if (data.status === 'COMPLETED' && videoActualLink) {
           continuePolling = false;
@@ -2934,18 +3008,27 @@ export default function OneshotEditor() {
           setVideoLink(videoActualLink);
         }
 
-        if (isFailedGenerationStatus(data.status)) {
+        const failureStatus = getDetailedGenerationFailureStatus(data);
+        if (failureStatus) {
           continuePolling = false;
           setIsGenerationPending(false);
           setIsGenerationWaitingForApproval(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
-          const errorText = data.expressGenerationError || data.message || 'Video generation failed.';
-          const normalizedError = errorText.startsWith('Video generation failed')
-            ? errorText
-            : `Video generation failed. ${errorText}`;
-          setErrorMessage({ error: normalizedError });
+          setErrorMessage({ error: getDetailedGenerationErrorMessage(data, failureStatus) });
         }
       } catch (err) {
+        const failureStatus = getDetailedGenerationFailureStatus(err?.response?.data);
+        if (failureStatus) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          clearAdvancedVideoEditPendingSession(requestId);
+          setErrorMessage({
+            error: getDetailedGenerationErrorMessage(err.response.data, failureStatus),
+          });
+          return;
+        }
+
         pollDelayRef.current = Math.min(
           pollDelayRef.current ? pollDelayRef.current * 2 : DEFAULT_POLL,
           MAX_BACKOFF
@@ -3293,7 +3376,6 @@ export default function OneshotEditor() {
       setActiveRequestId(null);
       activeRequestIdRef.current = null;
       activeRequestStepModeRef.current = submittedGenerationStepMode;
-      autoProcessNextRequestIdsRef.current.clear();
 
       try {
         const { data } = await axios.post(
@@ -3379,7 +3461,6 @@ export default function OneshotEditor() {
     setActiveRequestId(null);
     activeRequestIdRef.current = null;
     activeRequestStepModeRef.current = submittedGenerationStepMode;
-    autoProcessNextRequestIdsRef.current.clear();
 
     const requestInput = {};
     if (isTextToVideo) {
@@ -3490,7 +3571,6 @@ export default function OneshotEditor() {
     activeRequestIdRef.current = null;
     activeRequestStepModeRef.current = GENERATION_STEP_MODE_ONE_STEP;
     currentPollRequestIdRef.current = null;
-    autoProcessNextRequestIdsRef.current.clear();
     setSessionMessages([]);
     setIsAssistantQueryGenerating(false);   // ⬅️ NEW
     setIsPaused(false);                     // ⬅️ NEW
@@ -3552,7 +3632,6 @@ export default function OneshotEditor() {
     setActiveRequestId(nextRequestId);
     activeRequestIdRef.current = nextRequestId;
     activeRequestStepModeRef.current = GENERATION_STEP_MODE_ONE_STEP;
-    autoProcessNextRequestIdsRef.current.clear();
 
     if (nextSessionId && nextSessionId !== id) {
       setAdvancedVideoEditPendingSession(nextSessionId);
