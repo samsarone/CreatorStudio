@@ -1448,6 +1448,8 @@ function buildStepGenerationInput(stepMode) {
   const manualStepStages = isTwoStep ? TWO_STEP_MANUAL_STAGES : [];
 
   return {
+    generation_step_mode: stepMode,
+    generationStepMode: stepMode,
     auto_render_full_video: autoRenderFullVideo,
     autoRenderFullVideo,
     manual_step_stages: manualStepStages,
@@ -3594,9 +3596,9 @@ export default function OneshotEditor() {
       }
 
       const payload = {
-        ...stepGenerationInput,
         input: { ...requestInput, session_id: id },
         ...advancedRequestConfiguration.root,
+        ...stepGenerationInput,
       };
       const endpoint = isTextToVideo
         ? `${VIDEO_STEP_API_BASE}/text_to_video`
