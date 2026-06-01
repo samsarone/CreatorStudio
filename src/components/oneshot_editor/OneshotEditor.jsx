@@ -1518,14 +1518,36 @@ function getStepGenerationEndpoint(endpoint) {
 }
 
 function extractVideoResultUrl(data) {
+  const resultUrls = Array.isArray(data?.result_urls) ? data.result_urls : [];
+  const candidates = [
+    data?.videoLink,
+    data?.video_link,
+    data?.session?.videoLink,
+    data?.session?.video_link,
+    data?.session?.result?.videoLink,
+    data?.session?.result?.video_link,
+    data?.result?.videoLink,
+    data?.result?.video_link,
+    data?.result_url,
+    data?.result?.url,
+    resultUrls[0],
+    data?.remoteURL,
+    data?.remoteUrl,
+    data?.remote_url,
+    data?.session?.remoteURL,
+    data?.session?.remoteUrl,
+    data?.session?.remote_url,
+    data?.session?.result?.remoteURL,
+    data?.session?.result?.remoteUrl,
+    data?.session?.result?.remote_url,
+    data?.publishedVideoURL,
+    data?.published_video_url,
+    data?.session?.publishedVideoURL,
+    data?.session?.published_video_url,
+  ];
+
   return (
-    data?.result_url
-    || (Array.isArray(data?.result_urls) ? data.result_urls[0] : null)
-    || data?.remoteURL
-    || data?.videoLink
-    || data?.session?.result?.url
-    || data?.session?.result?.remoteURL
-    || data?.session?.result?.videoLink
+    candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0)
     || null
   );
 }
@@ -1751,6 +1773,7 @@ export default function OneshotEditor() {
     }
     return `${API_SERVER}/${trimmed.replace(/^\/+/, '')}`;
   };
+  const getNormalizedLatestVideoUrl = (data) => normalizeVideoUrl(extractVideoResultUrl(data));
 
   // ✨ UI tokens for light/dark surfaces
   const surfaceCard =
@@ -1808,6 +1831,7 @@ export default function OneshotEditor() {
   const [isPaused, setIsPaused] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUnpublishing, setIsUnpublishing] = useState(false);
+  const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
 
   useEffect(() => {
     activeRequestIdRef.current = activeRequestId;
@@ -2676,20 +2700,41 @@ export default function OneshotEditor() {
   //  Handle download
   // ─────────────────────────────────────────────────────────
   async function handleDownloadVideo() {
+    const fallbackUrl = normalizeVideoUrl(videoLink);
+    let downloadUrl = fallbackUrl;
+
     try {
-      if (!videoLink) return;
-      const headers = getHeaders();
-      const response = await axios.get(videoLink, { responseType: 'blob', headers });
-      const blobUrl = URL.createObjectURL(new Blob([response.data], { type: 'video/mp4' }));
+      setIsDownloadingVideo(true);
+      const latestUrl = await refreshLatestVideoLink();
+      downloadUrl = latestUrl || fallbackUrl;
+      if (!downloadUrl) return;
+
+      const headers = downloadUrl.startsWith(API_SERVER) ? getHeaders() : null;
+      const response = await axios.get(downloadUrl, {
+        responseType: 'blob',
+        ...(headers || {}),
+      });
+      const blobUrl = URL.createObjectURL(new Blob([response.data], {
+        type: response.headers?.['content-type'] || 'video/mp4',
+      }));
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.setAttribute('download', 'generated_video.mp4');
+      link.setAttribute('download', `Rendition_${dateNowStr}.mp4`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(blobUrl);
     } catch (err) {
-      
+      if (downloadUrl) {
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.setAttribute('download', `Rendition_${dateNowStr}.mp4`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } finally {
+      setIsDownloadingVideo(false);
     }
   }
 
@@ -2711,10 +2756,13 @@ export default function OneshotEditor() {
             : [];
 
       const sessionId = formPayload?.id || id;
+      const latestSessionDetails = (await getSessionDetails()) || sessionDetails;
+      const latestRawVideoLink = extractVideoResultUrl(latestSessionDetails);
+      const latestVideoUrl = normalizeVideoUrl(latestRawVideoLink) || videoLink || null;
 
       const aspectRatioForPublish =
-        sessionDetails?.aspectRatio ||
-        sessionDetails?.publishedAspectRatio ||
+        latestSessionDetails?.aspectRatio ||
+        latestSessionDetails?.publishedAspectRatio ||
         selectedAspectRatioOption?.value ||
         null;
 
@@ -2727,12 +2775,12 @@ export default function OneshotEditor() {
       const sessionLanguage =
         typeof formPayload.sessionLanguage === 'string' && formPayload.sessionLanguage.trim().length > 0
           ? formPayload.sessionLanguage.trim()
-          : typeof sessionDetails?.sessionLanguage === 'string' &&
-            sessionDetails.sessionLanguage.trim().length > 0
-            ? sessionDetails.sessionLanguage.trim()
-            : typeof sessionDetails?.language === 'string' &&
-              sessionDetails.language.trim().length > 0
-              ? sessionDetails.language.trim()
+          : typeof latestSessionDetails?.sessionLanguage === 'string' &&
+            latestSessionDetails.sessionLanguage.trim().length > 0
+            ? latestSessionDetails.sessionLanguage.trim()
+            : typeof latestSessionDetails?.language === 'string' &&
+              latestSessionDetails.language.trim().length > 0
+              ? latestSessionDetails.language.trim()
               : typeof fallbackLanguageCode === 'string' && fallbackLanguageCode.trim().length > 0
                 ? fallbackLanguageCode.trim()
                 : null;
@@ -2740,9 +2788,9 @@ export default function OneshotEditor() {
       const languageString =
         typeof formPayload.languageString === 'string' && formPayload.languageString.trim().length > 0
           ? formPayload.languageString.trim()
-          : typeof sessionDetails?.languageString === 'string' &&
-            sessionDetails.languageString.trim().length > 0
-            ? sessionDetails.languageString.trim()
+          : typeof latestSessionDetails?.languageString === 'string' &&
+            latestSessionDetails.languageString.trim().length > 0
+            ? latestSessionDetails.languageString.trim()
             : selectedLanguageOption?.value &&
               selectedLanguageOption.value !== 'auto' &&
               typeof selectedLanguageOption?.label === 'string' &&
@@ -2762,6 +2810,12 @@ export default function OneshotEditor() {
       }
       if (languageString) {
         publishPayload.languageString = languageString;
+      }
+      if (latestRawVideoLink) {
+        publishPayload.videoLink = latestRawVideoLink;
+      }
+      if (latestVideoUrl) {
+        publishPayload.renderedVideoURL = latestVideoUrl;
       }
 
       await axios.post(
@@ -3173,6 +3227,10 @@ export default function OneshotEditor() {
       );
       setSessionDetails(data);
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
+      const latestVideoUrl = getNormalizedLatestVideoUrl(data);
+      const hasPendingGeneration = Boolean(
+        data.videoGenerationPending || data.expressGenerationPending || forceAdvancedEditPoll
+      );
 
       if (data.inputPrompt) {
         updatePromptText(data.inputPrompt);
@@ -3180,26 +3238,41 @@ export default function OneshotEditor() {
 
 
       if (!activeRequestIdRef.current) {
-        if (data.videoGenerationPending || data.expressGenerationPending || forceAdvancedEditPoll) {
+        if (hasPendingGeneration) {
           setIsGenerationPending(true);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
           pollGenerationStatus(id);
-        } else if (data.videoLink) {
-          const linkCandidate = data.remoteURL?.length ? data.remoteURL : data.videoLink || null;
-          setVideoLink(normalizeVideoUrl(linkCandidate));
+        } else if (latestVideoUrl) {
+          setVideoLink(latestVideoUrl);
           setIsGenerationPending(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
           clearAdvancedVideoEditPendingSession(id);
         }
+      } else if (!hasPendingGeneration && latestVideoUrl) {
+        setVideoLink(latestVideoUrl);
+        setIsGenerationPending(false);
+        setShowResultDisplay(true);
+        setExpressGenerationStatus(data.expressGenerationStatus);
+        clearAdvancedVideoEditPendingSession(id);
       }
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
+      return data;
     } catch (err) {
-      
+      return null;
     }
   };
+
+  async function refreshLatestVideoLink() {
+    const latestSessionDetails = await getSessionDetails();
+    const latestVideoUrl = getNormalizedLatestVideoUrl(latestSessionDetails) || normalizeVideoUrl(videoLink);
+    if (latestVideoUrl) {
+      setVideoLink(latestVideoUrl);
+    }
+    return latestVideoUrl;
+  }
 
   // ─────────────────────────────────────────────────────────
   //  Fetch latest videos
@@ -4098,14 +4171,13 @@ export default function OneshotEditor() {
                   ? t("vidgenie.publishing")
                   : t("vidgenie.publish")}
             </PrimaryPublicButton>
-            <PrimaryPublicButton extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]">
-              <a
-                href={videoLink}
-                download={`Rendition_${dateNowStr}.mp4`}
-                className="underline"
-              >
-                {t("common.download")}
-              </a>
+            <PrimaryPublicButton
+              extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+              onClick={handleDownloadVideo}
+              isPending={isDownloadingVideo}
+              isDisabled={!videoLink}
+            >
+              {isDownloadingVideo ? 'Downloading' : t("common.download")}
             </PrimaryPublicButton>
           </div>
         )}

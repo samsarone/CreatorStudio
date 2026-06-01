@@ -50,6 +50,35 @@ function isSessionRenderPending(sessionDetails) {
   );
 }
 
+function normalizeVideoDownloadUrl(url) {
+  if (typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  return `${PROCESSOR_API_URL}/${trimmed.replace(/^\/+/, '')}`;
+}
+
+function resolveLatestSessionVideoUrl(sessionDetails) {
+  const candidates = [
+    sessionDetails?.videoLink,
+    sessionDetails?.video_link,
+    sessionDetails?.result?.videoLink,
+    sessionDetails?.result?.video_link,
+    sessionDetails?.renderedVideoURL,
+    sessionDetails?.result_url,
+    Array.isArray(sessionDetails?.result_urls) ? sessionDetails.result_urls[0] : null,
+    sessionDetails?.remoteURL,
+    sessionDetails?.remoteUrl,
+    sessionDetails?.remote_url,
+    sessionDetails?.publishedVideoURL,
+    sessionDetails?.published_video_url,
+  ];
+  const videoUrl = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+  return normalizeVideoDownloadUrl(videoUrl);
+}
+
 function clampCanvasZoomScale(nextScale, fitZoomScale = 1) {
   const safeBaseScale = Math.max(Number(fitZoomScale) || 1, 0.01);
   const minScale = safeBaseScale * MIN_CANVAS_ZOOM_RATIO;
@@ -839,11 +868,7 @@ export default function VideoHome(props) {
         startVideoRenderPoll();
       }
 
-      const downloadLink = sessionDetails.remoteURL?.length
-        ? sessionDetails.remoteURL
-        : sessionDetails.videoLink
-          ? `${PROCESSOR_API_URL}/${sessionDetails.videoLink}`
-          : null;
+      const downloadLink = resolveLatestSessionVideoUrl(sessionDetails);
 
       setDownloadLink(downloadLink);
       if (downloadLink) {
@@ -1169,9 +1194,10 @@ export default function VideoHome(props) {
         setIsVideoGenerating(false);
 
         if (renderStatus === 'COMPLETED' && sessionData) {
-          const videoLink = sessionData.remoteURL
-            ? sessionData.remoteURL
-            : `${PROCESSOR_API_URL}/${sessionData.videoLink}`;
+          const videoLink = resolveLatestSessionVideoUrl(sessionData);
+          if (!videoLink) {
+            return;
+          }
 
           setRenderedVideoPath(`${videoLink}`);
           setDownloadVideoDisplay(true);
@@ -2499,11 +2525,15 @@ export default function VideoHome(props) {
       aspectRatio: aspectRatio,
       ispublishedVideo: true,
     };
+    const latestVideoUrl = resolveLatestSessionVideoUrl(videoSessionDetails);
     if (sessionLanguage) {
       publishPayload.sessionLanguage = sessionLanguage;
     }
     if (languageString) {
       publishPayload.languageString = languageString;
+    }
+    if (latestVideoUrl) {
+      publishPayload.renderedVideoURL = latestVideoUrl;
     }
 
     axios
@@ -2522,7 +2552,11 @@ export default function VideoHome(props) {
             publishedDescription: publishPayload.description,
             publishedTags: normalizedTags,
             publishedAspectRatio: publishPayload.aspectRatio,
-            publishedVideoURL: publicationData?.videoURL || prevDetails.publishedVideoURL || prevDetails.remoteURL,
+            publishedVideoURL:
+              resolveLatestSessionVideoUrl(prevDetails) ||
+              publicationData?.videoURL ||
+              prevDetails.publishedVideoURL ||
+              prevDetails.remoteURL,
             publishedAt: publicationData?.updatedAt || prevDetails.publishedAt || new Date().toISOString(),
           };
         });

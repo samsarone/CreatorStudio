@@ -1,12 +1,18 @@
 // ProgressIndicator.jsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FaPause, FaPlay, FaSpinner, FaStepForward } from 'react-icons/fa';
+import { FaPause, FaPlay, FaSpinner, FaStepForward, FaVolumeMute, FaVolumeUp } from 'react-icons/fa';
 import './mobileStyles.css';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import StepImageReviewPanel from './StepImageReviewPanel.jsx';
+import {
+  clampAudioValue,
+  isMusicLikeAudioType,
+  isSpeechLikeAudioType,
+  shouldDuckMusicAgainstAudioType,
+} from '../video/util/audioPreviewDucking.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const STATIC_ASSET_BASE_URL = (
@@ -312,28 +318,23 @@ function isPreviewAudioLayerPlayable(layer = {}) {
 
 function isSpeechAudio(segment) {
   const type = normalizeAudioType(segment?.type);
-  return (
-    type === 'speech' ||
-    type === 'voice' ||
-    type === 'voiceover' ||
-    type === 'lip_sync' ||
-    type === 'user_video'
-  );
+  return isSpeechLikeAudioType(type) || type === 'voice' || type === 'voiceover';
 }
 
 function isSegmentActiveAtTime(segment, previewTime) {
   return previewTime >= segment.startTime && previewTime < segment.endTime;
 }
 
-function resolveAudioVolume(segment, audioSegments, previewTime) {
-  const baseVolume = segment.volume ?? 1;
-  if (isSpeechAudio(segment)) return baseVolume;
-  const hasActiveSpeech = audioSegments.some((candidate) => (
+function resolveAudioVolume(segment, audioSegments, previewTime, masterVolume = 1, muted = false) {
+  if (muted) return 0;
+  const baseVolume = clampAudioValue((segment.volume ?? 1) * masterVolume);
+  if (!isMusicLikeAudioType(segment?.type)) return baseVolume;
+  const hasActiveDuckingLayer = audioSegments.some((candidate) => (
     candidate.key !== segment.key &&
-    isSpeechAudio(candidate) &&
+    shouldDuckMusicAgainstAudioType(candidate?.type) &&
     isSegmentActiveAtTime(candidate, previewTime)
   ));
-  return hasActiveSpeech ? baseVolume * PREVIEW_MUSIC_DUCKED_VOLUME_RATIO : baseVolume;
+  return hasActiveDuckingLayer ? baseVolume * PREVIEW_MUSIC_DUCKED_VOLUME_RATIO : baseVolume;
 }
 
 function formatTime(seconds) {
@@ -517,6 +518,9 @@ export default function ProgressIndicator(props) {
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(() => shouldAutoplayPreview());
+  const [previewAudioMuted, setPreviewAudioMuted] = useState(false);
+  const [previewAudioVolume, setPreviewAudioVolume] = useState(1);
+  const [previewAudioUnlocked, setPreviewAudioUnlocked] = useState(false);
   const [visualPreloadVersion, setVisualPreloadVersion] = useState(0);
   const [activeVideoReadyKey, setActiveVideoReadyKey] = useState(null);
   const audioRefs = useRef(new Map());
@@ -551,6 +555,7 @@ export default function ProgressIndicator(props) {
     [audioSegments, sessionPreview, visualSegments],
   );
   const hasTimelinePreview = visualSegments.length > 0 || audioSegments.length > 0;
+  const hasPreviewAudio = audioSegments.length > 0;
   const activeVisualSegment = useMemo(
     () => findActiveVisualSegment(visualSegments, previewTime),
     [previewTime, visualSegments],
@@ -587,9 +592,18 @@ export default function ProgressIndicator(props) {
       ? 'min(56dvh, 520px)'
       : 'min(44dvh, 360px)',
   };
+  const previewPlaybackButtonLabel = isPreviewPlaying && hasPreviewAudio && !previewAudioUnlocked
+    ? 'Enable preview audio'
+    : isPreviewPlaying
+      ? 'Pause preview'
+      : 'Play preview';
 
   const syncActiveAudioElements = useCallback((time, shouldPlay, options = {}) => {
     const activeAudioKeys = new Set();
+    const isAudioUnlocked = previewAudioUnlocked || Boolean(options.forceAudioUnlocked);
+    const isAudioMuted = Object.prototype.hasOwnProperty.call(options, 'forceAudioMuted')
+      ? Boolean(options.forceAudioMuted)
+      : previewAudioMuted;
 
     audioSegments.forEach((segment) => {
       const element = audioRefs.current.get(segment.key);
@@ -604,7 +618,14 @@ export default function ProgressIndicator(props) {
       if (Math.abs(element.currentTime - localTime) > PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS) {
         element.currentTime = localTime;
       }
-      element.volume = Math.max(0, Math.min(1, resolveAudioVolume(segment, audioSegments, time)));
+      element.muted = isAudioMuted || !isAudioUnlocked;
+      element.volume = resolveAudioVolume(
+        segment,
+        audioSegments,
+        time,
+        previewAudioVolume,
+        isAudioMuted,
+      );
       activeAudioKeys.add(segment.key);
 
       if (shouldPlay && element.paused) {
@@ -621,7 +642,7 @@ export default function ProgressIndicator(props) {
         }
       });
     }
-  }, [audioSegments, videoLink]);
+  }, [audioSegments, previewAudioMuted, previewAudioUnlocked, previewAudioVolume, videoLink]);
 
   const syncActiveVideoElement = useCallback((time, shouldPlay) => {
     const element = activeVideoRef.current;
@@ -641,16 +662,63 @@ export default function ProgressIndicator(props) {
   }, [activeVisualSegment, videoLink]);
 
   const handlePreviewPlaybackToggle = useCallback(() => {
+    if (isPreviewPlaying && hasPreviewAudio && !previewAudioUnlocked) {
+      setPreviewAudioUnlocked(true);
+      syncActiveVideoElement(previewTime, true);
+      syncActiveAudioElements(previewTime, true, {
+        forceAudioUnlocked: true,
+        primeInactive: true,
+      });
+      return;
+    }
+
     const shouldPlay = !isPreviewPlaying;
+    if (shouldPlay) {
+      setPreviewAudioUnlocked(true);
+    }
     syncActiveVideoElement(previewTime, shouldPlay);
-    syncActiveAudioElements(previewTime, shouldPlay, { primeInactive: shouldPlay });
+    syncActiveAudioElements(previewTime, shouldPlay, {
+      forceAudioUnlocked: shouldPlay,
+      primeInactive: shouldPlay,
+    });
     setIsPreviewPlaying(shouldPlay);
   }, [
+    hasPreviewAudio,
     isPreviewPlaying,
+    previewAudioUnlocked,
     previewTime,
     syncActiveAudioElements,
     syncActiveVideoElement,
   ]);
+
+  const handlePreviewAudioMuteToggle = useCallback(() => {
+    setPreviewAudioUnlocked(true);
+    if (previewAudioMuted && previewAudioVolume <= 0) {
+      setPreviewAudioVolume(1);
+    }
+    const shouldMute = !previewAudioMuted;
+    setPreviewAudioMuted(shouldMute);
+    syncActiveAudioElements(previewTime, isPreviewPlaying && !videoLink && isActiveVisualReady, {
+      forceAudioMuted: shouldMute,
+      forceAudioUnlocked: true,
+      primeInactive: isPreviewPlaying && !shouldMute,
+    });
+  }, [
+    isActiveVisualReady,
+    isPreviewPlaying,
+    previewAudioMuted,
+    previewAudioVolume,
+    previewTime,
+    syncActiveAudioElements,
+    videoLink,
+  ]);
+
+  const handlePreviewAudioVolumeChange = useCallback((event) => {
+    const nextVolume = clampAudioValue(event.target.value);
+    setPreviewAudioUnlocked(true);
+    setPreviewAudioVolume(nextVolume);
+    setPreviewAudioMuted(nextVolume <= 0);
+  }, []);
 
   useEffect(() => {
     if (
@@ -929,7 +997,7 @@ export default function ProgressIndicator(props) {
             )}
           </div>
 
-          <div className="vidgenie-preview-controls mt-3 flex items-center gap-3">
+          <div className="vidgenie-preview-controls mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={handlePreviewPlaybackToggle}
@@ -938,9 +1006,14 @@ export default function ProgressIndicator(props) {
                   ? 'bg-white/10 text-white hover:bg-white/15'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
-              aria-label={isPreviewPlaying ? 'Pause preview' : 'Play preview'}
+              aria-label={previewPlaybackButtonLabel}
+              title={previewPlaybackButtonLabel}
             >
-              {isPreviewPlaying ? <FaPause /> : <FaPlay />}
+              {isPreviewPlaying && hasPreviewAudio && !previewAudioUnlocked
+                ? <FaVolumeUp />
+                : isPreviewPlaying
+                  ? <FaPause />
+                  : <FaPlay />}
             </button>
             <input
               type="range"
@@ -949,9 +1022,51 @@ export default function ProgressIndicator(props) {
               step="0.1"
               value={Math.min(previewTime, Math.max(0.1, timelineDuration))}
               onChange={(event) => setPreviewTime(Number(event.target.value))}
-              className="w-full"
+              className="min-w-[160px] flex-1"
               aria-label="Preview timeline"
             />
+            {hasPreviewAudio && (
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePreviewAudioMuteToggle}
+                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition ${
+                    colorMode === 'dark'
+                      ? 'bg-white/10 text-white hover:bg-white/15'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                  aria-label={
+                    !previewAudioUnlocked
+                      ? 'Enable preview audio'
+                      : previewAudioMuted
+                        ? 'Unmute preview audio'
+                        : 'Mute preview audio'
+                  }
+                  title={
+                    !previewAudioUnlocked
+                      ? 'Enable preview audio'
+                      : previewAudioMuted
+                        ? 'Unmute preview audio'
+                        : 'Mute preview audio'
+                  }
+                >
+                  {previewAudioMuted || previewAudioVolume <= 0 ? <FaVolumeMute /> : <FaVolumeUp />}
+                </button>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={previewAudioMuted ? 0 : previewAudioVolume}
+                  onChange={handlePreviewAudioVolumeChange}
+                  className="w-24 sm:w-28"
+                  aria-label="Preview audio volume"
+                />
+                <span className={`w-9 text-right text-[11px] tabular-nums ${mutedText}`}>
+                  {Math.round((previewAudioMuted ? 0 : previewAudioVolume) * 100)}%
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="vidgenie-timeline-group mt-3 space-y-2">
@@ -1012,6 +1127,7 @@ export default function ProgressIndicator(props) {
                 ref={(element) => registerAudioRef(segment.key, element)}
                 src={segment.url}
                 preload="auto"
+                muted={previewAudioMuted || !previewAudioUnlocked}
               />
             ))}
           </div>
