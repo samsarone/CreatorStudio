@@ -27,6 +27,7 @@ const PREVIEW_VIDEO_METADATA_READY_STATE = 1;
 const PREVIEW_VIDEO_FRAME_READY_STATE = 2;
 const MOBILE_PREVIEW_MEDIA_QUERY = '(hover: none), (pointer: coarse), (max-width: 767px)';
 const USER_RESOURCES_PREFIX = 'user_resources/';
+const MOBILE_SINGLE_VIDEO_LOAD_STAGES = new Set(['ai_video_generation', 'lip_sync_generation']);
 const previewVisualReadyCache = new Set();
 const previewVisualPreloadPromises = new Map();
 
@@ -158,10 +159,53 @@ function getCurrentStep(status, t, generationStatusDetails) {
   return t('progress.allStepsCompleted');
 }
 
+function getCurrentStageKey(status, generationStatusDetails) {
+  const explicitStage =
+    generationStatusDetails?.current_step ||
+    generationStatusDetails?.step?.current_step ||
+    generationStatusDetails?.session?.currentStage;
+  if (STAGE_ORDER.includes(explicitStage)) {
+    return explicitStage;
+  }
+
+  if (!status) return null;
+  for (const stage of STAGE_ORDER) {
+    if (status[stage] !== undefined && !isCompletedStatus(status[stage])) {
+      return stage;
+    }
+  }
+  return null;
+}
+
 function resolveSegmentEnd(startTime, duration, endTime, fallbackDuration) {
   if (endTime !== null && endTime > startTime) return endTime;
   if (duration !== null && duration > 0) return startTime + duration;
   return startTime + fallbackDuration;
+}
+
+function buildVideoSegment({
+  source,
+  asset,
+  index,
+  keyPrefix,
+  title,
+  startTime,
+  endTime,
+}) {
+  const normalizedUrl = normalizeAssetUrl(asset?.url);
+  if (!normalizedUrl) return null;
+
+  return {
+    key: `${keyPrefix}-${source?.id || index}`,
+    title,
+    type: asset.type === 'video' ? 'video' : 'image',
+    stage: asset.stage || source?.preview?.stage || 'image_generation',
+    status: source?.preview?.status || source?.image?.status || source?.aiVideo?.status || source?.status || asset?.status || null,
+    startTime,
+    endTime,
+    duration: Math.max(0.2, endTime - startTime),
+    url: normalizedUrl,
+  };
 }
 
 function resolveLayerPreviewAsset(layer = {}) {
@@ -182,43 +226,40 @@ function buildVisualSegments(sessionPreview) {
   const layerSegments = layers
     .map((layer, index) => {
       const asset = resolveLayerPreviewAsset(layer);
-      const url = normalizeAssetUrl(asset?.url);
-      if (!url) return null;
       const startTime = Math.max(0, normalizeNumber(layer.startTime, 0));
       const duration = normalizeNumber(layer.duration, null);
       const endTime = resolveSegmentEnd(startTime, duration, normalizeNumber(layer.endTime, null), 4);
-      return {
-        key: `layer-${layer.id || index}`,
+      return buildVideoSegment({
+        source: layer,
+        asset,
+        index,
+        keyPrefix: 'layer',
         title: layer.prompt || `Scene ${index + 1}`,
-        type: asset.type === 'video' ? 'video' : 'image',
-        stage: asset.stage || layer.preview?.stage || 'image_generation',
-        status: layer.preview?.status || layer.image?.status || layer.aiVideo?.status || null,
         startTime,
         endTime,
-        duration: Math.max(0.2, endTime - startTime),
-        url,
-      };
+      });
     })
     .filter(Boolean);
 
   const globalVideoSegments = globalVideos
     .map((video, index) => {
-      const url = normalizeAssetUrl(video.url);
-      if (!url) return null;
       const startTime = Math.max(0, normalizeNumber(video.startTime, 0));
       const duration = normalizeNumber(video.duration, null);
       const endTime = resolveSegmentEnd(startTime, duration, normalizeNumber(video.endTime, null), 4);
-      return {
-        key: `global-video-${video.id || index}`,
+      return buildVideoSegment({
+        source: video,
+        asset: {
+          ...video,
+          type: 'video',
+          stage: 'ai_video_generation',
+          url: video.url,
+        },
+        index,
+        keyPrefix: 'global-video',
         title: video.title || `Video ${index + 1}`,
-        type: 'video',
-        stage: 'ai_video_generation',
-        status: video.status,
         startTime,
         endTime,
-        duration: Math.max(0.2, endTime - startTime),
-        url,
-      };
+      });
     })
     .filter(Boolean);
 
@@ -524,6 +565,12 @@ export default function ProgressIndicator(props) {
   const [previewAudioUnlocked, setPreviewAudioUnlocked] = useState(false);
   const [visualPreloadVersion, setVisualPreloadVersion] = useState(0);
   const [activeVideoReadyKey, setActiveVideoReadyKey] = useState(null);
+  const [isMobilePreviewDevice, setIsMobilePreviewDevice] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia(MOBILE_PREVIEW_MEDIA_QUERY).matches;
+  });
   const audioRefs = useRef(new Map());
   const activeVideoRef = useRef(null);
   const { colorMode } = useColorMode();
@@ -548,7 +595,16 @@ export default function ProgressIndicator(props) {
     () => getCurrentStep(statusMap, t, generationStatusDetails),
     [generationStatusDetails, statusMap, t],
   );
+  const currentStageKey = useMemo(
+    () => getCurrentStageKey(statusMap, generationStatusDetails),
+    [generationStatusDetails, statusMap],
+  );
   const sessionPreview = generationStatusDetails?.session || null;
+  const shouldLimitMobileVideoPreload =
+    isMobilePreviewDevice &&
+    isGenerationPending &&
+    !videoLink &&
+    MOBILE_SINGLE_VIDEO_LOAD_STAGES.has(currentStageKey);
   const visualSegments = useMemo(() => buildVisualSegments(sessionPreview), [sessionPreview]);
   const audioSegments = useMemo(() => buildAudioSegments(sessionPreview), [sessionPreview]);
   const timelineDuration = useMemo(
@@ -561,6 +617,16 @@ export default function ProgressIndicator(props) {
     () => findActiveVisualSegment(visualSegments, previewTime),
     [previewTime, visualSegments],
   );
+  const visualSegmentsToPreload = useMemo(() => {
+    if (!shouldLimitMobileVideoPreload) {
+      return visualSegments;
+    }
+
+    return visualSegments.filter((segment) => (
+      segment.type !== 'video' ||
+      (activeVisualSegment?.key && segment.key === activeVisualSegment.key)
+    ));
+  }, [activeVisualSegment?.key, shouldLimitMobileVideoPreload, visualSegments]);
   const activeVisualCacheKey = getPreviewVisualCacheKey(activeVisualSegment);
   const activeVisualRenderKey = activeVisualSegment
     ? `${activeVisualSegment.key}-${activeVisualSegment.stage}-${activeVisualSegment.url}`
@@ -572,8 +638,15 @@ export default function ProgressIndicator(props) {
   }, [visualPreloadVersion]);
   const isPreviewMediaReadyAtTime = useCallback((time) => {
     const segmentAtTime = findActiveVisualSegment(visualSegments, time);
+    if (
+      shouldLimitMobileVideoPreload &&
+      segmentAtTime?.type === 'video' &&
+      segmentAtTime.key !== activeVisualSegment?.key
+    ) {
+      return true;
+    }
     return isVisualSegmentPreloaded(segmentAtTime);
-  }, [isVisualSegmentPreloaded, visualSegments]);
+  }, [activeVisualSegment?.key, isVisualSegmentPreloaded, shouldLimitMobileVideoPreload, visualSegments]);
   const isActiveVisualPreloaded = isVisualSegmentPreloaded(activeVisualSegment);
   const isActiveVideoElementReady = activeVisualSegment?.type !== 'video'
     || activeVideoReadyKey === activeVisualRenderKey
@@ -598,6 +671,26 @@ export default function ProgressIndicator(props) {
     : isPreviewPlaying
       ? 'Pause preview'
       : 'Play preview';
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia(MOBILE_PREVIEW_MEDIA_QUERY);
+    const handleMediaQueryChange = () => {
+      setIsMobilePreviewDevice(mediaQuery.matches);
+    };
+    handleMediaQueryChange();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', handleMediaQueryChange);
+      return () => mediaQuery.removeEventListener('change', handleMediaQueryChange);
+    }
+
+    mediaQuery.addListener(handleMediaQueryChange);
+    return () => mediaQuery.removeListener(handleMediaQueryChange);
+  }, []);
 
   const syncActiveAudioElements = useCallback((time, shouldPlay, options = {}) => {
     const activeAudioKeys = new Set();
@@ -741,9 +834,9 @@ export default function ProgressIndicator(props) {
   }, [previewTime, timelineDuration]);
 
   useEffect(() => {
-    if (!visualSegments.length) return undefined;
+    if (!visualSegmentsToPreload.length) return undefined;
     let isMounted = true;
-    visualSegments.forEach((segment) => {
+    visualSegmentsToPreload.forEach((segment) => {
       preloadPreviewVisualSegment(segment).then(() => {
         if (isMounted) {
           setVisualPreloadVersion((version) => version + 1);
@@ -754,7 +847,7 @@ export default function ProgressIndicator(props) {
     return () => {
       isMounted = false;
     };
-  }, [visualSegments]);
+  }, [visualSegmentsToPreload]);
 
   useEffect(() => {
     if (activeVisualSegment?.type !== 'video') {
