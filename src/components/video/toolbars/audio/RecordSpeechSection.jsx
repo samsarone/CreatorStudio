@@ -26,6 +26,11 @@ import { toast } from 'react-toastify';
 import { getHeaders } from '../../../../utils/web';
 import { normalizeTimelineHints } from '../../../../utils/sessionTimelineText.js';
 import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';
+import {
+  getGoogleTTSVoiceDetails,
+  mergeGoogleTTSSpeakers,
+  useGoogleTTSSpeakers,
+} from '../../../../hooks/useGoogleTTSSpeakers.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DISPLAY_FRAMES_PER_SECOND = 30;
@@ -44,6 +49,7 @@ const AVATAR_TTS_PROVIDER_OPTIONS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'ELEVENLABS', label: 'ElevenLabs' },
   { value: 'PLAYAI', label: 'Play.ht' },
+  { value: 'GOOGLE', label: 'Google TTS' },
   { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
 ];
 
@@ -153,15 +159,15 @@ function normalizeAvatarTtsProvider(value = '') {
   return normalized || 'OPENAI';
 }
 
-function getAvatarSpeechSpeakerOptions(provider = '') {
+function getAvatarSpeechSpeakerOptions(provider = '', speakerTypes = TTS_COMBINED_SPEAKER_TYPES) {
   const normalizedProvider = normalizeAvatarTtsProvider(provider);
-  return TTS_COMBINED_SPEAKER_TYPES.filter((speaker) => (
+  return speakerTypes.filter((speaker) => (
     normalizeAvatarTtsProvider(speaker.provider) === normalizedProvider
   ));
 }
 
-function getDefaultAvatarSpeechSpeakerValue(provider = '') {
-  const speakerOptions = getAvatarSpeechSpeakerOptions(provider);
+function getDefaultAvatarSpeechSpeakerValue(provider = '', speakerTypes = TTS_COMBINED_SPEAKER_TYPES) {
+  const speakerOptions = getAvatarSpeechSpeakerOptions(provider, speakerTypes);
   if (normalizeAvatarTtsProvider(provider) === 'ELEVENLABS') {
     return speakerOptions.find((speaker) => speaker.value === DEFAULT_ELEVENLABS_AVATAR_SPEAKER)?.value
       || speakerOptions[0]?.value
@@ -520,6 +526,11 @@ export default function RecordSpeechSection({
   const [isAvatarVideoAccepting, setIsAvatarVideoAccepting] = useState(false);
   const [isAvatarVideoSaving, setIsAvatarVideoSaving] = useState(false);
   const [isAvatarRejecting, setIsAvatarRejecting] = useState(false);
+  const { googleSpeakers } = useGoogleTTSSpeakers();
+  const combinedTtsSpeakerTypes = useMemo(
+    () => mergeGoogleTTSSpeakers(TTS_COMBINED_SPEAKER_TYPES, googleSpeakers),
+    [googleSpeakers]
+  );
 
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -714,8 +725,8 @@ export default function RecordSpeechSection({
     : [{ presetId: 'victoria', name: 'Victoria' }];
   const avatarSpeechProviderOptions = AVATAR_TTS_PROVIDER_OPTIONS;
   const avatarSpeechSpeakerOptions = useMemo(() => {
-    return getAvatarSpeechSpeakerOptions(selectedAvatarSpeechProvider);
-  }, [selectedAvatarSpeechProvider]);
+    return getAvatarSpeechSpeakerOptions(selectedAvatarSpeechProvider, combinedTtsSpeakerTypes);
+  }, [selectedAvatarSpeechProvider, combinedTtsSpeakerTypes]);
   const selectedAvatarSpeechSpeakerOption = useMemo(() => (
     avatarSpeechSpeakerOptions.find((option) => option.value === selectedAvatarSpeechSpeaker) || null
   ), [avatarSpeechSpeakerOptions, selectedAvatarSpeechSpeaker]);
@@ -1158,8 +1169,15 @@ export default function RecordSpeechSection({
         taskId: selectedAvatarTaskIdValue,
         provider: normalizeAvatarTtsProvider(selectedAvatarSpeechSpeakerOption.provider),
         speaker: selectedAvatarSpeechSpeakerOption.value,
+        languageCode: selectedAvatarSpeechSpeakerOption.languageCode,
+        languageCodes: selectedAvatarSpeechSpeakerOption.languageCodes,
         speakerName: selectedAvatarSpeechSpeakerLabel,
         speakerVoiceId: selectedAvatarSpeechSpeakerOption.voiceId || selectedAvatarSpeechSpeakerOption.value,
+        speakerLabel: selectedAvatarSpeechSpeakerOption.label || selectedAvatarSpeechSpeakerOption.name,
+        speakerDetails:
+          normalizeAvatarTtsProvider(selectedAvatarSpeechSpeakerOption.provider) === 'GOOGLE'
+            ? getGoogleTTSVoiceDetails(selectedAvatarSpeechSpeakerOption)
+            : null,
       }, headers);
       applyAvatarVoices(response?.data?.voices);
       mergeAvatarTask(response?.data?.task);
@@ -1326,13 +1344,17 @@ export default function RecordSpeechSection({
     if (avatarSpeechSpeakerOptions.some((speaker) => speaker.value === selectedAvatarSpeechSpeaker)) {
       return;
     }
-    setSelectedAvatarSpeechSpeaker(getDefaultAvatarSpeechSpeakerValue(selectedAvatarSpeechProvider));
-  }, [avatarSpeechSpeakerOptions, selectedAvatarSpeechProvider, selectedAvatarSpeechSpeaker]);
+    setSelectedAvatarSpeechSpeaker(
+      getDefaultAvatarSpeechSpeakerValue(selectedAvatarSpeechProvider, combinedTtsSpeakerTypes)
+    );
+  }, [avatarSpeechSpeakerOptions, selectedAvatarSpeechProvider, selectedAvatarSpeechSpeaker, combinedTtsSpeakerTypes]);
 
   const handleAvatarSpeechProviderChange = (nextProviderValue) => {
     const nextProvider = normalizeAvatarTtsProvider(nextProviderValue);
     setSelectedAvatarSpeechProvider(nextProvider);
-    setSelectedAvatarSpeechSpeaker(getDefaultAvatarSpeechSpeakerValue(nextProvider));
+    setSelectedAvatarSpeechSpeaker(
+      getDefaultAvatarSpeechSpeakerValue(nextProvider, combinedTtsSpeakerTypes)
+    );
   };
 
   const handleAvatarSpeechSpeakerChange = (nextSpeakerValue) => {

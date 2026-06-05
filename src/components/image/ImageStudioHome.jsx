@@ -1295,7 +1295,7 @@ export default function ImageStudioHome() {
       videoSessionId: id,
       layerId: currentLayer._id.toString(),
       aspectRatio: payload?.aspectRatio || generationAspectRatio || aspectRatio,
-      model: 'NANOBANANA2',
+      model: selectedGenerationModel || 'NANOBANANA2',
     };
 
     axios

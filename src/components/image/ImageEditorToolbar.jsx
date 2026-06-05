@@ -214,7 +214,6 @@ export default function ImageEditorToolbar(props) {
         aspectRatio={generationAspectRatio}
         setAspectRatio={setGenerationAspectRatio}
         canvasDimensions={normalizedCanvasDimensions}
-        showModelSelector={false}
         sizeVariant="imageStudio"
       />
       ),

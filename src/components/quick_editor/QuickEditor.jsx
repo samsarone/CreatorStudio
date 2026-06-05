@@ -40,8 +40,17 @@ import {
   VIDEO_GENERATION_MODEL_TYPES,
   TTS_COMBINED_SPEAKER_TYPES
 } from '../../constants/Types.ts';
+import {
+  fetchGoogleTTSPreviewBlobUrl,
+  getGoogleTTSVoiceDetails,
+  mergeGoogleTTSSpeakers,
+  useGoogleTTSSpeakers,
+} from '../../hooks/useGoogleTTSSpeakers.js';
 
 import {
+  COSMOS3_SUPER_MODEL_KEY,
+  formatVideoDurationLabel,
+  getVideoModelDurationUnitsForFramesPerSecond,
   IMAGE_MODEL_PRICES,
   SPEECH_MODEL_PRICES,
   TRANSLATION_MODEL_PRICES,
@@ -67,6 +76,18 @@ const addMusicOptions = [
 ];
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+
+function pickDuration(units, target) {
+  if (!Array.isArray(units) || units.length === 0) {
+    return target;
+  }
+  for (const unit of units) {
+    if (unit >= target) {
+      return unit;
+    }
+  }
+  return units[units.length - 1];
+}
 
 export default function QuickEditor() {
   const { id } = useParams();
@@ -94,19 +115,24 @@ export default function QuickEditor() {
   const [polling, setPolling] = useState(false);
 
   const { colorMode } = useColorMode();
+  const { googleSpeakers } = useGoogleTTSSpeakers();
+  const combinedSpeakerTypes = useMemo(
+    () => mergeGoogleTTSSpeakers(TTS_COMBINED_SPEAKER_TYPES, googleSpeakers),
+    [googleSpeakers]
+  );
 
   const [advancedSettingsVisible, setAdvancedSettingsVisible] = useState(() => {
     const storedValue = localStorage.getItem('advancedSettingsVisible');
     return storedValue ? JSON.parse(storedValue) : false;
   });
 
-  const defaultSpeaker = TTS_COMBINED_SPEAKER_TYPES.find(
+  const defaultSpeaker = combinedSpeakerTypes.find(
     (speaker) => speaker.value === 'alloy'
-  ) || TTS_COMBINED_SPEAKER_TYPES[0];
+  ) || combinedSpeakerTypes[0];
 
   const [speakerType, setSpeakerType] = useState(() => {
     const storedSpeaker = localStorage.getItem('defaultSpeaker');
-    return storedSpeaker ? TTS_COMBINED_SPEAKER_TYPES.find((sp) => sp.value === storedSpeaker) : defaultSpeaker;
+    return storedSpeaker ? combinedSpeakerTypes.find((sp) => sp.value === storedSpeaker) : defaultSpeaker;
   });
 
   const [promptList, setPromptList] = useState('');
@@ -353,6 +379,7 @@ export default function QuickEditor() {
 
   const [currentlyPlayingSpeaker, setCurrentlyPlayingSpeaker] = useState(null);
   const audioRef = useRef(null);
+  const audioObjectUrlRef = useRef(null);
 
   // ------------------------------------
   // New fields for generative video logic
@@ -388,6 +415,7 @@ export default function QuickEditor() {
     const expressPriority = {
       'VEO3.1I2V': 0,
       'VEO3.1I2VFAST': 1,
+      COSMOS3SUPERI2V: 2,
     };
     const sortByExpressPriority = (models = []) =>
       [...models].sort((a, b) => {
@@ -410,6 +438,42 @@ export default function QuickEditor() {
       );
     }
   }, [videoType]);
+
+  const durationOptionsForSelectedVideoModel = useMemo(() => {
+    const defaultDurationOptions = [
+      { label: 'Auto', value: 'auto' },
+      { label: '2 Seconds', value: '2' },
+      { label: '5 Seconds', value: '5' },
+      { label: '10 Seconds', value: '10' },
+      { label: '20 Seconds', value: '20' },
+      { label: 'Custom', value: 'custom' },
+    ];
+
+    if (selectedVideoGenerationModel?.value !== COSMOS3_SUPER_MODEL_KEY) {
+      return defaultDurationOptions;
+    }
+
+    const units = getVideoModelDurationUnitsForFramesPerSecond(
+      COSMOS3_SUPER_MODEL_KEY,
+      user?.videoFramesPerSecond,
+    );
+    return [
+      { label: 'Auto', value: 'auto' },
+      ...units.map((unit) => ({
+        label: `${formatVideoDurationLabel(unit)} Seconds`,
+        value: String(unit),
+      })),
+    ];
+  }, [selectedVideoGenerationModel?.value, user?.videoFramesPerSecond]);
+
+  useEffect(() => {
+    const hasSelectedDuration = durationOptionsForSelectedVideoModel.some(
+      (option) => option.value === duration.value
+    );
+    if (!hasSelectedDuration) {
+      setDuration(durationOptionsForSelectedVideoModel[0]);
+    }
+  }, [duration.value, durationOptionsForSelectedVideoModel]);
 
   // Handlers for checkboxes
   const handleMusicCheckboxChange = (e) => {
@@ -434,17 +498,43 @@ export default function QuickEditor() {
     }
   };
 
+  useEffect(() => {
+    const storedSpeaker = localStorage.getItem('defaultSpeaker');
+    const matchedSpeaker = storedSpeaker
+      ? combinedSpeakerTypes.find((sp) => sp.value === storedSpeaker)
+      : null;
+    if (
+      matchedSpeaker &&
+      (!speakerType || speakerType.value === matchedSpeaker.value) &&
+      speakerType?.provider !== matchedSpeaker.provider
+    ) {
+      setSpeakerType(matchedSpeaker);
+    }
+  }, [combinedSpeakerTypes, speakerType]);
+
+  const stopSpeakerPreview = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+      audioObjectUrlRef.current = null;
+    }
+    setCurrentlyPlayingSpeaker(null);
+  };
+
   // Filter speaker dropdown
   const speakerOptions = useMemo(() => {
     let filteredSpeakers;
     if (speechStyle.value === 'Narrative') {
-      filteredSpeakers = TTS_COMBINED_SPEAKER_TYPES;
+      filteredSpeakers = combinedSpeakerTypes;
     } else if (speechStyle.value === 'Conversational') {
-      filteredSpeakers = TTS_COMBINED_SPEAKER_TYPES.filter(
+      filteredSpeakers = combinedSpeakerTypes.filter(
         (sp) => sp.Style && sp.Style === 'Conversational'
       );
     } else {
-      filteredSpeakers = TTS_COMBINED_SPEAKER_TYPES;
+      filteredSpeakers = combinedSpeakerTypes;
     }
 
     return filteredSpeakers.map((speaker) => {
@@ -460,29 +550,40 @@ export default function QuickEditor() {
         onClick: handleIconClick,
       };
     });
-  }, [speechStyle, currentlyPlayingSpeaker]);
+  }, [speechStyle, currentlyPlayingSpeaker, combinedSpeakerTypes]);
 
-  const playMusicPreviewForSpeaker = (evt, speaker) => {
+  const playMusicPreviewForSpeaker = async (evt, speaker) => {
     evt.stopPropagation();
-    if (currentlyPlayingSpeaker === speaker) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      setCurrentlyPlayingSpeaker(null);
+    if (
+      currentlyPlayingSpeaker?.value === speaker.value &&
+      currentlyPlayingSpeaker?.provider === speaker.provider
+    ) {
+      stopSpeakerPreview();
     } else {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      const audio = new Audio(speaker.previewURL);
-      audio.play();
-      audioRef.current = audio;
-      setCurrentlyPlayingSpeaker(speaker);
-      audio.onended = () => {
+      stopSpeakerPreview();
+      try {
+        const previewUrl = speaker.previewRequiresAuth
+          ? await fetchGoogleTTSPreviewBlobUrl(speaker)
+          : speaker.previewURL;
+        if (!previewUrl) {
+          return;
+        }
+        if (speaker.previewRequiresAuth) {
+          audioObjectUrlRef.current = previewUrl;
+        }
+        const audio = new Audio(previewUrl);
+        audioRef.current = audio;
+        setCurrentlyPlayingSpeaker(speaker);
+        audio.onended = stopSpeakerPreview;
+        await audio.play();
+      } catch (error) {
+        if (audioObjectUrlRef.current) {
+          URL.revokeObjectURL(audioObjectUrlRef.current);
+          audioObjectUrlRef.current = null;
+        }
         setCurrentlyPlayingSpeaker(null);
         audioRef.current = null;
-      };
+      }
     }
   };
 
@@ -518,6 +619,10 @@ export default function QuickEditor() {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
+      }
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -595,6 +700,14 @@ export default function QuickEditor() {
         .join(','),
       speakerType: speakerType ? speakerType.value : null,
       ttsProvider: speakerType ? speakerType.provider : null,
+      languageCode: speakerType ? speakerType.languageCode : null,
+      languageCodes: speakerType ? speakerType.languageCodes : null,
+      speakerVoiceId: speakerType ? (speakerType.voiceId || speakerType.value) : null,
+      speakerLabel: speakerType ? (speakerType.label || speakerType.name || speakerType.value) : null,
+      speakerDetails:
+        speakerType?.provider === 'GOOGLE'
+          ? getGoogleTTSVoiceDetails(speakerType)
+          : null,
       speechLanguage: speechLanguage ? speechLanguage.value : null,
       subtitlesLanguage: subtitlesLanguage ? subtitlesLanguage.value : null,
       textLanguage: speechLanguage ? speechLanguage.value : null,
@@ -625,6 +738,17 @@ export default function QuickEditor() {
     }
     if (duration.value === 'custom') {
       payload.duration = parseFloat(customDuration);
+    }
+    if (selectedVideoGenerationModel?.value === COSMOS3_SUPER_MODEL_KEY) {
+      const units = getVideoModelDurationUnitsForFramesPerSecond(
+        COSMOS3_SUPER_MODEL_KEY,
+        user?.videoFramesPerSecond,
+      );
+      const requestedDuration = duration.value === 'auto'
+        ? units[units.length - 1]
+        : Number(payload.duration);
+      payload.duration = pickDuration(units, requestedDuration);
+      delete payload.customDuration;
     }
     if (generativeVideoRequired && selectedVideoGenerationModel) {
       payload.videoGenerationModel = selectedVideoGenerationModel.value;
@@ -785,6 +909,10 @@ export default function QuickEditor() {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
+    }
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+      audioObjectUrlRef.current = null;
     }
     setCurrentlyPlayingSpeaker(null);
   };
@@ -1459,14 +1587,7 @@ export default function QuickEditor() {
                     <SingleSelect
                       value={duration}
                       onChange={handleDurationChange}
-                      options={[
-                        { label: 'Auto', value: 'auto' },
-                        { label: '2 Seconds', value: '2' },
-                        { label: '5 Seconds', value: '5' },
-                        { label: '10 Seconds', value: '10' },
-                        { label: '20 Seconds', value: '20' },
-                        { label: 'Custom', value: 'custom' },
-                      ]}
+                      options={durationOptionsForSelectedVideoModel}
                       className="w-full"
                     />
                     {duration.value === 'custom' && (

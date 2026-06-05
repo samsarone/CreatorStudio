@@ -11,6 +11,7 @@ const TEXT_MODELS = [
   { label: 'RunwayML Gen 4.5', value: 'RUNWAYML' },
   { label: 'Veo 3.1', value: 'VEO3.1I2V' },
   { label: 'Veo 3.1 Fast', value: 'VEO3.1I2VFAST' },
+  { label: 'Nvidia Cosmos 3', value: 'COSMOS3SUPERI2V' },
   { label: 'Seedance 1.5', value: 'SEEDANCEI2V' },
   { label: 'Kling Pro', value: 'KLINGIMGTOVID3PRO' },
   { label: 'Custom Image to Video', value: 'CUSTOM_IMAGE_TO_VIDEO' },
@@ -19,6 +20,7 @@ const TEXT_MODELS = [
 const IMAGE_MODELS = [
   { label: 'GPT Image 2', value: 'GPTIMAGE2' },
   { label: 'Nano Banana 2', value: 'NANOBANANA2' },
+  { label: 'NanoBanana Pro', value: 'NANOBANANAPRO' },
   { label: 'Seedream', value: 'SEEDREAM' },
   { label: 'Custom Text to Image', value: 'CUSTOM_TEXT_TO_IMAGE' },
 ];
@@ -73,6 +75,7 @@ export default function ExternalStudioDashboard() {
     prompt: '',
     duration: '10',
     video_model: 'RUNWAYML',
+    image_model: IMAGE_MODELS[0].value,
     enable_subtitles: true,
   });
   const [imageFiles, setImageFiles] = useState([]);
@@ -463,7 +466,7 @@ export default function ExternalStudioDashboard() {
                   placeholder="Optional prompt to guide motion and pacing."
                   className="min-h-28 w-full rounded-2xl border border-white/10 bg-[#0c1528] px-4 py-3 text-sm text-white outline-none"
                 />
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
                   <select
                     value={imageForm.video_model}
                     onChange={(event) => setImageForm((current) => ({ ...current, video_model: event.target.value }))}
@@ -471,10 +474,20 @@ export default function ExternalStudioDashboard() {
                   >
                     <option value="VEO3.1I2V">Veo 3.1</option>
                     <option value="VEO3.1I2VFAST">Veo 3.1 Fast</option>
+                    <option value="COSMOS3SUPERI2V">Nvidia Cosmos 3</option>
                     <option value="SEEDANCEI2V">Seedance 1.5</option>
                     <option value="KLINGIMGTOVID3PRO">Kling Pro</option>
                     <option value="RUNWAYML">RunwayML Gen 4.5</option>
                     <option value="CUSTOM_IMAGE_TO_VIDEO">Custom Image to Video</option>
+                  </select>
+                  <select
+                    value={imageForm.image_model}
+                    onChange={(event) => setImageForm((current) => ({ ...current, image_model: event.target.value }))}
+                    className="rounded-2xl border border-white/10 bg-[#0c1528] px-4 py-3 text-sm text-white"
+                  >
+                    {IMAGE_MODELS.map((model) => (
+                      <option key={model.value} value={model.value}>{model.label}</option>
+                    ))}
                   </select>
                   <select
                     value={imageForm.duration}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaPause, FaPlay } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -20,6 +20,10 @@ import {
   buildSpeakerOptionsPayload,
   normalizeSpeakerOptionsState,
 } from "../../constants/speakers/agentSpeakers.js";
+import {
+  fetchGoogleTTSPreviewBlobUrl,
+  useGoogleTTSSpeakers,
+} from "../../hooks/useGoogleTTSSpeakers.js";
 
 const BACKING_TRACK_MODEL_OPTIONS = [
   { value: "ELEVENLABS_MUSIC", label: "ElevenLabs" },
@@ -302,6 +306,20 @@ export default function SettingsPanelContent(props) {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const audioPreviewRef = useRef(null);
+  const audioPreviewObjectUrlRef = useRef(null);
+  const {
+    googleSpeakers,
+    isLoading: googleSpeakersLoading,
+    error: googleSpeakersError,
+    source: googleSpeakersSource,
+  } = useGoogleTTSSpeakers();
+  const speakerGroups = useMemo(() => (
+    AGENT_SPEAKER_GROUPS.map((group) => (
+      group.key === "GOOGLE"
+        ? { ...group, speakers: googleSpeakers }
+        : group
+    ))
+  ), [googleSpeakers]);
 
   useEffect(() => {
     if (!user) return;
@@ -324,6 +342,10 @@ export default function SettingsPanelContent(props) {
         audioPreviewRef.current.pause();
         audioPreviewRef.current = null;
       }
+      if (audioPreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(audioPreviewObjectUrlRef.current);
+        audioPreviewObjectUrlRef.current = null;
+      }
     };
   }, []);
 
@@ -333,11 +355,15 @@ export default function SettingsPanelContent(props) {
       audioPreviewRef.current.currentTime = 0;
       audioPreviewRef.current = null;
     }
+    if (audioPreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(audioPreviewObjectUrlRef.current);
+      audioPreviewObjectUrlRef.current = null;
+    }
     setCurrentlyPlayingSpeaker(null);
   };
 
   const toggleSpeakerPreview = async (speaker) => {
-    if (!speaker?.previewURL) {
+    if (!speaker?.previewURL && !speaker?.previewRequiresAuth) {
       toast.error("Preview unavailable for this speaker.", {
         position: "bottom-center",
       });
@@ -355,16 +381,30 @@ export default function SettingsPanelContent(props) {
     stopSpeakerPreview();
 
     try {
-      const audio = new Audio(speaker.previewURL);
+      const previewUrl = speaker.previewRequiresAuth
+        ? await fetchGoogleTTSPreviewBlobUrl(speaker)
+        : speaker.previewURL;
+      if (speaker.previewRequiresAuth) {
+        audioPreviewObjectUrlRef.current = previewUrl;
+      }
+      const audio = new Audio(previewUrl);
       audioPreviewRef.current = audio;
       setCurrentlyPlayingSpeaker(speaker);
       audio.onended = () => {
         audioPreviewRef.current = null;
+        if (audioPreviewObjectUrlRef.current) {
+          URL.revokeObjectURL(audioPreviewObjectUrlRef.current);
+          audioPreviewObjectUrlRef.current = null;
+        }
         setCurrentlyPlayingSpeaker(null);
       };
       await audio.play();
     } catch (error) {
       audioPreviewRef.current = null;
+      if (audioPreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(audioPreviewObjectUrlRef.current);
+        audioPreviewObjectUrlRef.current = null;
+      }
       setCurrentlyPlayingSpeaker(null);
       toast.error("Unable to play speaker preview.", {
         position: "bottom-center",
@@ -500,7 +540,7 @@ export default function SettingsPanelContent(props) {
   const handleUpdateSpeakerOptions = (evt) => {
     evt.preventDefault();
     updateUserDetails({
-      speakerOptions: buildSpeakerOptionsPayload(speakerOptions),
+      speakerOptions: buildSpeakerOptionsPayload(speakerOptions, speakerGroups),
     });
   };
 
@@ -857,7 +897,7 @@ export default function SettingsPanelContent(props) {
             </div>
 
             <div className="space-y-3">
-              {AGENT_SPEAKER_GROUPS.map((group) => (
+              {speakerGroups.map((group) => (
                 <SpeakerProviderCard
                   key={group.key}
                   group={group}
@@ -867,6 +907,9 @@ export default function SettingsPanelContent(props) {
                   secondaryTextColor={secondaryTextColor}
                   speakerOptions={speakerOptions}
                   isExpanded={expandedSpeakerProvider === group.key}
+                  isLoading={group.key === "GOOGLE" && googleSpeakersLoading}
+                  error={group.key === "GOOGLE" ? googleSpeakersError : null}
+                  source={group.key === "GOOGLE" ? googleSpeakersSource : null}
                   currentlyPlayingSpeaker={currentlyPlayingSpeaker}
                   onToggleProvider={() => handleSpeakerProviderSelection(group)}
                   onToggleExpand={() => handleSpeakerProviderExpand(group.key)}
@@ -984,6 +1027,9 @@ function SpeakerProviderCard({
   secondaryTextColor,
   speakerOptions,
   isExpanded,
+  isLoading = false,
+  error = null,
+  source = null,
   currentlyPlayingSpeaker,
   onToggleProvider,
   onToggleExpand,
@@ -994,6 +1040,13 @@ function SpeakerProviderCard({
     ? speakerOptions[group.selectionKey]
     : [];
   const providerEnabled = Boolean(speakerOptions?.[group.allowKey]);
+  const speakers = Array.isArray(group.speakers) ? group.speakers : [];
+  const isUsingGoogleCache = source === "cache" || source === "client-cache";
+  const emptyStateText = isLoading
+    ? "Loading Google voices..."
+    : error
+      ? "Google voices are unavailable. Check processor Google credentials and try again."
+      : "No speakers are available for this provider.";
 
   return (
     <div className={`rounded-xl border ${borderColor} ${mutedBg} p-4 space-y-3`}>
@@ -1013,6 +1066,7 @@ function SpeakerProviderCard({
             </div>
             <div className={`text-xs ${secondaryTextColor} mt-1`}>
               {selectedSpeakers.length} preferred speaker{selectedSpeakers.length === 1 ? "" : "s"} selected
+              {isUsingGoogleCache ? " | Google cache" : ""}
             </div>
           </div>
         </div>
@@ -1031,7 +1085,16 @@ function SpeakerProviderCard({
 
       {isExpanded && (
         <div className="grid gap-2">
-          {group.speakers.map((speaker) => {
+          {speakers.length === 0 && (
+            <div
+              className={`rounded-lg border ${borderColor} px-3 py-3 text-sm ${secondaryTextColor} ${
+                colorMode === "dark" ? "bg-[#0b1224]" : "bg-white"
+              }`}
+            >
+              {emptyStateText}
+            </div>
+          )}
+          {speakers.map((speaker) => {
             const isSelected = selectedSpeakers.includes(speaker.value);
             const isPlaying =
               currentlyPlayingSpeaker?.provider === speaker.provider &&
@@ -1055,6 +1118,7 @@ function SpeakerProviderCard({
                     <div className="text-sm font-semibold">{speaker.label}</div>
                     <div className={`text-xs ${secondaryTextColor}`}>
                       {speaker.genderLabel}
+                      {speaker.languageCode ? ` | ${speaker.languageCode}` : ""}
                       {speaker.accent ? ` | ${speaker.accent}` : ""}
                       {speaker.description ? ` | ${speaker.description}` : ""}
                     </div>

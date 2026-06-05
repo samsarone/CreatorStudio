@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import CommonButton from '../../../common/CommonButton.tsx';
 import SingleSelect from '../../../common/SingleSelect.jsx';
 import SpeechProviderSelect from './SpeechProviderSelect.jsx';
+import { getGoogleTTSVoiceDetails } from '../../../../hooks/useGoogleTTSSpeakers.js';
 
 const TTS_PROVIDER_OPTIONS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'ELEVENLABS', label: 'ElevenLabs' },
+  { value: 'GOOGLE', label: 'Google TTS' },
   { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
 ];
 
@@ -77,10 +79,18 @@ export default function AddSpeaker(props) {
 
     const newSpeaker = {
       speaker: speakerType.value,
+      speakerVoiceId: speakerType.voiceId || speakerType.value,
+      speakerLabel: speakerType.label || speakerType.name || speakerType.value,
       actor: normalizedSpeakerName,
       speakerCharacterName: normalizedSpeakerName,
       subType: 'character',
       provider: speakerType.provider || providerValue,
+      languageCode: speakerType.languageCode,
+      languageCodes: speakerType.languageCodes,
+      speakerDetails:
+        (speakerType.provider || providerValue) === 'GOOGLE'
+          ? getGoogleTTSVoiceDetails(speakerType)
+          : undefined,
     };
 
     onAddNewSpeaker(newSpeaker);

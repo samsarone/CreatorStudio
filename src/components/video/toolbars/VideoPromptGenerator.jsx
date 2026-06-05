@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import {
   VIDEO_GENERATION_MODEL_TYPES,
@@ -11,6 +11,10 @@ import {
   getVideoGenerationModelDropdownData,
   getVideoGenerationModelMeta,
 } from "../util/videoGenerationModelOptions.js";
+import {
+  formatVideoDurationLabel,
+  getVideoModelDurationUnitsForFramesPerSecond,
+} from "../../../constants/ModelPrices.jsx";
 
 const NATIVE_AUDIO_VIDEO_MODELS = new Set([
   "KLINGIMGTOVID3PRO",
@@ -103,6 +107,14 @@ export default function VideoPromptGenerator(props) {
   const supportsNativeAudio = NATIVE_AUDIO_VIDEO_MODELS.has(
     selectedVideoGenerationModel
   );
+  const selectedModelDurationUnits = useMemo(() => (
+    selectedModelPricing?.units?.length > 0
+      ? getVideoModelDurationUnitsForFramesPerSecond(
+        selectedVideoGenerationModel,
+        sessionDetails?.framesPerSecond,
+      )
+      : null
+  ), [selectedModelPricing, selectedVideoGenerationModel, sessionDetails?.framesPerSecond]);
 
 
 
@@ -191,20 +203,20 @@ export default function VideoPromptGenerator(props) {
 
     // Reset or set the duration (based on local storage or first unit) for the newly selected model
     if (
-      selectedModelPricing &&
-      selectedModelPricing.units &&
-      selectedModelPricing.units.length > 0
+      selectedModelDurationUnits &&
+      selectedModelDurationUnits.length > 0
     ) {
       const storedDuration = localStorage.getItem(
         "defaultDurationFor" + selectedVideoGenerationModel
       );
+      const parsedStoredDuration = Number(storedDuration);
       if (
-        storedDuration &&
-        selectedModelPricing.units.includes(parseInt(storedDuration))
+        Number.isFinite(parsedStoredDuration) &&
+        selectedModelDurationUnits.includes(parsedStoredDuration)
       ) {
-        setSelectedDuration(parseInt(storedDuration));
+        setSelectedDuration(parsedStoredDuration);
       } else {
-        setSelectedDuration(selectedModelPricing.units[0]);
+        setSelectedDuration(selectedModelDurationUnits[0]);
       }
     } else {
       setSelectedDuration(null);
@@ -251,7 +263,7 @@ export default function VideoPromptGenerator(props) {
     } else {
       setSelectedModelSubType("");
     }
-  }, [selectedVideoGenerationModel, selectedModelPricing]);
+  }, [selectedVideoGenerationModel, selectedModelPricing, selectedModelDurationUnits]);
 
   // ------------------
   //  Handlers
@@ -263,7 +275,7 @@ export default function VideoPromptGenerator(props) {
   };
 
   const handleDurationChange = (e) => {
-    const duration = parseInt(e.target.value);
+    const duration = Number(e.target.value);
     setSelectedDuration(duration);
     localStorage.setItem(
       "defaultDurationFor" + selectedVideoGenerationModel,
@@ -366,12 +378,19 @@ export default function VideoPromptGenerator(props) {
   // ------------------
   //  Pricing
   // ------------------
-  const modelPricing = selectedModelPricing;
+  const modelPricing = selectedModelPricing
+    ? {
+      ...selectedModelPricing,
+      ...(selectedModelDurationUnits ? { units: selectedModelDurationUnits } : {}),
+    }
+    : selectedModelPricing;
   const priceObj = getModelPriceForAspect(modelPricing, aspectRatio);
   let modelPrice = priceObj ? priceObj.price : 0;
 
   // Adjust price based on selected duration
-  if (modelPricing?.units && selectedDuration !== null) {
+  if (modelPricing?.isPerSecondPricing && selectedDuration !== null) {
+    modelPrice *= selectedDuration;
+  } else if (modelPricing?.units && selectedDuration !== null) {
     const unitIndex = modelPricing.units.findIndex(
       (unit) => unit.toString() === selectedDuration.toString()
     );
@@ -466,7 +485,7 @@ export default function VideoPromptGenerator(props) {
               >
                 {modelPricing.units.map((unit) => (
                   <option key={unit} value={unit}>
-                    {unit} seconds
+                    {formatVideoDurationLabel(unit)} seconds
                   </option>
                 ))}
               </select>

@@ -5,6 +5,7 @@ import CommonButton from '../../../common/CommonButton.tsx';
 import SpeechProviderSelect from './SpeechProviderSelect.jsx';
 
 import TextareaAutosize from 'react-textarea-autosize';
+import { getGoogleTTSVoiceDetails } from '../../../../hooks/useGoogleTTSSpeakers.js';
 
 export default function DefaultSpeechProviderSelect(props) {
   const {
@@ -40,6 +41,14 @@ export default function DefaultSpeechProviderSelect(props) {
       speaker: speaker,
       textAnimationOptions: textAnimationOptions,
       ttsProvider: ttsProviderValue,
+      languageCode: speakerType?.languageCode,
+      languageCodes: speakerType?.languageCodes,
+      speakerVoiceId: speakerType?.voiceId || speaker,
+      speakerLabel: speakerType?.label || speakerType?.name || speaker,
+      speakerDetails:
+        ttsProviderValue === 'GOOGLE'
+          ? getGoogleTTSVoiceDetails(speakerType)
+          : undefined,
       speechOptionValue: speechOptionValue,
       studioSpeechGeneration: true,
       audioBindingMode: 'unbounded',

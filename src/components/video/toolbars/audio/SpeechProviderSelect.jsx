@@ -1,8 +1,12 @@
 // components/common/SpeechProviderSelect.js
-import React from 'react';
+import React, { useMemo } from 'react';
 import Select, { components } from 'react-select';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';
+import {
+  mergeGoogleTTSSpeakers,
+  useGoogleTTSSpeakers,
+} from '../../../../hooks/useGoogleTTSSpeakers.js';
 
 export default function SpeechProviderSelect(props) {
   const {
@@ -25,11 +29,17 @@ export default function SpeechProviderSelect(props) {
   const formSelectTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
   const formSelectSelectedTextColor = colorMode === 'dark' ? '#f3f4f6' : '#111827';
   const formSelectHoverColor = colorMode === 'dark' ? '#1f2937' : '#2563EB';
+  const { googleSpeakers, isLoading, error } = useGoogleTTSSpeakers();
+  const combinedSpeakerTypes = useMemo(
+    () => mergeGoogleTTSSpeakers(TTS_COMBINED_SPEAKER_TYPES, googleSpeakers),
+    [googleSpeakers]
+  );
   const normalizedProviderFilter =
     typeof providerFilter === 'string' ? providerFilter.trim().toUpperCase() : '';
+  const isGoogleProviderSelected = normalizedProviderFilter === 'GOOGLE';
   const availableSpeakerTypes = normalizedProviderFilter
-    ? TTS_COMBINED_SPEAKER_TYPES.filter((speaker) => speaker.provider === normalizedProviderFilter)
-    : TTS_COMBINED_SPEAKER_TYPES;
+    ? combinedSpeakerTypes.filter((speaker) => speaker.provider === normalizedProviderFilter)
+    : combinedSpeakerTypes;
 
   const longestSpeakerLabelLength = availableSpeakerTypes.reduce(
     (maxLength, speaker) => Math.max(maxLength, String(speaker?.label || '').length),
@@ -83,7 +93,7 @@ export default function SpeechProviderSelect(props) {
               </small>
             )}
           </span>
-          {data.previewURL && data.icon && (
+          {(data.previewURL || data.previewRequiresAuth) && data.icon && (
             <span
               className="ml-2 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-400/40"
               onClick={(evt) => data.onClick(evt)}
@@ -116,9 +126,19 @@ export default function SpeechProviderSelect(props) {
         name={name}
         placeholder={placeholder}
         isSearchable={isSearchable}
+        isLoading={isGoogleProviderSelected && isLoading}
         value={speakerType}
         onChange={onSpeakerChange}
         options={speakerOptions}
+        noOptionsMessage={() => {
+          if (isGoogleProviderSelected && isLoading) {
+            return 'Loading Google voices...';
+          }
+          if (isGoogleProviderSelected && error) {
+            return 'Google voices are unavailable.';
+          }
+          return 'No voices available.';
+        }}
         menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
         menuPosition="fixed"
         components={{ Option, SingleValue }}

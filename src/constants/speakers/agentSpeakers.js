@@ -3,6 +3,7 @@ import { ELEVENLABS_TTS } from "../ElevenLabs.jsx";
 
 const OPENAI_PROVIDER = "OPENAI";
 const ELEVENLABS_PROVIDER = "ELEVENLABS";
+const GOOGLE_PROVIDER = "GOOGLE";
 
 function normalizeSpeakerGender(rawGender = "") {
   if (typeof rawGender !== "string") {
@@ -65,13 +66,23 @@ export const AGENT_SPEAKER_GROUPS = [
     selectionKey: "elevenLabsSpeakers",
     speakers: ELEVENLABS_AGENT_SPEAKERS,
   },
+  {
+    key: GOOGLE_PROVIDER,
+    label: "Google TTS",
+    allowKey: "allowGoogle",
+    selectionKey: "googleSpeakers",
+    speakers: [],
+  },
 ];
 
 export const EMPTY_SPEAKER_OPTIONS = {
   allowOpenAI: false,
   allowElevenLabs: false,
+  allowGoogle: false,
   openAISpeakers: [],
   elevenLabsSpeakers: [],
+  googleSpeakers: [],
+  googleSpeakerDetails: [],
 };
 
 function normalizeSelectionList(speakers = [], allowedValues = []) {
@@ -79,6 +90,7 @@ function normalizeSelectionList(speakers = [], allowedValues = []) {
     return [];
   }
 
+  const shouldFilterAllowedValues = allowedValues.length > 0;
   const allowed = new Set(allowedValues);
   const seen = new Set();
   const normalized = [];
@@ -89,7 +101,7 @@ function normalizeSelectionList(speakers = [], allowedValues = []) {
     }
 
     const trimmed = speakerValue.trim();
-    if (!trimmed || seen.has(trimmed) || !allowed.has(trimmed)) {
+    if (!trimmed || seen.has(trimmed) || (shouldFilterAllowedValues && !allowed.has(trimmed))) {
       return;
     }
 
@@ -100,28 +112,87 @@ function normalizeSelectionList(speakers = [], allowedValues = []) {
   return normalized;
 }
 
-export function normalizeSpeakerOptionsState(speakerOptions = null) {
-  const openAIAllowedValues = OPENAI_AGENT_SPEAKERS.map((speaker) => speaker.value);
-  const elevenLabsAllowedValues = ELEVENLABS_AGENT_SPEAKERS.map((speaker) => speaker.value);
+function normalizeSpeakerDetails(speakerDetails = []) {
+  if (!Array.isArray(speakerDetails)) {
+    return [];
+  }
 
-  return {
-    allowOpenAI: speakerOptions?.allowOpenAI === true,
-    allowElevenLabs: speakerOptions?.allowElevenLabs === true,
-    openAISpeakers: normalizeSelectionList(speakerOptions?.openAISpeakers, openAIAllowedValues),
-    elevenLabsSpeakers: normalizeSelectionList(
-      speakerOptions?.elevenLabsSpeakers,
-      elevenLabsAllowedValues
-    ),
-  };
+  return speakerDetails
+    .filter((speaker) => speaker && typeof speaker === "object")
+    .map((speaker) => ({
+      ...speaker,
+      provider: GOOGLE_PROVIDER,
+      value: typeof speaker.value === "string" ? speaker.value.trim() : speaker.value,
+      voiceId:
+        typeof speaker.voiceId === "string" && speaker.voiceId.trim()
+          ? speaker.voiceId.trim()
+          : typeof speaker.value === "string"
+            ? speaker.value.trim()
+            : speaker.voiceId,
+      languageCode:
+        typeof speaker.languageCode === "string" ? speaker.languageCode.trim() : speaker.languageCode,
+      languageCodes: Array.isArray(speaker.languageCodes) ? speaker.languageCodes : [],
+    }))
+    .filter((speaker) => typeof speaker.value === "string" && speaker.value);
 }
 
-export function buildSpeakerOptionsPayload(speakerOptions = null) {
-  const normalized = normalizeSpeakerOptionsState(speakerOptions);
-  const hasSelections =
-    normalized.allowOpenAI ||
-    normalized.allowElevenLabs ||
-    normalized.openAISpeakers.length > 0 ||
-    normalized.elevenLabsSpeakers.length > 0;
+function buildGoogleSpeakerDetails(speakerOptions = {}, speakerGroups = AGENT_SPEAKER_GROUPS) {
+  const googleGroup = speakerGroups.find((group) => group.key === GOOGLE_PROVIDER);
+  const googleSpeakers = Array.isArray(googleGroup?.speakers) ? googleGroup.speakers : [];
+  const speakerByValue = new Map(googleSpeakers.map((speaker) => [speaker.value, speaker]));
+  const selectedValues = Array.isArray(speakerOptions.googleSpeakers)
+    ? speakerOptions.googleSpeakers
+    : [];
+
+  return selectedValues.map((speakerValue) => {
+    const speaker = speakerByValue.get(speakerValue);
+    if (!speaker) {
+      return normalizeSpeakerDetails(speakerOptions.googleSpeakerDetails)
+        .find((detail) => detail.value === speakerValue) || null;
+    }
+
+    return {
+      provider: GOOGLE_PROVIDER,
+      value: speaker.value,
+      voiceId: speaker.voiceId || speaker.value,
+      name: speaker.name || speaker.label || speaker.value,
+      label: speaker.label || speaker.name || speaker.value,
+      languageCode: speaker.languageCode,
+      languageCodes: Array.isArray(speaker.languageCodes) ? speaker.languageCodes : [],
+      Gender: speaker.Gender || speaker.genderCode || null,
+      previewURL: speaker.previewURL,
+      previewRequiresAuth: speaker.previewRequiresAuth,
+    };
+  }).filter(Boolean);
+}
+
+export function normalizeSpeakerOptionsState(speakerOptions = null, speakerGroups = AGENT_SPEAKER_GROUPS) {
+  const normalized = {
+    ...EMPTY_SPEAKER_OPTIONS,
+    googleSpeakerDetails: normalizeSpeakerDetails(speakerOptions?.googleSpeakerDetails),
+  };
+
+  speakerGroups.forEach((group) => {
+    const allowedValues = Array.isArray(group.speakers)
+      ? group.speakers.map((speaker) => speaker.value)
+      : [];
+    normalized[group.allowKey] = speakerOptions?.[group.allowKey] === true;
+    normalized[group.selectionKey] = normalizeSelectionList(
+      speakerOptions?.[group.selectionKey],
+      allowedValues
+    );
+  });
+
+  return normalized;
+}
+
+export function buildSpeakerOptionsPayload(speakerOptions = null, speakerGroups = AGENT_SPEAKER_GROUPS) {
+  const normalized = normalizeSpeakerOptionsState(speakerOptions, speakerGroups);
+  normalized.googleSpeakerDetails = buildGoogleSpeakerDetails(normalized, speakerGroups);
+  const hasSelections = speakerGroups.some((group) => (
+    normalized[group.allowKey] ||
+    (Array.isArray(normalized[group.selectionKey]) && normalized[group.selectionKey].length > 0)
+  ));
 
   return hasSelections ? normalized : null;
 }

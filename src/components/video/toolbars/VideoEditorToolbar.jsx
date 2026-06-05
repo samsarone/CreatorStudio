@@ -58,6 +58,10 @@ import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
 import VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.jsx';
 import VideoAiVideoOptionsViewer from './ai_video/VideoAiVideoOptionsViewer.jsx';
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
+import {
+  fetchGoogleTTSPreviewBlobUrl,
+  getGoogleTTSVoiceDetails,
+} from '../../../hooks/useGoogleTTSSpeakers.js';
 
 const SOUND_EFFECT_MODEL_OPTIONS = [
   { value: 'SDAUDIO', label: 'Stable Audio' },
@@ -73,6 +77,7 @@ function resolveSpeakerProvider(speaker = {}) {
   if (
     explicitProvider === 'OPENAI' ||
     explicitProvider === 'ELEVENLABS' ||
+    explicitProvider === 'GOOGLE' ||
     explicitProvider === 'CUSTOM_TEXT_TO_SPEECH'
   ) {
     return explicitProvider;
@@ -98,6 +103,11 @@ function buildMovieSpeakerOption(speaker = {}) {
     provider: resolveSpeakerProvider(speaker),
     speaker: speakerValue,
     speakerCharacterName: speakerLabel,
+    languageCode: speaker.languageCode,
+    languageCodes: speaker.languageCodes,
+    speakerVoiceId: speaker.speakerVoiceId || speaker.voiceId || speakerValue,
+    speakerLabel: speaker.speakerLabel || speaker.label || speaker.name || speakerValue,
+    speakerDetails: speaker.speakerDetails || null,
   };
 }
 
@@ -228,6 +238,7 @@ export default function VideoEditorToolbar(props) {
   const [isExpandedView, setIsExpandedView] = useState(false);
   const [containerWidth, setContainerWidth] = useState(COLLAPSED_EDITOR_TOOLBAR_WIDTH);
   const audioSampleRef = useRef(null);
+  const audioSampleObjectUrlRef = useRef(null);
   const [numberOfSpeechLayersRequested, setNumberOfSpeechLayersRequested] = useState(0);
   const [selectedMusicProvider, setSelectedMusicProvider] = useState(MUSIC_PROVIDERS[0]);
   const [selectedSoundEffectModel, setSelectedSoundEffectModel] = useState(SOUND_EFFECT_MODEL_OPTIONS[0]);
@@ -320,6 +331,10 @@ export default function VideoEditorToolbar(props) {
       audioSampleRef.current.pause();
       audioSampleRef.current = null;
     }
+    if (audioSampleObjectUrlRef.current) {
+      URL.revokeObjectURL(audioSampleObjectUrlRef.current);
+      audioSampleObjectUrlRef.current = null;
+    }
     setCurrentlyPlayingSpeaker(null);
   };
 
@@ -362,30 +377,51 @@ export default function VideoEditorToolbar(props) {
     setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_SPEECH_GENERATE_DISPLAY);
   };
 
-  const playMusicPreviewForSpeaker = (evt, speaker) => {
+  const stopSpeakerPreview = () => {
+    if (audioSampleRef.current) {
+      audioSampleRef.current.pause();
+      audioSampleRef.current = null;
+    }
+    if (audioSampleObjectUrlRef.current) {
+      URL.revokeObjectURL(audioSampleObjectUrlRef.current);
+      audioSampleObjectUrlRef.current = null;
+    }
+    setCurrentlyPlayingSpeaker(null);
+  };
+
+  const playMusicPreviewForSpeaker = async (evt, speaker) => {
     evt.stopPropagation();
-    if (currentlyPlayingSpeaker && currentlyPlayingSpeaker.value === speaker.value) {
-      if (audioSampleRef.current) {
-        audioSampleRef.current.pause();
-        audioSampleRef.current = null;
-      }
-      setCurrentlyPlayingSpeaker(null);
+    if (
+      currentlyPlayingSpeaker &&
+      currentlyPlayingSpeaker.value === speaker.value &&
+      currentlyPlayingSpeaker.provider === speaker.provider
+    ) {
+      stopSpeakerPreview();
     } else {
-      if (audioSampleRef.current) {
-        audioSampleRef.current.pause();
-        audioSampleRef.current = null;
-      }
+      stopSpeakerPreview();
       let speakerMusicLink = speaker.previewURL;
       if (speakerMusicLink) {
-        const audio = new Audio(speakerMusicLink);
-        audio.play();
-        audioSampleRef.current = audio;
-        setCurrentlyPlayingSpeaker(speaker);
+        try {
+          if (speaker.previewRequiresAuth) {
+            speakerMusicLink = await fetchGoogleTTSPreviewBlobUrl(speaker);
+            audioSampleObjectUrlRef.current = speakerMusicLink;
+          }
+          const audio = new Audio(speakerMusicLink);
+          await audio.play();
+          audioSampleRef.current = audio;
+          setCurrentlyPlayingSpeaker(speaker);
 
-        audio.onended = () => {
+          audio.onended = () => {
+            stopSpeakerPreview();
+          };
+        } catch (error) {
+          if (audioSampleObjectUrlRef.current) {
+            URL.revokeObjectURL(audioSampleObjectUrlRef.current);
+            audioSampleObjectUrlRef.current = null;
+          }
           setCurrentlyPlayingSpeaker(null);
           audioSampleRef.current = null;
-        };
+        }
       }
     }
   };
@@ -395,6 +431,10 @@ export default function VideoEditorToolbar(props) {
       if (audioSampleRef.current) {
         audioSampleRef.current.pause();
         audioSampleRef.current = null;
+      }
+      if (audioSampleObjectUrlRef.current) {
+        URL.revokeObjectURL(audioSampleObjectUrlRef.current);
+        audioSampleObjectUrlRef.current = null;
       }
     };
   }, []);
@@ -1057,7 +1097,7 @@ export default function VideoEditorToolbar(props) {
       const speaker = speechPayload.speaker;
       const textAnimationOptions = speechPayload.textAnimationOptions;
       const subtitleOptionValue = speechPayload.subtitleOptionValue;
-      const ttsProviderValue = speechPayload.ttsProviderValue;
+      const ttsProviderValue = speechPayload.ttsProviderValue || speechPayload.ttsProvider;
 
       const promptList = promptText
         .split('\n')
@@ -1072,6 +1112,14 @@ export default function VideoEditorToolbar(props) {
         textAnimationOptions: textAnimationOptions,
         subtitleOption: subtitleOptionValue,
         ttsProvider: ttsProviderValue,
+        languageCode: speechPayload.languageCode,
+        languageCodes: speechPayload.languageCodes,
+        speakerVoiceId: speechPayload.speakerVoiceId || speechPayload.voiceId || speaker,
+        speakerLabel: speechPayload.speakerLabel || speechPayload.label || speaker,
+        speakerDetails:
+          ttsProviderValue === 'GOOGLE'
+            ? (speechPayload.speakerDetails || getGoogleTTSVoiceDetails(speechPayload))
+            : speechPayload.speakerDetails,
         aspectRatio: aspectRatio,
         audioBindingMode: studioSpeechPlacementPayload.audioBindingMode,
         bindToLayer: studioSpeechPlacementPayload.bindToLayer,

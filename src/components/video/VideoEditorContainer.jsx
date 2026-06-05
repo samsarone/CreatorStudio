@@ -255,6 +255,20 @@ export default function VideoEditorContainer(props) {
     );
   }, []);
 
+  const layerHasUploadedOrPendingUserVideo = useCallback((layer) => {
+    if (!layer) {
+      return false;
+    }
+
+    return Boolean(
+      layer.userVideoGenerationPending
+      || layer.hasUserVideoLayer
+      || layer.userVideoLayer
+      || layer.userVideoUploadTaskId
+      || isActiveUserVideoUploadTask(layer.userVideoUploadTask)
+    );
+  }, []);
+
   const layerHasAnyVideoArtefact = useCallback((layer) => {
     const { url } = resolveLayerVideoState(layer);
     return Boolean(url) || layerHasPendingVideoTask(layer);
@@ -2115,7 +2129,12 @@ export default function VideoEditorContainer(props) {
   };
 
   // removeAiVideoLayer now includes the layer type in the payload
-  const removeAIVideoLayer = async () => {
+  const removeAIVideoLayer = async (targetLayer = null) => {
+    const layerForRemoval = targetLayer || currentLayer;
+    if (!layerForRemoval?._id) {
+      return;
+    }
+
     setCanvasActionLoading(true);
 
     const headers = getHeaders();
@@ -2124,10 +2143,11 @@ export default function VideoEditorContainer(props) {
       setCanvasActionLoading(false);
       return;
     }
+    const { type: resolvedVideoLayerType } = resolveLayerVideoState(layerForRemoval);
     const payload = {
       sessionId: id,
-      layerId: currentLayer._id.toString(),
-      aiVideoLayerType, // pass the currently active AI video layer type
+      layerId: layerForRemoval._id.toString(),
+      aiVideoLayerType: resolvedVideoLayerType || aiVideoLayerType,
     };
 
 
@@ -2255,10 +2275,38 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestLipSyncToSpeech = (selectedModel) => {
-    if (layerHasAnyVideoArtefact(currentLayer)) {
+    if (layerHasUploadedOrPendingUserVideo(currentLayer)) {
       toast.error(
         <div>
           <FaTimes /> Remove the uploaded or pending video before requesting lip sync.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
+    if (
+      currentLayer?.aiVideoGenerationPending
+      || currentLayer?.lipSyncGenerationPending
+      || currentLayer?.soundEffectGenerationPending
+    ) {
+      toast.error(
+        <div>
+          <FaTimes /> Wait for the pending video task to finish before requesting lip sync.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
+    if (!currentLayer?.aiVideoLayer && !currentLayer?.aiVideoRemoteLink) {
+      toast.error(
+        <div>
+          <FaTimes /> Generate an AI video for this layer before requesting lip sync.
         </div>,
         {
           position: 'bottom-center',
@@ -2298,6 +2346,18 @@ export default function VideoEditorContainer(props) {
       toast.success(
         <div>
           <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+    }).catch((error) => {
+      setIsAIVideoGenerationPending(false);
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message;
+      toast.error(
+        <div>
+          <FaTimes /> {errorMessage || t("studio.notifications.generationRequestFailed")}
         </div>,
         {
           position: 'bottom-center',

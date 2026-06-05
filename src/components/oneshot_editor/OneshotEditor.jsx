@@ -24,6 +24,8 @@ import {
   FaTrash,
   FaMicrophone,
   FaStopCircle,
+  FaPause,
+  FaPlay,
 } from 'react-icons/fa';
 import axios from 'axios';
 
@@ -88,10 +90,11 @@ const MAX_BACKOFF = 60_000;    // 1 min cap
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
 const VIDGENIE_PROMPT_MAX_LENGTH = 4000;
-const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'SEEDREAM'];
+const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'NANOBANANAPRO', 'SEEDREAM'];
 const VIDGENIE_IMAGE_MODEL_LABELS = {
   GPTIMAGE2: 'GPT Image 2',
   NANOBANANA2: 'Nano Banana 2',
+  NANOBANANAPRO: 'NanoBanana Pro',
   SEEDREAM: 'Seedream',
 };
 const DEFAULT_VIDEO_GENERATION_MODEL = 'RUNWAYML';
@@ -99,6 +102,7 @@ const VIDGENIE_VIDEO_MODEL_ORDER = [
   'RUNWAYML',
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
+  'COSMOS3SUPERI2V',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'HAPPYHORSEI2V',
@@ -107,6 +111,7 @@ const VIDGENIE_VIDEO_MODEL_LABELS = {
   RUNWAYML: 'RunwayML Gen 4.5 (Default)',
   'VEO3.1I2V': 'VEO3.1 I2V',
   'VEO3.1I2VFAST': 'VEO3.1 I2V Fast',
+  COSMOS3SUPERI2V: 'Nvidia Cosmos 3',
   SEEDANCEI2V: 'Seedance 1.5',
   KLINGIMGTOVID3PRO: 'Kling 3 Pro',
   HAPPYHORSEI2V: 'Happy Horse 1.0 I2V',
@@ -117,6 +122,7 @@ const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
   'RUNWAYML',
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
+  'COSMOS3SUPERI2V',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'HAPPYHORSEI2V',
@@ -124,6 +130,7 @@ const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
 const TEXT_TO_VIDEO_IMAGE_MODEL_KEYS = [
   'GPTIMAGE2',
   'NANOBANANA2',
+  'NANOBANANAPRO',
   'SEEDREAM',
   'CUSTOM_TEXT_TO_IMAGE',
 ];
@@ -131,6 +138,7 @@ const TEXT_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'RUNWAYML',
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
+  'COSMOS3SUPERI2V',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'HAPPYHORSEI2V',
@@ -140,6 +148,7 @@ const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'RUNWAYML',
   'VEO3.1I2V',
   'VEO3.1I2VFAST',
+  'COSMOS3SUPERI2V',
   'SEEDANCEI2V',
   'KLINGIMGTOVID3PRO',
   'HAPPYHORSEI2V',
@@ -263,9 +272,6 @@ function findDefaultVideoModelOption(options = [], savedValue = '') {
 }
 
 function resolveJsonImageModelAlias(modelKey) {
-  if (modelKey === 'NANOBANANAPRO') {
-    return 'NANOBANANA2';
-  }
   return modelKey;
 }
 
@@ -1522,16 +1528,9 @@ function getStepGenerationEndpoint(endpoint) {
 function extractVideoResultUrl(data) {
   const resultUrls = Array.isArray(data?.result_urls) ? data.result_urls : [];
   const candidates = [
-    data?.videoLink,
-    data?.video_link,
-    data?.session?.videoLink,
-    data?.session?.video_link,
-    data?.session?.result?.videoLink,
-    data?.session?.result?.video_link,
-    data?.result?.videoLink,
-    data?.result?.video_link,
     data?.result_url,
     data?.result?.url,
+    data?.session?.result?.url,
     resultUrls[0],
     data?.remoteURL,
     data?.remoteUrl,
@@ -1546,6 +1545,14 @@ function extractVideoResultUrl(data) {
     data?.published_video_url,
     data?.session?.publishedVideoURL,
     data?.session?.published_video_url,
+    data?.videoLink,
+    data?.video_link,
+    data?.session?.videoLink,
+    data?.session?.video_link,
+    data?.session?.result?.videoLink,
+    data?.session?.result?.video_link,
+    data?.result?.videoLink,
+    data?.result?.video_link,
   ];
 
   return (
@@ -1831,6 +1838,7 @@ export default function OneshotEditor() {
   const [activeRequestId, setActiveRequestId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isRenderPauseResumePending, setIsRenderPauseResumePending] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUnpublishing, setIsUnpublishing] = useState(false);
   const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
@@ -3045,6 +3053,21 @@ export default function OneshotEditor() {
         }
         setGenerationStatusDetails(data);
 
+        const isPausedStatus =
+          normalizeGenerationStatus(data?.status) === 'PAUSED' ||
+          data?.expressGenerationPaused === true ||
+          data?.session?.expressGenerationPaused === true;
+        if (isPausedStatus) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setIsPaused(true);
+          setShowResultDisplay(true);
+          return;
+        }
+
+        setIsPaused(false);
+
         const currentStepMode = normalizeGenerationStepMode(activeRequestStepModeRef.current);
         const isWaitingForApproval = isStepStatusWaitingForApproval(data, currentStepMode);
         if (isWaitingForApproval) {
@@ -3060,6 +3083,7 @@ export default function OneshotEditor() {
         if (data.status === 'COMPLETED' && videoActualLink) {
           continuePolling = false;
           setIsGenerationPending(false);
+          setIsPaused(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           setVideoLink(videoActualLink);
         }
@@ -3069,6 +3093,7 @@ export default function OneshotEditor() {
           continuePolling = false;
           setIsGenerationPending(false);
           setIsGenerationWaitingForApproval(false);
+          setIsPaused(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           setErrorMessage({ error: getDetailedGenerationErrorMessage(data, failureStatus) });
         }
@@ -3078,6 +3103,7 @@ export default function OneshotEditor() {
           continuePolling = false;
           setIsGenerationPending(false);
           setIsGenerationWaitingForApproval(false);
+          setIsPaused(false);
           clearAdvancedVideoEditPendingSession(requestId);
           setErrorMessage({
             error: getDetailedGenerationErrorMessage(err.response.data, failureStatus),
@@ -3099,6 +3125,110 @@ export default function OneshotEditor() {
     };
 
     doPoll();
+  };
+
+  const handlePauseRender = async () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    const requestId = id || activeRequestIdRef.current || activeRequestId;
+    if (!requestId || isRenderPauseResumePending) {
+      return;
+    }
+
+    try {
+      setIsRenderPauseResumePending(true);
+      const { data } = await axios.post(
+        `${VIDEO_API_BASE}/pause_render`,
+        { input: { videoSessionId: requestId } },
+        headers
+      );
+
+      if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+      currentPollRequestIdRef.current = null;
+      setIsGenerationPending(false);
+      setIsGenerationWaitingForApproval(false);
+      setIsPaused(true);
+      setShowResultDisplay(true);
+      setExpressGenerationStatus(data?.expressGenerationStatus || expressGenerationStatus);
+      setGenerationStatusDetails((current) => ({
+        ...(current || {}),
+        status: 'PAUSED',
+        expressGenerationPaused: true,
+        expressGenerationPending: false,
+        expressGenerationStatus: data?.expressGenerationStatus || current?.expressGenerationStatus || expressGenerationStatus,
+      }));
+      setSessionDetails((current) => current
+        ? {
+            ...current,
+            expressGenerationPaused: true,
+            expressGenerationPending: false,
+            videoGenerationPending: false,
+            expressGenerationStatus: data?.expressGenerationStatus || current.expressGenerationStatus,
+          }
+        : current);
+    } catch (err) {
+      const apiMessage = err?.response?.data?.message || err?.message;
+      setErrorMessage({ error: apiMessage || 'Unable to pause render.' });
+    } finally {
+      setIsRenderPauseResumePending(false);
+    }
+  };
+
+  const handleResumeRender = async () => {
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+    const requestId = id || activeRequestIdRef.current || activeRequestId;
+    if (!requestId || isRenderPauseResumePending) {
+      return;
+    }
+
+    try {
+      setIsRenderPauseResumePending(true);
+      const { data } = await axios.post(
+        `${VIDEO_API_BASE}/resume_render`,
+        { input: { videoSessionId: requestId } },
+        headers
+      );
+
+      setErrorMessage(null);
+      setIsPaused(false);
+      setIsGenerationPending(true);
+      setIsGenerationWaitingForApproval(false);
+      setShowResultDisplay(true);
+      setVideoLink(null);
+      setExpressGenerationStatus(data?.expressGenerationStatus || expressGenerationStatus);
+      setGenerationStatusDetails((current) => ({
+        ...(current || {}),
+        status: 'PENDING',
+        expressGenerationPaused: false,
+        expressGenerationPending: true,
+        expressGenerationStatus: data?.expressGenerationStatus || current?.expressGenerationStatus || expressGenerationStatus,
+      }));
+      setSessionDetails((current) => current
+        ? {
+            ...current,
+            expressGenerationPaused: false,
+            expressGenerationPending: true,
+            videoGenerationPending: true,
+            expressGenerationStatus: data?.expressGenerationStatus || current.expressGenerationStatus,
+          }
+        : current);
+      setActiveRequestId(requestId);
+      activeRequestIdRef.current = requestId;
+      pollGenerationStatus(requestId, true);
+    } catch (err) {
+      const apiMessage = err?.response?.data?.message || err?.message;
+      setErrorMessage({ error: apiMessage || 'Unable to resume render.' });
+    } finally {
+      setIsRenderPauseResumePending(false);
+    }
   };
 
   const handleProcessNextStep = useCallback(async () => {
@@ -3230,6 +3360,7 @@ export default function OneshotEditor() {
       setSessionDetails(data);
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
       const latestVideoUrl = getNormalizedLatestVideoUrl(data);
+      const hasPausedGeneration = Boolean(data.expressGenerationPaused);
       const hasPendingGeneration = Boolean(
         data.videoGenerationPending || data.expressGenerationPending || forceAdvancedEditPoll
       );
@@ -3240,23 +3371,42 @@ export default function OneshotEditor() {
 
 
       if (!activeRequestIdRef.current) {
-        if (hasPendingGeneration) {
+        if (hasPausedGeneration) {
+          setIsPaused(true);
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setShowResultDisplay(true);
+          setExpressGenerationStatus(data.expressGenerationStatus);
+          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+        } else if (hasPendingGeneration) {
+          setIsPaused(false);
           setIsGenerationPending(true);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
           pollGenerationStatus(id);
         } else if (latestVideoUrl) {
           setVideoLink(latestVideoUrl);
+          setIsPaused(false);
           setIsGenerationPending(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
+          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
           clearAdvancedVideoEditPendingSession(id);
         }
+      } else if (hasPausedGeneration) {
+        setIsPaused(true);
+        setIsGenerationPending(false);
+        setIsGenerationWaitingForApproval(false);
+        setShowResultDisplay(true);
+        setExpressGenerationStatus(data.expressGenerationStatus);
+        refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
       } else if (!hasPendingGeneration && latestVideoUrl) {
         setVideoLink(latestVideoUrl);
+        setIsPaused(false);
         setIsGenerationPending(false);
         setShowResultDisplay(true);
         setExpressGenerationStatus(data.expressGenerationStatus);
+        refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
         clearAdvancedVideoEditPendingSession(id);
       }
 
@@ -3443,6 +3593,7 @@ export default function OneshotEditor() {
       setErrorMessage(null);
       setIsSubmitting(true);
       setIsGenerationPending(true);
+      setIsPaused(false);
       setShowResultDisplay(true);
       setVideoLink(null);
       setExpressGenerationStatus(null);
@@ -3528,6 +3679,7 @@ export default function OneshotEditor() {
     setErrorMessage(null);
     setIsSubmitting(true);
     setIsGenerationPending(true);
+    setIsPaused(false);
     setShowResultDisplay(true);
     setVideoLink(null);
     setExpressGenerationStatus(null);
@@ -3702,6 +3854,7 @@ export default function OneshotEditor() {
     setErrorMessage(null);
     setVideoLink(null);
     setShowResultDisplay(true);
+    setIsPaused(false);
     setIsGenerationPending(requestInfo?.status !== 'CANCELLED');
     setIsGenerationWaitingForApproval(false);
     setActiveRequestId(nextRequestId);
@@ -3884,16 +4037,67 @@ export default function OneshotEditor() {
   //  Render-state helpers
   // ─────────────────────────────────────────────────────────
   const renderState = useMemo(() => {
+    if (isPaused) return 'paused';
     if (isGenerationPending || isGenerationWaitingForApproval) return 'pending';
     if (videoLink) return 'complete';
     return 'idle';
-  }, [isGenerationPending, isGenerationWaitingForApproval, videoLink]);
+  }, [isGenerationPending, isGenerationWaitingForApproval, isPaused, videoLink]);
   const shouldCollapseJsonEditorForProgress =
-    isJsonMode && showResultDisplay && (isGenerationPending || isGenerationWaitingForApproval || Boolean(videoLink));
+    isJsonMode && showResultDisplay && (
+      isGenerationPending ||
+      isGenerationWaitingForApproval ||
+      isPaused ||
+      Boolean(videoLink)
+    );
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
-  const isModeToggleDisabled = renderState === 'pending' || isSubmitting;
+  const isModeToggleDisabled = renderState === 'pending' || renderState === 'paused' || isSubmitting;
   const isGenerationActionDisabled = isFormDisabled || isSubmitting || Boolean(jsonEditorErrorMessage);
+  const isCompletedSessionPublished = Boolean(sessionDetails?.ispublishedVideo);
+  const renderCompletedVideoActions = (extraClasses = '') => {
+    if (renderState !== 'complete' || !videoLink) {
+      return null;
+    }
+
+    return (
+      <div className={`flex flex-col justify-center gap-2 sm:flex-row ${extraClasses}`}>
+        <PrimaryPublicButton
+          extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          onClick={viewInStudio}
+        >
+          View&nbsp;in&nbsp;Studio
+        </PrimaryPublicButton>
+        <PrimaryPublicButton
+          extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          onClick={
+            isCompletedSessionPublished
+              ? handleUnpublishClick
+              : handlePublishClick
+          }
+          isPending={
+            isCompletedSessionPublished ? isUnpublishing : isPublishing
+          }
+          isDisabled={isPublishing || isUnpublishing}
+        >
+          {isCompletedSessionPublished
+            ? isUnpublishing
+              ? t("vidgenie.unpublishing")
+              : t("vidgenie.unpublish")
+            : isPublishing
+              ? t("vidgenie.publishing")
+              : t("vidgenie.publish")}
+        </PrimaryPublicButton>
+        <PrimaryPublicButton
+          extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          onClick={handleDownloadVideo}
+          isPending={isDownloadingVideo}
+          isDisabled={!videoLink}
+        >
+          {isDownloadingVideo ? 'Downloading' : t("common.download")}
+        </PrimaryPublicButton>
+      </div>
+    );
+  };
   const jsonModeButtonLabel = isJsonMode
     ? t("vidgenie.wizardMode", {}, "Wizard mode")
     : t("vidgenie.jsonMode", {}, "JSON mode");
@@ -4130,59 +4334,61 @@ export default function OneshotEditor() {
               </button>
             )}
 
-            {renderState === 'pending' && (
+            {(renderState === 'pending' || renderState === 'paused') && (
               <div
-                className="flex items-center gap-1 text-xs sm:text-sm"
+                className="flex items-center gap-2 text-xs sm:text-sm"
                 aria-live="polite"
                 role="status"
               >
-                <FaSpinner className="animate-spin h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">{t("vidgenie.renderingShort")}</span>
-                <span className="sr-only">{t("vidgenie.renderingAria")}</span>
+                {renderState === 'paused' ? (
+                  <FaPause className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <FaSpinner className="animate-spin h-4 w-4" aria-hidden="true" />
+                )}
+                <span className="hidden sm:inline">
+                  {renderState === 'paused'
+                    ? t("common.paused", {}, "Paused")
+                    : t("vidgenie.renderingShort")}
+                </span>
+                <span className="sr-only">
+                  {renderState === 'paused'
+                    ? t("common.paused", {}, "Paused")
+                    : t("vidgenie.renderingAria")}
+                </span>
+                <button
+                  type="button"
+                  onClick={renderState === 'paused' ? handleResumeRender : handlePauseRender}
+                  disabled={isRenderPauseResumePending}
+                  title={renderState === 'paused'
+                    ? t("common.play", {}, "Resume render")
+                    : t("common.pause", {}, "Pause render")}
+                  aria-label={renderState === 'paused'
+                    ? t("common.play", {}, "Resume render")
+                    : t("common.pause", {}, "Pause render")}
+                  className={`
+                    inline-flex h-8 w-8 items-center justify-center rounded-full transition
+                    ${colorMode === 'dark'
+                      ? 'border border-white/10 text-slate-100 hover:border-white/20 hover:bg-white/5'
+                      : 'border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                    }
+                    ${isRenderPauseResumePending ? 'cursor-not-allowed opacity-60' : 'active:scale-[0.98]'}
+                  `}
+                >
+                  {isRenderPauseResumePending ? (
+                    <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  ) : renderState === 'paused' ? (
+                    <FaPlay className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <FaPause className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                </button>
               </div>
             )}
           </div>
         </div>
 
         {/* Mobile action buttons (complete state) */}
-        {renderState === 'complete' && sessionDetails && (
-          <div className="mt-4 mb-2 flex flex-col justify-center gap-2 sm:flex-row">
-            <PrimaryPublicButton
-              extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
-              onClick={viewInStudio}
-            >
-              View&nbsp;in&nbsp;Studio
-            </PrimaryPublicButton>
-            <PrimaryPublicButton
-              extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
-              onClick={
-                sessionDetails.ispublishedVideo
-                  ? handleUnpublishClick
-                  : handlePublishClick
-              }
-              isPending={
-                sessionDetails.ispublishedVideo ? isUnpublishing : isPublishing
-              }
-              isDisabled={isPublishing || isUnpublishing}
-            >
-              {sessionDetails.ispublishedVideo
-                ? isUnpublishing
-                  ? t("vidgenie.unpublishing")
-                  : t("vidgenie.unpublish")
-                : isPublishing
-                  ? t("vidgenie.publishing")
-                  : t("vidgenie.publish")}
-            </PrimaryPublicButton>
-            <PrimaryPublicButton
-              extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
-              onClick={handleDownloadVideo}
-              isPending={isDownloadingVideo}
-              isDisabled={!videoLink}
-            >
-              {isDownloadingVideo ? 'Downloading' : t("common.download")}
-            </PrimaryPublicButton>
-          </div>
-        )}
+        {renderCompletedVideoActions('mt-4 mb-2')}
 
         {!isJsonMode && (
           <>
@@ -4563,6 +4769,7 @@ export default function OneshotEditor() {
         <div className="mt-5 transition-all duration-500 ease-out">
           <ProgressIndicator
             isGenerationPending={isGenerationPending}
+            isGenerationPaused={isPaused}
             isGenerationWaitingForApproval={isGenerationWaitingForApproval}
             isProcessingNextStep={isProcessingNextStep}
             expressGenerationStatus={expressGenerationStatus}
@@ -4583,6 +4790,7 @@ export default function OneshotEditor() {
             onSelectStepImage={handleSelectStepImage}
             onRegenerateStepImage={handleRegenerateStepImage}
           />
+          {renderCompletedVideoActions('mt-3')}
         </div>
       )}
 

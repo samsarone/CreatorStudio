@@ -498,6 +498,7 @@ function preloadPreviewVisualSegment(segment) {
 export default function ProgressIndicator(props) {
   const {
     isGenerationPending,
+    isGenerationPaused = false,
     isGenerationWaitingForApproval,
     isProcessingNextStep,
     expressGenerationStatus,
@@ -884,16 +885,16 @@ export default function ProgressIndicator(props) {
         </div>
       )}
 
-      {(isGenerationPending || isGenerationWaitingForApproval) && hasProgressStatus ? (
+      {(isGenerationPending || isGenerationWaitingForApproval || isGenerationPaused) && hasProgressStatus ? (
         <div className="clear-both mt-4 flex flex-col gap-2 text-left sm:flex-row sm:items-center">
           <div className={`w-full ${progressTrack} rounded-full overflow-hidden h-3`}>
             <div
-              className="h-full bg-blue-500 transition-all duration-300"
+              className={`h-full transition-all duration-300 ${isGenerationPaused ? 'bg-amber-500' : 'bg-blue-500'}`}
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
           <div className="min-w-0 break-words text-sm sm:whitespace-nowrap">
-            {Math.round(progressPercentage)}% - {currentStep || 'Preparing generation'}
+            {Math.round(progressPercentage)}% - {isGenerationPaused ? `Paused - ${currentStep || 'Preparing generation'}` : (currentStep || 'Preparing generation')}
           </div>
         </div>
       ) : expressGenerationStatus === null && !videoLink && !hasTimelinePreview ? (
@@ -1140,8 +1141,14 @@ export default function ProgressIndicator(props) {
             className={`vidgenie-preview-frame ${isPortraitPreview ? 'vidgenie-preview-frame-portrait' : 'vidgenie-preview-frame-landscape'} mx-auto overflow-hidden rounded-xl ${timelineTrack} ring-1 ${colorMode === 'dark' ? 'ring-white/10' : 'ring-slate-200'}`}
             style={previewFrameStyle}
           >
-            <video controls playsInline preload="metadata" className="h-full w-full object-contain">
-              <source src={`${videoActualLink}`} type="video/mp4" />
+            <video
+              key={videoActualLink}
+              controls
+              playsInline
+              preload="metadata"
+              src={videoActualLink}
+              className="h-full w-full object-contain"
+            >
               {t("progress.videoUnsupported")}
             </video>
           </div>

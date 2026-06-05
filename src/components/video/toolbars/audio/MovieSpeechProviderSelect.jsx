@@ -17,6 +17,7 @@ function normalizeProvider(provider, speakerValue = '') {
   if (
     normalizedProvider === 'OPENAI' ||
     normalizedProvider === 'ELEVENLABS' ||
+    normalizedProvider === 'GOOGLE' ||
     normalizedProvider === 'CUSTOM_TEXT_TO_SPEECH'
   ) {
     return normalizedProvider;
@@ -43,7 +44,21 @@ function normalizeMovieGenSpeaker(speaker = {}) {
       typeof speaker?.speakerCharacterName === 'string' && speaker.speakerCharacterName.trim()
         ? speaker.speakerCharacterName.trim()
         : actor,
+    speakerVoiceId:
+      typeof speaker?.speakerVoiceId === 'string' && speaker.speakerVoiceId.trim()
+        ? speaker.speakerVoiceId.trim()
+        : speakerValue,
+    speakerLabel:
+      typeof speaker?.speakerLabel === 'string' && speaker.speakerLabel.trim()
+        ? speaker.speakerLabel.trim()
+        : speakerValue,
     provider: normalizeProvider(speaker?.provider, speakerValue),
+    languageCode:
+      typeof speaker?.languageCode === 'string' && speaker.languageCode.trim()
+        ? speaker.languageCode.trim()
+        : undefined,
+    languageCodes: Array.isArray(speaker?.languageCodes) ? speaker.languageCodes : [],
+    speakerDetails: speaker?.speakerDetails || null,
   };
 }
 
@@ -109,6 +124,11 @@ export default function MovieSpeechProviderSelect(props) {
       speaker: normalizedNewSpeaker.speaker,
       actor: normalizedNewSpeaker.actor,
       speakerCharacterName: normalizedNewSpeaker.speakerCharacterName,
+      languageCode: normalizedNewSpeaker.languageCode,
+      languageCodes: normalizedNewSpeaker.languageCodes,
+      speakerVoiceId: normalizedNewSpeaker.speakerVoiceId,
+      speakerLabel: normalizedNewSpeaker.speakerLabel,
+      speakerDetails: normalizedNewSpeaker.speakerDetails,
     });
     setShowAddSpeakerForm(false);
   };
@@ -123,6 +143,11 @@ export default function MovieSpeechProviderSelect(props) {
       speaker: item.speaker,
       actor: item.actor,
       speakerCharacterName: item.speakerCharacterName,
+      languageCode: item.languageCode,
+      languageCodes: item.languageCodes,
+      speakerVoiceId: item.speakerVoiceId,
+      speakerLabel: item.speakerLabel,
+      speakerDetails: item.speakerDetails,
     };
   });
   const selectedSpeakerOption = useMemo(() => {
@@ -174,6 +199,11 @@ export default function MovieSpeechProviderSelect(props) {
       speaker: speakerValue,
       ttsProvider: speakerData.provider,
       speakerCharacterName: speakerData.speakerCharacterName,
+      languageCode: speakerData.languageCode,
+      languageCodes: speakerData.languageCodes,
+      speakerVoiceId: speakerData.speakerVoiceId,
+      speakerLabel: speakerData.speakerLabel,
+      speakerDetails: speakerData.speakerDetails,
       studioSpeechGeneration: true,
       audioBindingMode: 'unbounded',
       bindToLayer: false,

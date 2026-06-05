@@ -5,6 +5,66 @@ import {
   getExpressVideoPricingDistributionPerSecond,
 } from './pricing/ExpressVideoPricingDistribution.js';
 
+export const COSMOS3_SUPER_MODEL_KEY = 'COSMOS3SUPERI2V';
+export const COSMOS3_SUPER_MAX_FRAMES = 189;
+export const COSMOS3_SUPER_SHORT_DURATION_SECONDS = 5;
+export const COSMOS3_SUPER_TARGET_MAX_DURATION_SECONDS = 8;
+export const DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND = 24;
+
+const DURATION_UNIT_EPSILON = 0.0001;
+
+export function getCosmos3SuperMaxDurationSeconds(framesPerSecond = DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND) {
+  const parsedFramesPerSecond = Number(framesPerSecond);
+  const normalizedFramesPerSecond = Number.isFinite(parsedFramesPerSecond) && parsedFramesPerSecond > 0
+    ? Math.round(parsedFramesPerSecond)
+    : DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND;
+  return Math.min(COSMOS3_SUPER_TARGET_MAX_DURATION_SECONDS, COSMOS3_SUPER_MAX_FRAMES / normalizedFramesPerSecond);
+}
+
+export function formatVideoDurationSeconds(durationSeconds) {
+  const parsedDuration = Number(durationSeconds);
+  if (!Number.isFinite(parsedDuration)) {
+    return '';
+  }
+  return Number.isInteger(parsedDuration)
+    ? String(parsedDuration)
+    : String(Number(parsedDuration.toFixed(3)));
+}
+
+export function formatVideoDurationLabel(durationSeconds) {
+  const parsedDuration = Number(durationSeconds);
+  if (!Number.isFinite(parsedDuration)) {
+    return '';
+  }
+  const roundedDuration = Math.round(parsedDuration);
+  if (Math.abs(parsedDuration - roundedDuration) <= 0.15) {
+    return String(roundedDuration);
+  }
+  return formatVideoDurationSeconds(parsedDuration);
+}
+
+export function getVideoModelDurationUnitsForFramesPerSecond(modelKey, framesPerSecond) {
+  const modelType = VIDEO_MODEL_PRICES.find((model) => model.key === modelKey);
+  const rawUnits = Array.isArray(modelType?.baseUnits) && modelType.baseUnits.length > 0
+    ? modelType.baseUnits
+    : modelType?.units;
+  const sanitizedUnits = (Array.isArray(rawUnits) ? rawUnits : [5])
+    .map((unit) => Number(unit))
+    .filter((unit) => Number.isFinite(unit) && unit > 0);
+
+  if (modelKey !== COSMOS3_SUPER_MODEL_KEY) {
+    return [...new Set(sanitizedUnits.length > 0 ? sanitizedUnits : [5])].sort((a, b) => a - b);
+  }
+
+  const maxDurationSeconds = getCosmos3SuperMaxDurationSeconds(framesPerSecond);
+  const cappedUnits = [COSMOS3_SUPER_SHORT_DURATION_SECONDS];
+  if (Math.abs(maxDurationSeconds - COSMOS3_SUPER_SHORT_DURATION_SECONDS) > DURATION_UNIT_EPSILON) {
+    cappedUnits.push(maxDurationSeconds);
+  }
+
+  return [...new Set(cappedUnits)].sort((a, b) => a - b);
+}
+
 export const IMAGE_MODEL_PRICES = [
   {
     key: 'GPTIMAGE2',
@@ -40,6 +100,15 @@ export const IMAGE_MODEL_PRICES = [
       { aspectRatio: '1:1', price: 23 },
       { aspectRatio: '16:9', price: 23 },
       { aspectRatio: '9:16', price: 23 },
+    ],
+  },
+  {
+    key: 'NANOBANANAPRO',
+    isExpressModel: true,
+    prices: [
+      { aspectRatio: '1:1', price: 15 },
+      { aspectRatio: '16:9', price: 15 },
+      { aspectRatio: '9:16', price: 15 },
     ],
   },
   {
@@ -270,6 +339,22 @@ export const VIDEO_MODEL_PRICES = [
     pricingDistribution: getExpressVideoPricingDistributionPerSecond('VEO3.1I2VFAST'),
     units: [4, 6, 8],
   },
+  {
+    key: COSMOS3_SUPER_MODEL_KEY,
+    name: 'Nvidia Cosmos 3',
+    isExpressModel: true,
+    isImageToVideoModel: true,
+    isTextToVideoModel: false,
+    isPerSecondPricing: true,
+    maxFrames: COSMOS3_SUPER_MAX_FRAMES,
+    prices: [
+      { aspectRatio: '16:9', price: 10 },
+      { aspectRatio: '9:16', price: 10 },
+    ],
+    pricingDistribution: getExpressVideoPricingDistributionPerSecond('COSMOS3SUPERI2V'),
+    baseUnits: [COSMOS3_SUPER_SHORT_DURATION_SECONDS, COSMOS3_SUPER_TARGET_MAX_DURATION_SECONDS],
+    units: [5, getCosmos3SuperMaxDurationSeconds()],
+  },
 
   // AI post-processing models still used in studio workflows
   {
@@ -345,6 +430,16 @@ export const TTS_TYPES = [
 export const ASSISTANT_MODEL_PRICES = [
   {
     key: "gpt-5.5",
+    prices: [
+      {
+        operationType: "words",
+        tokens: 1000,
+        price: 9
+      },
+    ]
+  },
+  {
+    key: "gemini-3.1-pro",
     prices: [
       {
         operationType: "words",

@@ -128,6 +128,11 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
   {
+    name: 'NanoBanana Pro',
+    key: 'NANOBANANAPRO',
+    isExpressModel: true,
+  },
+  {
     name: 'Custom Text to Image',
     key: 'CUSTOM_TEXT_TO_IMAGE',
     isExpressModel: true,
@@ -316,6 +321,17 @@ export const VIDEO_GENERATION_MODEL_TYPES = [
       '9:16'
     ]
   },
+  {
+    name: 'Nvidia Cosmos 3',
+    key: 'COSMOS3SUPERI2V',
+    isImageToVideoModel: true,
+    isExpressModel: true,
+    isTextToVideoModel: false,
+    supportedAspectRatios: [
+      '16:9',
+      '9:16'
+    ]
+  },
 ];
 
 
@@ -358,6 +374,10 @@ export const INFERENCE_MODEL_TYPES = [
     label: 'GPT 5.5',
     value: 'gpt-5.5',
   },
+  {
+    label: 'Gemini 3.1 Pro',
+    value: 'gemini-3.1-pro',
+  },
 
 
 ]
@@ -379,6 +399,7 @@ export const PIXVERRSE_VIDEO_STYLES = [
 export const TTS_PROVIDERS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'PLAYHT', label: 'Play.ht' },
+  { value: 'GOOGLE', label: 'Google TTS' },
   { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
 ];
 

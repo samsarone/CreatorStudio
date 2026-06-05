@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import CommonButton from "../../../common/CommonButton.tsx";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
@@ -9,6 +9,10 @@ import {
   getVideoGenerationModelDropdownData,
   getVideoGenerationModelMeta,
 } from "../../util/videoGenerationModelOptions.js";
+import {
+  formatVideoDurationLabel,
+  getVideoModelDurationUnitsForFramesPerSecond,
+} from "../../../../constants/ModelPrices.jsx";
 import "react-tooltip/dist/react-tooltip.css";
 
 const NATIVE_AUDIO_VIDEO_MODELS = new Set([
@@ -96,6 +100,14 @@ export default function OverlayPromptGenerateVideo(props) {
   const supportsNativeAudio = NATIVE_AUDIO_VIDEO_MODELS.has(
     selectedVideoGenerationModel
   );
+  const selectedModelDurationUnits = useMemo(() => (
+    selectedModelPricing?.units?.length > 0
+      ? getVideoModelDurationUnitsForFramesPerSecond(
+        selectedVideoGenerationModel,
+        sessionDetails?.framesPerSecond,
+      )
+      : null
+  ), [selectedModelPricing, selectedVideoGenerationModel, sessionDetails?.framesPerSecond]);
 
   const [useStartFrame, setUseStartFrame] = useState(() => {
     const stored = localStorage.getItem("defaultVideoStartFrame");
@@ -162,17 +174,18 @@ export default function OverlayPromptGenerateVideo(props) {
       setOptimizePrompt(false);
     }
 
-    if (selectedModelPricing?.units?.length > 0) {
+    if (selectedModelDurationUnits?.length > 0) {
       const storedDuration = localStorage.getItem(
         "defaultDurationFor" + selectedVideoGenerationModel
       );
+      const parsedStoredDuration = Number(storedDuration);
       if (
-        storedDuration &&
-        selectedModelPricing.units.includes(parseInt(storedDuration))
+        Number.isFinite(parsedStoredDuration) &&
+        selectedModelDurationUnits.includes(parsedStoredDuration)
       ) {
-        setSelectedDuration(parseInt(storedDuration));
+        setSelectedDuration(parsedStoredDuration);
       } else {
-        setSelectedDuration(selectedModelPricing.units[0]);
+        setSelectedDuration(selectedModelDurationUnits[0]);
       }
     } else {
       setSelectedDuration(null);
@@ -193,7 +206,7 @@ export default function OverlayPromptGenerateVideo(props) {
     } else {
       setSelectedModelSubType("");
     }
-  }, [selectedVideoGenerationModel, selectedModelPricing, selectedModelDef]);
+  }, [selectedVideoGenerationModel, selectedModelPricing, selectedModelDef, selectedModelDurationUnits]);
 
   const handleModelChange = (event) => {
     const newModel = event.target.value;
@@ -202,7 +215,7 @@ export default function OverlayPromptGenerateVideo(props) {
   };
 
   const handleDurationChange = (event) => {
-    const duration = parseInt(event.target.value);
+    const duration = Number(event.target.value);
     setSelectedDuration(duration);
     localStorage.setItem(
       "defaultDurationFor" + selectedVideoGenerationModel,
@@ -298,11 +311,18 @@ export default function OverlayPromptGenerateVideo(props) {
     submitGenerateNewVideoRequest(payload);
   };
 
-  const pricingForSelectedModel = selectedModelPricing;
+  const pricingForSelectedModel = selectedModelPricing
+    ? {
+      ...selectedModelPricing,
+      ...(selectedModelDurationUnits ? { units: selectedModelDurationUnits } : {}),
+    }
+    : selectedModelPricing;
   const priceObj = getModelPriceForAspect(pricingForSelectedModel, aspectRatio);
   let modelPrice = priceObj ? priceObj.price : 0;
 
-  if (pricingForSelectedModel?.units && selectedDuration !== null) {
+  if (pricingForSelectedModel?.isPerSecondPricing && selectedDuration !== null) {
+    modelPrice *= selectedDuration;
+  } else if (pricingForSelectedModel?.units && selectedDuration !== null) {
     const unitIndex = pricingForSelectedModel.units.findIndex(
       (unit) => unit.toString() === selectedDuration.toString()
     );
@@ -366,7 +386,7 @@ export default function OverlayPromptGenerateVideo(props) {
             >
               {pricingForSelectedModel.units.map((unit) => (
                 <option key={unit} value={unit}>
-                  {unit} s
+                  {formatVideoDurationLabel(unit)} s
                 </option>
               ))}
             </select>
