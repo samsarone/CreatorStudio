@@ -936,9 +936,11 @@ export default function ProgressIndicator(props) {
       false,
       {
         centerContent: true,
+        containerClassName: 'w-full max-w-[560px]',
         fullBleed: true,
         hideBorder: true,
         hideCloseButton: true,
+        transparentShell: true,
       }
     );
   };

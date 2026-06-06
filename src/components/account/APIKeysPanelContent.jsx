@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaEye, FaEyeSlash, FaTrash } from 'react-icons/fa';
+import { FaSave, FaTrash } from 'react-icons/fa';
 import SecondaryButton from '../common/SecondaryButton.tsx';
 import { getHeaders } from '../../utils/web.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -16,6 +16,12 @@ const API_KEY_EXPIRY_OPTIONS = [
   { label: '90 days', value: '90' },
   { label: '365 days', value: '365' },
   { label: 'Never', value: 'never' },
+];
+
+const API_KEY_LIMIT_OPTIONS = [
+  { label: 'No limit', value: 'none' },
+  { label: 'Monthly', value: 'monthly' },
+  { label: 'Total', value: 'total' },
 ];
 
 const getExpiryDateFromSelection = (selection) => {
@@ -32,6 +38,37 @@ const getExpiryDateFromSelection = (selection) => {
   return expiresAt.toISOString();
 };
 
+const getLimitDraftFromKey = (keyItem = {}) => ({
+  usageLimitPeriod: keyItem.usageLimitPeriod || 'none',
+  usageLimit: keyItem.usageLimit ? String(keyItem.usageLimit) : '',
+});
+
+const buildLimitDrafts = (apiKeys = []) => (
+  apiKeys.reduce((drafts, keyItem) => ({
+    ...drafts,
+    [keyItem._id]: getLimitDraftFromKey(keyItem),
+  }), {})
+);
+
+const buildUsageLimitPayload = (usageLimitPeriod, usageLimit) => {
+  if (usageLimitPeriod === 'none') {
+    return {
+      usageLimitPeriod: null,
+      usageLimit: null,
+    };
+  }
+
+  const numericLimit = Number(usageLimit);
+  if (!Number.isFinite(numericLimit) || numericLimit <= 0) {
+    throw new Error('Enter a positive credit limit.');
+  }
+
+  return {
+    usageLimitPeriod,
+    usageLimit: numericLimit,
+  };
+};
+
 export default function APIKeysPanelContent() {
   const { colorMode } = useColorMode();
   const { user } = useUser();
@@ -46,6 +83,10 @@ export default function APIKeysPanelContent() {
   const [showKey, setShowKey] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedExpiry, setSelectedExpiry] = useState('never');
+  const [selectedLimitPeriod, setSelectedLimitPeriod] = useState('none');
+  const [selectedUsageLimit, setSelectedUsageLimit] = useState('');
+  const [limitDrafts, setLimitDrafts] = useState({});
+  const [savingLimitKeyId, setSavingLimitKeyId] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -63,6 +104,7 @@ export default function APIKeysPanelContent() {
       const response = await axios.get(`${PROCESSOR_SERVER}/users/api_keys`, headers);
       const apiKeyResponse = response.data.apiKeys || [];
       setApiKeys(apiKeyResponse);
+      setLimitDrafts(buildLimitDrafts(apiKeyResponse));
     } catch (error) {
       
       toast.error('Failed to fetch API keys', {
@@ -78,17 +120,58 @@ export default function APIKeysPanelContent() {
       const headers = getHeaders();
       const expiresAt = getExpiryDateFromSelection(selectedExpiry);
       const payload = expiresAt ? { expiresAt } : {};
+      const usageLimitPayload = buildUsageLimitPayload(selectedLimitPeriod, selectedUsageLimit);
+      Object.assign(payload, usageLimitPayload);
       const response = await axios.post(`${PROCESSOR_SERVER}/users/api_keys`, payload, headers);
       const newKey = response.data.apiKey;
       setApiKeys((prevKeys) => [...prevKeys, newKey]);
+      setLimitDrafts((prevDrafts) => ({
+        ...prevDrafts,
+        [newKey._id]: getLimitDraftFromKey(newKey),
+      }));
       toast.success('API key created successfully!', {
         position: 'bottom-center',
       });
     } catch (error) {
       
-      toast.error('Failed to create API key', {
+      toast.error(error?.response?.data?.error || error?.message || 'Failed to create API key', {
         position: 'bottom-center',
       });
+    }
+  };
+
+  const handleLimitDraftChange = (keyId, field, value) => {
+    setLimitDrafts((prevDrafts) => ({
+      ...prevDrafts,
+      [keyId]: {
+        ...prevDrafts[keyId],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveKeyLimit = async (keyId) => {
+    const draft = limitDrafts[keyId] || { usageLimitPeriod: 'none', usageLimit: '' };
+    try {
+      setSavingLimitKeyId(keyId);
+      const headers = getHeaders();
+      const payload = buildUsageLimitPayload(draft.usageLimitPeriod, draft.usageLimit);
+      const response = await axios.patch(`${PROCESSOR_SERVER}/users/api_keys/${keyId}/limit`, payload, headers);
+      const updatedKey = response.data.apiKey;
+      setApiKeys((prevKeys) => prevKeys.map((key) => (key._id === keyId ? updatedKey : key)));
+      setLimitDrafts((prevDrafts) => ({
+        ...prevDrafts,
+        [keyId]: getLimitDraftFromKey(updatedKey),
+      }));
+      toast.success('API key limit updated!', {
+        position: 'bottom-center',
+      });
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error?.message || 'Failed to update API key limit', {
+        position: 'bottom-center',
+      });
+    } finally {
+      setSavingLimitKeyId(null);
     }
   };
 
@@ -126,6 +209,29 @@ export default function APIKeysPanelContent() {
     return `${start}${middle}${end}`;
   };
 
+  const formatCredits = (value) => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      return '0';
+    }
+
+    return numericValue.toLocaleString(undefined, {
+      maximumFractionDigits: 4,
+    });
+  };
+
+  const renderUsageSummary = (keyItem) => {
+    const usage = keyItem.usage || {};
+    if (keyItem.usageLimit && keyItem.usageLimitPeriod) {
+      const used = keyItem.usageLimitPeriod === 'monthly'
+        ? usage.monthlyCreditsUsed
+        : usage.totalCreditsUsed;
+      return `${formatCredits(used)} / ${formatCredits(keyItem.usageLimit)} credits`;
+    }
+
+    return `Monthly ${formatCredits(usage.monthlyCreditsUsed)} · Total ${formatCredits(usage.totalCreditsUsed)}`;
+  };
+
   return (
     <div className={`flex flex-col flex-grow gap-4 ${textColor}`}>
       <ToastContainer />
@@ -149,6 +255,33 @@ export default function APIKeysPanelContent() {
               ))}
             </select>
           </div>
+          <div className="flex items-center gap-2">
+            <label htmlFor="api-key-limit-period" className={`text-sm ${secondaryTextColor}`}>
+              Limit
+            </label>
+            <select
+              id="api-key-limit-period"
+              value={selectedLimitPeriod}
+              onChange={(e) => setSelectedLimitPeriod(e.target.value)}
+              className={`border ${borderColor} rounded px-3 py-2 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+            >
+              {API_KEY_LIMIT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={selectedUsageLimit}
+              disabled={selectedLimitPeriod === 'none'}
+              onChange={(e) => setSelectedUsageLimit(e.target.value)}
+              placeholder="Credits"
+              className={`w-28 border ${borderColor} rounded px-3 py-2 disabled:opacity-50 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+            />
+          </div>
           <SecondaryButton onClick={handleCreateKey}>Create Key</SecondaryButton>
         </div>
       </div>
@@ -170,6 +303,7 @@ export default function APIKeysPanelContent() {
                   <th className="px-4 py-3 text-left font-semibold">Key</th>
                   <th className="px-4 py-3 text-left font-semibold">Created At</th>
                   <th className="px-4 py-3 text-left font-semibold">Expires At</th>
+                  <th className="px-4 py-3 text-left font-semibold">Usage Limit</th>
                   <th className="px-4 py-3 text-left font-semibold">Actions</th>
                 </tr>
               </thead>
@@ -206,6 +340,44 @@ export default function APIKeysPanelContent() {
                         {keyItem.expiresAt
                           ? new Date(keyItem.expiresAt).toLocaleString()
                           : 'Never'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-2 min-w-[260px]">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={limitDrafts[keyItem._id]?.usageLimitPeriod || 'none'}
+                              onChange={(e) => handleLimitDraftChange(keyItem._id, 'usageLimitPeriod', e.target.value)}
+                              className={`border ${borderColor} rounded px-2 py-1 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+                            >
+                              {API_KEY_LIMIT_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={limitDrafts[keyItem._id]?.usageLimit || ''}
+                              disabled={(limitDrafts[keyItem._id]?.usageLimitPeriod || 'none') === 'none'}
+                              onChange={(e) => handleLimitDraftChange(keyItem._id, 'usageLimit', e.target.value)}
+                              placeholder="Credits"
+                              className={`w-24 border ${borderColor} rounded px-2 py-1 disabled:opacity-50 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+                            />
+                            <button
+                              type="button"
+                              aria-label="Save API key limit"
+                              title="Save API key limit"
+                              disabled={savingLimitKeyId === keyItem._id}
+                              onClick={() => handleSaveKeyLimit(keyItem._id)}
+                              className={`rounded-md p-2 border ${borderColor} disabled:opacity-50 ${colorMode === 'dark' ? 'hover:bg-[#0f1629]' : 'hover:bg-slate-100'}`}
+                            >
+                              <FaSave />
+                            </button>
+                          </div>
+                          <p className={`text-xs ${secondaryTextColor}`}>{renderUsageSummary(keyItem)}</p>
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <button

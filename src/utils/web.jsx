@@ -58,11 +58,11 @@ export function clearAuthCookies() {
 }
 
 export function getCookieConsentStatus() {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') return 'accepted';
   try {
-    return localStorage.getItem(COOKIE_CONSENT_KEY);
+    return localStorage.getItem(COOKIE_CONSENT_KEY) || 'accepted';
   } catch {
-    return null;
+    return 'accepted';
   }
 }
 

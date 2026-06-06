@@ -2461,7 +2461,13 @@ export default function VideoHome(props) {
       const videoSessionDataResponse = response.data;
       const videoSessionData = videoSessionDataResponse.videoSession;
       const updatedLayers = Array.isArray(videoSessionData?.layers) ? videoSessionData.layers : [];
-      const updatedAudioLayers = Array.isArray(videoSessionData?.audioLayers) ? videoSessionData.audioLayers : [];
+      const updatedAudioLayers = Array.isArray(videoSessionData?.audioLayers)
+        ? videoSessionData.audioLayers.map((audioLayer) => ({
+          isSelected: false,
+          isDirty: false,
+          ...audioLayer,
+        }))
+        : [];
       let newLayerIndex = -1;
 
       if (selectedLayerIdBeforeDelete && selectedLayerIdBeforeDelete !== layerId) {
@@ -2474,7 +2480,10 @@ export default function VideoHome(props) {
         newLayerIndex = Math.min(layerIndex, updatedLayers.length - 1);
       }
 
-      setVideoSessionDetails(videoSessionData);
+      setVideoSessionDetails({
+        ...videoSessionData,
+        audioLayers: updatedAudioLayers,
+      });
       setLayers(updatedLayers);
       setAudioLayers(updatedAudioLayers);
       setCurrentLayer(newLayerIndex >= 0 ? updatedLayers[newLayerIndex] : null);

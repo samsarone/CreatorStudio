@@ -43,28 +43,30 @@ export default function AddCreditsDialog(props) {
 
   const shellClasses = isDark
     ? 'border-[#1f2a3d] bg-[#0b1021] text-slate-100 shadow-[0_24px_80px_rgba(0,0,0,0.42)]'
-    : 'border-[#cbd6e6] bg-[#f7f9fc] text-slate-950 shadow-[0_24px_64px_rgba(15,23,42,0.14)]';
+    : 'border-[#cbd6e6] bg-[#f3f7fb] text-slate-950 shadow-[0_24px_64px_rgba(15,23,42,0.14)]';
 
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-600';
   const subtleText = isDark ? 'text-slate-500' : 'text-slate-500';
+  const accentText = isDark ? 'text-[#72f1b0]' : 'text-sky-700';
+  const dividerClasses = isDark ? 'border-[#1f2a3d]' : 'border-[#d7deef]';
   const panelClasses = isDark
     ? 'border-[#1f2a3d] bg-[#0f1629]'
-    : 'border-[#d7deef] bg-white/80';
+    : 'border-[#d7deef] bg-white/60';
 
   const inactiveOptionClasses = isDark
     ? 'border-[#1f2a3d] bg-[#0f1629] hover:border-[#46bfff]/70 hover:bg-[#13213a]'
-    : 'border-[#d7deef] bg-white/80 hover:border-sky-300 hover:bg-white';
+    : 'border-[#d7deef] bg-white/65 hover:border-sky-300 hover:bg-sky-50/60';
 
   const activeOptionClasses = isDark
     ? 'border-[#46bfff] bg-[#10223c] ring-1 ring-[#46bfff]/30'
-    : 'border-sky-400 bg-white ring-1 ring-sky-200';
+    : 'border-sky-400 bg-sky-50/90 ring-1 ring-sky-200';
   const checkoutButtonClasses = isPage
     ? isDark
-      ? 'min-h-[54px] w-full rounded-xl bg-gradient-to-r from-[#46bfff] to-[#39d881] px-6 text-base text-[#041420] shadow-[0_16px_32px_rgba(70,191,255,0.22)] hover:from-[#60cbff] hover:to-[#55e8a2]'
-      : 'min-h-[54px] w-full rounded-xl bg-slate-950 px-6 text-base text-white shadow-[0_16px_32px_rgba(15,23,42,0.18)] hover:bg-slate-800'
+      ? 'min-h-[54px] w-full rounded-xl bg-[#39d881] px-6 text-base text-[#041420] shadow-[0_16px_32px_rgba(57,216,129,0.22)] hover:bg-[#55e8a2]'
+      : 'min-h-[54px] w-full rounded-xl bg-sky-600 px-6 text-base text-white shadow-[0_16px_32px_rgba(2,132,199,0.18)] hover:bg-sky-700'
     : isDark
-      ? 'min-h-[44px] w-full rounded-lg bg-gradient-to-r from-[#46bfff] to-[#39d881] px-5 text-sm text-[#041420] hover:from-[#60cbff] hover:to-[#55e8a2] sm:w-auto'
-      : 'min-h-[44px] w-full rounded-lg bg-slate-950 px-5 text-sm text-white hover:bg-slate-800 sm:w-auto';
+      ? 'min-h-[44px] w-full rounded-lg bg-[#39d881] px-5 text-sm text-[#041420] hover:bg-[#55e8a2] sm:w-auto'
+      : 'min-h-[44px] w-full rounded-lg bg-sky-600 px-5 text-sm text-white hover:bg-sky-700 sm:w-auto';
 
   const shellWidthClasses = isPage ? 'max-w-5xl' : 'max-w-[560px]';
   const contentPaddingClasses = isPage
@@ -100,14 +102,17 @@ export default function AddCreditsDialog(props) {
 
   const headerContent = (
     <div className="pr-10">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#46bfff]">
-        Add credits
+      <p className={`text-xs font-semibold uppercase tracking-[0.22em] ${accentText}`}>
+        Workspace credits
       </p>
       <h2 className="mt-2 text-2xl font-semibold tracking-normal sm:text-3xl">
-        Select a pack
+        Add credits
       </h2>
       <p className={`mt-2 text-sm leading-6 ${mutedText}`}>
-        100 credits = $1. Added right after Stripe checkout.
+        Top up for renders, edits, and agent generation. Credits are ready after checkout.
+      </p>
+      <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.18em] ${subtleText}`}>
+        100 credits = $1
       </p>
     </div>
   );
@@ -185,7 +190,7 @@ export default function AddCreditsDialog(props) {
         onClick={() => setIsCouponOpen((prev) => !prev)}
         className="flex w-full items-center justify-between gap-3 text-sm font-semibold"
       >
-        <span>Have a coupon?</span>
+        <span>Promo code</span>
         {isCouponOpen ? <FaChevronUp className="text-xs" /> : <FaChevronDown className="text-xs" />}
       </button>
 
@@ -193,26 +198,26 @@ export default function AddCreditsDialog(props) {
         <div className="mt-4 space-y-3">
           <input
             type="text"
-            placeholder="Enter coupon code"
+            placeholder="Code"
             value={couponCode}
             onChange={(e) => setCouponCode(e.target.value)}
             className={`w-full rounded-lg border px-3 py-2 text-sm ${
               isDark
                 ? 'border-[#1f2a3d] bg-[#0b1021] text-slate-100 placeholder:text-slate-600'
-                : 'border-[#cbd6e6] bg-white text-slate-950 placeholder:text-slate-400'
+                : 'border-[#cbd6e6] bg-white/80 text-slate-950 placeholder:text-slate-400'
             }`}
           />
           <button
             type="button"
             onClick={handleApplyCoupon}
-            disabled={!hasUser}
+            disabled={!hasUser || !couponCode.trim() || typeof requestApplyCreditsCoupon !== 'function'}
             className={`inline-flex min-h-[38px] items-center justify-center rounded-lg px-4 text-sm font-semibold transition ${
               isDark
                 ? 'bg-[#111a2f] text-[#d7ffeb] hover:bg-[#172c49]'
-                : 'border border-[#cbd6e6] bg-white text-slate-800 hover:bg-slate-50'
+                : 'bg-slate-200 text-slate-900 hover:bg-slate-300'
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            Apply coupon
+            Apply
           </button>
         </div>
       )}
@@ -220,11 +225,9 @@ export default function AddCreditsDialog(props) {
   );
 
   const checkoutPanel = (
-    <div className={`flex flex-col gap-4 border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${
-      isPage ? 'rounded-xl' : 'rounded-lg'
-    } ${panelClasses}`}>
+    <div className={`flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between ${dividerClasses}`}>
       <div>
-        <p className={`text-xs uppercase tracking-[0.18em] ${subtleText}`}>Pack total</p>
+        <p className={`text-xs uppercase tracking-[0.18em] ${subtleText}`}>Selected pack</p>
         <p className="mt-1 text-lg font-semibold">
           {numberFormatter.format(selectedCredits)} credits
           <span className={`ml-2 text-sm font-medium ${mutedText}`}>
@@ -239,12 +242,12 @@ export default function AddCreditsDialog(props) {
           disabled={!selectedOption || !hasUser}
           className={`inline-flex items-center justify-center gap-2 font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${checkoutButtonClasses}`}
         >
-          {isPage ? 'Purchase credits' : 'Continue to checkout'}
+          {isPage ? 'Checkout' : 'Continue to checkout'}
           <FaArrowRight className={isPage ? 'text-sm' : 'text-xs'} />
         </button>
         {isPage && (
           <p className={`mt-2 text-center text-xs ${subtleText}`}>
-            Opens secure Stripe checkout
+            Secure Stripe checkout
           </p>
         )}
       </div>
@@ -279,7 +282,7 @@ export default function AddCreditsDialog(props) {
             </div>
             <div className="space-y-3">
               <p className={`text-xs font-semibold uppercase tracking-[0.18em] ${subtleText}`}>
-                Choose amount
+                Credit pack
               </p>
               {packGrid}
             </div>

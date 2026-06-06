@@ -174,6 +174,17 @@ const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   limit_single_narrator: false,
   add_narrator_avatar: false,
 });
+const INITIAL_EXPRESS_GENERATION_STATUS = Object.freeze({
+  prompt_generation: 'PENDING',
+  image_generation: 'PENDING',
+  audio_generation: 'PENDING',
+  frame_generation: 'INIT',
+  video_generation: 'INIT',
+  ai_video_generation: 'INIT',
+  speech_generation: 'INIT',
+  music_generation: 'INIT',
+  delete_reflow: 'INIT',
+});
 
 const VIDGENIE_TONE_OPTIONS = [
   { value: 'grounded', label: 'Grounded' },
@@ -1591,6 +1602,67 @@ function normalizeGenerationStatus(status) {
   return typeof status === 'string' ? status.trim().toUpperCase() : '';
 }
 
+function hasExpressGenerationStatusProgress(status) {
+  if (!isPlainObject(status)) {
+    return false;
+  }
+
+  return Object.entries(status).some(([key, value]) => {
+    const normalizedStatus = normalizeGenerationStatus(value);
+    if (!normalizedStatus) {
+      return false;
+    }
+
+    const initialStatus = INITIAL_EXPRESS_GENERATION_STATUS[key];
+    if (!initialStatus) {
+      return normalizedStatus !== 'INIT' && normalizedStatus !== 'PENDING';
+    }
+
+    return normalizedStatus !== initialStatus;
+  });
+}
+
+function hasStartedGenerationSession(data) {
+  if (!isPlainObject(data)) {
+    return false;
+  }
+
+  if (
+    data.isExpressGeneration === true ||
+    Boolean(data.videoGenerationPending) ||
+    Boolean(data.expressGenerationPaused) ||
+    Boolean(data.expressGenerationCreated) ||
+    Boolean(data.quickSessionCreatedAt) ||
+    hasTextValue(data.inputPrompt) ||
+    hasTextValue(data.expressInputPrompt) ||
+    hasTextValue(data.expressGenerationType) ||
+    (Array.isArray(data.textList) && data.textList.length > 0) ||
+    (Array.isArray(data.layers) && data.layers.length > 0) ||
+    (Array.isArray(data.image_urls) && data.image_urls.length > 0) ||
+    (Array.isArray(data.imageUrls) && data.imageUrls.length > 0)
+  ) {
+    return true;
+  }
+
+  if (isPlainObject(data.session) && hasStartedGenerationSession(data.session)) {
+    return true;
+  }
+
+  return hasExpressGenerationStatusProgress(data.expressGenerationStatus);
+}
+
+function isSessionGenerationPending(data, forcePending = false) {
+  if (!isPlainObject(data)) {
+    return false;
+  }
+
+  return Boolean(
+    forcePending ||
+    data.videoGenerationPending ||
+    (data.expressGenerationPending && hasStartedGenerationSession(data))
+  );
+}
+
 function extractErrorText(value) {
   if (typeof value === 'string') {
     return value.trim();
@@ -1718,9 +1790,11 @@ export default function OneshotEditor() {
       false,
       {
         centerContent: true,
+        containerClassName: 'w-full max-w-[380px]',
         fullBleed: true,
         hideBorder: true,
         hideCloseButton: true,
+        transparentShell: true,
       }
     );
   }, [closePurchaseCreditsPrompt, goToPurchaseCredits, openAlertDialog]);
@@ -2695,7 +2769,7 @@ export default function OneshotEditor() {
     if (id) {
       // Fetch session, and ONLY trigger polling if still pending
       getSessionDetails().then((data) => {
-        if ((data?.videoGenerationPending || data?.expressGenerationPending) && !activeRequestIdRef.current) {
+        if (isSessionGenerationPending(data, shouldForceAdvancedVideoEditPolling(id)) && !activeRequestIdRef.current) {
           pollGenerationStatus(id);
         } else {
           // clear any existing pending polls
@@ -3361,9 +3435,7 @@ export default function OneshotEditor() {
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
       const latestVideoUrl = getNormalizedLatestVideoUrl(data);
       const hasPausedGeneration = Boolean(data.expressGenerationPaused);
-      const hasPendingGeneration = Boolean(
-        data.videoGenerationPending || data.expressGenerationPending || forceAdvancedEditPoll
-      );
+      const hasPendingGeneration = isSessionGenerationPending(data, forceAdvancedEditPoll);
 
       if (data.inputPrompt) {
         updatePromptText(data.inputPrompt);

@@ -15,15 +15,12 @@ export default function PurchaseCreditsPromptDialog({
 
   const shellClasses = isDark
     ? 'border-[#1f2a3d] bg-[#0b1021] text-slate-100 shadow-[0_24px_64px_rgba(0,0,0,0.36)]'
-    : 'border-slate-200 bg-white text-slate-950 shadow-[0_24px_56px_rgba(15,23,42,0.14)]';
+    : 'border-[#cbd6e6] bg-[#f3f7fb] text-slate-950 shadow-[0_24px_56px_rgba(15,23,42,0.14)]';
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-600';
   const subtleText = 'text-slate-500';
-  const ratePillClasses = isDark
-    ? 'border-[#1f2a3d] bg-white/[0.04] text-slate-300'
-    : 'border-slate-200 bg-slate-50 text-slate-600';
   const primaryButtonClasses = isDark
-    ? 'bg-[#e8edf7] text-[#041420] hover:bg-white focus:ring-[#89dcff]'
-    : 'bg-slate-950 text-white hover:bg-slate-800 focus:ring-slate-400';
+    ? 'bg-[#39d881] text-[#041420] hover:bg-[#55e8a2] focus:ring-[#72f1b0]'
+    : 'bg-sky-600 text-white hover:bg-sky-700 focus:ring-sky-300';
   const quietButtonClasses = isDark
     ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
     : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800';
@@ -49,17 +46,14 @@ export default function PurchaseCreditsPromptDialog({
           Credits
         </p>
         <h2 className="mt-2 text-xl font-semibold tracking-normal">
-          Add credits to start generating
+          Add credits
         </h2>
         <p className={`mt-2 text-sm leading-6 ${mutedText}`}>
-          Your workspace is ready. Credits power image, video, and agent generation across Samsar.
+          Top up for video renders, image edits, and agent generation.
         </p>
-      </div>
-
-      <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${ratePillClasses}`}>
-        <span className="font-semibold">100 credits / $1</span>
-        <span className={`mx-2 ${subtleText}`}>·</span>
-        <span>Secure Stripe checkout</span>
+        <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.18em] ${subtleText}`}>
+          100 credits = $1 · Stripe checkout
+        </p>
       </div>
 
       <div className="mt-5 flex flex-col gap-2">

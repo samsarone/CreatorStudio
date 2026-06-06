@@ -37,6 +37,14 @@ const AUTH_DIALOG_OPTIONS = {
   hideCloseButton: true,
 };
 const dialogFallback = <div className="p-6 text-sm">Loading...</div>;
+const creditsNumberFormatter = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 2,
+});
+
+function formatCredits(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? creditsNumberFormatter.format(numericValue) : '-';
+}
 
 export default function TopNav(props) {
   const {
@@ -229,6 +237,10 @@ const showLicenseDialog = () => {
     navigate('/account');
   };
 
+  const gotoCreditsUsage = () => {
+    navigate('/account/usage');
+  };
+
   const showLoginDialog = () => {
     navigate('/login');
   };
@@ -408,7 +420,6 @@ const showLicenseDialog = () => {
   let userTierDisplay = <span />;
 
   let userCredits;
-  let nextUpdate;
 
   if (user && user._id) {
     if (user.isPremiumUser) {
@@ -430,15 +441,6 @@ const showLicenseDialog = () => {
     }
 
     userCredits = user.generationCredits;
-
-    if (user.isPremiumUser) {
-      const now = new Date();
-      const lastUpdated = new Date(user.premiumUserCreditsLastUpdated);
-      const nextUpdateDate = new Date(lastUpdated);
-      nextUpdateDate.setMonth(nextUpdateDate.getMonth() + 1);
-      const timeDiff = nextUpdateDate.getTime() - now.getTime();
-      nextUpdate = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    }
 
     userProfile = (
       <div className="flex items-center justify-end gap-3">
@@ -559,9 +561,11 @@ const showLicenseDialog = () => {
 
     openAlertDialog(alertDialogContent, undefined, false, {
       centerContent: true,
+      containerClassName: 'w-full max-w-[560px]',
       fullBleed: true,
       hideBorder: true,
       hideCloseButton: true,
+      transparentShell: true,
     });
 
   }, [closeAlertDialog, openAlertDialog, purchaseCreditsForUser, requestApplyCreditsCoupon]);
@@ -616,15 +620,25 @@ const showLicenseDialog = () => {
     );
   }
 
-  let daysToUpdate = <span />;
   let userCreditsDisplay = <span />;
   if (user && user._id && sessionType !== 'docker') {
-    if (user.isPremiumUser) {
-      daysToUpdate = <div>{t("common.daysUntilUpdate", { count: nextUpdate })}</div>;
-    } else {
-      daysToUpdate = <div>{t("common.freeTier")}</div>;
-    }
-    userCreditsDisplay = <div>{userCredits ? userCredits.toFixed(2) : '-'} credits</div>;
+    const creditsButtonClass = colorMode === 'dark'
+      ? 'border border-white/10 bg-black/15 text-slate-100 hover:border-cyan-300/35 hover:bg-[#13233d]'
+      : 'border border-slate-200 bg-white/75 text-slate-900 hover:border-slate-300 hover:bg-white';
+    const creditsLabelClass = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+
+    userCreditsDisplay = (
+      <button
+        type="button"
+        onClick={gotoCreditsUsage}
+        className={`inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold leading-none transition-colors ${creditsButtonClass}`}
+        aria-label="View credits usage"
+        title="View credits usage"
+      >
+        <span className={creditsLabelClass}>Credits remaining</span>
+        <span>{formatCredits(userCredits)}</span>
+      </button>
+    );
   }
 
   if (user && user._id && sessionType === 'docker' && !user.isLicenseValid) {
@@ -750,9 +764,8 @@ const showLicenseDialog = () => {
             <div className="hidden items-center lg:flex">
               {addSessionButton}
             </div>
-            <div className="hidden flex-col items-end text-xs leading-tight text-right xl:flex">
-              <div>{userCreditsDisplay}</div>
-              <div>{daysToUpdate}</div>
+            <div className="hidden items-center justify-end xl:flex">
+              {userCreditsDisplay}
             </div>
             <div className="flex items-center justify-end">
               {userProfile}
@@ -781,9 +794,8 @@ const showLicenseDialog = () => {
           <div className="flex items-center">
             {addSessionButton}
           </div>
-          <div className="hidden flex-col items-end text-xs leading-tight text-right xl:flex">
-            <div>{userCreditsDisplay}</div>
-            <div>{daysToUpdate}</div>
+          <div className="hidden items-center justify-end xl:flex">
+            {userCreditsDisplay}
           </div>
           <div className="flex items-center justify-end">
             {userProfile}

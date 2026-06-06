@@ -9,20 +9,27 @@ export function AlertDialog() {
   if (!isAlertDialogOpen) return null;
 
   const isAuthSurface = dialogOptions?.surface === 'auth';
+  const isTransparentShell = Boolean(dialogOptions?.transparentShell);
   let bgColor = colorMode === 'dark' ? 'bg-gray-900 text-neutral-100' : 'bg-neutral-100 text-neutral-900';
   if (isAuthSurface) {
     bgColor = colorMode === 'dark' ? 'bg-slate-950 text-slate-100' : 'bg-white text-slate-900';
   }
-  const dialogWidthClass = useXL
+  if (isTransparentShell) {
+    bgColor = 'bg-transparent';
+  }
+  const defaultDialogWidthClass = useXL
     ? 'w-auto'
     : isAuthSurface
       ? 'w-full max-w-md'
       : 'md:w-[512px]';
-  const dialogBorderClass = dialogOptions?.hideBorder ? 'border border-transparent' : 'border';
+  const dialogWidthClass = dialogOptions?.containerClassName || defaultDialogWidthClass;
+  const dialogBorderClass = dialogOptions?.hideBorder
+    ? isTransparentShell ? 'border-0' : 'border border-transparent'
+    : 'border';
   const dialogPaddingClass = dialogOptions?.fullBleed ? 'p-0' : 'pt-1 pb-5 p-5';
   const dialogPositionClass = dialogOptions?.centerContent ? '' : 'top-20';
-  const dialogRadiusClass = dialogOptions?.fullBleed ? 'rounded-2xl' : 'rounded-md';
-  const dialogShadowClass = isAuthSurface && colorMode === 'light' ? '' : 'shadow-lg';
+  const dialogRadiusClass = isTransparentShell ? '' : dialogOptions?.fullBleed ? 'rounded-2xl' : 'rounded-md';
+  const dialogShadowClass = isTransparentShell || (isAuthSurface && colorMode === 'light') ? '' : 'shadow-lg';
   const overlayClass = dialogOptions?.centerContent
     ? 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-center justify-center'
     : 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full m-auto';
