@@ -1,5 +1,6 @@
 // VideoEditorToolbar.js
 import React, { useContext, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import PromptGenerator from './PromptGenerator.jsx';
 import ImageEditGenerator from '../toolbars/ImageEditGenerator.jsx';
 
@@ -1837,6 +1838,7 @@ export default function VideoEditorToolbar(props) {
   const toolbarItemIconClass = isExpandedView ? 'inline-flex ml-4' : 'inline-flex ml-1.5';
   const toolbarItemChevronClass = isExpandedView ? 'inline-flex mr-4 text-sm' : 'inline-flex mr-1.5 text-xs';
   const toolbarItemBodyClass = isExpandedView ? 'pt-1 pl-2 pr-2' : 'pt-1 px-1.5';
+  const rightPanelZIndex = isExpandedView ? 1500 : 950;
 
   let expandButtonLabel = (
     <div className='relative w-full cursor-pointer pb-1 block'>
@@ -1854,7 +1856,7 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  return (
+  const toolbarPanel = (
     <div
       className={`${panelSurface} m-auto fixed top-[72px] bottom-4 right-4 overflow-y-auto pl-2 pr-2 toolbar-container ${disabledShellClass}`}
       aria-disabled={isRenderPending}
@@ -1862,6 +1864,7 @@ export default function VideoEditorToolbar(props) {
         width: containerWidth,
         maxWidth: 'calc(100vw - 32px)',
         paddingBottom: 'calc(var(--assistant-sidebar-safe-bottom, 0px) + 1rem)',
+        zIndex: rightPanelZIndex,
       }}
     >
       <div>
@@ -1936,4 +1939,8 @@ export default function VideoEditorToolbar(props) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined'
+    ? createPortal(toolbarPanel, document.body)
+    : toolbarPanel;
 }

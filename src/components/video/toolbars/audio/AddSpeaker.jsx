@@ -45,27 +45,29 @@ export default function AddSpeaker(props) {
     ? '!m-0 !min-h-[38px] !w-full !px-4 !py-2 text-xs'
     : '!m-0 !min-h-[38px] !px-4 !py-2 text-xs';
   const providerValue = ttsProvider?.value || 'OPENAI';
+  const isGoogleProvider = providerValue === 'GOOGLE';
+
+  const getSelectedSpeakerDisplayName = () => (
+    speakerType?.speakerCharacterName
+    || speakerType?.shortLabel
+    || speakerType?.label
+    || speakerType?.name
+    || speakerType?.value
+    || ''
+  );
 
   const handleTtsProviderChange = (selectedOption) => {
     setTtsProvider(selectedOption || TTS_PROVIDER_OPTIONS[0]);
     setSpeakerType(null);
+    setError('');
   };
 
   const handleSpeakerChange = (selectedOption) => {
     setSpeakerType(selectedOption);
+    setError('');
   };
 
   const handleSave = async () => {
-    const normalizedSpeakerName = speakerName.trim();
-
-    if (!normalizedSpeakerName) {
-      setError('Please enter a speaker name.');
-      return;
-    }
-    if (existingSpeakers.some(s => s.toLowerCase() === normalizedSpeakerName.toLowerCase())) {
-      setError('Speaker name already exists.');
-      return;
-    }
     if (!providerValue) {
       setError('Please select a TTS Provider.');
       return;
@@ -75,12 +77,24 @@ export default function AddSpeaker(props) {
       return;
     }
 
+    const normalizedSpeakerName = speakerName.trim() || (isGoogleProvider ? getSelectedSpeakerDisplayName().trim() : '');
+
+    if (!normalizedSpeakerName) {
+      setError('Please enter a speaker name.');
+      return;
+    }
+    if (existingSpeakers.some(s => s.toLowerCase() === normalizedSpeakerName.toLowerCase())) {
+      setError('Speaker name already exists.');
+      return;
+    }
+
     setError('');
 
     const newSpeaker = {
       speaker: speakerType.value,
       speakerVoiceId: speakerType.voiceId || speakerType.value,
       speakerLabel: speakerType.label || speakerType.name || speakerType.value,
+      speakerShortLabel: speakerType.shortLabel,
       actor: normalizedSpeakerName,
       speakerCharacterName: normalizedSpeakerName,
       subType: 'character',
@@ -136,7 +150,7 @@ export default function AddSpeaker(props) {
           playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
           currentlyPlayingSpeaker={currentlyPlayingSpeaker}
           colorMode={colorMode}
-          compactLayout={!isSidebarCollapsed && isSidebarPanel}
+          compactLayout={isSidebarPanel}
           truncateLabels={isSidebarCollapsed}
           providerFilter={providerValue}
           showProviderLabel={false}

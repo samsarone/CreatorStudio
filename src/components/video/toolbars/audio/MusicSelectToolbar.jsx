@@ -60,6 +60,7 @@ export default function MusicSelectToolbar(props) {
     colorMode === 'dark'
       ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100'
       : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
+  const compactButtonClass = '!m-0 !min-w-0 !rounded-md !px-2 !py-1 text-xs leading-tight';
 
   const latestLayer = audioData[audioData.length - 1];
   const sessionEndTime = getSessionEndTime(sessionDetails);
@@ -148,7 +149,7 @@ export default function MusicSelectToolbar(props) {
                 </div>
               )}
             </label>
-            <SecondaryButton type="submit" className="w-full">
+            <SecondaryButton type="submit" className={`w-full ${compactButtonClass}`}>
               Add
             </SecondaryButton>
           </form>
@@ -156,22 +157,22 @@ export default function MusicSelectToolbar(props) {
       )
     }
 
-    let selectButton = layer.isOptionSelected ? <span /> : <SecondaryButton>
+    let selectButton = layer.isOptionSelected ? <span /> : <SecondaryButton className={compactButtonClass}>
       Select
     </SecondaryButton>
 
     return (
       <div onClick={() => showAudioSubOptionsDisplay(index)}>
-        <div className='text-sm cursor-pointer'>
+        <div className='text-sm cursor-pointer truncate' title={layer.title}>
           {layer.title}
         </div>
         <div>
-          <audio controls className='w-[200px] h-[40px]' >
+          <audio controls className='h-8 w-full min-w-0' >
             <source src={previewUrl} type="audio/mpeg" />
             Your browser does not support the audio element.
           </audio>
         </div>
-        <div>
+        <div className="mt-1 flex justify-end">
           {selectButton}
         </div>
         <div>
@@ -184,7 +185,7 @@ export default function MusicSelectToolbar(props) {
 
   
   return (
-    <div className={`${panelSurface} rounded-xl p-4 space-y-4`}>
+    <div className={`${panelSurface} rounded-xl p-3 space-y-3`}>
       <div>
         <button
           className="text-sm font-medium underline-offset-4 hover:underline"

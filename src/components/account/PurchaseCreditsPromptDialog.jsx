@@ -5,6 +5,7 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 
 export const PURCHASE_CREDITS_ROUTE = '/create_payment?tab=purchaseCredits';
 export const PURCHASE_CREDITS_PROMPT_STORAGE_KEY = 'samsarShowPurchaseCreditsPrompt';
+const GALLERY_URL = 'https://gallery.samsar.one';
 
 export default function PurchaseCreditsPromptDialog({
   onClose,
@@ -27,6 +28,9 @@ export default function PurchaseCreditsPromptDialog({
   const pricingLinkClasses = isDark
     ? 'text-slate-300 hover:text-white'
     : 'text-slate-700 hover:text-slate-950';
+  const galleryLinkClasses = isDark
+    ? 'text-[#89dcff] hover:text-[#d7ffeb]'
+    : 'text-sky-700 hover:text-sky-600';
 
   return (
     <div className={`purchase-credits-prompt relative w-full max-w-[380px] rounded-2xl border p-5 text-left ${shellClasses}`}>
@@ -65,7 +69,7 @@ export default function PurchaseCreditsPromptDialog({
           Add credits
           <FaArrowRight className="text-xs" />
         </button>
-        <div className="flex items-center justify-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
           <button
             type="button"
             onClick={onClose}
@@ -73,6 +77,14 @@ export default function PurchaseCreditsPromptDialog({
           >
             Not now
           </button>
+          <a
+            href={GALLERY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`rounded-md px-2 py-1 font-medium underline-offset-4 transition hover:underline ${galleryLinkClasses}`}
+          >
+            See what's possible
+          </a>
           <a
             href="https://docs.samsar.one/pricing"
             target="_blank"

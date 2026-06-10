@@ -394,7 +394,7 @@ VidGenie intentionally exposes a smaller express-first subset:
 | Capability | Providers/models |
 | --- | --- |
 | TTS and speech | OpenAI voices, Play.ht voices, ElevenLabs voices, custom TTS |
-| Music | CassetteAI, AudioCraft, Lyria 2, ElevenLabs Music, custom text-to-music |
+| Music | CassetteAI, AudioCraft, Lyria 3, ElevenLabs Music, custom text-to-music |
 | Lip sync | HummingBird Lip Sync, Latent Sync, Sync Lip Sync, Kling Lip Sync, Creatify Lip Sync |
 | Synced sound effects | MMAudio V2, Mirelo AI |
 | Avatar voiceover | Avatar image generation, Runway avatar generation, speech from hints, avatar video generation |

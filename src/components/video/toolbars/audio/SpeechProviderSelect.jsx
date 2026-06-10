@@ -41,8 +41,14 @@ export default function SpeechProviderSelect(props) {
     ? combinedSpeakerTypes.filter((speaker) => speaker.provider === normalizedProviderFilter)
     : combinedSpeakerTypes;
 
+  const getOptionLabel = (speaker = {}) => {
+    if (truncateLabels) {
+      return speaker.shortLabel || speaker.compactLabel || speaker.abbreviatedLabel || speaker.label || speaker.name || speaker.value;
+    }
+    return speaker.label || speaker.name || speaker.value;
+  };
   const longestSpeakerLabelLength = availableSpeakerTypes.reduce(
-    (maxLength, speaker) => Math.max(maxLength, String(speaker?.label || '').length),
+    (maxLength, speaker) => Math.max(maxLength, String(getOptionLabel(speaker) || '').length),
     0
   );
   const shouldUseMultilineValue =
@@ -84,8 +90,8 @@ export default function SpeechProviderSelect(props) {
     return (
       <components.Option {...props}>
         <div className="flex items-center justify-between">
-          <span>
-            {data.label}
+          <span className={truncateLabels ? 'min-w-0 flex-1 truncate' : 'min-w-0 flex-1 whitespace-normal break-words'}>
+            {getOptionLabel(data)}
             {showProviderLabel && (
               <small className="text-xs text-gray-500">
                 {' '}
@@ -95,7 +101,7 @@ export default function SpeechProviderSelect(props) {
           </span>
           {(data.previewURL || data.previewRequiresAuth) && data.icon && (
             <span
-              className="ml-2 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-slate-400/40"
+              className="ml-1.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-400/40 text-[9px]"
               onClick={(evt) => data.onClick(evt)}
               aria-label={isCurrentPreview ? 'Pause preview' : 'Play preview'}
             >
@@ -109,10 +115,10 @@ export default function SpeechProviderSelect(props) {
 
   const SingleValue = (props) => (
     <components.SingleValue {...props}>
-      <span className="whitespace-normal break-words leading-tight">
-        {props.data.label}{' '}
+      <span className={truncateLabels ? 'block truncate leading-tight' : 'whitespace-normal break-words leading-tight'}>
+        {getOptionLabel(props.data)}{' '}
       </span>
-      {showProviderLabel && (
+      {showProviderLabel && !truncateLabels && (
         <small className="text-xs text-gray-500 whitespace-normal break-words">
           ({props.data.provider.toLowerCase()})
         </small>
@@ -121,7 +127,7 @@ export default function SpeechProviderSelect(props) {
   );
 
   return (
-    <div>
+    <div className="w-full min-w-0">
       <Select
         name={name}
         placeholder={placeholder}
@@ -143,6 +149,11 @@ export default function SpeechProviderSelect(props) {
         menuPosition="fixed"
         components={{ Option, SingleValue }}
         styles={{
+          container: (provided) => ({
+            ...provided,
+            width: '100%',
+            minWidth: 0,
+          }),
           menu: (provided) => ({
             ...provided,
             backgroundColor: formSelectBgColor,
@@ -170,6 +181,7 @@ export default function SpeechProviderSelect(props) {
             paddingTop: shouldUseMultilineValue ? 6 : provided.paddingTop,
             paddingBottom: shouldUseMultilineValue ? 6 : provided.paddingBottom,
             overflow: 'visible',
+            minWidth: 0,
           }),
           control: (provided, state) => ({
             ...provided,
@@ -183,6 +195,8 @@ export default function SpeechProviderSelect(props) {
               : null,
             minHeight: `${controlMinHeight}px`,
             height: shouldUseMultilineValue ? 'auto' : '38px',
+            width: '100%',
+            minWidth: 0,
           }),
           option: (provided, state) => ({
             ...provided,

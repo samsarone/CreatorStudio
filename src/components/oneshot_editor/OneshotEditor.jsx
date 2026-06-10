@@ -22,6 +22,7 @@ import {
   FaArrowUp,
   FaArrowDown,
   FaTrash,
+  FaLink,
   FaMicrophone,
   FaStopCircle,
   FaPause,
@@ -75,9 +76,11 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 const PROCESSOR_API_URL = API_SERVER;
 const VIDEO_API_BASE = `${API_SERVER}/v2`;
+const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v2/status`;
 const VIDEO_STATUS_DETAILED_ENDPOINT = `${API_SERVER}/v2/status_detailed`;
 const VIDEO_STEP_API_BASE = `${VIDEO_API_BASE}/video/step`;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
+const POST_PROCESSING_PENDING_SESSION_KEY = 'vidgeniePostProcessingPendingSession';
 const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
 const PURCHASE_CREDITS_PROMPT_DELAY_MS = 2200;
 
@@ -174,6 +177,20 @@ const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   limit_single_narrator: false,
   add_narrator_avatar: false,
 });
+const DEFAULT_POST_PROCESSING_FORM = Object.freeze({
+  ctaUrl: '',
+  ctaTextTop: '',
+  ctaTextBottom: '',
+  ctaLogo: '',
+  footerCtaText: '',
+  footerCtaLogo: '',
+  footerCtaUrl: '',
+});
+const POST_PROCESSING_ACTIONS = Object.freeze([
+  { key: 'generated_outro', label: 'Outro CTA', icon: FaImage },
+  { key: 'footer_cta', label: 'Footer CTA', icon: FaLink },
+  { key: 'advanced_edits', label: 'Edits', icon: FaCog },
+]);
 const INITIAL_EXPRESS_GENERATION_STATUS = Object.freeze({
   prompt_generation: 'PENDING',
   image_generation: 'PENDING',
@@ -296,6 +313,61 @@ function isHttpUrl(value) {
   } catch {
     return false;
   }
+}
+
+function sessionHasOutroImage(session) {
+  if (!session || typeof session !== 'object') {
+    return false;
+  }
+
+  if (session.hasOutroImage === true) {
+    return true;
+  }
+
+  if (hasTextValue(session.outroImageURL) || hasTextValue(session.outroImageUrl)) {
+    return true;
+  }
+
+  if (isPlainObject(session.outroImageMetadata)) {
+    return true;
+  }
+
+  return Array.isArray(session.layers) && session.layers.some((layer) =>
+    isPlainObject(layer?.outroImageMetadata)
+  );
+}
+
+function payloadRequestsGeneratedOutro(payload) {
+  if (!isPlainObject(payload)) {
+    return false;
+  }
+
+  const candidates = [payload];
+  if (isPlainObject(payload.input)) {
+    candidates.push(payload.input);
+    if (isPlainObject(payload.input.input)) {
+      candidates.push(payload.input.input);
+    }
+  }
+
+  return candidates.some((candidate) => {
+    if (candidate.generate_outro_image === true || candidate.generateOutroImage === true) {
+      return true;
+    }
+
+    const ctaUrl = candidate.cta_url ?? candidate.ctaUrl;
+    const outroImageUrl =
+      candidate.outro_image_url ??
+      candidate.outroImageUrl ??
+      candidate.new_outro_image_url ??
+      candidate.newOutroImageUrl;
+
+    return hasTextValue(ctaUrl) && !hasTextValue(outroImageUrl);
+  });
+}
+
+function createDefaultPostProcessingForm() {
+  return cloneJsonValue(DEFAULT_POST_PROCESSING_FORM);
 }
 
 function getJsonModelByKey(modelTypes, modelKey) {
@@ -1916,6 +1988,12 @@ export default function OneshotEditor() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUnpublishing, setIsUnpublishing] = useState(false);
   const [isDownloadingVideo, setIsDownloadingVideo] = useState(false);
+  const [postProcessingAction, setPostProcessingAction] = useState('generated_outro');
+  const [postProcessingForm, setPostProcessingForm] = useState(() => createDefaultPostProcessingForm());
+  const [postProcessingPendingAction, setPostProcessingPendingAction] = useState('');
+  const [postProcessingMessage, setPostProcessingMessage] = useState('');
+  const [postProcessingError, setPostProcessingError] = useState('');
+  const [currentRenderGeneratedOutro, setCurrentRenderGeneratedOutro] = useState(false);
 
   useEffect(() => {
     activeRequestIdRef.current = activeRequestId;
@@ -1976,6 +2054,12 @@ export default function OneshotEditor() {
   const [videoLink, setVideoLink] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [showResultDisplay, setShowResultDisplay] = useState(false);
+  const currentRenderHasOutro = useMemo(() => (
+    currentRenderGeneratedOutro ||
+    sessionHasOutroImage(sessionDetails) ||
+    sessionHasOutroImage(generationStatusDetails) ||
+    sessionHasOutroImage(generationStatusDetails?.session)
+  ), [currentRenderGeneratedOutro, generationStatusDetails, sessionDetails]);
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -2024,10 +2108,32 @@ export default function OneshotEditor() {
     );
   };
 
+  const setPostProcessingPendingSession = (nextSessionId) => {
+    if (!nextSessionId || typeof window === 'undefined') return;
+    sessionStorage.setItem(
+      POST_PROCESSING_PENDING_SESSION_KEY,
+      JSON.stringify({ sessionId: nextSessionId, startedAt: Date.now() })
+    );
+  };
+
   const shouldForceAdvancedVideoEditPolling = (candidateSessionId) => {
     if (!candidateSessionId || typeof window === 'undefined') return false;
     try {
       const rawValue = sessionStorage.getItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+      if (!rawValue) return false;
+      const parsedValue = JSON.parse(rawValue);
+      const startedAt = Number(parsedValue?.startedAt);
+      const isFresh = Number.isFinite(startedAt) && Date.now() - startedAt < 10 * 60 * 1000;
+      return parsedValue?.sessionId === candidateSessionId && isFresh;
+    } catch {
+      return false;
+    }
+  };
+
+  const shouldUsePostProcessingStatusPolling = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return false;
+    try {
+      const rawValue = sessionStorage.getItem(POST_PROCESSING_PENDING_SESSION_KEY);
       if (!rawValue) return false;
       const parsedValue = JSON.parse(rawValue);
       const startedAt = Number(parsedValue?.startedAt);
@@ -2049,6 +2155,20 @@ export default function OneshotEditor() {
       }
     } catch {
       sessionStorage.removeItem(ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY);
+    }
+  };
+
+  const clearPostProcessingPendingSession = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return;
+    try {
+      const rawValue = sessionStorage.getItem(POST_PROCESSING_PENDING_SESSION_KEY);
+      if (!rawValue) return;
+      const parsedValue = JSON.parse(rawValue);
+      if (parsedValue?.sessionId === candidateSessionId) {
+        sessionStorage.removeItem(POST_PROCESSING_PENDING_SESSION_KEY);
+      }
+    } catch {
+      sessionStorage.removeItem(POST_PROCESSING_PENDING_SESSION_KEY);
     }
   };
 
@@ -2769,8 +2889,16 @@ export default function OneshotEditor() {
     if (id) {
       // Fetch session, and ONLY trigger polling if still pending
       getSessionDetails().then((data) => {
-        if (isSessionGenerationPending(data, shouldForceAdvancedVideoEditPolling(id)) && !activeRequestIdRef.current) {
-          pollGenerationStatus(id);
+        const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);
+        if (
+          isSessionGenerationPending(data, shouldForceAdvancedVideoEditPolling(id) || usePostProcessingPoll) &&
+          !activeRequestIdRef.current
+        ) {
+          if (usePostProcessingPoll) {
+            pollPostProcessingStatus(id);
+          } else {
+            pollGenerationStatus(id);
+          }
         } else {
           // clear any existing pending polls
           if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
@@ -2988,6 +3116,15 @@ export default function OneshotEditor() {
     }
   };
 
+  const fetchBasicGenerationStatus = async (requestId, headers) => {
+    const query = new URLSearchParams({ request_id: requestId }).toString();
+    const { data } = await axios.get(
+      `${VIDEO_STATUS_ENDPOINT}?${query}`,
+      headers
+    );
+    return data;
+  };
+
   const refreshDetailedGenerationStatus = async (requestId, headers) => {
     const data = await fetchDetailedGenerationStatus(requestId, headers);
     if (data?.expressGenerationStatus) {
@@ -2995,6 +3132,103 @@ export default function OneshotEditor() {
     }
     setGenerationStatusDetails(data);
     return data;
+  };
+
+  const pollPostProcessingStatus = (requestId = activeRequestIdRef.current || id, immediate = false) => {
+    if (!requestId) return;
+
+    currentPollRequestIdRef.current = requestId;
+    if (activeRequestIdRef.current !== requestId) {
+      activeRequestIdRef.current = requestId;
+      setActiveRequestId(requestId);
+    }
+
+    if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
+    if (immediate) pollDelayRef.current = 0;
+
+    const doPoll = async () => {
+      if (currentPollRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      let continuePolling = true;
+
+      try {
+        const headers = getHeaders();
+        const data = await fetchBasicGenerationStatus(requestId, headers);
+
+        pollDelayRef.current = DEFAULT_POLL;
+        if (data?.expressGenerationStatus) {
+          setExpressGenerationStatus(data.expressGenerationStatus);
+        }
+        setGenerationStatusDetails(data);
+
+        const normalizedStatus = normalizeGenerationStatus(data?.status);
+        const isPausedStatus =
+          normalizedStatus === 'PAUSED' ||
+          data?.expressGenerationPaused === true ||
+          data?.session?.expressGenerationPaused === true;
+        if (isPausedStatus) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setIsPaused(true);
+          setShowResultDisplay(true);
+          return;
+        }
+
+        setIsPaused(false);
+        setIsGenerationWaitingForApproval(false);
+
+        const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
+        if (normalizedStatus === 'COMPLETED' && videoActualLink) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsPaused(false);
+          clearAdvancedVideoEditPendingSession(data.session_id || requestId);
+          clearPostProcessingPendingSession(data.session_id || requestId);
+          setVideoLink(videoActualLink);
+          return;
+        }
+
+        const failureStatus = getDetailedGenerationFailureStatus(data);
+        if (failureStatus) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setIsPaused(false);
+          clearAdvancedVideoEditPendingSession(data.session_id || requestId);
+          clearPostProcessingPendingSession(data.session_id || requestId);
+          setErrorMessage({ error: getDetailedGenerationErrorMessage(data, failureStatus) });
+        }
+      } catch (err) {
+        const failureStatus = getDetailedGenerationFailureStatus(err?.response?.data);
+        if (failureStatus) {
+          continuePolling = false;
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setIsPaused(false);
+          clearAdvancedVideoEditPendingSession(requestId);
+          clearPostProcessingPendingSession(requestId);
+          setErrorMessage({
+            error: getDetailedGenerationErrorMessage(err.response.data, failureStatus),
+          });
+          return;
+        }
+
+        pollDelayRef.current = Math.min(
+          pollDelayRef.current ? pollDelayRef.current * 2 : DEFAULT_POLL,
+          MAX_BACKOFF
+        );
+      } finally {
+        if (continuePolling && currentPollRequestIdRef.current === requestId) {
+          const nextDelay = navigator.onLine ? pollDelayRef.current : OFFLINE_POLL;
+          pollIntervalRef.current = setTimeout(doPoll, nextDelay);
+        }
+      }
+    };
+
+    doPoll();
   };
 
   const pollStepImageGeneration = async ({ requestId, layerId, headers }) => {
@@ -3433,9 +3667,13 @@ export default function OneshotEditor() {
       );
       setSessionDetails(data);
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
+      const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);
       const latestVideoUrl = getNormalizedLatestVideoUrl(data);
       const hasPausedGeneration = Boolean(data.expressGenerationPaused);
-      const hasPendingGeneration = isSessionGenerationPending(data, forceAdvancedEditPoll);
+      const hasPendingGeneration = isSessionGenerationPending(
+        data,
+        forceAdvancedEditPoll || usePostProcessingPoll
+      );
 
       if (data.inputPrompt) {
         updatePromptText(data.inputPrompt);
@@ -3449,21 +3687,30 @@ export default function OneshotEditor() {
           setIsGenerationWaitingForApproval(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
-          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+          if (!usePostProcessingPoll) {
+            refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+          }
         } else if (hasPendingGeneration) {
           setIsPaused(false);
           setIsGenerationPending(true);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
-          pollGenerationStatus(id);
+          if (usePostProcessingPoll) {
+            pollPostProcessingStatus(id);
+          } else {
+            pollGenerationStatus(id);
+          }
         } else if (latestVideoUrl) {
           setVideoLink(latestVideoUrl);
           setIsPaused(false);
           setIsGenerationPending(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
-          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+          if (!usePostProcessingPoll) {
+            refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+          }
           clearAdvancedVideoEditPendingSession(id);
+          clearPostProcessingPendingSession(id);
         }
       } else if (hasPausedGeneration) {
         setIsPaused(true);
@@ -3471,15 +3718,20 @@ export default function OneshotEditor() {
         setIsGenerationWaitingForApproval(false);
         setShowResultDisplay(true);
         setExpressGenerationStatus(data.expressGenerationStatus);
-        refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+        if (!usePostProcessingPoll) {
+          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+        }
       } else if (!hasPendingGeneration && latestVideoUrl) {
         setVideoLink(latestVideoUrl);
         setIsPaused(false);
         setIsGenerationPending(false);
         setShowResultDisplay(true);
         setExpressGenerationStatus(data.expressGenerationStatus);
-        refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+        if (!usePostProcessingPoll) {
+          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+        }
         clearAdvancedVideoEditPendingSession(id);
+        clearPostProcessingPendingSession(id);
       }
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
@@ -3674,6 +3926,7 @@ export default function OneshotEditor() {
       setActiveRequestId(null);
       activeRequestIdRef.current = null;
       activeRequestStepModeRef.current = submittedGenerationStepMode;
+      setCurrentRenderGeneratedOutro(payloadRequestsGeneratedOutro(jsonRequest.payload));
 
       try {
         const { data } = await axios.post(
@@ -3790,6 +4043,7 @@ export default function OneshotEditor() {
     Object.assign(requestInput, advancedRequestConfiguration.input);
     const stepGenerationInput = buildStepGenerationInput(submittedGenerationStepMode);
     Object.assign(requestInput, stepGenerationInput);
+    setCurrentRenderGeneratedOutro(requestInput.generate_outro_image === true);
 
     try {
       if (!isTextToVideo) {
@@ -3888,6 +4142,12 @@ export default function OneshotEditor() {
     setExpandedVideoId(null);               // ⬅️ NEW
     setIsJsonInputDirty(false);
     setJsonValidationMessage('');
+    setPostProcessingAction('generated_outro');
+    setPostProcessingForm(createDefaultPostProcessingForm());
+    setPostProcessingPendingAction('');
+    setPostProcessingMessage('');
+    setPostProcessingError('');
+    setCurrentRenderGeneratedOutro(false);
   };
 
 
@@ -3917,6 +4177,7 @@ export default function OneshotEditor() {
   const handleAdvancedVideoEditAccepted = useCallback((requestInfo) => {
     const nextSessionId = requestInfo?.sessionId || requestInfo?.requestId;
     const nextRequestId = requestInfo?.requestId || nextSessionId;
+    const useBasicStatusPoll = requestInfo?.pollMode === 'status';
     closeAlertDialog();
 
     if (!nextRequestId) {
@@ -3934,12 +4195,21 @@ export default function OneshotEditor() {
     activeRequestStepModeRef.current = GENERATION_STEP_MODE_ONE_STEP;
 
     if (nextSessionId && nextSessionId !== id) {
-      setAdvancedVideoEditPendingSession(nextSessionId);
+      if (useBasicStatusPoll) {
+        setPostProcessingPendingSession(nextSessionId);
+      } else {
+        setAdvancedVideoEditPendingSession(nextSessionId);
+      }
       navigate(`/vidgenie/${nextSessionId}`);
       return;
     }
 
-    pollGenerationStatus(nextRequestId, true);
+    if (useBasicStatusPoll) {
+      setPostProcessingPendingSession(nextRequestId);
+      pollPostProcessingStatus(nextRequestId, true);
+    } else {
+      pollGenerationStatus(nextRequestId, true);
+    }
   }, [closeAlertDialog, id, navigate]);
 
   const openAdvancedVideoEditDialog = useCallback(() => {
@@ -3955,6 +4225,143 @@ export default function OneshotEditor() {
       { hideBorder: true, hideCloseButton: true, centerContent: true }
     );
   }, [closeAlertDialog, handleAdvancedVideoEditAccepted, id, openAlertDialog, sessionDetails]);
+
+  const updatePostProcessingFormField = useCallback((field, value) => {
+    setPostProcessingForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+    setPostProcessingError('');
+    setPostProcessingMessage('');
+  }, []);
+
+  const selectPostProcessingAction = useCallback((actionKey) => {
+    setPostProcessingAction(actionKey);
+    setPostProcessingError('');
+    setPostProcessingMessage('');
+  }, []);
+
+  const submitPostProcessingOperation = useCallback(async (actionKey) => {
+    if (!user) {
+      showLoginDialog();
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    if (!id || postProcessingPendingAction) {
+      return;
+    }
+
+    const hasExistingOutro = currentRenderHasOutro;
+    let endpoint = '';
+    let payload = { videoSessionId: id };
+    let successLabel = 'Post-processing';
+
+    try {
+      if (actionKey === 'generated_outro') {
+        const ctaUrl = postProcessingForm.ctaUrl.trim();
+        if (!isHttpUrl(ctaUrl)) {
+          throw new Error('Enter a valid outro CTA URL.');
+        }
+
+        payload = {
+          ...payload,
+          generate_outro_image: true,
+          cta_url: ctaUrl,
+        };
+
+        const ctaTextTop = postProcessingForm.ctaTextTop.trim();
+        const ctaTextBottom = postProcessingForm.ctaTextBottom.trim();
+        const ctaLogo = postProcessingForm.ctaLogo.trim();
+        if (ctaTextTop) payload.cta_text_top = ctaTextTop;
+        if (ctaTextBottom) payload.cta_text_bottom = ctaTextBottom;
+        if (ctaLogo) payload.cta_logo = ctaLogo;
+
+        endpoint = hasExistingOutro ? 'update_outro_image' : 'add_outro_image';
+        successLabel = hasExistingOutro ? 'Outro CTA update' : 'Outro CTA add';
+      } else if (actionKey === 'footer_cta') {
+        const ctaText = postProcessingForm.footerCtaText.trim();
+        const ctaLogo = postProcessingForm.footerCtaLogo.trim();
+        const ctaUrl = postProcessingForm.footerCtaUrl.trim();
+        if (!ctaText && !ctaLogo && !ctaUrl) {
+          throw new Error('Add footer text, logo, or URL.');
+        }
+        if (ctaUrl && !isHttpUrl(ctaUrl)) {
+          throw new Error('Enter a valid footer URL.');
+        }
+
+        payload = { ...payload };
+        if (ctaText) payload.cta_text = ctaText;
+        if (ctaLogo) payload.cta_logo = ctaLogo;
+        if (ctaUrl) payload.cta_url = ctaUrl;
+
+        endpoint = 'update_footer_image';
+        successLabel = 'Footer update';
+      } else if (actionKey === 'remove_footer') {
+        const shouldRemove = window.confirm('Remove the footer CTA and render a new version?');
+        if (!shouldRemove) {
+          return;
+        }
+
+        payload = {
+          ...payload,
+          remove_footer: true,
+        };
+        endpoint = 'update_footer_image';
+        successLabel = 'Footer removal';
+      } else {
+        return;
+      }
+
+      setPostProcessingPendingAction(actionKey);
+      setPostProcessingError('');
+      setPostProcessingMessage('');
+      setErrorMessage(null);
+
+      const { data } = await axios.post(
+        `${VIDEO_API_BASE}/${endpoint}`,
+        { input: payload },
+        headers
+      );
+
+      const nextSessionId = data?.sessionID || data?.session_id || data?.sessionId || data?.request_id;
+      const nextRequestId = data?.request_id || data?.session_id || data?.sessionID || nextSessionId;
+      if (!nextRequestId) {
+        throw new Error('Post-processing did not return a request id.');
+      }
+
+      setPostProcessingMessage(`${successLabel} queued.`);
+      if (actionKey === 'generated_outro') {
+        setCurrentRenderGeneratedOutro(true);
+      }
+      getUserAPI();
+      handleAdvancedVideoEditAccepted({
+        sessionId: nextSessionId,
+        requestId: nextRequestId,
+        status: data?.status,
+        pollMode: 'status',
+      });
+    } catch (error) {
+      const apiMessage = error?.response?.data?.message || error?.message;
+      setPostProcessingError(apiMessage || 'Unable to start post-processing.');
+    } finally {
+      setPostProcessingPendingAction('');
+    }
+  }, [
+    getUserAPI,
+    handleAdvancedVideoEditAccepted,
+    id,
+    postProcessingForm,
+    postProcessingPendingAction,
+    currentRenderHasOutro,
+    showLoginDialog,
+    user,
+  ]);
 
   // ─────────────────────────────────────────────────────────
   //  Purchase credits
@@ -4167,6 +4574,202 @@ export default function OneshotEditor() {
         >
           {isDownloadingVideo ? 'Downloading' : t("common.download")}
         </PrimaryPublicButton>
+      </div>
+    );
+  };
+  const renderCompletedPostProcessingControls = (extraClasses = '') => {
+    if (renderState !== 'complete' || !videoLink) {
+      return null;
+    }
+
+    const hasExistingOutro = currentRenderHasOutro;
+    const isAnyPostProcessingPending = Boolean(postProcessingPendingAction);
+    const panelClass =
+      colorMode === 'dark'
+        ? 'bg-[#0b1224] text-slate-100 ring-white/10'
+        : 'bg-white text-slate-900 ring-slate-200';
+    const inputClass =
+      colorMode === 'dark'
+        ? 'border-white/10 bg-[#111a2f] text-slate-100 placeholder:text-slate-500 focus:border-cyan-300'
+        : 'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-400';
+    const subtleButtonClass =
+      colorMode === 'dark'
+        ? 'border-white/10 text-slate-100 hover:border-white/20 hover:bg-white/5'
+        : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50';
+    const activeActionClass =
+      colorMode === 'dark'
+        ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-300/25'
+        : 'bg-blue-50 text-blue-700 ring-blue-200';
+    const inactiveActionClass =
+      colorMode === 'dark'
+        ? 'text-slate-300 ring-white/10 hover:bg-white/5'
+        : 'text-slate-600 ring-slate-200 hover:bg-slate-50';
+    const submitButtonClass =
+      'inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60';
+    const primarySubmitClass =
+      colorMode === 'dark'
+        ? `${submitButtonClass} bg-cyan-300 text-slate-950 hover:bg-cyan-200`
+        : `${submitButtonClass} bg-blue-600 text-white hover:bg-blue-700`;
+    const secondarySubmitClass = `${submitButtonClass} border ${subtleButtonClass}`;
+    const dangerSubmitClass =
+      colorMode === 'dark'
+        ? `${submitButtonClass} border border-rose-300/30 text-rose-100 hover:bg-rose-400/10`
+        : `${submitButtonClass} border border-rose-200 text-rose-700 hover:bg-rose-50`;
+    const fieldClass = `min-h-[40px] w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`;
+    const isGeneratedOutroPending = postProcessingPendingAction === 'generated_outro';
+    const isFooterPending = postProcessingPendingAction === 'footer_cta';
+    const isRemoveFooterPending = postProcessingPendingAction === 'remove_footer';
+
+    return (
+      <div className={`mx-auto w-full max-w-3xl rounded-xl p-3 ring-1 ${panelClass} ${extraClasses}`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm font-semibold">Post-processing</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {POST_PROCESSING_ACTIONS.map((action) => {
+              const Icon = action.icon;
+              const isActive = postProcessingAction === action.key;
+              const isDisabled =
+                isAnyPostProcessingPending;
+              return (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => selectPostProcessingAction(action.key)}
+                  disabled={isDisabled}
+                  title={action.label}
+                  className={`
+                    inline-flex min-h-[34px] items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition
+                    ${isActive ? activeActionClass : inactiveActionClass}
+                    ${isDisabled ? 'cursor-not-allowed opacity-50' : 'active:scale-[0.98]'}
+                  `}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{action.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-3">
+          {postProcessingAction === 'generated_outro' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <input
+                  type="url"
+                  value={postProcessingForm.ctaUrl}
+                  onChange={(event) => updatePostProcessingFormField('ctaUrl', event.target.value)}
+                  placeholder="Outro CTA URL"
+                  aria-label="Outro CTA URL"
+                  className={fieldClass}
+                />
+                <input
+                  type="text"
+                  value={postProcessingForm.ctaTextTop}
+                  onChange={(event) => updatePostProcessingFormField('ctaTextTop', event.target.value)}
+                  placeholder="Top text"
+                  aria-label="Outro top text"
+                  className={fieldClass}
+                />
+                <input
+                  type="text"
+                  value={postProcessingForm.ctaTextBottom}
+                  onChange={(event) => updatePostProcessingFormField('ctaTextBottom', event.target.value)}
+                  placeholder="Bottom text"
+                  aria-label="Outro bottom text"
+                  className={fieldClass}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => submitPostProcessingOperation('generated_outro')}
+                disabled={isAnyPostProcessingPending}
+                className={primarySubmitClass}
+              >
+                {isGeneratedOutroPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
+                {hasExistingOutro ? 'Update outro CTA' : 'Add outro CTA'}
+              </button>
+            </div>
+          )}
+
+          {postProcessingAction === 'footer_cta' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <input
+                  type="text"
+                  value={postProcessingForm.footerCtaText}
+                  onChange={(event) => updatePostProcessingFormField('footerCtaText', event.target.value)}
+                  placeholder="Footer text"
+                  aria-label="Footer CTA text"
+                  className={fieldClass}
+                />
+                <input
+                  type="url"
+                  value={postProcessingForm.footerCtaUrl}
+                  onChange={(event) => updatePostProcessingFormField('footerCtaUrl', event.target.value)}
+                  placeholder="Footer URL"
+                  aria-label="Footer CTA URL"
+                  className={fieldClass}
+                />
+                <input
+                  type="url"
+                  value={postProcessingForm.footerCtaLogo}
+                  onChange={(event) => updatePostProcessingFormField('footerCtaLogo', event.target.value)}
+                  placeholder="Footer logo URL"
+                  aria-label="Footer CTA logo URL"
+                  className={fieldClass}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => submitPostProcessingOperation('footer_cta')}
+                  disabled={isAnyPostProcessingPending}
+                  className={primarySubmitClass}
+                >
+                  {isFooterPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : null}
+                  Update footer
+                </button>
+                <button
+                  type="button"
+                  onClick={() => submitPostProcessingOperation('remove_footer')}
+                  disabled={isAnyPostProcessingPending}
+                  className={dangerSubmitClass}
+                >
+                  {isRemoveFooterPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaTrash className="h-3.5 w-3.5" aria-hidden="true" />}
+                  Remove footer
+                </button>
+              </div>
+            </div>
+          )}
+
+          {postProcessingAction === 'advanced_edits' && (
+            <button
+              type="button"
+              onClick={openAdvancedVideoEditDialog}
+              disabled={isAnyPostProcessingPending}
+              className={secondarySubmitClass}
+            >
+              <FaCog className="h-3.5 w-3.5" aria-hidden="true" />
+              Open advanced edits
+            </button>
+          )}
+        </div>
+
+        {postProcessingError ? (
+          <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-500">
+            {postProcessingError}
+          </div>
+        ) : null}
+        {postProcessingMessage ? (
+          <div className={`mt-3 rounded-lg px-3 py-2 text-sm font-semibold ${
+            colorMode === 'dark'
+              ? 'bg-emerald-400/10 text-emerald-200'
+              : 'bg-emerald-50 text-emerald-700'
+          }`}>
+            {postProcessingMessage}
+          </div>
+        ) : null}
       </div>
     );
   };
@@ -4456,11 +5059,10 @@ export default function OneshotEditor() {
                 </button>
               </div>
             )}
+
+            {renderCompletedVideoActions('w-full sm:w-auto')}
           </div>
         </div>
-
-        {/* Mobile action buttons (complete state) */}
-        {renderCompletedVideoActions('mt-4 mb-2')}
 
         {!isJsonMode && (
           <>
@@ -4862,7 +5464,7 @@ export default function OneshotEditor() {
             onSelectStepImage={handleSelectStepImage}
             onRegenerateStepImage={handleRegenerateStepImage}
           />
-          {renderCompletedVideoActions('mt-3')}
+          {renderCompletedPostProcessingControls('mt-3')}
         </div>
       )}
 
@@ -5341,6 +5943,7 @@ export default function OneshotEditor() {
           sessionId={id}
           sessionMessages={sessionMessages}
           onSessionMessagesChange={setSessionMessages}
+          onSessionDetailsChange={setSessionDetails}
           onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
           isAssistantQueryGenerating={isAssistantQueryGenerating}
           getSessionImageLayers={getSessionImageLayers}

@@ -27,9 +27,13 @@ import {
 
 const BACKING_TRACK_MODEL_OPTIONS = [
   { value: "ELEVENLABS_MUSIC", label: "ElevenLabs" },
-  { value: "LYRIA2", label: "Lyria 2" },
+  { value: "LYRIA3", label: "Lyria 3" },
   { value: "CUSTOM_TEXT_TO_MUSIC", label: "Custom Text to Music" },
 ];
+
+function normalizeBackingTrackModelValue(value) {
+  return value === "LYRIA2" ? "LYRIA3" : value || "ELEVENLABS_MUSIC";
+}
 
 const SETTINGS_TABS = [
   { key: "general", label: "General" },
@@ -288,7 +292,7 @@ export default function SettingsPanelContent(props) {
   const [username, setUsername] = useState(user.username || "");
   const [preferredLanguage, setPreferredLanguage] = useState(user.preferredLanguage || "en");
   const [backingTrackModel, setBackingTrackModel] = useState(
-    user.backingTrackModel || "ELEVENLABS_MUSIC"
+    normalizeBackingTrackModelValue(user.backingTrackModel)
   );
   const [fontPreferences, setFontPreferences] = useState(() =>
     mergeFontPreferencesWithDefaults(user?.fontPreferences)
@@ -326,7 +330,7 @@ export default function SettingsPanelContent(props) {
 
     setUsername(user.username || "");
     setPreferredLanguage(user.preferredLanguage || "en");
-    setBackingTrackModel(user.backingTrackModel || "ELEVENLABS_MUSIC");
+    setBackingTrackModel(normalizeBackingTrackModelValue(user.backingTrackModel));
     setFontPreferences(mergeFontPreferencesWithDefaults(user.fontPreferences));
     setSpeakerOptions(normalizeSpeakerOptionsState(user.speakerOptions));
     setCustomAdapters(normalizeCustomAdaptersForForm(user.custom_adapters));

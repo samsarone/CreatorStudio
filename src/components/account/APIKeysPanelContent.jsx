@@ -156,7 +156,7 @@ export default function APIKeysPanelContent() {
       setSavingLimitKeyId(keyId);
       const headers = getHeaders();
       const payload = buildUsageLimitPayload(draft.usageLimitPeriod, draft.usageLimit);
-      const response = await axios.patch(`${PROCESSOR_SERVER}/users/api_keys/${keyId}/limit`, payload, headers);
+      const response = await axios.put(`${PROCESSOR_SERVER}/users/api_keys/${keyId}`, payload, headers);
       const updatedKey = response.data.apiKey;
       setApiKeys((prevKeys) => prevKeys.map((key) => (key._id === keyId ? updatedKey : key)));
       setLimitDrafts((prevDrafts) => ({

@@ -363,6 +363,10 @@ export const ASSISTANT_MODEL_TYPES = [
     label: 'GPT 5.5',
     value: 'gpt-5.5',
   },
+  {
+    label: 'Gemini 3.1 Pro',
+    value: 'gemini-3.1-pro',
+  },
 
 
 ];
@@ -479,8 +483,8 @@ export const MUSIC_PROVIDERS = [
     locksInstrumental: true,
   },
   {
-    name: 'Lyria 2',
-    key: 'LYRIA2',
+    name: 'Lyria 3',
+    key: 'LYRIA3',
     minDurationSeconds: 1,
     maxDurationSeconds: 180,
     supportsLyrics: false,

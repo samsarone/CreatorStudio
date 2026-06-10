@@ -14,6 +14,8 @@ const creditOptions = [
   { value: 1000, caption: 'Scale' },
 ];
 
+const GALLERY_URL = 'https://gallery.samsar.one';
+
 export default function AddCreditsDialog(props) {
   const {
     purchaseCreditsForUser,
@@ -48,6 +50,7 @@ export default function AddCreditsDialog(props) {
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-600';
   const subtleText = isDark ? 'text-slate-500' : 'text-slate-500';
   const accentText = isDark ? 'text-[#72f1b0]' : 'text-sky-700';
+  const galleryLinkClasses = isDark ? 'text-[#89dcff] hover:text-[#d7ffeb]' : 'text-sky-700 hover:text-sky-600';
   const dividerClasses = isDark ? 'border-[#1f2a3d]' : 'border-[#d7deef]';
   const panelClasses = isDark
     ? 'border-[#1f2a3d] bg-[#0f1629]'
@@ -111,6 +114,14 @@ export default function AddCreditsDialog(props) {
       <p className={`mt-2 text-sm leading-6 ${mutedText}`}>
         Top up for renders, edits, and agent generation. Credits are ready after checkout.
       </p>
+      <a
+        href={GALLERY_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`mt-2 inline-flex text-sm font-medium underline-offset-4 transition hover:underline ${galleryLinkClasses}`}
+      >
+        See what's possible
+      </a>
       <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.18em] ${subtleText}`}>
         100 credits = $1
       </p>

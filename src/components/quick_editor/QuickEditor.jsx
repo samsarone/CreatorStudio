@@ -1885,6 +1885,7 @@ export default function QuickEditor() {
         sessionId={id}
         sessionMessages={sessionMessages}
         onSessionMessagesChange={setSessionMessages}
+        onSessionDetailsChange={setSessionDetails}
         onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
         isAssistantQueryGenerating={isAssistantQueryGenerating}
         getSessionImageLayers={() => { }}

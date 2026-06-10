@@ -46,6 +46,12 @@ export default function SingleSelect(props) {
     return typeof slotOverride === 'function' ? slotOverride(...args) : {};
   };
   const mergedStyles = {
+    container: (provided) => ({
+      ...provided,
+      width: '100%',
+      minWidth: 0,
+      ...resolveCustomStyle('container', provided),
+    }),
     menuPortal: (provided) => ({
       ...provided,
       zIndex: MENU_Z_INDEX,
@@ -76,6 +82,7 @@ export default function SingleSelect(props) {
       paddingTop: shouldUseMultilineValue ? 6 : provided.paddingTop,
       paddingBottom: shouldUseMultilineValue ? 6 : provided.paddingBottom,
       overflow: 'visible',
+      minWidth: 0,
       ...resolveCustomStyle('valueContainer', provided),
     }),
     control: (provided, state) => ({
@@ -90,6 +97,8 @@ export default function SingleSelect(props) {
         : null,
       minHeight: `${controlMinHeight}px`,
       height: shouldUseMultilineValue ? 'auto' : '38px',
+      width: '100%',
+      minWidth: 0,
       ...resolveCustomStyle('control', provided, state),
     }),
     option: (provided, state) => ({

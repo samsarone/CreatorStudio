@@ -127,6 +127,7 @@ export default function AssistantHome(props) {
     isAssistantQueryGenerating = false,
     sessionId,
     onSessionMessagesChange,
+    onSessionDetailsChange,
     onAssistantQueryGeneratingChange,
     onDeleteMessage,
     onResetMessages,
@@ -152,6 +153,8 @@ export default function AssistantHome(props) {
   );
   const [deletingMessageId, setDeletingMessageId] = useState(null);
   const [isResetting, setIsResetting] = useState(false);
+  const [isResetConfirmVisible, setIsResetConfirmVisible] = useState(false);
+  const [resetError, setResetError] = useState('');
   const [includeFrameImage, setIncludeFrameImage] = useState(false);
   const [isPreparingFrameImage, setIsPreparingFrameImage] = useState(false);
   const [applyingSceneActionId, setApplyingSceneActionId] = useState(null);
@@ -243,7 +246,10 @@ export default function AssistantHome(props) {
       if (!sessionId) return;
 
       const headers = getHeaders();
-      if (!headers) return;
+      if (!headers) {
+        setResetError('Sign in to reset the assistant session.');
+        return;
+      }
       const response = await axios.post(
         `${PROCESSOR_SERVER}/assistants/delete_session_message`,
         { id: sessionId, messageId },
@@ -256,15 +262,41 @@ export default function AssistantHome(props) {
     }
   };
 
+  const applyResetSessionState = (sessionDetails) => {
+    const nextMessages = Array.isArray(sessionDetails?.sessionMessages)
+      ? sessionDetails.sessionMessages
+      : [];
+
+    onSessionMessagesChange?.(nextMessages);
+    onAssistantQueryGeneratingChange?.(Boolean(sessionDetails?.sessionMessageGenerationPending));
+    if (sessionDetails && typeof sessionDetails === 'object') {
+      onSessionDetailsChange?.(sessionDetails);
+    }
+  };
+
+  const handleResetRequest = () => {
+    if (!onResetMessages && !sessionId) return;
+    setResetError('');
+    setIsResetConfirmVisible(true);
+  };
+
+  const handleCancelReset = () => {
+    if (isResetting) return;
+    setResetError('');
+    setIsResetConfirmVisible(false);
+  };
+
   const handleResetMessages = async () => {
     if (!onResetMessages && !sessionId) return;
-    const confirmed = window.confirm('Reset the assistant conversation and start a new session?');
-    if (!confirmed) return;
 
     try {
       setIsResetting(true);
+      setResetError('');
       if (onResetMessages) {
-        await onResetMessages();
+        const resetResponse = await onResetMessages();
+        const sessionDetails = resetResponse?.data?.sessionDetails || resetResponse?.sessionDetails || null;
+        applyResetSessionState(sessionDetails);
+        setIsResetConfirmVisible(false);
         return;
       }
 
@@ -275,8 +307,11 @@ export default function AssistantHome(props) {
         { id: sessionId },
         headers
       );
-      onSessionMessagesChange?.(response?.data?.sessionDetails?.sessionMessages || []);
-      onAssistantQueryGeneratingChange?.(false);
+      applyResetSessionState(response?.data?.sessionDetails || null);
+      setUserInput('');
+      setIsResetConfirmVisible(false);
+    } catch (error) {
+      setResetError(error?.response?.data?.error || 'Unable to reset the assistant session.');
     } finally {
       setIsResetting(false);
     }
@@ -418,11 +453,20 @@ export default function AssistantHome(props) {
     colorMode === 'dark'
       ? 'border border-dashed border-slate-700 bg-slate-950/50 text-slate-400'
       : 'border border-dashed border-slate-200 bg-slate-50 text-slate-500';
+  const resetConfirmShell =
+    colorMode === 'dark'
+      ? 'border border-slate-700 bg-slate-950/80 text-slate-100'
+      : 'border border-slate-200 bg-slate-50 text-slate-900';
+  const resetConfirmButtonShell =
+    colorMode === 'dark'
+      ? 'border border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800'
+      : 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-100';
   const panelDimensions = isExpanded
     ? 'fixed inset-4 md:inset-6'
     : hasConversationActivity || shouldShowWelcomeOptions
     ? 'fixed bottom-20 right-4 w-[min(92vw,420px)] h-[min(72vh,680px)]'
     : 'fixed bottom-20 right-4 w-[min(92vw,420px)]';
+  const assistantOverlayZIndex = 2000;
   const canIncludeFrameImage = typeof getFrameImageData === 'function';
   const assistantInputPlaceholder = canIncludeFrameImage
     ? 'Ask about this session...\nTry /scene_actions for canvas animations.\nUse Include frame image for visual feedback.'
@@ -446,7 +490,7 @@ export default function AssistantHome(props) {
   ];
 
   return (
-    <div className="fixed bottom-4 right-4 z-40">
+    <div className="fixed bottom-4 right-4 z-40" style={{ zIndex: assistantOverlayZIndex }}>
       <button
         ref={launcherRef}
         type="button"
@@ -465,6 +509,7 @@ export default function AssistantHome(props) {
         <div
           ref={panelRef}
           className={`${panelDimensions} ${isExpanded ? 'right-4 bottom-4' : ''}`}
+          style={{ zIndex: assistantOverlayZIndex }}
         >
           <div
             className={`flex ${isExpanded || hasConversationActivity || shouldShowWelcomeOptions ? 'h-full' : ''} flex-col overflow-hidden rounded-3xl shadow-[0_28px_80px_rgba(15,23,42,0.3)] ${panelShell}`}
@@ -484,7 +529,7 @@ export default function AssistantHome(props) {
                 </div>
                 <button
                   type="button"
-                  onClick={handleResetMessages}
+                  onClick={handleResetRequest}
                   disabled={(!onResetMessages && !sessionId) || isResetting}
                   className={`inline-flex h-9 w-9 items-center justify-center rounded-full transition disabled:opacity-50 ${headerButtonShell}`}
                   title="Start a new assistant session"
@@ -698,6 +743,39 @@ export default function AssistantHome(props) {
             ) : null}
 
             <form onSubmit={handleSubmit} className="border-t border-slate-200/10 px-4 py-4">
+              {isResetConfirmVisible ? (
+                <div className={`mb-3 rounded-2xl px-3 py-3 text-sm ${resetConfirmShell}`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="font-semibold">Reset assistant session?</div>
+                      <div className={`mt-1 text-xs leading-5 ${subtleText}`}>
+                        This clears the assistant conversation history for this session.
+                      </div>
+                      {resetError ? (
+                        <div className="mt-2 text-xs font-medium text-red-500">{resetError}</div>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleResetMessages}
+                        disabled={isResetting}
+                        className={`inline-flex h-9 min-w-[56px] items-center justify-center rounded-full px-4 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${resetConfirmButtonShell}`}
+                      >
+                        {isResetting ? 'Resetting' : 'Yes'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancelReset}
+                        disabled={isResetting}
+                        className={`inline-flex h-9 min-w-[52px] items-center justify-center rounded-full px-4 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${resetConfirmButtonShell}`}
+                      >
+                        No
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <TextareaAutosize
                 value={userInput}
                 onChange={(event) => setUserInput(event.target.value)}
@@ -734,6 +812,7 @@ export default function AssistantHome(props) {
                   ) : null}
                 </div>
                 <CommonButton
+                  type="submit"
                   isPending={isAssistantQueryGenerating || isPreparingFrameImage}
                   extraClasses="min-w-[120px]"
                 >

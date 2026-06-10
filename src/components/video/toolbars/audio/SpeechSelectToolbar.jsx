@@ -71,6 +71,7 @@ export default function SpeechSelectToolbar(props) {
     colorMode === 'dark'
       ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
+  const compactButtonClass = '!m-0 !min-w-0 !rounded-md !px-2 !py-1 text-xs leading-tight';
   const audioUrl = `${PROCESSOR_API_URL}/${audioLayer.localAudioLinks[0]}`;
 
   const handleAccept = () => {
@@ -97,17 +98,20 @@ export default function SpeechSelectToolbar(props) {
   };
 
   return (
-    <div className={`${panelSurface} p-4 rounded-xl space-y-4`}>
+    <div className={`${panelSurface} p-3 rounded-xl space-y-3`}>
       <div>
-        <audio controls className="w-full">
+        <audio controls className="h-8 w-full">
           <source src={audioUrl} type="audio/mpeg" />
           Your browser does not support the audio element.
         </audio>
       </div>
 
-      <div className="pt-2 flex justify-between">
-        <SecondaryButton onClick={handleAccept}>Accept</SecondaryButton>
-        <SecondaryButton onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}>
+      <div className="pt-1 flex justify-end gap-2">
+        <SecondaryButton onClick={handleAccept} className={compactButtonClass}>Accept</SecondaryButton>
+        <SecondaryButton
+          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}
+          className={compactButtonClass}
+        >
           Reject
         </SecondaryButton>
       </div>

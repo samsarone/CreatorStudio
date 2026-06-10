@@ -2272,6 +2272,7 @@ export default function ImageStudioHome() {
             sessionId={id}
             sessionMessages={sessionMessages}
             onSessionMessagesChange={setSessionMessages}
+            onSessionDetailsChange={setSessionDetails}
             onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
             isAssistantQueryGenerating={isAssistantQueryGenerating}
             getFrameImageData={getAssistantFrameImageData}

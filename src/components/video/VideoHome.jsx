@@ -60,6 +60,119 @@ function normalizeVideoDownloadUrl(url) {
   return `${PROCESSOR_API_URL}/${trimmed.replace(/^\/+/, '')}`;
 }
 
+function resolveAssistantFrameAssetUrl(assetPath, baseUrl) {
+  if (typeof assetPath !== 'string') return null;
+  const trimmed = assetPath.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+
+  const normalizedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : '';
+  const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return normalizedBaseUrl ? `${normalizedBaseUrl}${normalizedPath}` : normalizedPath;
+}
+
+async function imageUrlToAssistantFrameImageData(imageUrl) {
+  if (typeof imageUrl !== 'string' || !imageUrl.trim()) {
+    return null;
+  }
+
+  if (imageUrl.startsWith('data:image/')) {
+    const mimeType = imageUrl.slice(5, imageUrl.indexOf(';')) || 'image/png';
+    return { dataUrl: imageUrl, mimeType };
+  }
+
+  try {
+    const response = await fetch(imageUrl, { mode: 'cors', credentials: 'omit' });
+    if (!response.ok) {
+      return null;
+    }
+
+    const blob = await response.blob();
+    if (!blob.type.startsWith('image/')) {
+      return null;
+    }
+
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+
+    return dataUrl ? { dataUrl, mimeType: blob.type || 'image/png' } : null;
+  } catch {
+    return null;
+  }
+}
+
+function getAssistantFrameFallbackAssetPath(layer) {
+  if (!layer || typeof layer !== 'object') {
+    return null;
+  }
+
+  const activeItemList = Array.isArray(layer?.imageSession?.activeItemList)
+    ? layer.imageSession.activeItemList
+    : [];
+  const topImageItem = [...activeItemList].reverse().find((item) => item?.type === 'image') || {};
+
+  return [
+    topImageItem?.aiLayerStartFrame,
+    topImageItem?.aiVideoFrameImage,
+    topImageItem?.videoFrameImage,
+    topImageItem?.sourceImage,
+    topImageItem?.sourceImageUrl,
+    topImageItem?.sourceImageURL,
+    layer?.frameImages?.startFrameUrl,
+    layer?.frameImages?.startFrame,
+    layer?.frameImages?.aiLayerStartFrame,
+    layer?.frameImages?.baseLayerStartFrame,
+    layer?.frameImages?.aiVideoThumbnailPath,
+    layer?.frameImages?.thumbnailPath,
+    layer?.aiLayerStartFrame,
+    layer?.aiVideoThumbnailPath,
+    layer?.thumbnailPath,
+    layer?.baseLayerStartFrame,
+    layer?.imageSession?.activeImageRemoteLink,
+    layer?.imageSession?.videoRenderStartFrameImage,
+    layer?.imageSession?.activeGeneratedImage,
+    layer?.imageSession?.activeEditedImage,
+    layer?.imageSession?.activeSelectedImage,
+  ].find((value) => typeof value === 'string' && value.trim()) || null;
+}
+
+function layerHasGeneratedVideoVisual(layer) {
+  if (!layer || typeof layer !== 'object') {
+    return false;
+  }
+
+  return Boolean(
+    layer.hasAiVideoLayer ||
+    layer.aiVideoLayer ||
+    layer.aiVideoRemoteLink ||
+    layer.hasLipSyncVideoLayer ||
+    layer.lipSyncVideoLayer ||
+    layer.lipSyncRemoteLink ||
+    layer.hasSoundEffectVideoLayer ||
+    layer.soundEffectVideoLayer ||
+    layer.soundEffectRemoteLink ||
+    layer.hasUserVideoLayer ||
+    layer.userVideoLayer ||
+    layer.userVideoRemoteLink ||
+    layer.aiVideo?.url ||
+    layer.lipSyncVideo?.url ||
+    layer.soundEffectVideo?.url ||
+    layer.userVideo?.url
+  );
+}
+
+async function getAssistantFallbackFrameImageData(layer, baseUrl) {
+  const fallbackAssetPath = getAssistantFrameFallbackAssetPath(layer);
+  const fallbackImageUrl = resolveAssistantFrameAssetUrl(fallbackAssetPath, baseUrl);
+  return await imageUrlToAssistantFrameImageData(fallbackImageUrl);
+}
+
 function resolveLatestSessionVideoUrl(sessionDetails) {
   const candidates = [
     sessionDetails?.videoLink,
@@ -358,8 +471,6 @@ export default function VideoHome(props) {
   const [canvasProcessLoading, setCanvasProcessLoading] = useState(false);
 
   const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
-  const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
-
   const setAdvancedVideoEditPendingSession = (nextSessionId) => {
     if (!nextSessionId || typeof window === 'undefined') return;
     sessionStorage.setItem(
@@ -2879,11 +2990,25 @@ export default function VideoHome(props) {
   }, []);
 
   const getAssistantFrameImageData = useCallback(async () => {
-    if (typeof assistantFrameCaptureRef.current !== 'function') {
+    const currentAssistantLayer = currentLayerRef.current;
+    if (layerHasGeneratedVideoVisual(currentAssistantLayer)) {
+      const fallbackFrameImage = await getAssistantFallbackFrameImageData(currentAssistantLayer, PROCESSOR_API_URL);
+      if (fallbackFrameImage?.dataUrl) {
+        return fallbackFrameImage;
+      }
       return null;
     }
 
-    return await assistantFrameCaptureRef.current();
+    if (typeof assistantFrameCaptureRef.current !== 'function') {
+      return await getAssistantFallbackFrameImageData(currentAssistantLayer, PROCESSOR_API_URL);
+    }
+
+    const capturedFrameImage = await assistantFrameCaptureRef.current();
+    if (capturedFrameImage?.dataUrl) {
+      return capturedFrameImage;
+    }
+
+    return await getAssistantFallbackFrameImageData(currentAssistantLayer, PROCESSOR_API_URL);
   }, []);
 
   const focusHintsPanel = useCallback(() => {
@@ -3547,6 +3672,7 @@ export default function VideoHome(props) {
               sessionId={id}
               sessionMessages={sessionMessages}
               onSessionMessagesChange={setSessionMessages}
+              onSessionDetailsChange={setVideoSessionDetails}
               onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
               isAssistantQueryGenerating={isAssistantQueryGenerating}
               getFrameImageData={getAssistantFrameImageData}

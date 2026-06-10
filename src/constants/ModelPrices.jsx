@@ -534,7 +534,7 @@ export const MUSIC_MODEL_PRICES = [
     ]
   },
   {
-    key: 'LYRIA2',
+    key: 'LYRIA3',
     prices: [
       {
         operationType: "generate_song",

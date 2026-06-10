@@ -424,6 +424,31 @@ function buildGridLineFrames(rangeStartFrame, rangeEndFrame, stepFrames) {
   return frames;
 }
 
+function buildSegmentedGridLineFrames(segments = [], stepFrames) {
+  if (!Array.isArray(segments) || segments.length === 0) {
+    return [];
+  }
+
+  const frameSet = new Set();
+
+  segments.forEach((segment) => {
+    const frameStart = Math.max(0, Math.round(Number(segment?.frameStart) || 0));
+    const frameEnd = Math.max(
+      frameStart + 1,
+      Math.round(Number(segment?.frameEnd) || frameStart + 1)
+    );
+
+    frameSet.add(frameStart);
+    frameSet.add(frameEnd);
+
+    buildGridLineFrames(frameStart, frameEnd, stepFrames).forEach((frame) => {
+      frameSet.add(frame);
+    });
+  });
+
+  return Array.from(frameSet).sort((leftFrame, rightFrame) => leftFrame - rightFrame);
+}
+
 function isVisualLayerItem(item) {
   return item?.type === 'image' || item?.type === 'shape';
 }
@@ -3894,11 +3919,15 @@ export default function FrameToolbar(props) {
   };
 
 
-  const onUpdateAllAudioLayers = async (nextAudioTrackListDisplay = audioTrackListDisplay) => {
-    const normalAudioTracks = nextAudioTrackListDisplay
+  const onUpdateAllAudioLayers = async (nextAudioTrackListDisplay) => {
+    const audioTracksToUpdate = Array.isArray(nextAudioTrackListDisplay)
+      ? nextAudioTrackListDisplay
+      : audioTrackListDisplay;
+
+    const normalAudioTracks = audioTracksToUpdate
       .filter((audioTrack) => !audioTrack.isGlobalAudioLayer)
       .map(stripAudioTrackDisplayState);
-    const globalAudioTracks = nextAudioTrackListDisplay
+    const globalAudioTracks = audioTracksToUpdate
       .filter((audioTrack) => audioTrack.isGlobalAudioLayer)
       .map(stripAudioTrackDisplayState);
 
@@ -4003,7 +4032,7 @@ export default function FrameToolbar(props) {
       colorMode === 'light'
         ? 'border border-slate-200 bg-slate-50/90 text-slate-700'
         : 'border border-[#253248] bg-[#0f172a]/82 text-slate-100';
-    const pillBaseClassName = 'inline-flex h-8 items-center justify-center rounded-lg px-2 text-[10px] font-semibold uppercase tracking-[0.12em] transition';
+    const pillBaseClassName = 'inline-flex h-6 items-center justify-center rounded-md px-1.5 text-[9px] font-semibold uppercase tracking-[0.08em] transition';
     const activePillClassName =
       colorMode === 'light'
         ? 'border border-sky-200 bg-sky-50 text-sky-700'
@@ -4034,9 +4063,9 @@ export default function FrameToolbar(props) {
         : 'border border-[#2a3953] bg-[#111a2f]/82 text-slate-100 hover:bg-[#17223a]';
     const inlineInputClassName =
       colorMode === 'light'
-        ? 'h-5 min-w-0 bg-transparent px-0 text-right text-[11px] font-semibold text-slate-700 outline-none'
-        : 'h-5 min-w-0 bg-transparent px-0 text-right text-[11px] font-semibold text-slate-100 outline-none';
-    const audioTileClassName = `inline-flex h-7 min-w-0 items-center gap-1.5 rounded-md px-1.5 ${secondarySurfaceClassName}`;
+        ? 'h-4 min-w-0 bg-transparent px-0 text-right text-[10px] font-semibold text-slate-700 outline-none'
+        : 'h-4 min-w-0 bg-transparent px-0 text-right text-[10px] font-semibold text-slate-100 outline-none';
+    const audioTileClassName = `inline-flex h-6 min-w-0 items-center gap-1 rounded-md px-1 ${secondarySurfaceClassName}`;
     const audioTileLabelClassName = `${metadataLabelClassName} shrink-0`;
     const audioTileIconClassName =
       colorMode === 'light'
@@ -4079,7 +4108,7 @@ export default function FrameToolbar(props) {
             {visibleAudioTrackListDisplay.length} track{visibleAudioTrackListDisplay.length === 1 ? '' : 's'}
           </div>
         </div>
-        <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_74px_74px_58px_66px_26px_26px_26px] items-center gap-1 overflow-hidden'>
+        <div className='grid min-w-0 grid-cols-[minmax(0,1fr)_64px_64px_50px_32px_22px_22px_22px] items-center gap-1 overflow-hidden'>
           <div
             className={audioTileClassName}
             title={selectedAudioTrack ? selectedAudioTrackDisplayTitle : audioStatusTitle}
@@ -4102,7 +4131,7 @@ export default function FrameToolbar(props) {
                   type="text"
                   inputMode="numeric"
                   value={formatAudioTrackNumber(selectedAudioTrack.startTime, 0)}
-                  className={`${inlineInputClassName} w-[46px]`}
+                  className={`${inlineInputClassName} w-[38px]`}
                   onChange={(e) => handleStartTimeChangeHandler(e, selectedAudioTrack._id)}
                   aria-label="Start time"
                 />
@@ -4114,7 +4143,7 @@ export default function FrameToolbar(props) {
                   type="text"
                   inputMode="numeric"
                   value={formatAudioTrackNumber(selectedAudioTrack.endTime, 0)}
-                  className={`${inlineInputClassName} w-[46px]`}
+                  className={`${inlineInputClassName} w-[38px]`}
                   onChange={(e) => handleEndTimeChangeHandler(e, selectedAudioTrack._id)}
                   aria-label="End time"
                 />
@@ -4126,7 +4155,7 @@ export default function FrameToolbar(props) {
                   type="text"
                   inputMode="numeric"
                   value={formatAudioTrackNumber(selectedAudioTrack.volume, 0)}
-                  className={`${inlineInputClassName} w-[34px]`}
+                  className={`${inlineInputClassName} w-[28px]`}
                   onChange={(e) => handleVolumeChangeHandler(e, selectedAudioTrack._id)}
                   aria-label="Layer volume"
                 />
@@ -4138,9 +4167,9 @@ export default function FrameToolbar(props) {
                 title={showSelectedAudioExtraOptionsToolbar ? 'Hide extra audio details' : 'View more audio details'}
                 aria-label={showSelectedAudioExtraOptionsToolbar ? 'Hide extra audio details' : 'View more audio details'}
                 disabled={!hasAudioLayers}
-                className={`inline-flex h-7 shrink-0 items-center justify-center rounded-md px-1 text-[9px] font-semibold uppercase tracking-[0.08em] transition disabled:opacity-50 ${advancedButtonClassName}`}
+                className={`inline-flex h-6 shrink-0 items-center justify-center rounded-md px-1 text-[9px] font-semibold uppercase tracking-[0.08em] transition disabled:opacity-50 ${advancedButtonClassName}`}
               >
-                {showSelectedAudioExtraOptionsToolbar ? 'Hide' : 'View more'}
+                {showSelectedAudioExtraOptionsToolbar ? 'Less' : 'More'}
               </button>
             </>
           ) : null}
@@ -4152,7 +4181,7 @@ export default function FrameToolbar(props) {
               disabled={!canDuplicateSelectedAudioTrack || isDuplicatingAudioTrack}
               title="Duplicate audio layer"
               aria-label="Duplicate audio layer"
-              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition disabled:opacity-50 ${duplicateButtonClassName}`}
+              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] transition disabled:opacity-50 ${duplicateButtonClassName}`}
             >
               <FaCopy />
             </button>
@@ -4160,11 +4189,11 @@ export default function FrameToolbar(props) {
 
           <button
             type="button"
-            onClick={onUpdateAllAudioLayers}
+            onClick={() => onUpdateAllAudioLayers()}
             disabled={dirtyCount === 0}
             title="Update all audio layers"
             aria-label="Update all audio layers"
-            className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition disabled:opacity-50 ${updateButtonClassName}`}
+            className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] transition disabled:opacity-50 ${updateButtonClassName}`}
           >
             <FaCheck />
           </button>
@@ -4174,7 +4203,7 @@ export default function FrameToolbar(props) {
               type="button"
               title="Remove audio layer"
               aria-label="Remove audio layer"
-              className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] transition ${removeButtonClassName}`}
+              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[9px] transition ${removeButtonClassName}`}
               onClick={removeSelectedAudioTrack}
             >
               <FaTimes />
@@ -4627,18 +4656,34 @@ export default function FrameToolbar(props) {
     Math.min(seekSliderMax, frameToSeekSliderValue(clampedLayerSeek)),
   );
   const majorGridStepFrames = useMemo(
-    () => pickGridStepFrames(viewFrameSpan, 10),
+    () => Math.max(DISPLAY_FRAMES_PER_SECOND, pickGridStepFrames(viewFrameSpan, 10)),
     [viewFrameSpan]
   );
   const minorGridStepFrames = useMemo(
     () => getMinorGridStepFrames(majorGridStepFrames),
     [majorGridStepFrames]
   );
-  const majorGridLineFrames = useMemo(() => (
-    hasUsableFrameRange
-      ? buildGridLineFrames(viewRangeStart, viewRangeEnd, majorGridStepFrames)
-      : []
-  ), [hasUsableFrameRange, majorGridStepFrames, viewRangeEnd, viewRangeStart]);
+  const majorGridLineFrames = useMemo(() => {
+    if (!hasUsableFrameRange) {
+      return [];
+    }
+
+    if (hasDisplayedLayerViewportGeometry) {
+      return buildSegmentedGridLineFrames(
+        displayedLayerViewportGeometry.segments,
+        majorGridStepFrames,
+      );
+    }
+
+    return buildGridLineFrames(viewRangeStart, viewRangeEnd, majorGridStepFrames);
+  }, [
+    displayedLayerViewportGeometry,
+    hasDisplayedLayerViewportGeometry,
+    hasUsableFrameRange,
+    majorGridStepFrames,
+    viewRangeEnd,
+    viewRangeStart,
+  ]);
   const minorGridLineOffsets = useMemo(() => {
     if (!hasUsableFrameRange || !minorGridStepFrames) {
       return [];
@@ -4648,7 +4693,14 @@ export default function FrameToolbar(props) {
       majorGridLineFrames.map((frame) => frame.toFixed(4))
     );
 
-    return buildGridLineFrames(viewRangeStart, viewRangeEnd, minorGridStepFrames)
+    const minorGridLineFrames = hasDisplayedLayerViewportGeometry
+      ? buildSegmentedGridLineFrames(
+        displayedLayerViewportGeometry.segments,
+        minorGridStepFrames,
+      )
+      : buildGridLineFrames(viewRangeStart, viewRangeEnd, minorGridStepFrames);
+
+    return minorGridLineFrames
       .filter((frame) => !majorOffsetSet.has(frame.toFixed(4)))
       .map((frame) => (
         hasDisplayedLayerViewportGeometry
@@ -4666,6 +4718,8 @@ export default function FrameToolbar(props) {
     majorGridLineFrames,
     minorGridStepFrames,
     safeViewRange,
+    viewRangeEnd,
+    viewRangeStart,
     viewFrameSpan,
   ]);
   const majorGridLineOffsets = useMemo(() => (

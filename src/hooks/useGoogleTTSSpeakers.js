@@ -81,6 +81,56 @@ function normalizeGoogleSpeakerGender(rawGender = '') {
   return { code: null, label: 'Unspecified' };
 }
 
+function getGoogleTTSVoiceType(voiceName = '') {
+  const normalizedVoiceName = typeof voiceName === 'string' ? voiceName.trim() : '';
+  const parts = normalizedVoiceName.split('-').filter(Boolean);
+
+  if (parts.length <= 2) {
+    return '';
+  }
+
+  return parts.slice(2, -1).join(' ') || parts[2] || '';
+}
+
+function abbreviateGoogleTTSVoiceType(voiceType = '') {
+  const normalizedVoiceType = typeof voiceType === 'string' ? voiceType.trim() : '';
+
+  return normalizedVoiceType
+    .replace(/\bStandard\b/i, 'Std')
+    .replace(/\bWaveNet\b/i, 'Wave')
+    .replace(/\bNeural2\b/i, 'N2')
+    .replace(/\bNews\b/i, 'News')
+    .replace(/\bStudio\b/i, 'Studio')
+    .replace(/\bChirp\s+HD\b/i, 'Chirp')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getGoogleTTSShortLabel(voice = {}, value = '') {
+  if (typeof voice.shortLabel === 'string' && voice.shortLabel.trim()) {
+    return voice.shortLabel.trim();
+  }
+
+  const voiceName =
+    (typeof voice.name === 'string' && voice.name.trim())
+    || (typeof voice.voiceId === 'string' && voice.voiceId.trim())
+    || value;
+  const languageCode =
+    (typeof voice.languageCode === 'string' && voice.languageCode.trim())
+    || (Array.isArray(voice.languageCodes)
+      ? voice.languageCodes.find((languageCode) => typeof languageCode === 'string' && languageCode.trim())
+      : '')
+    || '';
+  const suffix = typeof voiceName === 'string' ? voiceName.split('-').pop() : '';
+  const voiceType = abbreviateGoogleTTSVoiceType(voice.voiceType || getGoogleTTSVoiceType(voiceName));
+
+  return [languageCode, voiceType, suffix]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim() || voiceName;
+}
+
 export function normalizeGoogleTTSSpeaker(voice = {}) {
   const value = typeof voice.value === 'string' && voice.value.trim()
     ? voice.value.trim()
@@ -99,6 +149,7 @@ export function normalizeGoogleTTSSpeaker(voice = {}) {
     voiceId: typeof voice.voiceId === 'string' && voice.voiceId.trim() ? voice.voiceId.trim() : value,
     name: typeof voice.name === 'string' && voice.name.trim() ? voice.name.trim() : value,
     label: typeof voice.label === 'string' && voice.label.trim() ? voice.label.trim() : value,
+    shortLabel: getGoogleTTSShortLabel(voice, value),
     languageCode:
       typeof voice.languageCode === 'string' && voice.languageCode.trim()
         ? voice.languageCode.trim()
@@ -134,6 +185,7 @@ export function getGoogleTTSVoiceDetails(speaker = {}) {
     voiceId: normalizedSpeaker.voiceId,
     name: normalizedSpeaker.name,
     label: normalizedSpeaker.label,
+    shortLabel: normalizedSpeaker.shortLabel,
     languageCode: normalizedSpeaker.languageCode,
     languageCodes: normalizedSpeaker.languageCodes,
     Gender: normalizedSpeaker.Gender,
