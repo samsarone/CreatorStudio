@@ -136,6 +136,7 @@ const AudioTrackSlider = (props) => {
         ? '0 0 0 1px rgba(103,232,249,0.24), 0 0 14px rgba(34,211,238,0.18)'
         : '0 0 0 1px rgba(14,165,233,0.18), 0 0 12px rgba(14,165,233,0.16)')
       : 'none',
+    cursor: 'grab',
   };
 
 
@@ -297,7 +298,7 @@ const AudioTrackSlider = (props) => {
              e.stopPropagation();
           }}
 
-          className={`track rounded-full audio_range_track-${audioTrackId} ${className ?? ''}`}
+          className={`track rounded-full timeline-layer-range-bar audio_range_track-${audioTrackId} ${className ?? ''}`}
           style={{
             ...style,
             bottom: addStyleValueOffset(style?.bottom, AUDIO_TRACK_THUMB_HEIGHT),
@@ -352,9 +353,9 @@ const AudioTrackSlider = (props) => {
     >
       <div
         ref={sliderContainerRef}
-        className='relative inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2'
+        className={`timeline-layer-range-shell ${audioTrack.isDisplaySelected ? 'timeline-layer-range-shell--selected' : ''}`}
       >
-        <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}>
+        <div className={`timeline-layer-range-surface ${railSurfaceClassName}`}>
           <ReactSlider
             className="vertical-slider w-full relative"
             orientation="vertical"
@@ -376,7 +377,7 @@ const AudioTrackSlider = (props) => {
                   <div
                     key={key}
                     {...thumbProps}
-                    className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
+                    className={`timeline-layer-trim-handle flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
                       colorMode === 'dark'
                         ? 'bg-white border-white/40 text-slate-800'
                         : 'bg-slate-100 border-slate-300 text-slate-700'

@@ -76,6 +76,7 @@ const VIDEO_EDIT_DEFAULT_SPEED_MULTIPLIER = 1.5;
 const VIDEO_EDIT_MIN_SPEED_MULTIPLIER = 1.25;
 const VIDEO_EDIT_MAX_SPEED_MULTIPLIER = 8;
 const MAX_GRID_SNAP_POINTS = 12;
+const EXPANDED_AUDIO_TRACK_TOOLBAR_WIDTH = 'calc(100vw - 32px)';
 const GRID_SNAP_TOLERANCE_FRAMES = 3;
 const GRID_STEP_FRAMES = [
   1,
@@ -1178,6 +1179,8 @@ export default function FrameToolbar(props) {
   const [selectedAudioVisualizationMode, setSelectedAudioVisualizationMode] = useState('waveform');
   const [selectedAudioVolumePointId, setSelectedAudioVolumePointId] = useState(null);
   const [audioWaveformVisibilityByTrackId, setAudioWaveformVisibilityByTrackId] = useState({});
+  const [isAudioTrackRailOverflowing, setIsAudioTrackRailOverflowing] = useState(false);
+  const [isAudioTrackRailExpanded, setIsAudioTrackRailExpanded] = useState(false);
 
 
   const [newSelectedTextAnimation, setNewSelectedTextAnimation] = useState(null);
@@ -1384,6 +1387,8 @@ export default function FrameToolbar(props) {
   const promptDropdownButtonRef = useRef(null);
   const copyPromptTimeoutRef = useRef(null);
   const hintsFileInputRef = useRef(null);
+  const audioTrackRailViewportRef = useRef(null);
+  const audioTrackRailContentRef = useRef(null);
 
 
 
@@ -5609,6 +5614,48 @@ export default function FrameToolbar(props) {
     });
   };
 
+  const renderAudioTrackRail = (audioTrackNodes) => {
+    const shouldShowRailControl = isAudioTrackRailOverflowing || isAudioTrackRailExpanded;
+    const railButtonClassName = colorMode === 'dark'
+      ? 'border border-[#2a3953] bg-[#0f172a]/92 text-slate-100 shadow-[0_10px_22px_rgba(0,0,0,0.28)] hover:bg-[#16213a]'
+      : 'border border-slate-200 bg-white/95 text-slate-700 shadow-[0_10px_22px_rgba(15,23,42,0.12)] hover:bg-slate-50';
+    const railControlLabel = isAudioTrackRailExpanded
+      ? 'Collapse audio lanes'
+      : 'Expand audio lanes';
+
+    return (
+      <div
+        className={`audio-track-rail ${
+          isAudioTrackRailOverflowing ? 'audio-track-rail--overflowing' : ''
+        } ${isAudioTrackRailExpanded ? 'audio-track-rail--expanded' : ''}`}
+      >
+        <div
+          ref={audioTrackRailViewportRef}
+          className="audio-track-rail__viewport"
+        >
+          <div
+            ref={audioTrackRailContentRef}
+            className="audio-track-rail__content"
+          >
+            {audioTrackNodes}
+          </div>
+        </div>
+
+        {shouldShowRailControl ? (
+          <button
+            type="button"
+            className={`audio-track-rail__expand-button inline-flex h-7 w-7 items-center justify-center rounded-lg text-[10px] transition ${railButtonClassName}`}
+            onClick={() => setIsAudioTrackRailExpanded((previousValue) => !previousValue)}
+            aria-label={railControlLabel}
+            title={railControlLabel}
+          >
+            {isAudioTrackRailExpanded ? <FaChevronLeft /> : <FaChevronRight />}
+          </button>
+        ) : null}
+      </div>
+    );
+  };
+
   const showAddedGlobalVideoTracks = () => {
     const [visibleStartFrame, visibleEndFrame] = displayedFrameRange;
     const visibleGlobalVideoTracks = globalVideoTrackListDisplay.filter((globalVideoTrack) => (
@@ -6298,6 +6345,11 @@ export default function FrameToolbar(props) {
   };
 
   const isExpandedToolbarView = frameToolbarView === FRAME_TOOLBAR_VIEW.EXPANDED;
+  const shouldUseExpandedAudioTrackToolbarWidth = Boolean(
+    isExpandedToolbarView
+    && currentLayerActionSuperView === 'AUDIO'
+    && isAudioTrackRailExpanded
+  );
   const timeRulerWidthPx = isExpandedToolbarView ? 54 : 34;
   const timelineRailStyle = {
     '--time-ruler-width': `${timeRulerWidthPx}px`,
@@ -6312,10 +6364,94 @@ export default function FrameToolbar(props) {
     top: '56px',
     bottom: '0px',
   };
+
+  const measureAudioTrackRailOverflow = useCallback(() => {
+    const viewportElement = audioTrackRailViewportRef.current;
+    const contentElement = audioTrackRailContentRef.current;
+
+    if (!viewportElement || !contentElement) {
+      setIsAudioTrackRailOverflowing(false);
+      return;
+    }
+
+    const nextIsOverflowing = contentElement.scrollWidth > viewportElement.clientWidth + 1;
+    setIsAudioTrackRailOverflowing((previousValue) => (
+      previousValue === nextIsOverflowing ? previousValue : nextIsOverflowing
+    ));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isExpandedToolbarView || currentLayerActionSuperView !== 'AUDIO') {
+      setIsAudioTrackRailOverflowing(false);
+      return undefined;
+    }
+
+    const viewportElement = audioTrackRailViewportRef.current;
+    const contentElement = audioTrackRailContentRef.current;
+
+    if (!viewportElement || !contentElement) {
+      setIsAudioTrackRailOverflowing(false);
+      return undefined;
+    }
+
+    let frameId = null;
+    const scheduleMeasure = () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+
+      frameId = requestAnimationFrame(() => {
+        frameId = null;
+        measureAudioTrackRailOverflow();
+      });
+    };
+
+    scheduleMeasure();
+
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(scheduleMeasure);
+      resizeObserver.observe(viewportElement);
+      resizeObserver.observe(contentElement);
+    }
+
+    window.addEventListener('resize', scheduleMeasure);
+
+    return () => {
+      if (frameId !== null) {
+        cancelAnimationFrame(frameId);
+      }
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      window.removeEventListener('resize', scheduleMeasure);
+    };
+  }, [
+    audioLayerView,
+    audioWaveformVisibilityByTrackId,
+    currentLayerActionSuperView,
+    displayedFrameRange,
+    isAudioTrackRailExpanded,
+    isExpandedToolbarView,
+    measureAudioTrackRailOverflow,
+    selectedAudioVisualizationMode,
+    showSelectedAudioExtraOptionsToolbar,
+    showVerticalWaveform,
+    visibleAudioTrackListDisplay.length,
+  ]);
+
+  useEffect(() => {
+    if (!isExpandedToolbarView || currentLayerActionSuperView !== 'AUDIO') {
+      setIsAudioTrackRailExpanded(false);
+    }
+  }, [currentLayerActionSuperView, isExpandedToolbarView]);
+
   let containerWdidth = 'z-1 opacity-100';
   if (isExpandedToolbarView) {
     frameToolbarInsetStyle.top = '0px';
-    frameToolbarInsetStyle.width = 'clamp(420px, 44vw, 720px)';
+    frameToolbarInsetStyle.width = shouldUseExpandedAudioTrackToolbarWidth
+      ? EXPANDED_AUDIO_TRACK_TOOLBAR_WIDTH
+      : 'clamp(420px, 44vw, 720px)';
     frameToolbarInsetStyle.maxWidth = 'calc(100vw - 32px)';
     containerWdidth = 'z-[1210]';
   } else {
@@ -6331,7 +6467,7 @@ export default function FrameToolbar(props) {
       selectedTrackViewDisplay = null;
     }
     if (currentLayerActionSuperView === 'AUDIO') {
-      trackViewDisplay = showAddedAudioTracks();
+      trackViewDisplay = renderAudioTrackRail(showAddedAudioTracks());
       selectedTrackViewDisplay = showSelectedAudioTrack();
     }
     if (currentLayerActionSuperView === 'VIDEO') {

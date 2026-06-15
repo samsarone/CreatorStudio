@@ -59,7 +59,7 @@ export default function HintTrackDisplay({
     ? 'bg-[#0b1220] border border-[#273449]'
     : 'bg-slate-100 border border-slate-300';
   const selectedRingClassName = isDisplaySelected
-    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
+    ? 'timeline-layer-range-shell--selected'
     : '';
   const activeTrackStyle = {
     backgroundColor: isDisplaySelected
@@ -77,7 +77,7 @@ export default function HintTrackDisplay({
   const bottomEdgeClassName = isDisplaySelected
     ? (colorMode === 'dark' ? 'bg-cyan-200/80' : 'bg-sky-600/80')
     : (colorMode === 'dark' ? 'bg-[#6b7d95]' : 'bg-slate-500/70');
-  const thumbClassName = `absolute left-1/2 z-[5] flex h-[10px] w-[18px] items-center justify-center rounded-full border shadow ${
+  const thumbClassName = `timeline-layer-trim-handle absolute left-1/2 z-[5] flex h-[10px] w-[18px] items-center justify-center rounded-full border shadow ${
     colorMode === 'dark'
       ? 'border-white/40 bg-white text-slate-800'
       : 'border-slate-300 bg-slate-100 text-slate-700'
@@ -179,17 +179,17 @@ export default function HintTrackDisplay({
 
   return (
     <div
-      className={`relative mr-2 inline-flex h-full min-h-0 w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2 ${selectedRingClassName}`}
+      className={`timeline-layer-range-shell ${selectedRingClassName}`}
       onMouseDownCapture={() => setHintTrackDisplayAsSelected?.(hintId)}
       title={hintTitle}
     >
       <div
         ref={railRef}
-        className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}
+        className={`timeline-layer-range-surface ${railSurfaceClassName}`}
       >
         <button
           type="button"
-          className="absolute left-1/2 w-[16px] cursor-grab overflow-hidden rounded-full p-0 outline-none active:cursor-grabbing"
+          className="timeline-layer-range-bar absolute left-1/2 w-[16px] cursor-grab overflow-hidden rounded-full p-0 outline-none active:cursor-grabbing"
           style={{
             ...activeTrackStyle,
             top: `${trackTopPercent}%`,

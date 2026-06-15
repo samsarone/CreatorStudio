@@ -155,7 +155,7 @@ export default function VideoTrackDisplay(props) {
     : 'bg-sky-100 border border-sky-500/70';
   const labelClassName = colorMode === 'dark' ? 'text-slate-300' : 'text-slate-500';
   const selectedRing = isDisplaySelected
-    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
+    ? 'timeline-layer-range-shell--selected'
     : '';
 
   const handleSelect = (event) => {
@@ -166,13 +166,13 @@ export default function VideoTrackDisplay(props) {
   return (
     <button
       type="button"
-      className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] border-0 bg-transparent px-2 transition ${selectedRing}`}
+      className={`timeline-layer-range-shell border-0 bg-transparent transition ${selectedRing}`}
       onClick={handleSelect}
       title={`${videoTrackItem.assetLabel} on layer ${videoTrackItem.layerIndex + 1}`}
     >
-      <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurface}`}>
+      <div className={`timeline-layer-range-surface ${railSurface}`}>
         <div
-          className={`absolute left-1/2 w-[16px] -translate-x-1/2 overflow-hidden rounded-[18px] ${isDisplaySelected ? activeTrackSurface : inactiveTrackSurface}`}
+          className={`timeline-layer-range-bar absolute left-1/2 w-[16px] -translate-x-1/2 overflow-hidden rounded-[18px] ${isDisplaySelected ? activeTrackSurface : inactiveTrackSurface}`}
           style={trackStyle}
         >
           <div

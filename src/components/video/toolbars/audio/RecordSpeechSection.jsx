@@ -45,6 +45,12 @@ const AVATAR_VIDEO_UPFRONT_CREDITS = 2;
 const AVATAR_VIDEO_BASE_CREDITS_PER_UNIT = 2;
 const AVATAR_VIDEO_CREDIT_CONVERSION_MULTIPLIER = 2;
 const DEFAULT_ELEVENLABS_AVATAR_SPEAKER = 'N2lVS1w4EtoT3dr4eOWO';
+const AVATAR_VIDEO_AUDIO_SOURCE_SESSION_SPEECH = 'session_speech';
+const AVATAR_VIDEO_AUDIO_SOURCE_HINT_SPEECH = 'hint_speech';
+const AVATAR_VIDEO_AUDIO_SOURCE_OPTIONS = [
+  { value: AVATAR_VIDEO_AUDIO_SOURCE_SESSION_SPEECH, label: 'Generated speech lip sync' },
+  { value: AVATAR_VIDEO_AUDIO_SOURCE_HINT_SPEECH, label: 'Text hints avatar speech' },
+];
 const AVATAR_TTS_PROVIDER_OPTIONS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'ELEVENLABS', label: 'ElevenLabs' },
@@ -199,7 +205,7 @@ function shouldUseIncomingAvatarTask(currentTask = null, nextTask = null) {
   return !currentUpdatedAt || !nextUpdatedAt || nextUpdatedAt >= currentUpdatedAt;
 }
 
-function isAvatarTaskPolling(task = {}) {
+function isAvatarTaskPolling(task = {}, { includeSpeech = true } = {}) {
   const status = normalizeAvatarTaskStatus(task?.status);
   const imageStatus = normalizeAvatarTaskStatus(task?.imageStatus);
   const runwayAvatarStatus = normalizeAvatarTaskStatus(task?.runwayAvatarStatus);
@@ -208,12 +214,12 @@ function isAvatarTaskPolling(task = {}) {
   return [
     'IMAGE_PENDING',
     'AVATAR_PROCESSING',
-    'SPEECH_PROCESSING',
     'VIDEO_PROCESSING',
   ].includes(status)
+    || (includeSpeech && status === 'SPEECH_PROCESSING')
     || ['PENDING', 'INIT', 'PROCESSING'].includes(imageStatus)
     || ['PROCESSING', 'PENDING'].includes(runwayAvatarStatus)
-    || ['INIT', 'PENDING', 'PROCESSING'].includes(avatarSpeechStatus)
+    || (includeSpeech && ['INIT', 'PENDING', 'PROCESSING'].includes(avatarSpeechStatus))
     || ['PENDING', 'RUNNING', 'THROTTLED'].includes(avatarVideoStatus);
 }
 
@@ -294,7 +300,13 @@ function shouldPollGlobalVideoProcessing(responseData = {}, globalVideo = {}) {
     || Boolean(globalVideo?.framesGenerationPending);
 }
 
-async function pollGlobalVideoProcessing({ sessionId, globalVideo, headers }) {
+async function pollGlobalVideoProcessing({
+  sessionId,
+  globalVideo,
+  headers,
+  failureMessage = 'Unable to process recorded facecam.',
+  timeoutMessage = 'Facecam was uploaded, but processing is still running. Please try again in a moment.',
+}) {
   const globalVideoId = getGlobalVideoId(globalVideo);
   if (!sessionId || !globalVideoId) {
     return globalVideo;
@@ -322,11 +334,49 @@ async function pollGlobalVideoProcessing({ sessionId, globalVideo, headers }) {
       return latestGlobalVideo;
     }
     if (response?.data?.failed || status === 'FAILED') {
-      throw new Error(latestGlobalVideo?.framesGenerationError || 'Unable to process recorded facecam.');
+      throw new Error(latestGlobalVideo?.framesGenerationError || failureMessage);
     }
   }
 
-  throw new Error('Facecam was uploaded, but processing is still running. Please try again in a moment.');
+  throw new Error(timeoutMessage);
+}
+
+function mergeGlobalVideoIntoSessionDetails(sessionDetails = null, globalVideo = null) {
+  if (!sessionDetails || !globalVideo) {
+    return sessionDetails;
+  }
+
+  const globalVideoId = getGlobalVideoId(globalVideo);
+  if (!globalVideoId) {
+    return sessionDetails;
+  }
+
+  const existingGlobalVideos = Array.isArray(sessionDetails.global_videos)
+    ? sessionDetails.global_videos
+    : Array.isArray(sessionDetails.globalVideos)
+      ? sessionDetails.globalVideos
+      : [];
+  let foundGlobalVideo = false;
+  const nextGlobalVideos = existingGlobalVideos.map((existingGlobalVideo) => {
+    if (getGlobalVideoId(existingGlobalVideo) !== globalVideoId) {
+      return existingGlobalVideo;
+    }
+    foundGlobalVideo = true;
+    return {
+      ...existingGlobalVideo,
+      ...globalVideo,
+    };
+  });
+
+  if (!foundGlobalVideo) {
+    nextGlobalVideos.push(globalVideo);
+  }
+
+  return {
+    ...sessionDetails,
+    global_videos: nextGlobalVideos,
+    globalVideos: nextGlobalVideos,
+  };
 }
 
 function formatRecordingTime(seconds) {
@@ -364,6 +414,97 @@ function resolveSessionDuration(sessionDetails = {}, latestHintEndTime = 0) {
     Number.isFinite(latestHintEndTime) ? latestHintEndTime : 0,
     1
   );
+}
+
+function normalizeAudioLayerType(value = '') {
+  return typeof value === 'string' ? value.trim().toLowerCase().replace(/[\s-]+/g, '_') : '';
+}
+
+const GENERATED_SPEECH_AUDIO_LAYER_TYPES = new Set([
+  'speech',
+  'custom_speech',
+  'recorded_speech',
+  'lip_sync',
+]);
+
+function isGeneratedSpeechAudioLayer(audioLayer = {}) {
+  const audioType = normalizeAudioLayerType(
+    audioLayer?.generationType
+    || audioLayer?.type
+    || audioLayer?.audioType
+    || audioLayer?.sourceType
+    || audioLayer?.source
+    || audioLayer?.generationMeta?.sourceType
+  );
+  const libraryType = normalizeAudioLayerType(audioLayer?.libraryType);
+  return GENERATED_SPEECH_AUDIO_LAYER_TYPES.has(audioType) || libraryType === 'speech';
+}
+
+function collectSessionSpeechAudioLayers(sessionDetails = {}) {
+  const audioLayerGroups = [
+    sessionDetails?.audioLayers,
+    sessionDetails?.audio_layers,
+    sessionDetails?.global_audio_layers,
+    sessionDetails?.globalAudioLayers,
+  ];
+  const seenLayerIds = new Set();
+  const audioLayers = [];
+
+  audioLayerGroups.forEach((group) => {
+    if (!Array.isArray(group)) {
+      return;
+    }
+
+    group.forEach((audioLayer) => {
+      const layerId = audioLayer?._id?.toString?.() || audioLayer?.id?.toString?.() || '';
+      if (layerId) {
+        if (seenLayerIds.has(layerId)) {
+          return;
+        }
+        seenLayerIds.add(layerId);
+      }
+      audioLayers.push(audioLayer);
+    });
+  });
+
+  return audioLayers;
+}
+
+function hasAudioLayerSource(audioLayer = {}) {
+  const sources = [
+    audioLayer.selectedLocalAudioLink,
+    ...(Array.isArray(audioLayer.localAudioLinks) ? audioLayer.localAudioLinks : []),
+    audioLayer.selectedRemoteAudioLink,
+    ...(Array.isArray(audioLayer.remoteAudioLinks) ? audioLayer.remoteAudioLinks : []),
+    audioLayer.audioLink,
+    audioLayer.url,
+    ...(Array.isArray(audioLayer.remoteAudioData)
+      ? audioLayer.remoteAudioData.map((audioData) => audioData?.audio_url || audioData?.audioUrl)
+      : []),
+  ];
+  return sources.some((source) => typeof source === 'string' && source.trim());
+}
+
+function getGeneratedSpeechAudioSummary(sessionDetails = {}) {
+  const audioLayers = collectSessionSpeechAudioLayers(sessionDetails);
+  const speechLayers = audioLayers.filter((audioLayer) => (
+    isGeneratedSpeechAudioLayer(audioLayer) && hasAudioLayerSource(audioLayer)
+  ));
+  const durationSeconds = speechLayers.reduce((latestEndTime, audioLayer) => {
+    const startTime = Math.max(0, Number(audioLayer?.startTime) || 0);
+    const endTime = Number(audioLayer?.endTime);
+    const duration = Number(audioLayer?.duration);
+    const layerEndTime = Number.isFinite(endTime) && endTime > startTime
+      ? endTime
+      : startTime + (Number.isFinite(duration) && duration > 0 ? duration : 0);
+    return Math.max(latestEndTime, layerEndTime);
+  }, 0);
+
+  return {
+    count: speechLayers.length,
+    durationSeconds,
+    hasAudio: speechLayers.length > 0,
+  };
 }
 
 function getHintCueKey(hintCue = {}) {
@@ -513,6 +654,7 @@ export default function RecordSpeechSection({
   const [selectedAvatarTaskId, setSelectedAvatarTaskId] = useState('');
   const [avatarVoices, setAvatarVoices] = useState([]);
   const [selectedAvatarVoiceId, setSelectedAvatarVoiceId] = useState('victoria');
+  const [avatarVideoAudioSource, setAvatarVideoAudioSource] = useState(AVATAR_VIDEO_AUDIO_SOURCE_SESSION_SPEECH);
   const [selectedAvatarSpeechProvider, setSelectedAvatarSpeechProvider] = useState('OPENAI');
   const [selectedAvatarSpeechSpeaker, setSelectedAvatarSpeechSpeaker] = useState('alloy');
   const [avatarError, setAvatarError] = useState('');
@@ -612,6 +754,12 @@ export default function RecordSpeechSection({
     latestHintEndTime,
     sessionDetails,
   ]);
+  const generatedSpeechAudioSummary = useMemo(
+    () => getGeneratedSpeechAudioSummary(sessionDetails),
+    [sessionDetails]
+  );
+  const usesSessionSpeechForAvatarVideo = avatarVideoAudioSource === AVATAR_VIDEO_AUDIO_SOURCE_SESSION_SPEECH;
+  const usesHintSpeechForAvatarVideo = avatarVideoAudioSource === AVATAR_VIDEO_AUDIO_SOURCE_HINT_SPEECH;
   const selectedAvatarTask = useMemo(() => {
     if (!avatarTasks.length) {
       return null;
@@ -680,11 +828,16 @@ export default function RecordSpeechSection({
       selectedAvatarSpeechStatus === 'COMPLETED'
       || ['SPEECH_READY', 'VIDEO_PROCESSING', 'VIDEO_COMPLETED', 'SAVED', 'ACCEPTED'].includes(selectedAvatarStatus)
     );
+  const avatarVideoAudioReady = usesSessionSpeechForAvatarVideo
+    ? generatedSpeechAudioSummary.hasAudio
+    : avatarSpeechReady;
   const avatarVideoPricingDurationSeconds = Number(selectedAvatarTask?.pricingDurationSeconds) > 0
     ? Number(selectedAvatarTask.pricingDurationSeconds)
-    : Number(selectedAvatarTask?.avatarSpeechDuration) > 0
-      ? Number(selectedAvatarTask.avatarSpeechDuration)
-      : latestHintEndTime || 1;
+    : usesSessionSpeechForAvatarVideo && Number(generatedSpeechAudioSummary.durationSeconds) > 0
+      ? Number(generatedSpeechAudioSummary.durationSeconds)
+      : Number(selectedAvatarTask?.avatarSpeechDuration) > 0
+        ? Number(selectedAvatarTask.avatarSpeechDuration)
+        : latestHintEndTime || 1;
   const avatarVideoCreditEstimate = useMemo(
     () => estimateAvatarVideoCreditCost(avatarVideoPricingDurationSeconds),
     [avatarVideoPricingDurationSeconds]
@@ -696,22 +849,42 @@ export default function RecordSpeechSection({
   ].join(' ');
   const avatarVideoDisabledReason = !avatarImageReady
     ? ''
-    : !runwayAvatarReady
-      ? avatarGenerationStarted
-        ? 'Avatar is still generating.'
-        : 'Generate avatar before creating the video.'
-      : !avatarSpeechReady
+    : !runwayAvatarReady && avatarGenerationStarted
+      ? 'Avatar is still preparing.'
+      : usesSessionSpeechForAvatarVideo && !generatedSpeechAudioSummary.hasAudio
+        ? 'Generated session speech is not ready.'
+      : usesHintSpeechForAvatarVideo && !avatarSpeechReady
         ? ['INIT', 'PENDING', 'PROCESSING'].includes(selectedAvatarSpeechStatus)
           ? 'Speech is still generating.'
           : 'Generate speech from hints before creating the video.'
-      : speechHintCues.length === 0
+      : usesHintSpeechForAvatarVideo && speechHintCues.length === 0
         ? 'Timeline hints unavailable.'
         : '';
+  const avatarVideoActionLabel = !runwayAvatarReady
+    ? avatarGenerationStarted
+      ? 'Preparing avatar'
+      : 'Prepare avatar'
+    : 'Generate avatar video';
   const avatarVideoReady = Boolean(selectedAvatarVideoUrl)
     || ['VIDEO_COMPLETED', 'SAVED', 'ACCEPTED'].includes(selectedAvatarStatus);
   const avatarVideoTerminal = ['FAILED', 'CANCELLED'].includes(selectedAvatarVideoStatus)
     || ['FAILED', 'REJECTED'].includes(selectedAvatarStatus);
-  const avatarTaskBusy = Boolean(selectedAvatarTask) && isAvatarTaskPolling(selectedAvatarTask);
+  const acceptedGlobalVideoId = getGlobalVideoId({ globalVideoId: selectedAvatarTask?.globalVideoId });
+  const acceptedGlobalVideo = acceptedGlobalVideoId
+    ? (
+      sessionDetails?.global_videos
+      || sessionDetails?.globalVideos
+      || []
+    ).find((globalVideo) => getGlobalVideoId(globalVideo) === acceptedGlobalVideoId)
+    : null;
+  const acceptedAvatarVideoNeedsRepair = selectedAvatarStatus === 'ACCEPTED'
+    && (
+      !acceptedGlobalVideoId
+      || !acceptedGlobalVideo
+      || shouldPollGlobalVideoProcessing({}, acceptedGlobalVideo)
+    );
+  const avatarTaskBusy = Boolean(selectedAvatarTask)
+    && isAvatarTaskPolling(selectedAvatarTask, { includeSpeech: usesHintSpeechForAvatarVideo });
   const avatarAnyActionPending = isAvatarImageGenerating
     || isUserRunwayAvatarSelecting
     || isRunwayAvatarCreating
@@ -720,9 +893,6 @@ export default function RecordSpeechSection({
     || isAvatarVideoAccepting
     || isAvatarVideoSaving
     || isAvatarRejecting;
-  const avatarVoiceOptions = avatarVoices.length
-    ? avatarVoices
-    : [{ presetId: 'victoria', name: 'Victoria' }];
   const avatarSpeechProviderOptions = AVATAR_TTS_PROVIDER_OPTIONS;
   const avatarSpeechSpeakerOptions = useMemo(() => {
     return getAvatarSpeechSpeakerOptions(selectedAvatarSpeechProvider, combinedTtsSpeakerTypes);
@@ -1069,16 +1239,16 @@ export default function RecordSpeechSection({
     }
   };
 
-  const handleCreateRunwayAvatar = async () => {
+  const handleCreateRunwayAvatar = async ({ silent = false } = {}) => {
     if (!selectedAvatarTaskIdValue || !avatarImageReady) {
       setAvatarError('Generate or select an avatar image first.');
-      return;
+      return null;
     }
 
     const headers = getHeaders();
     if (!headers) {
       setAvatarError('You must be logged in to create an avatar.');
-      return;
+      return null;
     }
 
     setIsRunwayAvatarCreating(true);
@@ -1091,12 +1261,16 @@ export default function RecordSpeechSection({
       applyAvatarVoices(response?.data?.voices);
       mergeAvatarTask(response?.data?.task);
       loadUserRunwayAvatars({ silent: true }).catch(() => {});
-      toast.success('Avatar generation started.', {
-        position: 'bottom-center',
-        className: 'custom-toast',
-      });
+      if (!silent) {
+        toast.success('Avatar generation started.', {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        });
+      }
+      return response?.data?.task || null;
     } catch (error) {
       setAvatarError(error?.response?.data?.error || 'Unable to create avatar.');
+      return null;
     } finally {
       setIsRunwayAvatarCreating(false);
     }
@@ -1193,17 +1367,41 @@ export default function RecordSpeechSection({
   };
 
   const handleGenerateAvatarVideoFromHints = async () => {
-    if (!selectedAvatarTaskIdValue || !runwayAvatarReady) {
-      setAvatarError('Create the avatar before generating a video.');
+    if (!selectedAvatarTaskIdValue || !avatarImageReady) {
+      setAvatarError('Generate or select an avatar image first.');
       return;
     }
-    if (speechHintCues.length === 0) {
+    if (usesHintSpeechForAvatarVideo && speechHintCues.length === 0) {
       setAvatarError('Timeline hints are required before generating avatar video.');
       return;
     }
-    if (!avatarSpeechReady) {
+    if (usesHintSpeechForAvatarVideo && !avatarSpeechReady) {
       setAvatarError('Generate speech from hints before generating avatar video.');
       return;
+    }
+    if (usesSessionSpeechForAvatarVideo && !generatedSpeechAudioSummary.hasAudio) {
+      setAvatarError('Generated session speech is not ready.');
+      return;
+    }
+    if (!runwayAvatarReady) {
+      if (avatarGenerationStarted || avatarTaskBusy) {
+        setAvatarError('Avatar is still preparing.');
+        return;
+      }
+
+      const preparedTask = await handleCreateRunwayAvatar({ silent: true });
+      const preparedAvatarReady = Boolean(preparedTask?.runwayAvatarId)
+        && (
+          normalizeAvatarTaskStatus(preparedTask?.runwayAvatarStatus) === 'READY'
+          || normalizeAvatarTaskStatus(preparedTask?.status) === 'AVATAR_READY'
+        );
+      if (!preparedAvatarReady) {
+        toast.success('Avatar is being prepared. Generate the video when it is ready.', {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        });
+        return;
+      }
     }
 
     const headers = getHeaders();
@@ -1217,6 +1415,7 @@ export default function RecordSpeechSection({
     try {
       const response = await axios.post(`${PROCESSOR_API_URL}/video_sessions/avatar_voiceover/generate_video_from_hints`, {
         taskId: selectedAvatarTaskIdValue,
+        audioSource: avatarVideoAudioSource,
       }, headers);
       applyAvatarVoices(response?.data?.voices);
       mergeAvatarTask(response?.data?.task);
@@ -1253,8 +1452,23 @@ export default function RecordSpeechSection({
         shapeOverlay: facecamShapeOverlay,
       }, headers);
       mergeAvatarTask(response?.data?.task);
-      if (response?.data?.sessionDetails && typeof onAvatarVoiceoverSessionChange === 'function') {
-        onAvatarVoiceoverSessionChange(response.data.sessionDetails);
+      let nextSessionDetails = response?.data?.sessionDetails || null;
+      let acceptedGlobalVideo = response?.data?.globalVideo || null;
+      if (nextSessionDetails && typeof onAvatarVoiceoverSessionChange === 'function') {
+        onAvatarVoiceoverSessionChange(nextSessionDetails);
+      }
+      if (acceptedGlobalVideo && shouldPollGlobalVideoProcessing(response?.data, acceptedGlobalVideo)) {
+        acceptedGlobalVideo = await pollGlobalVideoProcessing({
+          sessionId: sessionDetails?._id?.toString?.() || nextSessionDetails?._id?.toString?.(),
+          globalVideo: acceptedGlobalVideo,
+          headers,
+          failureMessage: 'Unable to process avatar video for the session.',
+          timeoutMessage: 'Avatar video was added, but processing is still running. Please try again in a moment.',
+        });
+        nextSessionDetails = mergeGlobalVideoIntoSessionDetails(nextSessionDetails || sessionDetails, acceptedGlobalVideo);
+        if (nextSessionDetails && typeof onAvatarVoiceoverSessionChange === 'function') {
+          onAvatarVoiceoverSessionChange(nextSessionDetails);
+        }
       }
       toast.success('Avatar voiceover added to the session.', {
         position: 'bottom-center',
@@ -2538,30 +2752,147 @@ export default function RecordSpeechSection({
 
             {avatarImageReady && (
               <div className="grid gap-2">
-                <label className="block">
-                  <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Avatar voice</span>
-                  <select
-                    value={selectedAvatarVoiceId}
-                    onChange={(event) => setSelectedAvatarVoiceId(event.target.value)}
-                    disabled={avatarAnyActionPending || avatarTaskBusy}
-                    className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
-                  >
-                    {avatarVoiceOptions.map((voice) => (
-                      <option key={voice.presetId} value={voice.presetId}>
-                        {voice.name || voice.presetId}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleCreateRunwayAvatar}
-                  disabled={isRunwayAvatarCreating || avatarTaskBusy || !selectedAvatarTaskIdValue}
-                  className={`${avatarSecondaryButtonClass} w-full`}
-                >
-                  {isRunwayAvatarCreating ? <FaSyncAlt className="animate-spin" aria-hidden="true" /> : <FaUserCircle aria-hidden="true" />}
-                  <span>{runwayAvatarReady ? 'Generate avatar again' : 'Generate avatar'}</span>
-                </button>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="tablist" aria-label="Avatar audio source">
+                  {AVATAR_VIDEO_AUDIO_SOURCE_OPTIONS.map((audioSourceOption) => {
+                    const isSelectedAudioSource = avatarVideoAudioSource === audioSourceOption.value;
+                    const Icon = audioSourceOption.value === AVATAR_VIDEO_AUDIO_SOURCE_SESSION_SPEECH
+                      ? FaMicrophone
+                      : FaLightbulb;
+                    return (
+                      <button
+                        key={audioSourceOption.value}
+                        type="button"
+                        role="tab"
+                        aria-selected={isSelectedAudioSource}
+                        onClick={() => setAvatarVideoAudioSource(audioSourceOption.value)}
+                        disabled={avatarAnyActionPending || avatarTaskBusy}
+                        className={isSelectedAudioSource ? selectedModeButtonClass : unselectedModeButtonClass}
+                      >
+                        <Icon aria-hidden="true" />
+                        <span>{audioSourceOption.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {usesSessionSpeechForAvatarVideo && generatedSpeechAudioSummary.hasAudio && (
+                  <div className={`rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
+                    Using {generatedSpeechAudioSummary.count} generated speech layer{generatedSpeechAudioSummary.count === 1 ? '' : 's'} for lip sync.
+                  </div>
+                )}
+
+                {usesHintSpeechForAvatarVideo && (
+                  speechHintCues.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={onSetAvatarHints}
+                      disabled={typeof onSetAvatarHints !== 'function'}
+                      className={`${avatarSecondaryButtonClass} w-full`}
+                    >
+                      <FaLightbulb aria-hidden="true" />
+                      <span>Set hints</span>
+                    </button>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <label className="block">
+                          <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speech provider</span>
+                          <select
+                            value={selectedAvatarSpeechProvider}
+                            onChange={(event) => handleAvatarSpeechProviderChange(event.target.value)}
+                            disabled={avatarAnyActionPending || avatarTaskBusy}
+                            className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+                          >
+                            {avatarSpeechProviderOptions.map((providerOption) => (
+                              <option key={providerOption.value} value={providerOption.value}>
+                                {providerOption.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="block">
+                          <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speaker</span>
+                          <select
+                            value={selectedAvatarSpeechSpeaker}
+                            onChange={(event) => handleAvatarSpeechSpeakerChange(event.target.value)}
+                            disabled={avatarAnyActionPending || avatarTaskBusy || avatarSpeechSpeakerOptions.length === 0}
+                            className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+                          >
+                            {avatarSpeechSpeakerOptions.map((speakerOption) => (
+                              <option key={`${speakerOption.provider}:${speakerOption.value}`} value={speakerOption.value}>
+                                {speakerOption.label || speakerOption.name || speakerOption.value}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleGenerateAvatarSpeechFromHints}
+                        disabled={isAvatarSpeechGenerating || avatarTaskBusy || !selectedAvatarSpeechSpeakerOption}
+                        className={`${avatarSecondaryButtonClass} w-full`}
+                      >
+                        {isAvatarSpeechGenerating || ['INIT', 'PENDING', 'PROCESSING'].includes(selectedAvatarSpeechStatus)
+                          ? <FaSyncAlt className="animate-spin" aria-hidden="true" />
+                          : <FaMicrophone aria-hidden="true" />}
+                        <span>{avatarSpeechReady ? 'Generate speech again' : 'Generate speech from hints'}</span>
+                      </button>
+                      {selectedAvatarSpeechAudioUrl && (
+                        <div className={`overflow-hidden rounded-lg border ${borderColor}`}>
+                          <div className={`flex items-center justify-between gap-2 px-3 py-2 text-xs ${mutedText}`}>
+                            <span className="inline-flex min-w-0 items-center gap-2 truncate">
+                              <FaMicrophone className="shrink-0" aria-hidden="true" />
+                              <span className="truncate">Speech preview</span>
+                            </span>
+                            <span className="shrink-0">{selectedAvatarTask?.speechSpeakerName || selectedAvatarSpeechSpeakerLabel}</span>
+                          </div>
+                          <audio
+                            src={selectedAvatarSpeechAudioUrl}
+                            controls
+                            className="w-full px-3 pb-3"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )
+                )}
+
+                {(usesSessionSpeechForAvatarVideo || speechHintCues.length > 0) && (
+                  <>
+                    <div className={`flex items-center justify-between gap-3 rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
+                      <span>Avatar video cost</span>
+                      <span className={`inline-flex items-center gap-1 font-semibold ${text2Color}`}>
+                        {avatarVideoCreditEstimate.creditsToCharge} credits
+                        <span
+                          className="inline-flex cursor-help items-center"
+                          data-tooltip-id="avatarVideoCostTooltip"
+                          data-tooltip-content={avatarVideoCostTooltip}
+                          aria-label="Avatar video credit calculation"
+                        >
+                          <FaQuestionCircle className="text-[11px]" aria-hidden="true" />
+                        </span>
+                      </span>
+                      <Tooltip id="avatarVideoCostTooltip" place="top" effect="solid" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGenerateAvatarVideoFromHints}
+                      disabled={isAvatarVideoGenerating || isRunwayAvatarCreating || avatarTaskBusy || !avatarVideoAudioReady}
+                      className={`${avatarPrimaryButtonClass} w-full`}
+                    >
+                      {isAvatarVideoGenerating || isRunwayAvatarCreating || (!runwayAvatarReady && avatarGenerationStarted)
+                        ? <FaSyncAlt className="animate-spin" aria-hidden="true" />
+                        : <FaVideo aria-hidden="true" />}
+                      <span>{avatarVideoActionLabel}</span>
+                    </button>
+                  </>
+                )}
+
+                {avatarVideoDisabledReason && (usesSessionSpeechForAvatarVideo || speechHintCues.length > 0) && (
+                  <div className={`rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
+                    {avatarVideoDisabledReason}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2608,113 +2939,6 @@ export default function RecordSpeechSection({
               </div>
             )}
 
-            {avatarImageReady && (
-              <div className="grid gap-2">
-                {speechHintCues.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={onSetAvatarHints}
-                    disabled={typeof onSetAvatarHints !== 'function'}
-                    className={`${avatarSecondaryButtonClass} w-full`}
-                  >
-                    <FaLightbulb aria-hidden="true" />
-                    <span>Set hints</span>
-                  </button>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      <label className="block">
-                        <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speech provider</span>
-                        <select
-                          value={selectedAvatarSpeechProvider}
-                          onChange={(event) => handleAvatarSpeechProviderChange(event.target.value)}
-                          disabled={avatarAnyActionPending || avatarTaskBusy}
-                          className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
-                        >
-                          {avatarSpeechProviderOptions.map((providerOption) => (
-                            <option key={providerOption.value} value={providerOption.value}>
-                              {providerOption.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="block">
-                        <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speaker</span>
-                        <select
-                          value={selectedAvatarSpeechSpeaker}
-                          onChange={(event) => handleAvatarSpeechSpeakerChange(event.target.value)}
-                          disabled={avatarAnyActionPending || avatarTaskBusy || avatarSpeechSpeakerOptions.length === 0}
-                          className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
-                        >
-                          {avatarSpeechSpeakerOptions.map((speakerOption) => (
-                            <option key={`${speakerOption.provider}:${speakerOption.value}`} value={speakerOption.value}>
-                              {speakerOption.label || speakerOption.name || speakerOption.value}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleGenerateAvatarSpeechFromHints}
-                      disabled={isAvatarSpeechGenerating || avatarTaskBusy || !selectedAvatarSpeechSpeakerOption}
-                      className={`${avatarSecondaryButtonClass} w-full`}
-                    >
-                      {isAvatarSpeechGenerating || ['INIT', 'PENDING', 'PROCESSING'].includes(selectedAvatarSpeechStatus)
-                        ? <FaSyncAlt className="animate-spin" aria-hidden="true" />
-                        : <FaMicrophone aria-hidden="true" />}
-                      <span>{avatarSpeechReady ? 'Generate speech again' : 'Generate speech from hints'}</span>
-                    </button>
-                    {selectedAvatarSpeechAudioUrl && (
-                      <div className={`overflow-hidden rounded-lg border ${borderColor}`}>
-                        <div className={`flex items-center justify-between gap-2 px-3 py-2 text-xs ${mutedText}`}>
-                          <span className="inline-flex min-w-0 items-center gap-2 truncate">
-                            <FaMicrophone className="shrink-0" aria-hidden="true" />
-                            <span className="truncate">Speech preview</span>
-                          </span>
-                          <span className="shrink-0">{selectedAvatarTask?.speechSpeakerName || selectedAvatarSpeechSpeakerLabel}</span>
-                        </div>
-                        <audio
-                          src={selectedAvatarSpeechAudioUrl}
-                          controls
-                          className="w-full px-3 pb-3"
-                        />
-                      </div>
-                    )}
-                    <div className={`flex items-center justify-between gap-3 rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
-                      <span>Avatar video cost</span>
-                      <span className={`inline-flex items-center gap-1 font-semibold ${text2Color}`}>
-                        {avatarVideoCreditEstimate.creditsToCharge} credits
-                        <span
-                          className="inline-flex cursor-help items-center"
-                          data-tooltip-id="avatarVideoCostTooltip"
-                          data-tooltip-content={avatarVideoCostTooltip}
-                          aria-label="Avatar video credit calculation"
-                        >
-                          <FaQuestionCircle className="text-[11px]" aria-hidden="true" />
-                        </span>
-                      </span>
-                      <Tooltip id="avatarVideoCostTooltip" place="top" effect="solid" />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleGenerateAvatarVideoFromHints}
-                      disabled={isAvatarVideoGenerating || avatarTaskBusy || !runwayAvatarReady || !avatarSpeechReady}
-                      className={`${avatarPrimaryButtonClass} w-full`}
-                    >
-                      {isAvatarVideoGenerating ? <FaSyncAlt className="animate-spin" aria-hidden="true" /> : <FaVideo aria-hidden="true" />}
-                      <span>Generate avatar video</span>
-                    </button>
-                  </>
-                )}
-                {avatarVideoDisabledReason && speechHintCues.length > 0 && (
-                  <div className={`rounded-lg border ${borderColor} px-3 py-2 text-xs ${mutedText}`}>
-                    {avatarVideoDisabledReason}
-                  </div>
-                )}
-              </div>
-            )}
-
             {selectedAvatarVideoUrl && (
               <div className={`overflow-hidden rounded-lg border ${borderColor}`}>
                 <div className={`flex items-center justify-between gap-2 px-3 py-2 text-xs ${mutedText}`}>
@@ -2738,11 +2962,11 @@ export default function RecordSpeechSection({
                 <button
                   type="button"
                   onClick={handleAcceptAvatarVideo}
-                  disabled={isAvatarVideoAccepting || selectedAvatarStatus === 'ACCEPTED'}
+                  disabled={isAvatarVideoAccepting || (selectedAvatarStatus === 'ACCEPTED' && !acceptedAvatarVideoNeedsRepair)}
                   className={`${avatarPrimaryButtonClass} w-full`}
                 >
                   {isAvatarVideoAccepting ? <FaSyncAlt className="animate-spin" aria-hidden="true" /> : <FaCheck aria-hidden="true" />}
-                  <span>Accept</span>
+                  <span>{acceptedAvatarVideoNeedsRepair ? 'Retry accept' : 'Accept'}</span>
                 </button>
                 <button
                   type="button"

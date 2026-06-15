@@ -115,7 +115,7 @@ const TextTrackDisplay = (props) => {
     ? 'bg-[#0b1220] border border-[#273449]'
     : 'bg-slate-100 border border-slate-300';
   const selectedRingClassName = isDisplaySelected
-    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
+    ? 'timeline-layer-range-shell--selected'
     : '';
   const activeTrackStyle = {
     backgroundColor: isDisplaySelected
@@ -154,7 +154,7 @@ const TextTrackDisplay = (props) => {
           e.stopPropagation();
         }}
         onClick={textTrackClicked}
-        className={`track rounded-full text_track-${textItemId} ${className ?? ''}`}
+        className={`track rounded-full text_track-${textItemId} ${isActiveTrack ? 'timeline-layer-range-bar' : ''} ${className ?? ''}`}
       >
         {isActiveTrack ? (
           <>
@@ -200,9 +200,9 @@ const TextTrackDisplay = (props) => {
   return (
     <span className='text-track-slider-component'>
       <div
-        className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2 ${selectedRingClassName}`}
+        className={`timeline-layer-range-shell ${selectedRingClassName}`}
       >
-        <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}>
+        <div className={`timeline-layer-range-surface ${railSurfaceClassName}`}>
           <ReactSlider
             className='vertical-slider w-full relative'
             orientation='vertical'
@@ -227,7 +227,7 @@ const TextTrackDisplay = (props) => {
                 <div
                   key={key}
                   {...thumbProps}
-                  className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
+                  className={`timeline-layer-trim-handle flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
                     colorMode === 'dark'
                       ? 'bg-white border-white/40 text-slate-800'
                       : 'bg-slate-100 border-slate-300 text-slate-700'

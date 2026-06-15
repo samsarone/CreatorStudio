@@ -131,7 +131,7 @@ export default function VisualTrackDisplay(props) {
     ? 'bg-[#0b1220] border border-[#273449]'
     : 'bg-slate-100 border border-slate-300';
   const selectedRingClassName = isDisplaySelected
-    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/45' : 'ring-1 ring-sky-500/45')
+    ? 'timeline-layer-range-shell--selected'
     : '';
 
   const selectTrack = (event) => {
@@ -289,7 +289,7 @@ export default function VisualTrackDisplay(props) {
       <div
         key={key}
         {...restTrackProps}
-        className={`track rounded-full ${className ?? ''}`}
+        className={`track rounded-full ${isActiveTrack ? 'timeline-layer-range-bar' : ''} ${className ?? ''}`}
         style={{
           ...style,
           bottom: isActiveTrack
@@ -300,7 +300,7 @@ export default function VisualTrackDisplay(props) {
           width: isActiveTrack ? '16px' : '4px',
           left: '50%',
           transform: 'translateX(-50%)',
-          cursor: isActiveTrack ? 'pointer' : 'default',
+          cursor: isActiveTrack ? 'grab' : 'default',
           overflow: 'hidden',
         }}
         onClick={selectTrack}
@@ -320,9 +320,9 @@ export default function VisualTrackDisplay(props) {
   return (
     <div
       ref={sliderContainerRef}
-      className={`relative mr-2 inline-flex h-full w-[42px] min-w-[42px] items-stretch justify-center rounded-[24px] px-2 ${selectedRingClassName}`}
+      className={`timeline-layer-range-shell ${selectedRingClassName}`}
     >
-      <div className={`relative h-full w-full overflow-visible rounded-[20px] ${railSurfaceClassName}`}>
+      <div className={`timeline-layer-range-surface ${railSurfaceClassName}`}>
         <ReactSlider
           className="w-full relative"
           orientation="vertical"
@@ -350,7 +350,7 @@ export default function VisualTrackDisplay(props) {
               <div
                 key={key}
                 {...restThumbProps}
-                className={`flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
+                className={`timeline-layer-trim-handle flex items-center justify-center rounded-full border shadow w-[18px] h-[10px] ${
                   colorMode === 'dark'
                     ? 'bg-white border-white/40 text-slate-800'
                     : 'bg-slate-100 border-slate-300 text-slate-700'

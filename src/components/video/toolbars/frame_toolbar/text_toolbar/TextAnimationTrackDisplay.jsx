@@ -78,7 +78,7 @@ export default function TextAnimationTrackDisplay(props) {
     ? 'bg-[#0b1220] border border-[#273449]'
     : 'bg-slate-100 border border-slate-300';
   const selectedRingClassName = isAnimationSelected
-    ? (colorMode === 'dark' ? 'ring-1 ring-cyan-300/40' : 'ring-1 ring-sky-500/40')
+    ? 'timeline-layer-range-shell--selected'
     : '';
   const activeTrackStyle = {
     backgroundColor: isAnimationSelected
@@ -92,9 +92,9 @@ export default function TextAnimationTrackDisplay(props) {
 
   return (
     <div
-      className={`relative mr-2 inline-flex h-full w-[32px] min-w-[32px] items-stretch justify-center rounded-[20px] px-[3px] ${selectedRingClassName}`}
+      className={`timeline-layer-range-shell timeline-layer-range-shell--compact ${selectedRingClassName}`}
     >
-      <div className={`relative h-full w-full overflow-visible rounded-[16px] ${railSurfaceClassName}`}>
+      <div className={`timeline-layer-range-surface ${railSurfaceClassName}`}>
         <ReactSlider
           className="vertical-slider w-full relative"
           orientation="vertical"
@@ -122,7 +122,7 @@ export default function TextAnimationTrackDisplay(props) {
               <div
                 key={key}
                 {...trackProps}
-                className={`track rounded-full text-animation-track ${isAnimationSelected ? 'animation-selected' : ''} ${className ?? ''}`}
+                className={`track rounded-full text-animation-track ${isActiveTrack ? 'timeline-layer-range-bar' : ''} ${isAnimationSelected ? 'animation-selected' : ''} ${className ?? ''}`}
                 style={{
                   ...style,
                   bottom: isActiveTrack

@@ -1183,56 +1183,60 @@ export default function MusicLibraryHome({
     <div className={`h-full min-h-0 w-full overflow-y-auto px-3 pt-3 pb-40 lg:pb-48 ${textColor}`}>
       <div className="space-y-4">
         <div className={`sticky top-0 z-20 rounded-2xl border ${borderColor} ${cardBg} p-3 shadow-sm`}>
-          <div className="flex min-w-0 items-center gap-3 overflow-x-auto pb-1">
-            <div className="min-w-[150px] shrink-0">
-              <h1 className="text-lg font-bold">Audio Library</h1>
-              <p className={`mt-0.5 text-xs ${mutedText}`}>
-                {getScopeLabel(selectedScope)} {getAudioTypeLabel(selectedAudioType)} artefacts - {activeAudioItems.length} items
-              </p>
+          <div className="flex min-w-0 flex-col gap-3">
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="min-w-[150px] shrink-0">
+                <h1 className="text-lg font-bold">Audio Library</h1>
+                <p className={`mt-0.5 text-xs ${mutedText}`}>
+                  {getScopeLabel(selectedScope)} {getAudioTypeLabel(selectedAudioType)} artefacts - {activeAudioItems.length} items
+                </p>
+              </div>
+
+              <div className={`flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border ${borderColor} ${surfaceButton} px-3`}>
+                <FaSearch className={`shrink-0 text-sm ${mutedText}`} />
+                <input
+                  type="text"
+                  placeholder="Search audio"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full min-w-0 bg-transparent text-sm focus:outline-none"
+                />
+              </div>
             </div>
 
-            <div className={`flex h-10 min-w-[220px] flex-1 items-center gap-2 rounded-lg border ${borderColor} ${surfaceButton} px-3`}>
-              <FaSearch className={`shrink-0 text-sm ${mutedText}`} />
-              <input
-                type="text"
-                placeholder="Search audio"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full min-w-0 bg-transparent text-sm focus:outline-none"
-              />
-            </div>
+            <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {[LIBRARY_SCOPE_PROJECT, LIBRARY_SCOPE_GLOBAL].map((scope) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    onClick={() => setSelectedScope(scope)}
+                    className={`h-10 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold ${borderColor} ${
+                      selectedScope === scope ? activeButton : surfaceButton
+                    }`}
+                  >
+                    {getScopeLabel(scope)}
+                  </button>
+                ))}
 
-            <div className="flex shrink-0 items-center gap-2">
-              {[LIBRARY_SCOPE_PROJECT, LIBRARY_SCOPE_GLOBAL].map((scope) => (
-                <button
-                  key={scope}
-                  type="button"
-                  onClick={() => setSelectedScope(scope)}
-                  className={`h-10 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold ${borderColor} ${
-                    selectedScope === scope ? activeButton : surfaceButton
-                  }`}
-                >
-                  {getScopeLabel(scope)}
-                </button>
-              ))}
-            </div>
+                {[AUDIO_TYPE_MUSIC, AUDIO_TYPE_SPEECH, AUDIO_TYPE_SOUND_EFFECT].map((audioType) => (
+                  <button
+                    key={audioType}
+                    type="button"
+                    onClick={() => setSelectedAudioType(audioType)}
+                    className={`h-10 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold ${borderColor} ${
+                      selectedAudioType === audioType ? activeButton : `${surfaceButton} ${headerBg}`
+                    }`}
+                  >
+                    {getAudioTypeLabel(audioType)}
+                  </button>
+                ))}
+              </div>
 
-            <div className="flex shrink-0 items-center gap-2">
-              {[AUDIO_TYPE_MUSIC, AUDIO_TYPE_SPEECH, AUDIO_TYPE_SOUND_EFFECT].map((audioType) => (
-                <button
-                  key={audioType}
-                  type="button"
-                  onClick={() => setSelectedAudioType(audioType)}
-                  className={`h-10 whitespace-nowrap rounded-lg border px-3 text-sm font-semibold ${borderColor} ${
-                    selectedAudioType === audioType ? activeButton : `${surfaceButton} ${headerBg}`
-                  }`}
-                >
-                  {getAudioTypeLabel(audioType)}
-                </button>
-              ))}
+              <div className="flex shrink-0 justify-end">
+                {renderAudioPaginationControls()}
+              </div>
             </div>
-
-            {renderAudioPaginationControls()}
           </div>
         </div>
 
