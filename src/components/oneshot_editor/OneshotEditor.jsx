@@ -27,6 +27,8 @@ import {
   FaStopCircle,
   FaPause,
   FaPlay,
+  FaRedo,
+  FaCheck,
 } from 'react-icons/fa';
 import axios from 'axios';
 
@@ -79,6 +81,11 @@ const VIDEO_API_BASE = `${API_SERVER}/v2`;
 const VIDEO_STATUS_ENDPOINT = `${API_SERVER}/v2/status`;
 const VIDEO_STATUS_DETAILED_ENDPOINT = `${API_SERVER}/v2/status_detailed`;
 const VIDEO_STEP_API_BASE = `${VIDEO_API_BASE}/video/step`;
+const STATIC_ASSET_BASE_URL = (
+  CDN_URI ||
+  'https://static.samsar.one'
+).replace(/\/+$/, '');
+const USER_RESOURCES_PREFIX = 'user_resources/';
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 const POST_PROCESSING_PENDING_SESSION_KEY = 'vidgeniePostProcessingPendingSession';
 const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
@@ -185,10 +192,12 @@ const DEFAULT_POST_PROCESSING_FORM = Object.freeze({
   footerCtaText: '',
   footerCtaLogo: '',
   footerCtaUrl: '',
+  rerollLayerIndexes: [],
 });
 const POST_PROCESSING_ACTIONS = Object.freeze([
   { key: 'generated_outro', label: 'Outro CTA', icon: FaImage },
   { key: 'footer_cta', label: 'Footer CTA', icon: FaLink },
+  { key: 'reroll_layers', label: 'Reroll layers', icon: FaRedo },
   { key: 'advanced_edits', label: 'Edits', icon: FaCog },
 ]);
 const INITIAL_EXPRESS_GENERATION_STATUS = Object.freeze({
@@ -368,6 +377,126 @@ function payloadRequestsGeneratedOutro(payload) {
 
 function createDefaultPostProcessingForm() {
   return cloneJsonValue(DEFAULT_POST_PROCESSING_FORM);
+}
+
+function normalizeRerollLayerIndexes(value) {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : [];
+  const indexes = source
+    .map((item) => Number(item))
+    .filter((item) => Number.isInteger(item) && item >= 1);
+  return [...new Set(indexes)].sort((a, b) => a - b);
+}
+
+function normalizeRerollLayerType(layer) {
+  const value = layer?.layerBaseAiImageType || layer?.layerAiVideoType;
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function normalizeRerollAssetUrl(url) {
+  if (typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  const relativePath = trimmed.replace(/^\/+/, '');
+  if (relativePath.startsWith(USER_RESOURCES_PREFIX)) {
+    return `${STATIC_ASSET_BASE_URL}/${relativePath}`;
+  }
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    try {
+      const parsedUrl = new URL(trimmed);
+      const pathname = parsedUrl.pathname.replace(/^\/+/, '');
+      if (pathname.startsWith(USER_RESOURCES_PREFIX)) {
+        return `${STATIC_ASSET_BASE_URL}/${pathname}${parsedUrl.search || ''}`;
+      }
+    } catch {
+      return trimmed;
+    }
+    return trimmed;
+  }
+  return `${PROCESSOR_API_URL}/${relativePath}`;
+}
+
+function isRerollCandidateLayer(layer) {
+  const layerType = normalizeRerollLayerType(layer);
+  return Boolean(
+    layer &&
+    layer.skipAiVideoGeneration !== true &&
+    layerType !== 'none' &&
+    layerType !== 'outro'
+  );
+}
+
+function getRawItemAssetUrl(item) {
+  if (!item || typeof item !== 'object') return '';
+  return (
+    item.url ||
+    item.src ||
+    item.imageUrl ||
+    item.image_url ||
+    item.enhanced_url ||
+    item.enhancedUrl ||
+    item.assetPath ||
+    item.path ||
+    (typeof item.image === 'string' && item.image.includes('/') ? item.image : '')
+  );
+}
+
+function getLayerVisualUrl(layer) {
+  const detailedItemUrl = Array.isArray(layer?.image?.items)
+    ? layer.image.items.find((item) => item?.isPrimary)?.url || layer.image.items[0]?.url
+    : '';
+  const rawActiveItems = Array.isArray(layer?.imageSession?.activeItemList)
+    ? layer.imageSession.activeItemList
+    : [];
+  const rawBaseItem = rawActiveItems.find((item) => item?.is_base_image === true) ||
+    rawActiveItems.find((item) => item?.type === 'image') ||
+    rawActiveItems[0] ||
+    null;
+  const candidates = [
+    layer?.preview?.type !== 'video' ? layer?.preview?.url : '',
+    layer?.image?.url,
+    detailedItemUrl,
+    getRawItemAssetUrl(rawBaseItem),
+    layer?.imageSession?.activeImageRemoteLink,
+    layer?.imageSession?.activeGeneratedImage,
+    layer?.imageSession?.activeEditedImage,
+    layer?.imageSession?.activeSelectedImage,
+    layer?.thumbnailPath,
+    layer?.aiVideoThumbnailPath,
+  ];
+  return candidates.map(normalizeRerollAssetUrl).find(Boolean) || '';
+}
+
+function getRerollPromptPreview(layer) {
+  const prompt =
+    layer?.originalImagePrompt ||
+    layer?.sourcePrompt ||
+    layer?.originalPrompt ||
+    layer?.imageSession?.originalImagePrompt ||
+    layer?.imageSession?.sourcePrompt ||
+    layer?.imageSession?.originalPrompt ||
+    layer?.image?.prompt ||
+    layer?.imageSession?.prompt ||
+    layer?.prompt ||
+    '';
+  return typeof prompt === 'string' ? prompt.trim().slice(0, 80) : '';
+}
+
+function getRerollCandidateLayers(session) {
+  const layers = Array.isArray(session?.layers) ? session.layers : [];
+  return layers
+    .map((layer, index) => ({
+      layer,
+      layerIndex: index + 1,
+      layerId: layer?._id || layer?.id || `${index + 1}`,
+      duration: Number(layer?.duration) || 0,
+      promptPreview: getRerollPromptPreview(layer),
+      visualUrl: getLayerVisualUrl(layer),
+    }))
+    .filter((item) => isRerollCandidateLayer(item.layer));
 }
 
 function getJsonModelByKey(modelTypes, modelKey) {
@@ -1993,6 +2122,9 @@ export default function OneshotEditor() {
   const [postProcessingPendingAction, setPostProcessingPendingAction] = useState('');
   const [postProcessingMessage, setPostProcessingMessage] = useState('');
   const [postProcessingError, setPostProcessingError] = useState('');
+  const [postProcessingRerollQuote, setPostProcessingRerollQuote] = useState(null);
+  const [postProcessingRerollQuotePending, setPostProcessingRerollQuotePending] = useState(false);
+  const [postProcessingRerollQuoteError, setPostProcessingRerollQuoteError] = useState('');
   const [currentRenderGeneratedOutro, setCurrentRenderGeneratedOutro] = useState(false);
 
   useEffect(() => {
@@ -2060,6 +2192,16 @@ export default function OneshotEditor() {
     sessionHasOutroImage(generationStatusDetails) ||
     sessionHasOutroImage(generationStatusDetails?.session)
   ), [currentRenderGeneratedOutro, generationStatusDetails, sessionDetails]);
+  const rerollCandidateSourceSession = sessionDetails || generationStatusDetails?.session || generationStatusDetails;
+  const rerollCandidateLayers = useMemo(
+    () => getRerollCandidateLayers(rerollCandidateSourceSession),
+    [rerollCandidateSourceSession],
+  );
+  const rerollLayerIndexes = useMemo(
+    () => normalizeRerollLayerIndexes(postProcessingForm.rerollLayerIndexes),
+    [postProcessingForm.rerollLayerIndexes],
+  );
+  const rerollLayerIndexKey = rerollLayerIndexes.join(',');
 
   useEffect(() => {
     const handleVisibility = () => {
@@ -4147,6 +4289,9 @@ export default function OneshotEditor() {
     setPostProcessingPendingAction('');
     setPostProcessingMessage('');
     setPostProcessingError('');
+    setPostProcessingRerollQuote(null);
+    setPostProcessingRerollQuotePending(false);
+    setPostProcessingRerollQuoteError('');
     setCurrentRenderGeneratedOutro(false);
   };
 
@@ -4241,6 +4386,76 @@ export default function OneshotEditor() {
     setPostProcessingMessage('');
   }, []);
 
+  const toggleRerollLayerIndex = useCallback((layerIndex) => {
+    setPostProcessingForm((current) => {
+      const currentIndexes = normalizeRerollLayerIndexes(current.rerollLayerIndexes);
+      const nextIndexes = currentIndexes.includes(layerIndex)
+        ? currentIndexes.filter((index) => index !== layerIndex)
+        : [...currentIndexes, layerIndex].sort((a, b) => a - b);
+      return {
+        ...current,
+        rerollLayerIndexes: nextIndexes,
+      };
+    });
+    setPostProcessingError('');
+    setPostProcessingMessage('');
+    setPostProcessingRerollQuoteError('');
+  }, []);
+
+  useEffect(() => {
+    if (postProcessingAction !== 'reroll_layers' || !id || !rerollLayerIndexes.length) {
+      setPostProcessingRerollQuote(null);
+      setPostProcessingRerollQuotePending(false);
+      setPostProcessingRerollQuoteError('');
+      return undefined;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      setPostProcessingRerollQuote(null);
+      setPostProcessingRerollQuotePending(false);
+      return undefined;
+    }
+
+    let ignore = false;
+    setPostProcessingRerollQuotePending(true);
+    setPostProcessingRerollQuoteError('');
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const { data } = await axios.post(
+          `${VIDEO_API_BASE}/reroll-layers`,
+          {
+            input: {
+              videoSessionId: id,
+              layer_indexes: rerollLayerIndexes,
+              quote_only: true,
+            },
+          },
+          headers,
+        );
+        if (!ignore) {
+          setPostProcessingRerollQuote(data?.creditQuote || null);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setPostProcessingRerollQuote(null);
+          setPostProcessingRerollQuoteError(
+            error?.response?.data?.message || error?.message || 'Unable to estimate reroll credits.'
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setPostProcessingRerollQuotePending(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [id, postProcessingAction, rerollLayerIndexKey]);
+
   const submitPostProcessingOperation = useCallback(async (actionKey) => {
     if (!user) {
       showLoginDialog();
@@ -4314,6 +4529,20 @@ export default function OneshotEditor() {
         };
         endpoint = 'update_footer_image';
         successLabel = 'Footer removal';
+      } else if (actionKey === 'reroll_layers') {
+        if (!rerollLayerIndexes.length) {
+          throw new Error('Select at least one layer to reroll.');
+        }
+        if (postProcessingRerollQuotePending) {
+          throw new Error('Wait for the reroll credit estimate.');
+        }
+
+        payload = {
+          ...payload,
+          layer_indexes: rerollLayerIndexes,
+        };
+        endpoint = 'reroll-layers';
+        successLabel = 'Layer reroll';
       } else {
         return;
       }
@@ -4339,6 +4568,9 @@ export default function OneshotEditor() {
       if (actionKey === 'generated_outro') {
         setCurrentRenderGeneratedOutro(true);
       }
+      if (actionKey === 'reroll_layers') {
+        setPostProcessingRerollQuote(null);
+      }
       getUserAPI();
       handleAdvancedVideoEditAccepted({
         sessionId: nextSessionId,
@@ -4357,7 +4589,9 @@ export default function OneshotEditor() {
     handleAdvancedVideoEditAccepted,
     id,
     postProcessingForm,
+    postProcessingRerollQuotePending,
     postProcessingPendingAction,
+    rerollLayerIndexes,
     currentRenderHasOutro,
     showLoginDialog,
     user,
@@ -4619,6 +4853,16 @@ export default function OneshotEditor() {
     const isGeneratedOutroPending = postProcessingPendingAction === 'generated_outro';
     const isFooterPending = postProcessingPendingAction === 'footer_cta';
     const isRemoveFooterPending = postProcessingPendingAction === 'remove_footer';
+    const isRerollPending = postProcessingPendingAction === 'reroll_layers';
+    const rerollQuoteTotalCredits = Number(postProcessingRerollQuote?.totalCredits);
+    const rerollQuoteImageCredits = Number(postProcessingRerollQuote?.imageCredits);
+    const rerollQuoteVideoCredits = Number(postProcessingRerollQuote?.aiVideoCredits);
+    const hasRerollQuote = Number.isFinite(rerollQuoteTotalCredits);
+    const isRerollSubmitDisabled =
+      isAnyPostProcessingPending ||
+      postProcessingRerollQuotePending ||
+      !rerollLayerIndexes.length ||
+      Boolean(postProcessingRerollQuoteError);
 
     return (
       <div className={`mx-auto w-full max-w-3xl rounded-xl p-3 ring-1 ${panelClass} ${extraClasses}`}>
@@ -4753,6 +4997,100 @@ export default function OneshotEditor() {
               <FaCog className="h-3.5 w-3.5" aria-hidden="true" />
               Open advanced edits
             </button>
+          )}
+
+          {postProcessingAction === 'reroll_layers' && (
+            <div className="space-y-3">
+              {rerollCandidateLayers.length ? (
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {rerollCandidateLayers.map((item) => {
+                    const isSelected = rerollLayerIndexes.includes(item.layerIndex);
+                    return (
+                      <button
+                        key={item.layerId}
+                        type="button"
+                        onClick={() => toggleRerollLayerIndex(item.layerIndex)}
+                        disabled={isAnyPostProcessingPending}
+                        aria-pressed={isSelected}
+                        className={`
+                          min-h-[146px] rounded-lg p-1.5 text-left text-xs ring-1 transition
+                          ${isSelected ? activeActionClass : inactiveActionClass}
+                          ${isAnyPostProcessingPending ? 'cursor-not-allowed opacity-50' : 'active:scale-[0.99]'}
+                        `}
+                      >
+                        <div className={`relative aspect-video w-full overflow-hidden rounded-md ${
+                          colorMode === 'dark' ? 'bg-slate-900' : 'bg-slate-100'
+                        }`}>
+                          {item.visualUrl ? (
+                            <img
+                              src={item.visualUrl}
+                              alt={`Layer ${item.layerIndex}`}
+                              loading="lazy"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
+                              <FaImage className="h-5 w-5" aria-hidden="true" />
+                            </div>
+                          )}
+                          <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                            Layer {item.layerIndex}
+                          </span>
+                          {isSelected ? (
+                            <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300 text-slate-950 shadow">
+                              <FaCheck className="h-3 w-3" aria-hidden="true" />
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className="truncate font-semibold">Scene {item.layerIndex}</span>
+                          <span className={mutedText}>{item.duration ? `${item.duration}s` : ''}</span>
+                        </div>
+                        {item.promptPreview ? (
+                          <div className={`mt-1 truncate ${mutedText}`}>{item.promptPreview}</div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={`rounded-lg px-3 py-2 text-sm ${mutedText}`}>
+                  No rerollable layers found.
+                </div>
+              )}
+
+              <div className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                colorMode === 'dark' ? 'bg-white/[0.04] text-slate-100' : 'bg-slate-50 text-slate-800'
+              }`}>
+                {postProcessingRerollQuotePending ? (
+                  <span className="inline-flex items-center gap-2">
+                    <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    Calculating credits
+                  </span>
+                ) : postProcessingRerollQuoteError ? (
+                  <span className="text-red-500">{postProcessingRerollQuoteError}</span>
+                ) : hasRerollQuote ? (
+                  <span>
+                    Estimated credits: {rerollQuoteTotalCredits}
+                    {Number.isFinite(rerollQuoteImageCredits) && Number.isFinite(rerollQuoteVideoCredits)
+                      ? ` (${rerollQuoteImageCredits} image + ${rerollQuoteVideoCredits} AI video)`
+                      : ''}
+                  </span>
+                ) : (
+                  <span className={mutedText}>Estimated credits appear after selecting layers.</span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => submitPostProcessingOperation('reroll_layers')}
+                disabled={isRerollSubmitDisabled}
+                className={primarySubmitClass}
+              >
+                {isRerollPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaRedo className="h-3.5 w-3.5" aria-hidden="true" />}
+                Reroll selected layers
+              </button>
+            </div>
           )}
         </div>
 
