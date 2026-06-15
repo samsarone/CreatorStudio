@@ -4864,8 +4864,10 @@ export default function OneshotEditor() {
       !rerollLayerIndexes.length ||
       Boolean(postProcessingRerollQuoteError);
 
+    const panelWidthClass = postProcessingAction === 'reroll_layers' ? 'max-w-5xl' : 'max-w-3xl';
+
     return (
-      <div className={`mx-auto w-full max-w-3xl rounded-xl p-3 ring-1 ${panelClass} ${extraClasses}`}>
+      <div className={`mx-auto w-full ${panelWidthClass} rounded-xl p-3 ring-1 ${panelClass} ${extraClasses}`}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-sm font-semibold">Post-processing</div>
           <div className="flex flex-wrap items-center gap-2">
@@ -5779,30 +5781,36 @@ export default function OneshotEditor() {
       {/* Progress indicator / result */}
       {showResultDisplay && (
         <div className="mt-5 transition-all duration-500 ease-out">
-          <ProgressIndicator
-            isGenerationPending={isGenerationPending}
-            isGenerationPaused={isPaused}
-            isGenerationWaitingForApproval={isGenerationWaitingForApproval}
-            isProcessingNextStep={isProcessingNextStep}
-            expressGenerationStatus={expressGenerationStatus}
-            generationStatusDetails={generationStatusDetails}
-            videoLink={videoLink}
-            errorMessage={errorMessage}
-            canProcessNextStep={activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP}
-            canReviewStepImages={
-              activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP &&
-              (
-                generationMode === 'T2V' ||
-                generationStatusDetails?.session?.generationType === 'TEXT_TO_VIDEO'
-              )
-            }
-            purchaseCreditsForUser={purchaseCreditsForUser}
-            viewInStudio={viewInStudio}
-            onProcessNextStep={handleProcessNextStep}
-            onSelectStepImage={handleSelectStepImage}
-            onRegenerateStepImage={handleRegenerateStepImage}
-          />
-          {renderCompletedPostProcessingControls('mt-3')}
+          {renderState === 'complete' && postProcessingAction === 'reroll_layers' ? (
+            renderCompletedPostProcessingControls()
+          ) : (
+            <>
+              <ProgressIndicator
+                isGenerationPending={isGenerationPending}
+                isGenerationPaused={isPaused}
+                isGenerationWaitingForApproval={isGenerationWaitingForApproval}
+                isProcessingNextStep={isProcessingNextStep}
+                expressGenerationStatus={expressGenerationStatus}
+                generationStatusDetails={generationStatusDetails}
+                videoLink={videoLink}
+                errorMessage={errorMessage}
+                canProcessNextStep={activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP}
+                canReviewStepImages={
+                  activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP &&
+                  (
+                    generationMode === 'T2V' ||
+                    generationStatusDetails?.session?.generationType === 'TEXT_TO_VIDEO'
+                  )
+                }
+                purchaseCreditsForUser={purchaseCreditsForUser}
+                viewInStudio={viewInStudio}
+                onProcessNextStep={handleProcessNextStep}
+                onSelectStepImage={handleSelectStepImage}
+                onRegenerateStepImage={handleRegenerateStepImage}
+              />
+              {renderCompletedPostProcessingControls('mt-3')}
+            </>
+          )}
         </div>
       )}
 
