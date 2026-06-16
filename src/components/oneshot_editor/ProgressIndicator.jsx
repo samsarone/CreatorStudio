@@ -639,14 +639,13 @@ export default function ProgressIndicator(props) {
   const isPreviewMediaReadyAtTime = useCallback((time) => {
     const segmentAtTime = findActiveVisualSegment(visualSegments, time);
     if (
-      shouldLimitMobileVideoPreload &&
       segmentAtTime?.type === 'video' &&
       segmentAtTime.key !== activeVisualSegment?.key
     ) {
       return true;
     }
     return isVisualSegmentPreloaded(segmentAtTime);
-  }, [activeVisualSegment?.key, isVisualSegmentPreloaded, shouldLimitMobileVideoPreload, visualSegments]);
+  }, [activeVisualSegment?.key, isVisualSegmentPreloaded, visualSegments]);
   const isActiveVisualPreloaded = isVisualSegmentPreloaded(activeVisualSegment);
   const isActiveVideoElementReady = activeVisualSegment?.type !== 'video'
     || activeVideoReadyKey === activeVisualRenderKey
@@ -894,6 +893,8 @@ export default function ProgressIndicator(props) {
 
   const handleActiveVideoReady = useCallback((event) => {
     const element = event.currentTarget;
+    markPreviewVisualReady(activeVisualCacheKey);
+    setVisualPreloadVersion((version) => version + 1);
     if (!element || activeVisualSegment?.type !== 'video') {
       setActiveVideoReadyKey(activeVisualRenderKey);
       return;
@@ -907,9 +908,12 @@ export default function ProgressIndicator(props) {
       if (element.seeking) return;
     }
     setActiveVideoReadyKey(activeVisualRenderKey);
-  }, [activeVisualRenderKey, activeVisualSegment, previewTime]);
+  }, [activeVisualCacheKey, activeVisualRenderKey, activeVisualSegment, previewTime]);
 
-  const handleActiveVideoWaiting = useCallback(() => {
+  const handleActiveVideoWaiting = useCallback((event) => {
+    if ((event.currentTarget?.readyState ?? 0) >= PREVIEW_VIDEO_FRAME_READY_STATE) {
+      return;
+    }
     setActiveVideoReadyKey(null);
   }, []);
 

@@ -57,7 +57,10 @@ import {
   VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
-import { getExpressVideoCreditsPerSecond } from '../../constants/pricing/ExpressVideoPricingDistribution.js';
+import {
+  getExpressVideoCreditsPerSecond,
+  getExpressVideoPricingDistributionPerSecond,
+} from '../../constants/pricing/ExpressVideoPricingDistribution.js';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
@@ -499,6 +502,38 @@ function getRerollCandidateLayers(session) {
     .filter((item) => isRerollCandidateLayer(item.layer));
 }
 
+function getRerollLocalCreditEstimate({
+  layerIndexes,
+  candidateLayers,
+  imageModel,
+  videoModel,
+  aspectRatio,
+}) {
+  const selectedIndexes = normalizeRerollLayerIndexes(layerIndexes);
+  if (!selectedIndexes.length) {
+    return null;
+  }
+
+  const selectedIndexSet = new Set(selectedIndexes);
+  const selectedLayers = candidateLayers.filter((item) => selectedIndexSet.has(item.layerIndex));
+  if (!selectedLayers.length) {
+    return null;
+  }
+
+  const imageCreditsPerLayer = getImageCreditsForModel(imageModel, aspectRatio);
+  const videoStageCreditsPerSecond =
+    getExpressVideoPricingDistributionPerSecond(videoModel)?.video ?? 0;
+  const durationSeconds = selectedLayers.reduce((total, item) => total + (Number(item.duration) || 0), 0);
+  const imageCredits = Math.ceil(imageCreditsPerLayer * selectedLayers.length);
+  const aiVideoCredits = Math.ceil(Math.max(0, durationSeconds * videoStageCreditsPerSecond));
+
+  return {
+    totalCredits: imageCredits + aiVideoCredits,
+    imageCredits,
+    aiVideoCredits,
+  };
+}
+
 function getJsonModelByKey(modelTypes, modelKey) {
   if (typeof modelKey !== 'string') {
     return null;
@@ -514,6 +549,16 @@ function imageModelSupportsAspectRatio(modelKey, aspectRatio) {
     return false;
   }
   return pricing.prices.some((price) => price.aspectRatio === aspectRatio);
+}
+
+function getImageCreditsForModel(modelKey, aspectRatio) {
+  const normalizedKey = resolveJsonImageModelAlias(modelKey || 'GPTIMAGE2');
+  const pricing = IMAGE_MODEL_PRICES.find((model) => model.key === normalizedKey);
+  const price =
+    pricing?.prices?.find((entry) => entry.aspectRatio === aspectRatio)?.price ??
+    pricing?.prices?.find((entry) => entry.aspectRatio === '1:1')?.price ??
+    pricing?.prices?.[0]?.price;
+  return Number.isFinite(Number(price)) ? Number(price) : 0;
 }
 
 function videoModelSupportsAspectRatio(modelKey, aspectRatio) {
@@ -2122,9 +2167,6 @@ export default function OneshotEditor() {
   const [postProcessingPendingAction, setPostProcessingPendingAction] = useState('');
   const [postProcessingMessage, setPostProcessingMessage] = useState('');
   const [postProcessingError, setPostProcessingError] = useState('');
-  const [postProcessingRerollQuote, setPostProcessingRerollQuote] = useState(null);
-  const [postProcessingRerollQuotePending, setPostProcessingRerollQuotePending] = useState(false);
-  const [postProcessingRerollQuoteError, setPostProcessingRerollQuoteError] = useState('');
   const [currentRenderGeneratedOutro, setCurrentRenderGeneratedOutro] = useState(false);
 
   useEffect(() => {
@@ -2192,7 +2234,14 @@ export default function OneshotEditor() {
     sessionHasOutroImage(generationStatusDetails) ||
     sessionHasOutroImage(generationStatusDetails?.session)
   ), [currentRenderGeneratedOutro, generationStatusDetails, sessionDetails]);
-  const rerollCandidateSourceSession = sessionDetails || generationStatusDetails?.session || generationStatusDetails;
+  const rerollCandidateSourceSession =
+    (Array.isArray(generationStatusDetails?.session?.layers) && generationStatusDetails.session.layers.length
+      ? generationStatusDetails.session
+      : null) ||
+    (Array.isArray(generationStatusDetails?.layers) && generationStatusDetails.layers.length
+      ? generationStatusDetails
+      : null) ||
+    sessionDetails;
   const rerollCandidateLayers = useMemo(
     () => getRerollCandidateLayers(rerollCandidateSourceSession),
     [rerollCandidateSourceSession],
@@ -4289,9 +4338,6 @@ export default function OneshotEditor() {
     setPostProcessingPendingAction('');
     setPostProcessingMessage('');
     setPostProcessingError('');
-    setPostProcessingRerollQuote(null);
-    setPostProcessingRerollQuotePending(false);
-    setPostProcessingRerollQuoteError('');
     setCurrentRenderGeneratedOutro(false);
   };
 
@@ -4399,62 +4445,7 @@ export default function OneshotEditor() {
     });
     setPostProcessingError('');
     setPostProcessingMessage('');
-    setPostProcessingRerollQuoteError('');
   }, []);
-
-  useEffect(() => {
-    if (postProcessingAction !== 'reroll_layers' || !id || !rerollLayerIndexes.length) {
-      setPostProcessingRerollQuote(null);
-      setPostProcessingRerollQuotePending(false);
-      setPostProcessingRerollQuoteError('');
-      return undefined;
-    }
-
-    const headers = getHeaders();
-    if (!headers) {
-      setPostProcessingRerollQuote(null);
-      setPostProcessingRerollQuotePending(false);
-      return undefined;
-    }
-
-    let ignore = false;
-    setPostProcessingRerollQuotePending(true);
-    setPostProcessingRerollQuoteError('');
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        const { data } = await axios.post(
-          `${VIDEO_API_BASE}/reroll-layers`,
-          {
-            input: {
-              videoSessionId: id,
-              layer_indexes: rerollLayerIndexes,
-              quote_only: true,
-            },
-          },
-          headers,
-        );
-        if (!ignore) {
-          setPostProcessingRerollQuote(data?.creditQuote || null);
-        }
-      } catch (error) {
-        if (!ignore) {
-          setPostProcessingRerollQuote(null);
-          setPostProcessingRerollQuoteError(
-            error?.response?.data?.message || error?.message || 'Unable to estimate reroll credits.'
-          );
-        }
-      } finally {
-        if (!ignore) {
-          setPostProcessingRerollQuotePending(false);
-        }
-      }
-    }, 350);
-
-    return () => {
-      ignore = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [id, postProcessingAction, rerollLayerIndexKey]);
 
   const submitPostProcessingOperation = useCallback(async (actionKey) => {
     if (!user) {
@@ -4533,9 +4524,6 @@ export default function OneshotEditor() {
         if (!rerollLayerIndexes.length) {
           throw new Error('Select at least one layer to reroll.');
         }
-        if (postProcessingRerollQuotePending) {
-          throw new Error('Wait for the reroll credit estimate.');
-        }
 
         payload = {
           ...payload,
@@ -4568,9 +4556,6 @@ export default function OneshotEditor() {
       if (actionKey === 'generated_outro') {
         setCurrentRenderGeneratedOutro(true);
       }
-      if (actionKey === 'reroll_layers') {
-        setPostProcessingRerollQuote(null);
-      }
       getUserAPI();
       handleAdvancedVideoEditAccepted({
         sessionId: nextSessionId,
@@ -4589,7 +4574,6 @@ export default function OneshotEditor() {
     handleAdvancedVideoEditAccepted,
     id,
     postProcessingForm,
-    postProcessingRerollQuotePending,
     postProcessingPendingAction,
     rerollLayerIndexes,
     currentRenderHasOutro,
@@ -4767,6 +4751,41 @@ export default function OneshotEditor() {
   const isModeToggleDisabled = renderState === 'pending' || renderState === 'paused' || isSubmitting;
   const isGenerationActionDisabled = isFormDisabled || isSubmitting || Boolean(jsonEditorErrorMessage);
   const isCompletedSessionPublished = Boolean(sessionDetails?.ispublishedVideo);
+  const rerollEstimateImageModel =
+    rerollCandidateSourceSession?.expressGenerationImageModel ||
+    rerollCandidateSourceSession?.imageModel ||
+    sessionDetails?.expressGenerationImageModel ||
+    sessionDetails?.imageModel ||
+    selectedImageModel?.value ||
+    'GPTIMAGE2';
+  const rerollEstimateVideoModel =
+    rerollCandidateSourceSession?.expressGenerativeVideoModel ||
+    rerollCandidateSourceSession?.videoGenerationModel ||
+    rerollCandidateSourceSession?.videoModel ||
+    sessionDetails?.expressGenerativeVideoModel ||
+    sessionDetails?.videoGenerationModel ||
+    sessionDetails?.videoModel ||
+    selectedVideoModel?.value ||
+    'RUNWAYML';
+  const rerollEstimateAspectRatio =
+    rerollCandidateSourceSession?.aspectRatio ||
+    rerollCandidateSourceSession?.aspect_ratio ||
+    sessionDetails?.aspectRatio ||
+    selectedAspectRatioOption?.value ||
+    '16:9';
+  const rerollLocalCreditEstimate = useMemo(() => getRerollLocalCreditEstimate({
+    layerIndexes: rerollLayerIndexes,
+    candidateLayers: rerollCandidateLayers,
+    imageModel: rerollEstimateImageModel,
+    videoModel: rerollEstimateVideoModel,
+    aspectRatio: rerollEstimateAspectRatio,
+  }), [
+    rerollCandidateLayers,
+    rerollEstimateAspectRatio,
+    rerollEstimateImageModel,
+    rerollEstimateVideoModel,
+    rerollLayerIndexKey,
+  ]);
   const renderCompletedVideoActions = (extraClasses = '') => {
     if (renderState !== 'complete' || !videoLink) {
       return null;
@@ -4854,15 +4873,13 @@ export default function OneshotEditor() {
     const isFooterPending = postProcessingPendingAction === 'footer_cta';
     const isRemoveFooterPending = postProcessingPendingAction === 'remove_footer';
     const isRerollPending = postProcessingPendingAction === 'reroll_layers';
-    const rerollQuoteTotalCredits = Number(postProcessingRerollQuote?.totalCredits);
-    const rerollQuoteImageCredits = Number(postProcessingRerollQuote?.imageCredits);
-    const rerollQuoteVideoCredits = Number(postProcessingRerollQuote?.aiVideoCredits);
+    const rerollQuoteTotalCredits = Number(rerollLocalCreditEstimate?.totalCredits);
+    const rerollQuoteImageCredits = Number(rerollLocalCreditEstimate?.imageCredits);
+    const rerollQuoteVideoCredits = Number(rerollLocalCreditEstimate?.aiVideoCredits);
     const hasRerollQuote = Number.isFinite(rerollQuoteTotalCredits);
     const isRerollSubmitDisabled =
       isAnyPostProcessingPending ||
-      postProcessingRerollQuotePending ||
-      !rerollLayerIndexes.length ||
-      Boolean(postProcessingRerollQuoteError);
+      !rerollLayerIndexes.length;
 
     const panelWidthClass = postProcessingAction === 'reroll_layers' ? 'max-w-5xl' : 'max-w-3xl';
 
@@ -5064,14 +5081,7 @@ export default function OneshotEditor() {
               <div className={`rounded-lg px-3 py-2 text-sm font-semibold ${
                 colorMode === 'dark' ? 'bg-white/[0.04] text-slate-100' : 'bg-slate-50 text-slate-800'
               }`}>
-                {postProcessingRerollQuotePending ? (
-                  <span className="inline-flex items-center gap-2">
-                    <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                    Calculating credits
-                  </span>
-                ) : postProcessingRerollQuoteError ? (
-                  <span className="text-red-500">{postProcessingRerollQuoteError}</span>
-                ) : hasRerollQuote ? (
+                {hasRerollQuote ? (
                   <span>
                     Estimated credits: {rerollQuoteTotalCredits}
                     {Number.isFinite(rerollQuoteImageCredits) && Number.isFinite(rerollQuoteVideoCredits)
@@ -5079,7 +5089,7 @@ export default function OneshotEditor() {
                       : ''}
                   </span>
                 ) : (
-                  <span className={mutedText}>Estimated credits appear after selecting layers.</span>
+                  <span className={mutedText}>Select layers to estimate credits.</span>
                 )}
               </div>
 
@@ -5782,7 +5792,26 @@ export default function OneshotEditor() {
       {showResultDisplay && (
         <div className="mt-5 transition-all duration-500 ease-out">
           {renderState === 'complete' && postProcessingAction === 'reroll_layers' ? (
-            renderCompletedPostProcessingControls()
+            <>
+              <ProgressIndicator
+                isGenerationPending={false}
+                isGenerationPaused={false}
+                isGenerationWaitingForApproval={false}
+                isProcessingNextStep={false}
+                expressGenerationStatus={expressGenerationStatus}
+                generationStatusDetails={generationStatusDetails}
+                videoLink={null}
+                errorMessage={errorMessage}
+                canProcessNextStep={false}
+                canReviewStepImages={false}
+                purchaseCreditsForUser={purchaseCreditsForUser}
+                viewInStudio={viewInStudio}
+                onProcessNextStep={handleProcessNextStep}
+                onSelectStepImage={handleSelectStepImage}
+                onRegenerateStepImage={handleRegenerateStepImage}
+              />
+              {renderCompletedPostProcessingControls('mt-3')}
+            </>
           ) : (
             <>
               <ProgressIndicator
