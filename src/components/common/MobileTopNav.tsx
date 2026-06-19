@@ -100,11 +100,41 @@ export default function MobileTopNav(props) {
     navigate('/create_payment');
   };
 
-  const createNewSession = () => {
+  const createNewSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          sessionDescription?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || '1:1';
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const normalizedSessionDescription = typeof normalizedSessionConfig.sessionDescription === 'string'
+      ? normalizedSessionConfig.sessionDescription.trim()
+      : '';
     const headers = getHeaders();
-    const payload = {
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      sessionName?: string;
+      sessionDescription?: string;
+    } = {
       prompts: [],
+      aspectRatio: selectedAspectRatio,
     };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (normalizedSessionDescription) {
+      payload.sessionDescription = normalizedSessionDescription;
+    }
     axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
       const session = response.data;
       const sessionId = session._id.toString();
@@ -207,8 +237,33 @@ export default function MobileTopNav(props) {
     addNewVidGPTSession();
   };
 
-  const createNewSessionDialog = () => {
-    openAlertDialog(alertDialogComponent);
+  const createNewSessionDialog = (sessionConfig = '1:1') => {
+    openAlertDialog(
+      <div>
+        <div>This will reset your current session. Are you sure you want to proceed?</div>
+        <div className="mt-4 mb-4 m-auto">
+          <div className="inline-flex ml-2 mr-2">
+            <CommonButton
+              onClick={() => {
+                closeAlertDialog();
+                createNewSession(sessionConfig);
+              }}
+            >
+              Yes
+            </CommonButton>
+          </div>
+          <div className="inline-flex ml-2 mr-2">
+            <CommonButton
+              onClick={() => {
+                closeAlertDialog();
+              }}
+            >
+              No
+            </CommonButton>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   let userTierDisplay = <span />;

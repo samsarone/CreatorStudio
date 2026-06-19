@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { getHeaders } from '../../../utils/web';
 import { useNavigate } from 'react-router-dom';
+import { FaTimes } from 'react-icons/fa';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 import ShowNewUserIntroDisplay from './ShowNewUserIntroDisplay';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
+import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
 
 import SingleSelect from '../../common/SingleSelect'; // adjust path as needed
 
@@ -24,11 +26,120 @@ const aspectRatioOptions = [
   { value: '1:1', label: '1:1' },
 ];
 
+const normalizeSessionText = (value) => (
+  typeof value === 'string' ? value.trim() : ''
+);
+
+const truncateSessionDescription = (value, maxLength = 110) => {
+  const normalized = normalizeSessionText(value);
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return `${normalized.slice(0, maxLength).trimEnd()}...`;
+};
+
+function DeleteVideoSessionDialog({ session, onDeleted, onClose, colorMode }) {
+  const [deleteArtifacts, setDeleteArtifacts] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const sessionIdentifier = session?.id ?? session?._id;
+  const sessionName = normalizeSessionText(session?.sessionName) || session?.name || 'this session';
+  const dialogTextClass = colorMode === 'dark' ? 'text-slate-200' : 'text-slate-700';
+  const subtleTextClass = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+  const checkboxClass = colorMode === 'dark'
+    ? 'border-slate-600 bg-slate-900 text-rose-500'
+    : 'border-slate-300 bg-white text-rose-600';
+  const secondaryButtonClass = colorMode === 'dark'
+    ? 'border border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800'
+    : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50';
+
+  const handleConfirmDelete = async () => {
+    if (!sessionIdentifier || isDeleting) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setErrorMessage('');
+
+    try {
+      await axios.post(
+        `${PROCESSOR_API}/video_sessions/delete_session`,
+        {
+          sessionId: sessionIdentifier.toString(),
+          deleteArtifacts,
+        },
+        getHeaders()
+      );
+      onDeleted?.(sessionIdentifier.toString());
+      onClose?.();
+    } catch (error) {
+      setErrorMessage(
+        error?.response?.data?.error ||
+        error?.message ||
+        'Unable to delete session.'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="w-full text-left">
+      <div className="pr-8 text-lg font-semibold">Delete session?</div>
+      <div className={`mt-2 text-sm leading-5 ${dialogTextClass}`}>
+        This will permanently delete {sessionName}.
+      </div>
+
+      <label className={`mt-5 flex cursor-pointer items-center gap-3 text-sm ${dialogTextClass}`}>
+        <input
+          type="checkbox"
+          checked={deleteArtifacts}
+          onChange={(event) => setDeleteArtifacts(event.target.checked)}
+          disabled={isDeleting}
+          className={`h-4 w-4 rounded focus:ring-rose-500 ${checkboxClass}`}
+        />
+        <span>Delete session artifacts</span>
+      </label>
+
+      {errorMessage && (
+        <div className="mt-4 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {errorMessage}
+        </div>
+      )}
+
+      <div className="mt-6 flex justify-end gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={isDeleting}
+          className={`min-h-[38px] rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${secondaryButtonClass}`}
+        >
+          No
+        </button>
+        <button
+          type="button"
+          onClick={handleConfirmDelete}
+          disabled={isDeleting}
+          className="min-h-[38px] rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isDeleting ? 'Deleting' : 'Yes'}
+        </button>
+      </div>
+
+      <div className={`mt-3 text-xs ${subtleTextClass}`}>
+        This action cannot be undone.
+      </div>
+    </div>
+  );
+}
+
 export default function ListVideoSessions() {
   const [sessionList, setSessionList] = useState([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(30); // Show 30 items per page by default
   const [totalPages, setTotalPages] = useState(1);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
   const [renderType, setRenderType] = useState('All');
   const [aspectRatio, setAspectRatio] = useState('All');
@@ -37,6 +148,7 @@ export default function ListVideoSessions() {
 
   const navigate = useNavigate();
   const { colorMode } = useColorMode();
+  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const containerSurface =
     colorMode === 'dark'
       ? 'bg-[#0b1021] text-slate-100'
@@ -110,7 +222,7 @@ export default function ListVideoSessions() {
     return () => {
       isCancelled = true;
     };
-  }, [page, limit, renderType, aspectRatio]);
+  }, [page, limit, renderType, aspectRatio, refreshCounter]);
 
   // Handle filter changes
   const handleChangeRenderType = (selectedOption) => {
@@ -157,6 +269,50 @@ export default function ListVideoSessions() {
     }
 
     navigate(`/video/${newSessionId}`);
+  };
+
+  const handleSessionDeleted = (deletedSessionId) => {
+    const normalizedDeletedSessionId = deletedSessionId?.toString?.();
+    if (!normalizedDeletedSessionId) {
+      return;
+    }
+
+    setSessionList((currentList) => (
+      currentList.filter((session) => {
+        const currentSessionId = session?.id ?? session?._id;
+        return currentSessionId?.toString?.() !== normalizedDeletedSessionId;
+      })
+    ));
+
+    if (localStorage.getItem('sessionId') === normalizedDeletedSessionId) {
+      localStorage.removeItem('sessionId');
+    }
+    if (localStorage.getItem('videoSessionId') === normalizedDeletedSessionId) {
+      localStorage.removeItem('videoSessionId');
+    }
+
+    setRefreshCounter((currentValue) => currentValue + 1);
+  };
+
+  const openDeleteSessionDialog = (event, session) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    openAlertDialog(
+      <DeleteVideoSessionDialog
+        session={session}
+        onDeleted={handleSessionDeleted}
+        onClose={closeAlertDialog}
+        colorMode={colorMode}
+      />,
+      undefined,
+      false,
+      {
+        centerContent: true,
+        containerClassName: 'w-full max-w-md',
+        hideCloseButton: true,
+      }
+    );
   };
 
   const createNewStudioSession = () => {
@@ -307,32 +463,75 @@ export default function ListVideoSessions() {
         <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4 sm:gap-5 lg:gap-6">
           {sessionList.map((session, index) => {
             if (!session) return null;
+            const sessionName = normalizeSessionText(session.sessionName);
+            const sessionDescription = normalizeSessionText(session.sessionDescription);
+            const sessionDisplayName = sessionName || session.name;
+            const sessionDisplayDescription = truncateSessionDescription(sessionDescription);
             const sessionPreviewImage = session.thumbnail
               ? `${PROCESSOR_API}/${session.thumbnail}`
               : '/q2.png';
             const isExpressSession = Boolean(session.isExpressGeneration);
+            const isImportedSession = Boolean(session.isImportedSession);
 
             return (
               <div
                 key={session?.id ?? session?._id ?? index}
-                className={`group min-w-0 cursor-pointer overflow-hidden rounded-lg ${cardSurface} transition-transform duration-200 hover:-translate-y-1`}
+                className={`group relative min-w-0 cursor-pointer overflow-hidden rounded-lg ${cardSurface} transition-transform duration-200 hover:-translate-y-1`}
                 onClick={(event) => gotoPage(event, session)}
               >
-                <div className="flex min-h-[54px] items-start justify-between gap-2 px-4 py-3">
-                  <div className="min-w-0 flex-1 text-left text-sm font-semibold leading-5">
-                    {session.name}
+                {!isImportedSession && (
+                  <button
+                    type="button"
+                    aria-label="Delete session"
+                    title="Delete session"
+                    onClick={(event) => openDeleteSessionDialog(event, session)}
+                    className={`absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full text-xs transition-colors ${
+                      colorMode === 'dark'
+                        ? 'bg-slate-950/80 text-slate-300 hover:bg-rose-500 hover:text-white'
+                        : 'bg-white/90 text-slate-500 shadow-sm hover:bg-rose-500 hover:text-white'
+                    }`}
+                  >
+                    <FaTimes />
+                  </button>
+                )}
+                <div className="flex min-h-[54px] items-start justify-between gap-2 px-4 py-3 pr-11">
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="text-sm font-semibold leading-5">
+                      {sessionDisplayName}
+                    </div>
+                    {sessionDisplayDescription && (
+                      <div
+                        className="mt-1 text-xs font-normal leading-4 text-slate-500"
+                        title={sessionDescription}
+                      >
+                        {sessionDisplayDescription}
+                      </div>
+                    )}
                   </div>
-                  {isExpressSession && (
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                        colorMode === 'dark'
-                          ? 'bg-cyan-400/12 text-cyan-200 ring-1 ring-cyan-300/25'
-                          : 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200'
-                      }`}
-                    >
-                      Express
-                    </span>
-                  )}
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {isImportedSession && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          colorMode === 'dark'
+                            ? 'bg-emerald-400/12 text-emerald-200 ring-1 ring-emerald-300/25'
+                            : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                        }`}
+                      >
+                        Imported
+                      </span>
+                    )}
+                    {isExpressSession && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          colorMode === 'dark'
+                            ? 'bg-cyan-400/12 text-cyan-200 ring-1 ring-cyan-300/25'
+                            : 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200'
+                        }`}
+                      >
+                        Express
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
                   <img

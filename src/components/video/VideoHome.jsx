@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { CURRENT_EDITOR_VIEW, FRAME_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import { getHeaders, clearAuthData } from '../../utils/web.jsx';
@@ -17,6 +17,7 @@ import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 import { normalizeActiveTextItemListForCanvas } from '../../constants/TextConfig.jsx';
@@ -40,8 +41,10 @@ const VIDEO_CANVAS_ZOOM_MODE_STORAGE_KEY = 'videoCanvasZoomMode';
 const VIDEO_CANVAS_ZOOM_SCALE_STORAGE_KEY = 'videoCanvasZoomScale';
 const CANVAS_ZOOM_STEP_RATIO = 0.25;
 const MIN_CANVAS_ZOOM_RATIO = 0.5;
+const PORTRAIT_CANVAS_INITIAL_ZOOM_RATIO = 0.5;
 const MAX_CANVAS_ZOOM_RATIO = 4;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
+const SHARE_COPY_AFTER_AUTH_KEY = 'studioShareCopyAfterAuth';
 
 function isSessionRenderPending(sessionDetails) {
   return Boolean(
@@ -58,6 +61,55 @@ function normalizeVideoDownloadUrl(url) {
     return trimmed;
   }
   return `${PROCESSOR_API_URL}/${trimmed.replace(/^\/+/, '')}`;
+}
+
+function upsertDocumentMeta(selector, attributes) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  let element = document.head.querySelector(selector);
+  if (!element) {
+    element = document.createElement('meta');
+    document.head.appendChild(element);
+  }
+
+  Object.entries(attributes).forEach(([key, value]) => {
+    if (value === undefined || value === null) {
+      element.removeAttribute(key);
+      return;
+    }
+    element.setAttribute(key, value);
+  });
+}
+
+function updateSharedSessionDocumentMetadata(sessionDetails) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const title = sessionDetails?.sessionName || sessionDetails?.publishedTitle || 'Samsar One Studio Session';
+  const description = sessionDetails?.publishedDescription || 'View this read-only Samsar One studio session.';
+  const ogImageUrl = sessionDetails?.ogImageUrl || sessionDetails?.og_image_url || sessionDetails?.shareOgImageUrl;
+  const pageUrl = window.location.href;
+
+  document.title = title;
+  upsertDocumentMeta('meta[name="description"]', { name: 'description', content: description });
+  upsertDocumentMeta('meta[property="og:title"]', { property: 'og:title', content: title });
+  upsertDocumentMeta('meta[property="og:description"]', { property: 'og:description', content: description });
+  upsertDocumentMeta('meta[property="og:type"]', { property: 'og:type', content: 'website' });
+  upsertDocumentMeta('meta[property="og:url"]', { property: 'og:url', content: pageUrl });
+  upsertDocumentMeta('meta[name="twitter:card"]', {
+    name: 'twitter:card',
+    content: ogImageUrl ? 'summary_large_image' : 'summary',
+  });
+  upsertDocumentMeta('meta[name="twitter:title"]', { name: 'twitter:title', content: title });
+  upsertDocumentMeta('meta[name="twitter:description"]', { name: 'twitter:description', content: description });
+
+  if (ogImageUrl) {
+    upsertDocumentMeta('meta[property="og:image"]', { property: 'og:image', content: ogImageUrl });
+    upsertDocumentMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: ogImageUrl });
+  }
 }
 
 function resolveAssistantFrameAssetUrl(assetPath, baseUrl) {
@@ -197,6 +249,15 @@ function clampCanvasZoomScale(nextScale, fitZoomScale = 1) {
   const minScale = safeBaseScale * MIN_CANVAS_ZOOM_RATIO;
   const maxScale = safeBaseScale * MAX_CANVAS_ZOOM_RATIO;
   return Math.min(Math.max(Number(nextScale) || safeBaseScale, minScale), maxScale);
+}
+
+function isPortraitAspectRatio(aspectRatio) {
+  if (typeof aspectRatio !== 'string') {
+    return false;
+  }
+
+  const [width, height] = aspectRatio.split(':').map((value) => Number(value));
+  return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > width;
 }
 
 function normalizeSceneTransitionPreset(value) {
@@ -459,11 +520,18 @@ export default function VideoHome(props) {
   const debouncedUpdateSessionLayerActiveItemListRef = useRef(null);
   const assistantFrameCaptureRef = useRef(null);
 
-  let { id } = useParams();
+  const { id: routeSessionId, shareToken, editableShareToken } = useParams();
+  const [sharedSessionId, setSharedSessionId] = useState(null);
+  const isReadOnlyShareView = Boolean(shareToken);
+  const isEditableShareView = Boolean(editableShareToken);
+  const isSharedSessionView = isReadOnlyShareView || isEditableShareView;
+  const id = isSharedSessionView ? (sharedSessionId || routeSessionId) : routeSessionId;
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { user, getUserAPI } = useUser();
   const { t } = useLocalization();
+  const { colorMode } = useColorMode();
 
   const [isUpdateLayerPending, setIsUpdateLayerPending] = useState(false);
 
@@ -492,6 +560,53 @@ export default function VideoHome(props) {
       return false;
     }
   };
+
+  useEffect(() => {
+    if (!isEditableShareView || !editableShareToken) {
+      return undefined;
+    }
+
+    const interceptorId = axios.interceptors.request.use((config) => {
+      const requestUrl = typeof config?.url === 'string' ? config.url : '';
+      if (
+        !requestUrl.includes('/video_sessions/') &&
+        !requestUrl.includes('/audio/') &&
+        !requestUrl.includes('/assistants/')
+      ) {
+        return config;
+      }
+
+      const nextConfig = { ...config };
+      const method = (nextConfig.method || 'get').toLowerCase();
+      const data = nextConfig.data;
+      const isPlainObjectPayload =
+        data &&
+        typeof data === 'object' &&
+        !Array.isArray(data) &&
+        !(data instanceof FormData) &&
+        !(data instanceof Blob) &&
+        !(data instanceof ArrayBuffer) &&
+        !(ArrayBuffer.isView(data));
+
+      nextConfig.params = {
+        ...(nextConfig.params || {}),
+        editableShareToken,
+      };
+
+      if (method !== 'get' && isPlainObjectPayload) {
+        nextConfig.data = {
+          ...data,
+          editableShareToken,
+        };
+      }
+
+      return nextConfig;
+    });
+
+    return () => {
+      axios.interceptors.request.eject(interceptorId);
+    };
+  }, [editableShareToken, isEditableShareView]);
 
   const clearAdvancedVideoEditPendingSession = (candidateSessionId) => {
     if (!candidateSessionId || typeof window === 'undefined') return;
@@ -555,6 +670,7 @@ export default function VideoHome(props) {
       clearInterval(layerPollTimerRef.current);
       layerPollTimerRef.current = null;
     }
+    setSharedSessionId(null);
     setVideoSessionDetails(null);
     setSelectedLayerIndex(0);
     setCurrentLayer({});
@@ -609,14 +725,18 @@ export default function VideoHome(props) {
     );
 
     // If you need to pass these defaults to other components or use them in functions, make sure they're updated
-    setVideoSessionDetails(prevDetails => ({
-      ...prevDetails,
-      defaultModel: defaultModel,
-      defaultSceneDuration: defaultSceneDuration,
-      applyAudioDucking: defaultApplyAudioDucking,
-      sceneTransitionPreset: DEFAULT_SCENE_TRANSITION_PRESET,
-    }));
-  }, [id]);
+    setVideoSessionDetails(prevDetails => (
+      prevDetails
+        ? {
+          ...prevDetails,
+          defaultModel: defaultModel,
+          defaultSceneDuration: defaultSceneDuration,
+          applyAudioDucking: defaultApplyAudioDucking,
+          sceneTransitionPreset: DEFAULT_SCENE_TRANSITION_PRESET,
+        }
+        : prevDetails
+    ));
+  }, [routeSessionId, shareToken, editableShareToken]);
 
   useEffect(() => {
     layersRef.current = layers;
@@ -691,13 +811,127 @@ export default function VideoHome(props) {
   }, [currentLayerToBeUpdated, layers]);
 
 
-  const showLoginDialog = () => {
+  const showLoginDialog = (options = {}) => {
     const loginComponent = (
 
-      <AuthContainer />
+      <AuthContainer {...options} />
     );
     openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
+
+  const getCurrentShareRedirectPath = useCallback(() => (
+    `${location.pathname}${location.search || ''}`
+  ), [location.pathname, location.search]);
+
+  const copySharedSessionForEditing = useCallback(async () => {
+    if (!shareToken) {
+      return false;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      sessionStorage.setItem(
+        SHARE_COPY_AFTER_AUTH_KEY,
+        JSON.stringify({ shareToken, path: getCurrentShareRedirectPath(), startedAt: Date.now() })
+      );
+      showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+      return false;
+    }
+
+    try {
+      toast.info('Creating an editable copy...', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/_copy_session`,
+        { shareToken },
+        headers
+      );
+      const nextSessionId =
+        response?.data?.session_id ||
+        response?.data?.sessionId ||
+        response?.data?.session?._id ||
+        response?.data?.session?.id;
+
+      if (!nextSessionId) {
+        throw new Error('Copy completed without a session id.');
+      }
+
+      sessionStorage.removeItem(SHARE_COPY_AFTER_AUTH_KEY);
+      localStorage.setItem('sessionId', nextSessionId);
+      localStorage.setItem('videoSessionId', nextSessionId);
+      navigate(`/video/${nextSessionId}`, { replace: true });
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Unable to create an editable copy.', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      return false;
+    }
+  }, [getCurrentShareRedirectPath, navigate, shareToken]);
+
+  const requestEditableSharedSession = useCallback(() => {
+    if (isEditableShareView) {
+      if (!getHeaders()) {
+        showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+        return false;
+      }
+
+      return true;
+    }
+
+    if (!isReadOnlyShareView) {
+      return true;
+    }
+
+    if (!getHeaders() || !user?._id) {
+      sessionStorage.setItem(
+        SHARE_COPY_AFTER_AUTH_KEY,
+        JSON.stringify({ shareToken, path: getCurrentShareRedirectPath(), startedAt: Date.now() })
+      );
+      showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+      return false;
+    }
+
+    void copySharedSessionForEditing();
+    return false;
+  }, [
+    copySharedSessionForEditing,
+    getCurrentShareRedirectPath,
+    isEditableShareView,
+    isReadOnlyShareView,
+    shareToken,
+    user?._id,
+  ]);
+
+  useEffect(() => {
+    if (!isReadOnlyShareView || !shareToken || !user?._id) {
+      return;
+    }
+
+    try {
+      const rawPendingCopy = sessionStorage.getItem(SHARE_COPY_AFTER_AUTH_KEY);
+      if (!rawPendingCopy) {
+        return;
+      }
+      const pendingCopy = JSON.parse(rawPendingCopy);
+      if (pendingCopy?.shareToken === shareToken) {
+        void copySharedSessionForEditing();
+      }
+    } catch {
+      sessionStorage.removeItem(SHARE_COPY_AFTER_AUTH_KEY);
+    }
+  }, [copySharedSessionForEditing, isReadOnlyShareView, shareToken, user?._id]);
+
+  useEffect(() => {
+    if (!isSharedSessionView || !videoSessionDetails) {
+      return;
+    }
+
+    updateSharedSessionDocumentMetadata(videoSessionDetails);
+  }, [isSharedSessionView, videoSessionDetails]);
 
   useEffect(() => {
 
@@ -727,10 +961,15 @@ export default function VideoHome(props) {
   }, [layerListRequestAdded, layers]);
 
   useEffect(() => {
+    if (isSharedSessionView) {
+      return;
+    }
+
     if (layerPollTimerRef.current) {
       clearInterval(layerPollTimerRef.current);
       layerPollTimerRef.current = null;
     }
+    setSharedSessionId(null);
     setVideoSessionDetails(null);
     setSelectedLayerIndex(0);
     setCurrentLayer({});
@@ -753,20 +992,32 @@ export default function VideoHome(props) {
     setLayerListRequestAdded(false);
     setIsCanvasDirty(false);
     setPolling(false); // Reset polling status
-  }, [id]);
+  }, [id, isSharedSessionView]);
 
 
-  const getFitZoomScale = () => {
-    if (aspectRatio === '1:1') {
+  const getFitZoomScale = (nextAspectRatio = aspectRatio) => {
+    if (nextAspectRatio === '1:1') {
       return 1;
-    } else if (aspectRatio === '16:9') {
+    } else if (nextAspectRatio === '16:9') {
       return 0.56;
-    } else if (aspectRatio === '9:16') {
+    } else if (nextAspectRatio === '9:16') {
       return 0.7;
     } else {
       return 1;
     }
   }
+
+  const applyInitialCanvasZoomForAspectRatio = (nextAspectRatio) => {
+    if (!isPortraitAspectRatio(nextAspectRatio)) {
+      return;
+    }
+
+    const fitZoomScale = getFitZoomScale(nextAspectRatio);
+    setDisplayZoomType('manual');
+    setStageZoomScale(
+      clampCanvasZoomScale(fitZoomScale * PORTRAIT_CANVAS_INITIAL_ZOOM_RATIO, fitZoomScale)
+    );
+  };
 
   useEffect(() => {
     const fitZoomScale = getFitZoomScale();
@@ -876,6 +1127,10 @@ export default function VideoHome(props) {
   }, [videoSessionDetails]);
 
   const handleApplyAudioDuckingChange = (nextValue) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const resolvedValue = Boolean(nextValue);
     localStorage.setItem("applyAudioDucking", resolvedValue ? 'true' : 'false');
     setApplyAudioDucking(resolvedValue);
@@ -909,11 +1164,19 @@ export default function VideoHome(props) {
   };
 
   const handleRegenerateFramesBeforeRenderChange = (nextValue) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     setRegenerateFramesBeforeRender(Boolean(nextValue));
     setIsCanvasDirty(true);
   };
 
   const handleSceneTransitionPresetChange = (nextValue) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const resolvedPreset = normalizeSceneTransitionPreset(nextValue);
     setSceneTransitionPreset(resolvedPreset);
     setIsCanvasDirty(true);
@@ -948,18 +1211,31 @@ export default function VideoHome(props) {
   useEffect(() => {
     const headers = getHeaders();
 
-    axios.get(`${PROCESSOR_API_URL}/video_sessions/session_details?id=${id}`, headers).then((dataRes) => {
-      const sessionDetails = dataRes.data;
-      const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
+    const sessionDetailsRequest = isReadOnlyShareView
+      ? axios.get(`${PROCESSOR_API_URL}/video_sessions/share/${encodeURIComponent(shareToken)}`)
+      : isEditableShareView
+        ? axios.get(
+          `${PROCESSOR_API_URL}/video_sessions/editable_share/${encodeURIComponent(editableShareToken)}`,
+          headers || undefined
+        )
+        : axios.get(`${PROCESSOR_API_URL}/video_sessions/session_details?id=${routeSessionId}`, headers);
 
+    sessionDetailsRequest.then((dataRes) => {
+      const sessionDetails = dataRes.data;
+      const resolvedSessionId = sessionDetails?._id?.toString?.() || sessionDetails?._id || routeSessionId;
+      const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(resolvedSessionId);
+
+      if (isSharedSessionView && resolvedSessionId) {
+        setSharedSessionId(resolvedSessionId);
+      }
 
       if (sessionDetails.audio) {
         const audioFileTrack = `${PROCESSOR_API_URL}/video/audio/${sessionDetails.audio}`;
         setAudioFileTrack(audioFileTrack);
       }
       setVideoSessionDetails(sessionDetails);
-      setIsGuestSession(sessionDetails.isGuestSession);
-      const layers = sessionDetails.layers;
+      setIsGuestSession(Boolean(sessionDetails.isGuestSession || isReadOnlyShareView));
+      const layers = Array.isArray(sessionDetails.layers) ? sessionDetails.layers : [];
       const initialLayerIndex = Math.max(
         0,
         layers.findIndex((layer) => (
@@ -972,6 +1248,7 @@ export default function VideoHome(props) {
       setCurrentLayer(layers[initialLayerIndex] || layers[0]);
       setSelectedLayerIndex(initialLayerIndex);
       setAspectRatio(sessionDetails.aspectRatio);
+      applyInitialCanvasZoomForAspectRatio(sessionDetails.aspectRatio);
       setAudioLayers(sessionDetails.audioLayers || []);
 
       if (isSessionRenderPending(sessionDetails) || forceAdvancedEditPoll) {
@@ -986,7 +1263,7 @@ export default function VideoHome(props) {
         setRenderedVideoPath(downloadLink);
         setDownloadVideoDisplay(true);
         setRenderCompletedThisSession(false);
-        clearAdvancedVideoEditPendingSession(id);
+        clearAdvancedVideoEditPendingSession(resolvedSessionId);
       }
 
       let totalDuration = 0;
@@ -998,10 +1275,36 @@ export default function VideoHome(props) {
       setGenerationImages(sessionDetails.generations);
       setSessionMessages(sessionDetails.sessionMessages);
     }).catch(function (err) {
+      if (isReadOnlyShareView) {
+        toast.error('This shared session link is unavailable.', {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        });
+        return;
+      }
+      if (isEditableShareView) {
+        if (err?.response?.status === 401) {
+          showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+          return;
+        }
+        toast.error(err?.response?.data?.error || 'This editable shared session link is unavailable.', {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        });
+        return;
+      }
       clearAuthData();
       window.location.href = '/';
     })
-  }, [id]);
+  }, [
+    editableShareToken,
+    getCurrentShareRedirectPath,
+    isEditableShareView,
+    isReadOnlyShareView,
+    isSharedSessionView,
+    routeSessionId,
+    shareToken,
+  ]);
 
   const prevCurrentLayerSeekRef = useRef(currentLayerSeek);
 
@@ -1133,6 +1436,10 @@ export default function VideoHome(props) {
 
 
   const updateSessionLayersOrder = (newLayersOrder, updatedLayerId) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1269,6 +1576,56 @@ export default function VideoHome(props) {
 
   const startVideoRenderPoll = () => {
     setRenderCompletedThisSession(false);
+    if (isReadOnlyShareView) {
+      if (!shareToken) {
+        return;
+      }
+
+      if (renderPollTimerRef.current) {
+        clearInterval(renderPollTimerRef.current);
+        renderPollTimerRef.current = null;
+      }
+
+      const timer = setInterval(() => {
+        axios.get(`${PROCESSOR_API_URL}/video_sessions/share/${encodeURIComponent(shareToken)}`).then((dataRes) => {
+          const sessionData = dataRes.data;
+          if (!sessionData) {
+            return;
+          }
+
+          const resolvedSessionId = sessionData?._id?.toString?.() || sessionData?._id || null;
+          if (resolvedSessionId) {
+            setSharedSessionId(resolvedSessionId);
+          }
+
+          setVideoSessionDetails(sessionData);
+          setLayers(Array.isArray(sessionData.layers) ? sessionData.layers : []);
+          setAudioLayers(sessionData.audioLayers || []);
+          setIsLayerGenerationPending(hasPendingFrameOrLayerGeneration(sessionData));
+
+          const videoLink = resolveLatestSessionVideoUrl(sessionData);
+          if (videoLink) {
+            setRenderedVideoPath(videoLink);
+            setDownloadVideoDisplay(true);
+            setDownloadLink(videoLink);
+          }
+
+          if (!isSessionRenderPending(sessionData)) {
+            clearInterval(timer);
+            renderPollTimerRef.current = null;
+            setIsVideoGenerating(false);
+          }
+        }).catch(() => {
+          clearInterval(timer);
+          renderPollTimerRef.current = null;
+          setIsVideoGenerating(false);
+        });
+      }, 3000);
+
+      renderPollTimerRef.current = timer;
+      return;
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1458,6 +1815,10 @@ export default function VideoHome(props) {
   };
 
   const submitRenderVideo = async (renderOptions = {}) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return false;
+    }
+
     if (isUpdateLayerPending) {
       toast.error('Please wait for the scene update to finish before rendering.', {
         position: "bottom-center",
@@ -1529,6 +1890,10 @@ export default function VideoHome(props) {
   }
 
   const cancelPendingRender = () => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1981,6 +2346,9 @@ export default function VideoHome(props) {
   };
 
   const updateSessionLayerActiveItemList = (newActiveItemList) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
 
 
 
@@ -1991,6 +2359,10 @@ export default function VideoHome(props) {
   };
 
   const updateSessionLayerActiveItemListAnimations = (newActiveItemList) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     //setActiveItemList(newActiveItemList);
     if (currentEditorView !== CURRENT_EDITOR_VIEW.SHOW_ANIMATE_DISPLAY) {
       debouncedUpdateSessionLayerActiveItemListRef.current?.(newActiveItemList);
@@ -1998,6 +2370,10 @@ export default function VideoHome(props) {
   };
 
   const handleUndoCanvasHistory = useCallback(() => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     if (!canUndoActiveItemList) {
       return;
     }
@@ -2005,9 +2381,13 @@ export default function VideoHome(props) {
     const nextActiveItemList = undoActiveItemList();
     activeItemListRef.current = nextActiveItemList;
     updateSessionLayerActiveItemList(nextActiveItemList);
-  }, [canUndoActiveItemList, undoActiveItemList, updateSessionLayerActiveItemList]);
+  }, [canUndoActiveItemList, isSharedSessionView, requestEditableSharedSession, undoActiveItemList, updateSessionLayerActiveItemList]);
 
   const handleRedoCanvasHistory = useCallback(() => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     if (!canRedoActiveItemList) {
       return;
     }
@@ -2015,7 +2395,7 @@ export default function VideoHome(props) {
     const nextActiveItemList = redoActiveItemList();
     activeItemListRef.current = nextActiveItemList;
     updateSessionLayerActiveItemList(nextActiveItemList);
-  }, [canRedoActiveItemList, redoActiveItemList, updateSessionLayerActiveItemList]);
+  }, [canRedoActiveItemList, isSharedSessionView, redoActiveItemList, requestEditableSharedSession, updateSessionLayerActiveItemList]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -2608,6 +2988,10 @@ export default function VideoHome(props) {
   }
 
   const publishVideoSession = (payload) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -2687,6 +3071,10 @@ export default function VideoHome(props) {
   }
 
   const restartExpressRenderFromCheckpoint = (checkpoint) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     if (isUpdateLayerPending) {
       toast.error('Please wait for the scene update to finish before restarting the render pipeline.', {
         position: "bottom-center",
@@ -2795,6 +3183,10 @@ export default function VideoHome(props) {
   }, [closeAlertDialog, id, navigate]);
 
   const openAdvancedVideoEditDialog = useCallback(() => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     openAlertDialog(
       <VideoEditAdvancedDialog
         sessionId={id}
@@ -2806,9 +3198,13 @@ export default function VideoHome(props) {
       true,
       { hideBorder: true, hideCloseButton: true, centerContent: true }
     );
-  }, [closeAlertDialog, handleAdvancedVideoEditAccepted, id, openAlertDialog, videoSessionDetails]);
+  }, [closeAlertDialog, handleAdvancedVideoEditAccepted, id, isSharedSessionView, openAlertDialog, requestEditableSharedSession, videoSessionDetails]);
 
   const unpublishVideoSession = () => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -3047,6 +3443,9 @@ export default function VideoHome(props) {
   }
 
   const submitAssistantQuery = (query, options = {}) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
 
     const headers = getHeaders();
     if (!headers) {
@@ -3112,6 +3511,9 @@ export default function VideoHome(props) {
   };
 
   const updateSessionLayersOnServer = (updatedLayers) => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
 
 
     const headers = getHeaders();
@@ -3293,6 +3695,10 @@ export default function VideoHome(props) {
 
 
   const regenerateVideoSessionSubtitles = () => {
+    if (isSharedSessionView && !requestEditableSharedSession()) {
+      return;
+    }
+
     const headers = getHeaders();
     setCanvasProcessLoading(true);
 
@@ -3423,6 +3829,8 @@ export default function VideoHome(props) {
         setSelectedLayer={setSelectedLayer}
         onAssistantFrameCaptureChange={setAssistantFrameCapture}
         onSetAvatarHints={focusHintsPanel}
+        isReadOnlyShareView={isReadOnlyShareView}
+        onRequestEditableSession={requestEditableSharedSession}
 
 
 
@@ -3534,6 +3942,16 @@ export default function VideoHome(props) {
       </div>
     )
   }
+  const showEditableLoginPrompt = isEditableShareView && !getHeaders();
+  const sharedViewPromptLabel = isReadOnlyShareView ? 'View only' : 'Editable link';
+  const sharedViewPromptAction = isReadOnlyShareView ? 'Edit a copy' : 'Log in to edit';
+  const sharedViewPromptClassName = colorMode === 'dark'
+    ? 'border-[#263650] bg-[#0a1526]/95 text-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.34)]'
+    : 'border-slate-200 bg-white/95 text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.14)]';
+  const sharedViewPromptButtonClassName = colorMode === 'dark'
+    ? 'bg-cyan-400/14 text-cyan-100 ring-1 ring-cyan-300/25 hover:bg-cyan-400/20'
+    : 'bg-slate-900 text-white hover:bg-slate-800';
+
   return (
     <CommonContainer
       isVideoPreviewPlaying={isVideoPreviewPlaying}
@@ -3552,6 +3970,10 @@ export default function VideoHome(props) {
       renderCompletedThisSession={renderCompletedThisSession}
       sessionId={id}
       openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
+      isReadOnlyShareView={isReadOnlyShareView}
+      isEditableShareView={isEditableShareView}
+      isImportedSession={Boolean(videoSessionDetails?.isImportedSession)}
+      onRequestEditSession={requestEditableSharedSession}
     >
       <PreviewPlaybackController
         applyAudioDucking={applyAudioDucking}
@@ -3565,7 +3987,7 @@ export default function VideoHome(props) {
         totalDuration={totalDuration}
       />
       <div
-        className='box-border h-[100dvh] overflow-hidden px-4 pb-4'
+        className='relative box-border h-[100dvh] overflow-hidden px-4 pb-4'
         style={{ paddingTop: `${studioTopInsetPx}px` }}
       >
         <div className='grid h-full min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-4 overflow-hidden'>
@@ -3724,6 +4146,24 @@ export default function VideoHome(props) {
           bodyClassName="custom-toast-body"
         />
 
+        {(isReadOnlyShareView || showEditableLoginPrompt) && (
+          <div
+            className={`pointer-events-none absolute top-[72px] z-[90] flex items-center gap-3 rounded-xl border px-4 py-2 text-sm font-semibold backdrop-blur ${sharedViewPromptClassName}`}
+            style={{ left: `calc(${reservedLeftRailWidth} + 16px)` }}
+          >
+            <span>{sharedViewPromptLabel}</span>
+            <button
+              type="button"
+              className={`pointer-events-auto rounded-lg px-3 py-1.5 text-xs font-semibold transition ${sharedViewPromptButtonClassName}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                requestEditableSharedSession();
+              }}
+            >
+              {sharedViewPromptAction}
+            </button>
+          </div>
+        )}
 
       </div>
     </CommonContainer>

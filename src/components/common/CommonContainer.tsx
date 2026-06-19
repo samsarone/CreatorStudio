@@ -25,6 +25,10 @@ export default function CommonContainer(props) {
     renderCompletedThisSession,
     sessionId,
     openAdvancedVideoEditDialog,
+    isReadOnlyShareView,
+    isEditableShareView,
+    isImportedSession,
+    onRequestEditSession,
   } = props;
   const { colorMode } = useColorMode();
 
@@ -102,6 +106,10 @@ export default function CommonContainer(props) {
         renderCompletedThisSession={renderCompletedThisSession}
         sessionId={sessionId}
         openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
+        isReadOnlyShareView={isReadOnlyShareView}
+        isEditableShareView={isEditableShareView}
+        isImportedSession={isImportedSession}
+        onRequestEditSession={onRequestEditSession}
       />
       <div>
         <AlertDialog />

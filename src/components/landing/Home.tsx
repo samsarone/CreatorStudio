@@ -74,6 +74,25 @@ function RouteLoadingScreen({ label = 'Loading...' }) {
   );
 }
 
+function SharedVideoDesktopOnlyMessage() {
+  const { colorMode } = useColorMode();
+  const isDark = colorMode === 'dark';
+
+  return (
+    <div
+      className={`flex min-h-screen items-center justify-center px-6 ${
+        isDark
+          ? 'bg-[#0b1021] text-slate-100'
+          : 'bg-[#f7f9fc] text-slate-800'
+      }`}
+    >
+      <p className="text-center text-sm font-medium">
+        Open link on desktop to edit.
+      </p>
+    </div>
+  );
+}
+
 function DefaultAuthenticatedRoute({ user, isMobile, search }) {
   const [targetPath, setTargetPath] = useState(null);
   const resolutionStartedRef = useRef(false);
@@ -182,6 +201,8 @@ export default function Home() {
   );
   const isVidgeniePath = location.pathname.startsWith('/vidgenie');
   const isAccessAllowedPath = (() => {
+    if (location.pathname.startsWith('/video/share/')) return true;
+    if (location.pathname.startsWith('/video/collab/')) return true;
     if (location.pathname.startsWith('/external/studio') && isExternalUser) return true;
     if (user && isVidgeniePath) return true;
     if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
@@ -424,6 +445,8 @@ export default function Home() {
           <Route path="/generations" element={<GenerationsHome />} />
           <Route path="/session/:id" element={<EditorHome />} />
           <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
+          <Route path="/video/share/:shareToken" element={isMobile ? <SharedVideoDesktopOnlyMessage /> : <VideoHome />} />
+          <Route path="/video/collab/:editableShareToken" element={isMobile ? <SharedVideoDesktopOnlyMessage /> : <VideoHome />} />
           <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />
           <Route path="/image/studio" element={<ImageStudioLandingHome />} />
           <Route path="/image/studio/:id" element={<ImageStudioHome />} />

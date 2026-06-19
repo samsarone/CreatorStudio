@@ -281,3 +281,11 @@ body.theme-light .no-scrollbar::-webkit-scrollbar {
 .pending-disabled-shell .pending-allow-scroll * {
   pointer-events: none !important;
 }
+
+.pending-disabled-shell .pending-allow-action {
+  pointer-events: auto !important;
+}
+
+.pending-disabled-shell .pending-allow-action * {
+  pointer-events: none !important;
+}

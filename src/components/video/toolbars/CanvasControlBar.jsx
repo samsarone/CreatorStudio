@@ -3,7 +3,8 @@ import SecondaryButton from "../../common/SecondaryButton.tsx";
 import SecondaryPublicButton from "../../common/buttons/SecondaryPublicButton.tsx";
 import RenderActionButton from "./RenderActionButton.jsx";
 import { useNavigate } from "react-router-dom";
-import { FaCog, FaDownload, FaPause, FaPlay, FaSearch, FaSearchMinus, FaSearchPlus, FaTimes, FaUndo } from "react-icons/fa";
+import { FaCog, FaDownload, FaEdit, FaLock, FaPause, FaPlay, FaSearch, FaSearchMinus, FaSearchPlus, FaTimes, FaUndo } from "react-icons/fa";
+import { FiShare2 } from "react-icons/fi";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 import SingleSelect from "../../common/SingleSelect.jsx";
 import { IoMdGrid } from "react-icons/io";
@@ -41,6 +42,10 @@ export default function CanvasControlBar(props) {
     renderCompletedThisSession,
     editorVariant = 'videoStudio',
     openAdvancedVideoEditDialog,
+    isReadOnlyMode = false,
+    isImportedSession = false,
+    onRequestEditSession,
+    onCreateShareUrl,
   } = props;
 
   const {
@@ -117,19 +122,55 @@ export default function CanvasControlBar(props) {
   const expressBadgeClassName = colorMode === 'dark'
     ? 'inline-flex items-center rounded-xl bg-cyan-400/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200 ring-1 ring-cyan-300/25'
     : 'inline-flex items-center rounded-xl bg-cyan-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-700 ring-1 ring-cyan-200';
+  const readOnlyBadgeClassName = colorMode === 'dark'
+    ? 'inline-flex items-center gap-1 rounded-xl bg-amber-300/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-100 ring-1 ring-amber-200/25'
+    : 'inline-flex items-center gap-1 rounded-xl bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-amber-700 ring-1 ring-amber-200';
+  const importedBadgeClassName = colorMode === 'dark'
+    ? 'inline-flex items-center rounded-xl bg-emerald-300/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-100 ring-1 ring-emerald-200/25'
+    : 'inline-flex items-center rounded-xl bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 ring-1 ring-emerald-200';
 
-  const IconActionButton = ({ title, onClick, disabled = false, isActive = false, children }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      className={`${iconButtonClassName} ${isActive ? activeIconButtonClassName : ''}`}
-    >
-      {children}
-    </button>
-  );
+  const IconActionButton = ({
+    title,
+    onClick,
+    disabled = false,
+    isActive = false,
+    allowDuringPending = false,
+    triggerOnPointerDown = false,
+    children,
+  }) => {
+    const handlePointerDown = (event) => {
+      if (!triggerOnPointerDown || disabled) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      onClick?.(event);
+    };
+
+    const handleClick = (event) => {
+      event.stopPropagation();
+      if (triggerOnPointerDown) {
+        return;
+      }
+
+      onClick?.(event);
+    };
+
+    return (
+      <button
+        type="button"
+        onPointerDown={handlePointerDown}
+        onClick={handleClick}
+        title={title}
+        aria-label={title}
+        disabled={disabled}
+        className={`${iconButtonClassName} ${isActive ? activeIconButtonClassName : ''} ${allowDuringPending ? 'pending-allow-action' : ''}`}
+      >
+        {children}
+      </button>
+    );
+  };
 
   let canvasDimensionsDisplay = null;
   if (canvasActualDimensions) {
@@ -168,6 +209,22 @@ export default function CanvasControlBar(props) {
       </div>
     );
   }
+  const readOnlyControlDisplay = !isImageStudio && isReadOnlyMode && (
+    <div className={sectionSurfaceClassName}>
+      <span className={readOnlyBadgeClassName}>
+        <FaLock className="text-[10px]" />
+        View only
+      </span>
+      <IconActionButton title="Create editable copy" onClick={onRequestEditSession}>
+        <FaEdit className="text-[13px]" />
+      </IconActionButton>
+    </div>
+  );
+  const importedControlDisplay = !isImageStudio && !isReadOnlyMode && isImportedSession && (
+    <div className={sectionSurfaceClassName}>
+      <span className={importedBadgeClassName}>Imported</span>
+    </div>
+  );
   const disabledShellClass = isRenderPending ? "pending-disabled-shell" : "";
 
   return (
@@ -179,12 +236,24 @@ export default function CanvasControlBar(props) {
       <div className="flex max-w-full items-center gap-2 whitespace-nowrap">
         {canvasDimensionsDisplay}
         {expressGenerationLink}
+        {readOnlyControlDisplay}
+        {importedControlDisplay}
 
         {!isImageStudio && (
           <div className={sectionSurfaceClassName}>
-            <IconActionButton title="Download frame" onClick={downloadCurrentFrame}>
+            <IconActionButton title="Download current frame" onClick={downloadCurrentFrame}>
               <FaDownload className="text-[13px]" />
             </IconActionButton>
+            {typeof onCreateShareUrl === 'function' && (
+              <IconActionButton
+                title="Share session"
+                onClick={onCreateShareUrl}
+                allowDuringPending
+                triggerOnPointerDown
+              >
+                <FiShare2 className="text-[15px]" />
+              </IconActionButton>
+            )}
           </div>
         )}
 

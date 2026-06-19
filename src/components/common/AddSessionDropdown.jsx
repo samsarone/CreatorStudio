@@ -85,6 +85,7 @@ function AddSessionDropdown(props) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [sessionName, setSessionName] = useState('');
+  const [sessionDescription, setSessionDescription] = useState('');
   const [addBackgroundLayer, setAddBackgroundLayer] = useState(false);
   const [backgroundLayerColor, setBackgroundLayerColor] = useState('#ffffff');
   const [projectCanvasOption, setProjectCanvasOption] = useState(aspectRatioOptions[0] || { value: '1:1', label: '1:1' });
@@ -229,11 +230,19 @@ function AddSessionDropdown(props) {
   const openProjectModal = () => {
     setIsOpen(false);
     setSessionName(getRandomFriendlyProjectName());
+    setSessionDescription('');
     setAddBackgroundLayer(false);
     setBackgroundLayerColor('#ffffff');
     setProjectCanvasOption(selectedAspectRatioOptionWithResolution || aspectRatioOptionsWithResolution[0] || { value: '1:1', label: '1:1' });
     setCustomCanvasWidth(String(selectedCanvasDimensions.width));
     setCustomCanvasHeight(String(selectedCanvasDimensions.height));
+    setIsProjectModalOpen(true);
+  };
+
+  const openVideoProjectModal = () => {
+    setIsOpen(false);
+    setSessionName('');
+    setSessionDescription('');
     setIsProjectModalOpen(true);
   };
 
@@ -265,6 +274,18 @@ function AddSessionDropdown(props) {
         sessionName: resolvedSessionName,
         addBackgroundLayer,
         backgroundLayerColor,
+      });
+      closeProjectModal();
+      return;
+    }
+
+    if (isProjectModalOpen) {
+      const resolvedSessionName = sessionName.trim();
+      const resolvedSessionDescription = sessionDescription.trim();
+      createNewSession({
+        aspectRatio: selectedAspectRatio,
+        ...(resolvedSessionName ? { sessionName: resolvedSessionName } : {}),
+        ...(resolvedSessionDescription ? { sessionDescription: resolvedSessionDescription } : {}),
       });
       closeProjectModal();
       return;
@@ -369,7 +390,7 @@ function AddSessionDropdown(props) {
 
             </button>
             <button
-              onClick={addNewSession}
+              onClick={openVideoProjectModal}
               className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
               role="menuitem"
             >
@@ -410,7 +431,7 @@ function AddSessionDropdown(props) {
         </div>
       )}
 
-      {useImageProjectModal && isProjectModalOpen && (
+      {isProjectModalOpen && (
         <div className="fixed inset-0 z-[11060] flex items-center justify-center p-3 sm:p-4">
           <button
             type="button"
@@ -420,18 +441,22 @@ function AddSessionDropdown(props) {
           />
           <div className={`relative z-10 max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-xl p-4 shadow-[0_20px_46px_rgba(0,0,0,0.5)] sm:p-6 ${modalSurface}`}>
             <form onSubmit={handleCreateSessionSubmit}>
-              <div className="text-lg font-semibold">Create new Image session</div>
-              <div className="mt-1 text-sm opacity-80">
-                Start a new image editing session with your preferred canvas setup.
+              <div className="text-lg font-semibold">
+                {useImageProjectModal ? 'Create new Image session' : 'Create new session'}
               </div>
+              {useImageProjectModal && (
+                <div className="mt-1 text-sm opacity-80">
+                  Start a new image editing session with your preferred canvas setup.
+                </div>
+              )}
 
               <div className="mt-5 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2" htmlFor="image-project-name">
-                    Project name
+                  <label className="block text-sm font-medium mb-2" htmlFor="project-name">
+                    {useImageProjectModal ? 'Project name' : 'Session name'}
                   </label>
                   <input
-                    id="image-project-name"
+                    id="project-name"
                     type="text"
                     maxLength={120}
                     value={sessionName}
@@ -441,95 +466,116 @@ function AddSessionDropdown(props) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Canvas preset
-                  </label>
-                  <SingleSelect
-                    options={projectCanvasOptions}
-                    onChange={handleProjectCanvasOptionChange}
-                    value={selectedProjectCanvasOption}
-                    isSearchable={false}
-                  />
-                </div>
-
-                {isCustomCanvasSelected && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-width">
-                        Width
-                      </label>
-                      <input
-                        id="custom-canvas-width"
-                        type="number"
-                        min={MIN_CANVAS_DIMENSION}
-                        max={MAX_CANVAS_DIMENSION}
-                        step="1"
-                        value={customCanvasWidth}
-                        onChange={(event) => setCustomCanvasWidth(event.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-height">
-                        Height
-                      </label>
-                      <input
-                        id="custom-canvas-height"
-                        type="number"
-                        min={MIN_CANVAS_DIMENSION}
-                        max={MAX_CANVAS_DIMENSION}
-                        step="1"
-                        value={customCanvasHeight}
-                        onChange={(event) => setCustomCanvasHeight(event.target.value)}
-                        className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
-                      />
-                    </div>
+                {!useImageProjectModal && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2" htmlFor="project-description">
+                      Description <span className="opacity-70">(optional)</span>
+                    </label>
+                    <textarea
+                      id="project-description"
+                      maxLength={1000}
+                      rows={4}
+                      value={sessionDescription}
+                      onChange={(event) => setSessionDescription(event.target.value)}
+                      placeholder="Add a short description"
+                      className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                    />
                   </div>
                 )}
 
-                <div className={`rounded-lg border px-3 py-3 text-sm ${modalInputSurface}`}>
-                  <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
-                    Canvas resolution
-                  </div>
-                  <div className="mt-1 font-semibold">
-                    {projectCanvasDimensions.width} x {projectCanvasDimensions.height} px
-                  </div>
-                  {isCustomCanvasSelected && (
-                    <div className="mt-1 text-xs opacity-80">
-                      Custom ratio {getSimplifiedAspectRatioLabel(projectCanvasDimensions)}. Default model ratio will start at {resolvedProjectGenerationAspectRatio}.
-                    </div>
-                  )}
-                  {customCanvasValidationMessage && (
-                    <div className="mt-2 text-xs text-rose-500">{customCanvasValidationMessage}</div>
-                  )}
-                </div>
-
-                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={addBackgroundLayer}
-                    onChange={(event) => setAddBackgroundLayer(event.target.checked)}
-                  />
-                  Add background layer
-                </label>
-
-                {addBackgroundLayer && (
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Background color
-                    </label>
-                    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${modalInputSurface}`}>
-                      <input
-                        type="color"
-                        value={backgroundLayerColor}
-                        onChange={(event) => setBackgroundLayerColor(event.target.value)}
-                        className="h-8 w-12 cursor-pointer border-0 bg-transparent p-0"
+                {useImageProjectModal && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Canvas preset
+                      </label>
+                      <SingleSelect
+                        options={projectCanvasOptions}
+                        onChange={handleProjectCanvasOptionChange}
+                        value={selectedProjectCanvasOption}
+                        isSearchable={false}
                       />
-                      <div className="text-sm font-mono uppercase">{backgroundLayerColor}</div>
                     </div>
-                  </div>
+
+                    {isCustomCanvasSelected && (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-width">
+                            Width
+                          </label>
+                          <input
+                            id="custom-canvas-width"
+                            type="number"
+                            min={MIN_CANVAS_DIMENSION}
+                            max={MAX_CANVAS_DIMENSION}
+                            step="1"
+                            value={customCanvasWidth}
+                            onChange={(event) => setCustomCanvasWidth(event.target.value)}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-2" htmlFor="custom-canvas-height">
+                            Height
+                          </label>
+                          <input
+                            id="custom-canvas-height"
+                            type="number"
+                            min={MIN_CANVAS_DIMENSION}
+                            max={MAX_CANVAS_DIMENSION}
+                            step="1"
+                            value={customCanvasHeight}
+                            onChange={(event) => setCustomCanvasHeight(event.target.value)}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className={`rounded-lg border px-3 py-3 text-sm ${modalInputSurface}`}>
+                      <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+                        Canvas resolution
+                      </div>
+                      <div className="mt-1 font-semibold">
+                        {projectCanvasDimensions.width} x {projectCanvasDimensions.height} px
+                      </div>
+                      {isCustomCanvasSelected && (
+                        <div className="mt-1 text-xs opacity-80">
+                          Custom ratio {getSimplifiedAspectRatioLabel(projectCanvasDimensions)}. Default model ratio will start at {resolvedProjectGenerationAspectRatio}.
+                        </div>
+                      )}
+                      {customCanvasValidationMessage && (
+                        <div className="mt-2 text-xs text-rose-500">{customCanvasValidationMessage}</div>
+                      )}
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={addBackgroundLayer}
+                        onChange={(event) => setAddBackgroundLayer(event.target.checked)}
+                      />
+                      Add background layer
+                    </label>
+
+                    {addBackgroundLayer && (
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Background color
+                        </label>
+                        <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${modalInputSurface}`}>
+                          <input
+                            type="color"
+                            value={backgroundLayerColor}
+                            onChange={(event) => setBackgroundLayerColor(event.target.value)}
+                            className="h-8 w-12 cursor-pointer border-0 bg-transparent p-0"
+                          />
+                          <div className="text-sm font-mono uppercase">{backgroundLayerColor}</div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -559,7 +605,7 @@ function AddSessionDropdown(props) {
                 </button>
                 <button
                   type="submit"
-                  disabled={Boolean(customCanvasValidationMessage)}
+                  disabled={Boolean(useImageProjectModal && customCanvasValidationMessage)}
                   className={`min-h-[40px] px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${modalPrimaryButton}`}
                 >
                   Create session

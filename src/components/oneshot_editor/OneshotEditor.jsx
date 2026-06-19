@@ -182,8 +182,6 @@ const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   cta_text_bottom: '',
   cta_logo: '',
   footer_metadata: '',
-  metadata: '',
-  image_item_metadata: '',
   limit_single_narrator: false,
   add_narrator_avatar: false,
 });
@@ -263,22 +261,8 @@ function wait(ms) {
 function createEmptyImageListItem() {
   return {
     image_url: '',
-    title: '',
     image_text: '',
   };
-}
-
-function titleFromFileName(fileName = '') {
-  const fallback = 'Uploaded image';
-  const normalized = typeof fileName === 'string' ? fileName.trim() : '';
-  if (!normalized) {
-    return fallback;
-  }
-  return normalized
-    .replace(/\.[^.]+$/, '')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim() || fallback;
 }
 
 function readFileAsDataUrl(file) {
@@ -1656,7 +1640,6 @@ function buildAdvancedRequestConfiguration({
     input.footer_metadata = parsedFooterMetadata.value;
   }
 
-  let imageItemMetadata = null;
   if (!isTextToVideo) {
     if (advancedOptions.add_narrator_avatar === true) {
       input.add_narrator_avatar = true;
@@ -1664,28 +1647,6 @@ function buildAdvancedRequestConfiguration({
     } else if (advancedOptions.limit_single_narrator === true) {
       input.limit_single_narrator = true;
     }
-
-    const parsedMetadata = parseOptionalJsonValue(
-      advancedOptions.metadata,
-      'Metadata',
-      isPlainObject,
-    );
-    if (parsedMetadata.error) {
-      return { error: parsedMetadata.error };
-    }
-    if (parsedMetadata.value) {
-      input.metadata = parsedMetadata.value;
-    }
-
-    const parsedImageItemMetadata = parseOptionalJsonValue(
-      advancedOptions.image_item_metadata,
-      'Image item metadata',
-      Array.isArray,
-    );
-    if (parsedImageItemMetadata.error) {
-      return { error: parsedImageItemMetadata.error };
-    }
-    imageItemMetadata = parsedImageItemMetadata.value;
   }
 
   const selectedCustomAdapters = buildSelectedCustomAdaptersPayload(
@@ -1701,7 +1662,6 @@ function buildAdvancedRequestConfiguration({
   return {
     input,
     root,
-    imageItemMetadata,
   };
 }
 
@@ -4034,7 +3994,6 @@ export default function OneshotEditor() {
             ? {
                 ...item,
                 image_url: uploadedUrl.trim(),
-                title: item.title.trim() ? item.title : titleFromFileName(file.name),
               }
             : item
         )
@@ -4162,9 +4121,8 @@ export default function OneshotEditor() {
     }
     const normalizedImageListItems = imageListItems
       .map((item) => ({
-        image_url: item.image_url.trim(),
-        title: item.title.trim(),
-        image_text: item.image_text.trim(),
+        image_url: (item.image_url || '').trim(),
+        image_text: (item.image_text || '').trim(),
       }))
       .filter((item) => item.image_url);
 
@@ -4238,19 +4196,9 @@ export default function OneshotEditor() {
 
     try {
       if (!isTextToVideo) {
-        const imageItemMetadata = Array.isArray(advancedRequestConfiguration.imageItemMetadata)
-          ? advancedRequestConfiguration.imageItemMetadata
-          : null;
-        requestInput.image_urls = normalizedImageListItems.map((item, index) => {
-          const itemMetadata = imageItemMetadata?.[index];
+        requestInput.image_urls = normalizedImageListItems.map((item) => {
           const imagePayload = {};
-          if (isPlainObject(itemMetadata) && Object.keys(itemMetadata).length > 0) {
-            Object.assign(imagePayload, itemMetadata);
-          }
           imagePayload.image_url = item.image_url;
-          if (item.title) {
-            imagePayload.title = item.title;
-          }
           if (item.image_text) {
             imagePayload.image_text = item.image_text;
           }
@@ -5522,6 +5470,7 @@ export default function OneshotEditor() {
                     value={selectedVideoModel}
                     onChange={setSelectedVideoModel}
                     options={imageListVideoModels}
+                    truncateLabels
                     className="w-full"
                   />
                 </div>
@@ -5622,34 +5571,6 @@ export default function OneshotEditor() {
                     </label>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className={advancedLabelClasses}>Metadata JSON</label>
-                      <TextareaAutosize
-                        minRows={3}
-                        maxRows={8}
-                        value={advancedOptions.metadata}
-                        onChange={(event) => updateAdvancedOption('metadata', event.target.value)}
-                        disabled={isFormDisabled}
-                        className={advancedInputClasses}
-                        placeholder='{"project":"launch_trailer"}'
-                      />
-                    </div>
-                    <div>
-                      <label className={advancedLabelClasses}>Image item metadata JSON</label>
-                      <TextareaAutosize
-                        minRows={3}
-                        maxRows={8}
-                        value={advancedOptions.image_item_metadata}
-                        onChange={(event) =>
-                          updateAdvancedOption('image_item_metadata', event.target.value)
-                        }
-                        disabled={isFormDisabled}
-                        className={advancedInputClasses}
-                        placeholder='[{"title":"Opening frame"}]'
-                      />
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -6161,10 +6082,10 @@ export default function OneshotEditor() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[112px_minmax(0,1fr)]">
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-[96px_minmax(0,1fr)]">
                         <div
                           className={`
-                            mx-auto flex aspect-square w-full max-w-[112px] items-center justify-center overflow-hidden rounded-lg ring-1 lg:mx-0
+                            mx-auto flex aspect-square w-full max-w-[96px] items-center justify-center overflow-hidden rounded-lg ring-1 md:mx-0
                             ${colorMode === 'dark'
                               ? 'bg-black/20 ring-white/10'
                               : 'bg-white ring-slate-200'
@@ -6174,7 +6095,7 @@ export default function OneshotEditor() {
                           {imageUrl ? (
                             <img
                               src={imageUrl}
-                              alt={item.title || `Image ${index + 1}`}
+                              alt={`Image ${index + 1}`}
                               className="h-full w-full object-cover"
                             />
                           ) : (
@@ -6182,7 +6103,7 @@ export default function OneshotEditor() {
                           )}
                         </div>
 
-                        <div className="min-w-0 space-y-3">
+                        <div className="min-w-0 space-y-2">
                           <div className="grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
                             <div>
                               <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
@@ -6239,35 +6160,19 @@ export default function OneshotEditor() {
                               {isUploadingThisImage ? 'Uploading...' : 'Upload to URL'}
                             </label>
                           </div>
-
-                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <div>
-                              <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
-                                Title
-                              </label>
-                              <input
-                                type="text"
-                                value={item.title}
-                                onChange={(event) => updateImageListItem(index, { title: event.target.value })}
-                                disabled={isFormDisabled}
-                                className={advancedInputClasses}
-                                placeholder="Opening frame"
-                              />
-                            </div>
-                            <div>
-                              <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
-                                Image text
-                              </label>
-                              <TextareaAutosize
-                                minRows={1}
-                                maxRows={4}
-                                value={item.image_text}
-                                onChange={(event) => updateImageListItem(index, { image_text: event.target.value })}
-                                disabled={isFormDisabled}
-                                className={advancedInputClasses}
-                                placeholder="Scene direction or product detail"
-                              />
-                            </div>
+                          <div>
+                            <label className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
+                              Image description
+                            </label>
+                            <TextareaAutosize
+                              minRows={2}
+                              maxRows={5}
+                              value={item.image_text}
+                              onChange={(event) => updateImageListItem(index, { image_text: event.target.value })}
+                              disabled={isFormDisabled}
+                              className={advancedInputClasses}
+                              placeholder="What is in this image and what matters for this scene"
+                            />
                           </div>
                         </div>
                       </div>
@@ -6276,29 +6181,34 @@ export default function OneshotEditor() {
                 })}
               </div>
             </div>
-            <TextareaAutosize
-              minRows={4}
-              maxRows={12}
-              disabled={isFormDisabled}
-              className={`
-                vidgenie-prompt-textarea
-                w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
-                focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
-                ${colorMode === 'dark'
-                  ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
-                  : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
-                }
-              `}
-              placeholder={t(
-                "vidgenie.imageListPromptPlaceholder",
-                {},
-                "Describe the motion, pacing, and story that should connect these images…"
-              )}
-              name="promptText"
-              value={promptText}
-              maxLength={VIDGENIE_PROMPT_MAX_LENGTH}
-              onChange={handlePromptTextChange}
-            />
+            <div className="space-y-2">
+              <label className={`block text-sm font-semibold ${colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900'}`}>
+                Video styling prompt
+              </label>
+              <TextareaAutosize
+                minRows={4}
+                maxRows={12}
+                disabled={isFormDisabled}
+                className={`
+                  vidgenie-prompt-textarea
+                  w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+                  ${colorMode === 'dark'
+                    ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                    : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
+                  }
+                `}
+                placeholder={t(
+                  "vidgenie.imageListPromptPlaceholder",
+                  {},
+                  "Describe the motion, pacing, and story that should connect these images..."
+                )}
+                name="promptText"
+                value={promptText}
+                maxLength={VIDGENIE_PROMPT_MAX_LENGTH}
+                onChange={handlePromptTextChange}
+              />
+            </div>
             <div className={`text-right text-xs tabular-nums ${promptCounterClass}`}>
               {promptCounterLabel}
             </div>

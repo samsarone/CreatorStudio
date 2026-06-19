@@ -44,6 +44,7 @@ const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
 const VIDEO_TASK_POLL_INTERVAL_MS = 1500;
 const USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
+const DISPLAY_FRAMES_PER_SECOND = 30;
 
 function isActiveUserVideoUploadTask(task) {
   return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
@@ -81,6 +82,27 @@ function resolveMediaUrl(value, baseUrl = '') {
   }
 
   return `${trimmedBaseUrl}${normalizedPath}`;
+}
+
+function getLayerId(layer) {
+  return layer?._id?.toString?.() || layer?._id || null;
+}
+
+function getContentDispositionFileName(contentDisposition) {
+  if (typeof contentDisposition !== 'string') {
+    return null;
+  }
+
+  const fileNameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+  if (!fileNameMatch?.[1]) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(fileNameMatch[1]);
+  } catch {
+    return fileNameMatch[1];
+  }
 }
 
 export default function VideoEditorContainer(props) {
@@ -527,7 +549,9 @@ export default function VideoEditorContainer(props) {
       const currentLayerStartTime = currentLayer.durationOffset;
       const currentLayerEndTime = currentLayer.durationOffset + currentLayer.duration;
 
-      const { audioLayers } = videoSessionDetails;
+      const audioLayers = Array.isArray(videoSessionDetails.audioLayers)
+        ? videoSessionDetails.audioLayers
+        : [];
       const audioSpeechLayerOverlaps = audioLayers.some((audioLayer) => {
         const audioLayerStartTime = audioLayer.startTime;
         const audioLayerEndTime = audioLayer.endTime;
@@ -1362,6 +1386,61 @@ export default function VideoEditorContainer(props) {
 
 
   const downloadCurrentFrame = async () => {
+    const currentLayerId = getLayerId(currentLayer);
+    const currentLayerVideoState = resolveLayerVideoState(currentLayer);
+    if (currentLayerVideoState.url && currentLayerId) {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return;
+      }
+
+      const currentSeekFrame = Number(currentLayerSeek) || 0;
+      const currentLayerOffsetSeconds = Number(currentLayer?.durationOffset) || 0;
+      const currentLayerTimestamp = Math.max(
+        0,
+        (currentSeekFrame / DISPLAY_FRAMES_PER_SECOND) - currentLayerOffsetSeconds
+      );
+
+      try {
+        const frameResponse = await axios.get(
+          `${PROCESSOR_API_URL}/video_sessions/layer_frame`,
+          {
+            ...headers,
+            params: {
+              sessionId: id,
+              layerId: currentLayerId,
+              timestamp: currentLayerTimestamp,
+            },
+            responseType: 'blob',
+          }
+        );
+
+        const blobUrl = window.URL.createObjectURL(frameResponse.data);
+        const link = document.createElement('a');
+        const dateStr = new Date().toISOString().replace(/:/g, '-');
+        link.href = blobUrl;
+        link.download =
+          getContentDispositionFileName(frameResponse.headers?.['content-disposition']) ||
+          `frame_${dateStr}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        toast.error(
+          <div>
+            <FaTimes /> Unable to download current video frame
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      }
+      return;
+    }
+
     const isPremiumUser = user.isPremiumUser;
     const waterMarkImage = 'wm.png';
 
@@ -1393,7 +1472,7 @@ export default function VideoEditorContainer(props) {
     // Draw each item
     for (const item of currentLayer.imageSession.activeItemList || []) {
       if (item.type === 'text') {
-        drawCanvasTextItem(ctx, item, { width, height });
+        drawCanvasTextItem(ctx, item, stageDimensions);
         continue;
       }
 
@@ -3213,10 +3292,10 @@ export default function VideoEditorContainer(props) {
   return (
     <div className={`${mainWorkspaceShell} flex h-full min-h-0`}>
       <div
-        className={`flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden px-6 py-6 text-center ${disabledShellClass}`}
+        className={`min-h-0 min-w-0 flex-1 overflow-auto px-6 py-6 text-center ${disabledShellClass}`}
         aria-disabled={isRenderPending}
       >
-        <div className="flex h-full w-full items-center justify-center overflow-hidden">
+        <div className="grid h-max min-h-full w-max min-w-full place-items-center overflow-visible">
           {viewDisplay}
         </div>
       </div>

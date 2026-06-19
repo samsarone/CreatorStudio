@@ -65,6 +65,10 @@ export default function TopNav(props) {
     renderCompletedThisSession,
     sessionId: sessionIdOverride,
     openAdvancedVideoEditDialog,
+    isReadOnlyShareView,
+    isEditableShareView,
+    isImportedSession,
+    onRequestEditSession,
   } = props;
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
@@ -254,17 +258,150 @@ const showLicenseDialog = () => {
     openAlertDialog(registerComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   }
 
+  const copyShareUrlToClipboard = useCallback((sharePath) => {
+    const shareUrl = new URL(sharePath, window.location.origin).toString();
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
+    }
+    toast.success('Share link copied', { position: 'bottom-center' });
+  }, []);
+
+  const createShareUrl = useCallback((mode: 'read_only' | 'editable') => {
+    if (isReadOnlyShareView || isEditableShareView) {
+      const shareUrl = window.location.href;
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(shareUrl).catch(() => {});
+      }
+      toast.success('Share link copied', { position: 'bottom-center' });
+      return;
+    }
+
+    if (!resolvedSessionId) {
+      toast.error('Session is not ready to share.', { position: 'bottom-center' });
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    axios
+      .post(`${PROCESSOR_SERVER}/video_sessions/share_session`, { sessionId: resolvedSessionId, mode }, headers)
+      .then((response) => {
+        const sharePath = response?.data?.shareUrl || response?.data?.share_url;
+        if (!sharePath) {
+          throw new Error('Missing share URL.');
+        }
+
+        copyShareUrlToClipboard(sharePath);
+      })
+      .catch((error) => {
+        toast.error(error?.response?.data?.error || 'Unable to create share link.', {
+          position: 'bottom-center',
+        });
+      });
+  }, [copyShareUrlToClipboard, isEditableShareView, isReadOnlyShareView, resolvedSessionId]);
+
+  const openShareOptionsDialog = useCallback(() => {
+    const optionButtonClassName =
+      colorMode === 'dark'
+        ? 'w-full rounded-lg border border-white/10 bg-[#111a2f] px-4 py-3 text-left transition hover:border-cyan-300/35 hover:bg-[#162744]'
+        : 'w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50';
+    const secondaryTextClassName = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+
+    openAlertDialog(
+      <div className="relative w-full">
+        <FaTimes className="absolute right-0 top-0 cursor-pointer" onClick={closeAlertDialog} />
+        <div className="pr-8">
+          <div className="text-base font-semibold">Share session</div>
+          <div className={`mt-1 text-sm ${secondaryTextClassName}`}>
+            Choose how this session link can be used.
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col gap-3">
+          <button
+            type="button"
+            className={optionButtonClassName}
+            onClick={() => {
+              closeAlertDialog();
+              createShareUrl('read_only');
+            }}
+          >
+            <div className="text-sm font-semibold">Read only</div>
+            <div className={`mt-1 text-xs ${secondaryTextClassName}`}>Anyone with the link can view.</div>
+          </button>
+          <button
+            type="button"
+            className={optionButtonClassName}
+            onClick={() => {
+              closeAlertDialog();
+              createShareUrl('editable');
+            }}
+          >
+            <div className="text-sm font-semibold">Editable link</div>
+            <div className={`mt-1 text-xs ${secondaryTextClassName}`}>Authenticated users can edit this session.</div>
+          </button>
+        </div>
+      </div>,
+      undefined,
+      false,
+      {
+        centerContent: true,
+        containerClassName: 'w-full max-w-[420px]',
+        fullBleed: false,
+      }
+    );
+  }, [
+    closeAlertDialog,
+    colorMode,
+    createShareUrl,
+    isEditableShareView,
+    isReadOnlyShareView,
+    openAlertDialog,
+  ]);
+
   const upgradeToPremiumTier = () => {
 
     navigate('/create_payment');
   };
 
-  const createNewSession = (aspectRatio = '1:1') => {
+  const createNewSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          sessionDescription?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || '1:1';
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const normalizedSessionDescription = typeof normalizedSessionConfig.sessionDescription === 'string'
+      ? normalizedSessionConfig.sessionDescription.trim()
+      : '';
     const headers = getHeaders();
-    const payload = {
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      sessionName?: string;
+      sessionDescription?: string;
+    } = {
       prompts: [],
-      aspectRatio: aspectRatio,
+      aspectRatio: selectedAspectRatio,
     };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (normalizedSessionDescription) {
+      payload.sessionDescription = normalizedSessionDescription;
+    }
     axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
       const session = response.data;
       const sessionId = session._id.toString();
@@ -421,7 +558,7 @@ const showLicenseDialog = () => {
 
   let userCredits;
 
-  if (user && user._id) {
+  if (user && user._id && !isReadOnlyShareView) {
     if (user.isPremiumUser) {
       let premiumUserType = 'Premium';
       if (user.premiumUserType) {
@@ -710,6 +847,10 @@ const showLicenseDialog = () => {
         renderCompletedThisSession={renderCompletedThisSession}
         editorVariant={isImageEditor ? 'imageStudio' : 'videoStudio'}
         openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
+        isReadOnlyMode={Boolean(isReadOnlyShareView)}
+        isImportedSession={Boolean(isImportedSession)}
+        onRequestEditSession={onRequestEditSession}
+        onCreateShareUrl={openShareOptionsDialog}
       />
     );
   } else if (isGenerationsView) {
