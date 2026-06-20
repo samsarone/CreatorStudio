@@ -10,18 +10,25 @@ import SecondaryButton from "../common/SecondaryButton.tsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 import { useUser } from "../../contexts/UserContext.jsx";
 import { getHeaders } from "../../utils/web.jsx";
+import { hasInsufficientGenerationCredits } from "../../utils/defaultRoutes.js";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-const creditOptions = [
-  { value: 10, label: "$10", caption: "Quick top-up" },
-  { value: 25, label: "$25", caption: "Starter pack" },
-  { value: 50, label: "$50", caption: "Most popular", badge: "Popular" },
-  { value: 100, label: "$100", caption: "Studio teams" },
-  { value: 500, label: "$500", caption: "Agency bundle" },
-  { value: 1000, label: "$1000", caption: "Enterprise scale" },
-];
+const DEFAULT_PURCHASE_USD = 50;
+const MIN_PURCHASE_USD = 1;
+const PRICING_DOCS_URL = "https://docs.samsar.one/pricing/";
+const thresholdPresets = [100, 500, 1000];
+const rechargeAmountPresets = [10, 25, 50, 100];
+
+const sanitizeWholeDollarInput = (value) =>
+  String(value ?? "").replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
+
+const normalizeWholeDollarAmount = (value) => {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < MIN_PURCHASE_USD) return MIN_PURCHASE_USD;
+  return parsed;
+};
 
 const formatAmount = (amountCents = 0, currency = "USD") => {
   const dollars = Math.max(0, Number(amountCents || 0) / 100);
@@ -50,8 +57,8 @@ export default function BillingPanelContent() {
   const subtleText = colorMode === "dark" ? "text-slate-400" : "text-slate-600";
   const mutedBg = colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50";
   const headerBg = colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50";
-  const sectionCard = `rounded-2xl border ${borderColor} ${cardBgColor}`;
-  const summaryCard = `rounded-xl border ${borderColor} ${mutedBg} p-4`;
+  const sectionCard = `rounded-lg border ${borderColor} ${cardBgColor}`;
+  const summaryCard = `rounded-lg border ${borderColor} ${mutedBg} p-4`;
 
   const [threshold, setThreshold] = useState(1000);
   const [amountUsd, setAmountUsd] = useState(50);
@@ -59,11 +66,10 @@ export default function BillingPanelContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingThreshold, setIsSavingThreshold] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
-  const [isStartingSetup, setIsStartingSetup] = useState(false);
   const [billingHistory, setBillingHistory] = useState([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
-  const [selectedCreditPack, setSelectedCreditPack] = useState(creditOptions[2] || creditOptions[0]);
+  const [creditPurchaseUsd, setCreditPurchaseUsd] = useState(String(DEFAULT_PURCHASE_USD));
   const [couponCode, setCouponCode] = useState("");
   const [isCouponOpen, setIsCouponOpen] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -105,11 +111,21 @@ export default function BillingPanelContent() {
     () => Math.max(0, Math.round(Number(amountUsd || 0) * 100)),
     [amountUsd]
   );
+  const purchaseAmountUsd = useMemo(
+    () => normalizeWholeDollarAmount(creditPurchaseUsd),
+    [creditPurchaseUsd]
+  );
+  const purchaseCreditCount = useMemo(
+    () => purchaseAmountUsd * 100,
+    [purchaseAmountUsd]
+  );
   const maxMonthlyCredits = useMemo(
     () => Math.max(0, Math.round(Number(maxMonthlyUsd || 0) * 100)),
     [maxMonthlyUsd]
   );
   const hasMonthlyCap = Number(maxMonthlyUsd || 0) > 0;
+  const showLowCreditPurchaseCue = hasInsufficientGenerationCredits(user);
+  const currentCredits = numberFormatter.format(user?.generationCredits || 0);
 
   const isAutoEnabled = !!user?.autoRechargeEnabled;
   const hasPaymentMethod = !!user?.autoRechargePaymentMethodId;
@@ -154,6 +170,14 @@ export default function BillingPanelContent() {
 
     window.location.assign(url);
     return false;
+  };
+
+  const handleCreditPurchaseChange = (event) => {
+    setCreditPurchaseUsd(sanitizeWholeDollarInput(event.target.value));
+  };
+
+  const handleCreditPurchaseBlur = () => {
+    setCreditPurchaseUsd(String(purchaseAmountUsd));
   };
 
   const handleSaveSettings = async () => {
@@ -268,12 +292,17 @@ export default function BillingPanelContent() {
   };
 
   const purchaseCreditsForUser = async (amountToPurchase) => {
+    const purchaseAmountRequest = parseInt(amountToPurchase, 10);
+    if (Number.isNaN(purchaseAmountRequest) || purchaseAmountRequest <= 0) {
+      toast.error("Enter a whole dollar amount first.", { position: "bottom-center" });
+      return;
+    }
+
     setIsPurchasing(true);
     let purchaseWindow;
     let navigationHandled = false;
     try {
       purchaseWindow = allowPopupNavigation ? window.open("", "_blank") : null;
-      const purchaseAmountRequest = parseInt(amountToPurchase, 10);
       const purchasePayload = {
         amount: purchaseAmountRequest,
       };
@@ -395,19 +424,31 @@ export default function BillingPanelContent() {
   };
 
   const renderHistory = () => {
-    if (isHistoryLoading) return <p className={subtleText}>Loading billing history…</p>;
-    if (!billingHistory.length) return <p className={subtleText}>No billing records yet.</p>;
+    if (isHistoryLoading) {
+      return (
+        <div className={`rounded-lg border ${borderColor} ${mutedBg} px-4 py-5 text-sm ${subtleText}`}>
+          Loading billing history...
+        </div>
+      );
+    }
+    if (!billingHistory.length) {
+      return (
+        <div className={`rounded-lg border ${borderColor} ${mutedBg} px-4 py-5 text-sm ${subtleText}`}>
+          No billing records yet.
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-3">
         {billingHistory.map((payment) => (
           <div
             key={payment.id || payment.stripeInvoiceId}
-            className={`flex items-center justify-between rounded-lg border ${borderColor} px-4 py-3 ${
+            className={`flex flex-col gap-3 rounded-lg border ${borderColor} px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
               colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50"
             }`}
           >
-            <div>
+            <div className="min-w-0">
               {(() => {
                 const paymentDate = payment.paymentDate || payment.createdAt || new Date();
                 return (
@@ -417,17 +458,19 @@ export default function BillingPanelContent() {
                 );
               })()}
               <p className="font-semibold">{formatAmount(payment.amountPaidCents, payment.currency)}</p>
-              <p className={`text-xs ${subtleText}`}>{payment.billingReason || payment.productSummary || ""}</p>
+              <p className={`truncate text-xs ${subtleText}`}>{payment.billingReason || payment.productSummary || ""}</p>
             </div>
-            <div className="text-right">
+            <div className="flex shrink-0 items-center justify-between gap-3 sm:flex-col sm:items-end sm:text-right">
               <p className="text-sm font-semibold">{payment.creditsApplied || 0} credits</p>
-              <p className={`text-xs ${subtleText}`}>{payment.paymentStatus || ""}</p>
+              <p className={`rounded-full border px-2 py-1 text-xs ${borderColor} ${mutedBg}`}>
+                {payment.paymentStatus || "recorded"}
+              </p>
               {payment.receiptAvailable && payment.receiptUrl ? (
                 <a
                   href={payment.receiptUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`mt-2 inline-flex items-center justify-center rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                  className={`inline-flex min-h-[30px] items-center justify-center rounded-full border px-3 py-1 text-[11px] font-semibold ${
                     colorMode === "dark"
                       ? "border-indigo-400/50 text-indigo-200 hover:border-indigo-300"
                       : "border-indigo-200 text-indigo-600 hover:border-indigo-300"
@@ -443,38 +486,186 @@ export default function BillingPanelContent() {
     );
   };
 
-  const planName = user?.isPremiumUser ? "Premium" : "Basic";
+  const planName = user?.isPremiumUser ? "Creators" : "Pay as you go";
   const planStatusLabel = user?.isPremiumUser ? "Active" : "Starter";
   const planDescription = user?.isPremiumUser
-    ? "Creators plan with monthly credits."
-    : "Pay-as-you-go credits for occasional use.";
+    ? "Monthly credits, enhanced storage, and priority queues."
+    : "Manual credit purchases with optional auto-recharge.";
   const nextChargeLabel = user?.isPremiumUser
     ? formatDateString(user?.nextCreditRefill)
     : "No upcoming charge";
 
   return (
-    <div className={`flex flex-col gap-6 ${textColor}`}>
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className={`mx-auto flex w-full max-w-5xl flex-col gap-5 ${textColor}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold">Billing</h2>
-          <p className={`text-sm ${subtleText}`}>Manage credits, auto-recharge, and receipts.</p>
+          <p className={`text-sm ${subtleText}`}>Buy credits, manage auto-recharge, and review receipts.</p>
         </div>
-        <div className={`flex items-center gap-4 rounded-xl border ${borderColor} ${mutedBg} px-4 py-3`}>
+        <div className={`rounded-lg border ${borderColor} ${mutedBg} px-4 py-3 text-right`}>
+          <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Current credits</p>
+          <p className="text-2xl font-semibold">{currentCredits}</p>
+        </div>
+      </div>
+
+      <div className={`${sectionCard} p-6`}>
+        <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <div>
-            <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Plan</p>
-            <p className="text-lg font-semibold">{planName}</p>
-            <p className={`text-xs ${subtleText}`}>{planDescription}</p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500">
+                <FaCreditCard />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-400">Default action</p>
+                <h3 className="text-lg font-semibold">Buy credits</h3>
+                <p className={`text-sm ${subtleText}`}>Enter a dollar amount. Credits are added after Stripe checkout.</p>
+              </div>
+            </div>
+
+            <label className="mt-6 block">
+              <span className="text-sm font-semibold">Amount to purchase</span>
+              <div className={`mt-2 flex min-h-[58px] items-center rounded-lg border ${borderColor} ${
+                colorMode === "dark" ? "bg-[#0b1224]" : "bg-white"
+              }`}>
+                <span className={`px-4 text-xl font-semibold ${subtleText}`}>$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={creditPurchaseUsd}
+                  onChange={handleCreditPurchaseChange}
+                  onBlur={handleCreditPurchaseBlur}
+                  aria-label="Whole dollar credit purchase amount"
+                  className={`min-w-0 flex-1 bg-transparent py-3 text-3xl font-semibold outline-none ${
+                    colorMode === "dark" ? "text-slate-100" : "text-slate-900"
+                  }`}
+                />
+                <span className={`px-4 text-sm font-semibold ${subtleText}`}>USD</span>
+              </div>
+              <span className={`mt-2 block text-xs ${subtleText}`}>Whole dollar amounts only. $1 = 100 credits.</span>
+            </label>
+
+            <div className={`mt-4 rounded-lg border ${borderColor} ${mutedBg} p-4`}>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Credits for this purchase</p>
+                  <p className="text-3xl font-semibold">{numberFormatter.format(purchaseCreditCount)}</p>
+                </div>
+                <p className={`text-sm ${subtleText}`}>
+                  ${numberFormatter.format(purchaseAmountUsd)} x 100 credits
+                </p>
+              </div>
+            </div>
+
+            <a
+              href={PRICING_DOCS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`mt-4 inline-flex text-sm font-semibold underline-offset-4 hover:underline ${
+                colorMode === "dark" ? "text-indigo-200" : "text-indigo-600"
+              }`}
+            >
+              See model pricing here
+            </a>
           </div>
-          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${planBadge}`}>
-            {planStatusLabel}
-          </span>
+
+          <div className={`flex flex-col justify-between rounded-lg border ${borderColor} ${mutedBg} p-4`}>
+            <div>
+              <p className="text-sm font-semibold">Checkout summary</p>
+              <div className={`mt-4 space-y-3 text-sm ${subtleText}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Amount</span>
+                  <span className={textColor}>${numberFormatter.format(purchaseAmountUsd)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Credits</span>
+                  <span className={textColor}>{numberFormatter.format(purchaseCreditCount)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Current balance</span>
+                  <span className={textColor}>{currentCredits}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={() => setIsCouponOpen((prev) => !prev)}
+                className={`flex w-full items-center justify-between rounded-lg border ${borderColor} px-3 py-2 text-sm font-semibold ${
+                  colorMode === "dark" ? "bg-[#0b1224] hover:border-indigo-400/70" : "bg-white hover:border-indigo-400"
+                }`}
+              >
+                <span>Have a credits coupon?</span>
+                <span>{isCouponOpen ? "Hide" : "Add"}</span>
+              </button>
+
+              {isCouponOpen && (
+                <div className="grid gap-3">
+                  <input
+                    type="text"
+                    placeholder="Enter coupon code"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm ${
+                      colorMode === "dark"
+                        ? "border-[#1f2a3d] bg-[#0b1224] text-slate-100 placeholder:text-slate-500"
+                        : "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
+                    }`}
+                  />
+                  <SecondaryButton
+                    onClick={() => requestApplyCreditsCoupon(couponCode.trim())}
+                    disabled={!couponCode.trim() || isApplyingCoupon}
+                  >
+                    {isApplyingCoupon ? "Applying..." : "Apply coupon"}
+                  </SecondaryButton>
+                </div>
+              )}
+
+              <div className="relative pt-7">
+                {showLowCreditPurchaseCue ? (
+                  <div
+                    className={`pointer-events-none absolute right-3 top-0 z-10 rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg animate-bounce motion-reduce:animate-none ${
+                      colorMode === "dark"
+                        ? "border-white/10 bg-white text-slate-950"
+                        : "border-slate-950 bg-slate-950 text-white"
+                    }`}
+                  >
+                    Add credits to generate
+                    <span
+                      className={`absolute bottom-[-5px] right-6 h-3 w-3 rotate-45 border-b border-r ${
+                        colorMode === "dark"
+                          ? "border-white/10 bg-white"
+                          : "border-slate-950 bg-slate-950"
+                      }`}
+                    />
+                  </div>
+                ) : null}
+                <button
+                  onClick={() => purchaseCreditsForUser(purchaseAmountUsd)}
+                  disabled={isPurchasing}
+                  className={`flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    colorMode === "dark"
+                      ? "bg-white text-slate-950 hover:bg-slate-200"
+                      : "bg-slate-950 text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <FaArrowRight />
+                  {isPurchasing
+                    ? "Opening checkout..."
+                    : `Buy ${numberFormatter.format(purchaseCreditCount)} credits`}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
         <div className={summaryCard}>
-          <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Credits remaining</p>
-          <p className="text-lg font-semibold">{user?.generationCredits || 0}</p>
+          <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Plan</p>
+          <p className="text-lg font-semibold">{planName}</p>
+          <p className={`text-xs ${subtleText}`}>{planDescription}</p>
         </div>
         <div className={summaryCard}>
           <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Next charge</p>
@@ -484,100 +675,6 @@ export default function BillingPanelContent() {
           <p className={`text-xs uppercase tracking-wide ${subtleText}`}>Auto-recharge</p>
           <p className="text-sm font-semibold">{autoStatusLabel}</p>
         </div>
-      </div>
-
-      <div className={`${sectionCard} p-6`}>
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
-              <FaCreditCard />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold">Purchase credits</h3>
-              <p className={`text-sm ${subtleText}`}>Top up instantly and keep creating without limits.</p>
-            </div>
-          </div>
-          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${borderColor} ${mutedBg}`}>
-            1 USD = 100 credits
-          </span>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {creditOptions.map((option) => {
-            const isSelected = option.value === selectedCreditPack?.value;
-            return (
-              <button
-                type="button"
-                key={option.value}
-                onClick={() => setSelectedCreditPack(option)}
-                className={`relative flex flex-col items-start rounded-xl border px-4 py-4 text-left transition-all duration-150 ${
-                  isSelected
-                    ? "border-indigo-500 bg-indigo-500/5 ring-1 ring-indigo-500/30"
-                    : `${borderColor} ${
-                        colorMode === "dark"
-                          ? "hover:border-indigo-400/70 hover:bg-[#0b1224]"
-                          : "hover:border-indigo-400 hover:bg-slate-50"
-                      }`
-                }`}
-              >
-                {option.badge ? (
-                  <span className="absolute top-3 right-4 text-[11px] font-semibold uppercase tracking-widest text-indigo-400">
-                    {option.badge}
-                  </span>
-                ) : null}
-                <span className="text-lg font-semibold">{option.label}</span>
-                <span className="text-xs uppercase tracking-wide text-indigo-400 mt-1">
-                  {numberFormatter.format(option.value * 100)} credits
-                </span>
-                <span className={`text-xs mt-2 ${subtleText}`}>{option.caption}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-4 space-y-3">
-          <button
-            type="button"
-            onClick={() => setIsCouponOpen((prev) => !prev)}
-            className={`flex w-full items-center justify-between rounded-lg border ${borderColor} px-4 py-2 text-sm font-semibold ${
-              colorMode === "dark" ? "bg-[#0b1224] hover:border-indigo-400/70" : "bg-white hover:border-indigo-400"
-            }`}
-          >
-            <span>Have a credits coupon?</span>
-            <span>{isCouponOpen ? "Hide" : "Add"}</span>
-          </button>
-
-          {isCouponOpen && (
-            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-              <input
-                type="text"
-                placeholder="Enter coupon code"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                className={`w-full rounded-lg border px-3 py-2 text-sm ${
-                  colorMode === "dark"
-                    ? "border-[#1f2a3d] bg-[#0b1224] text-slate-100 placeholder:text-slate-500"
-                    : "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400"
-                }`}
-              />
-              <SecondaryButton
-                onClick={() => requestApplyCreditsCoupon(couponCode.trim())}
-                disabled={!couponCode.trim() || isApplyingCoupon}
-              >
-                {isApplyingCoupon ? "Applying..." : "Apply coupon"}
-              </SecondaryButton>
-            </div>
-          )}
-        </div>
-
-        <button
-          onClick={() => purchaseCreditsForUser(selectedCreditPack?.value)}
-          disabled={!selectedCreditPack || isPurchasing}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <FaArrowRight />
-          {isPurchasing ? "Generating checkout..." : "Purchase credits"}
-        </button>
       </div>
 
       <div ref={autoRechargeRef} className={`${sectionCard} p-6`}>
@@ -611,6 +708,24 @@ export default function BillingPanelContent() {
               }`}
             />
             <span className={`text-xs ${subtleText}`}>Auto-recharge kicks in below this balance.</span>
+            <div className="flex flex-wrap gap-2">
+              {thresholdPresets.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setThreshold(preset)}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${borderColor} ${
+                    Number(threshold) === preset
+                      ? "bg-indigo-600 text-white"
+                      : colorMode === "dark"
+                        ? "bg-[#0b1224] hover:border-indigo-400/70"
+                        : "bg-white hover:border-indigo-400"
+                  }`}
+                >
+                  {numberFormatter.format(preset)}
+                </button>
+              ))}
+            </div>
           </label>
 
           <label className="flex flex-col gap-2">
@@ -628,6 +743,24 @@ export default function BillingPanelContent() {
             <span className={`text-xs ${subtleText}`}>
               {`Adds ${numberFormatter.format(creditsPerCharge)} credits (1 USD = 100 credits).`}
             </span>
+            <div className="flex flex-wrap gap-2">
+              {rechargeAmountPresets.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setAmountUsd(preset)}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${borderColor} ${
+                    Number(amountUsd) === preset
+                      ? "bg-emerald-600 text-white"
+                      : colorMode === "dark"
+                        ? "bg-[#0b1224] hover:border-emerald-400/70"
+                        : "bg-white hover:border-emerald-400"
+                  }`}
+                >
+                  ${preset}
+                </button>
+              ))}
+            </div>
           </label>
 
           <label className="flex flex-col gap-2">
@@ -743,27 +876,41 @@ export default function BillingPanelContent() {
       </div>
 
       <div className={`${sectionCard} p-6`}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-500">
-            <FaCrown />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500">
+              <FaCrown />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Monthly creators plan</h3>
+              <p className={`text-sm ${subtleText}`}>
+                Enhanced storage and prioritized queue times for creators.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold">Premium plan</h3>
-            <p className={`text-sm ${subtleText}`}>5,000 credits per month • Enhanced support</p>
-          </div>
+          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${planBadge}`}>
+            {planStatusLabel}
+          </span>
         </div>
 
-        <ul className="mt-4 space-y-2 text-sm">
+        <div className={`mt-5 rounded-lg border ${borderColor} ${mutedBg} p-4`}>
+          <p className="text-2xl font-semibold">$50/mo</p>
+          <p className={`mt-1 text-sm ${subtleText}`}>
+            Comes with 5,000 credits refilled every month. Unused credits never expire.
+          </p>
+        </div>
+
+        <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
           {[
             "5,000 credits per month",
+            "50GB render storage",
+            "Prioritized queue times",
             "Access to all models",
             "Full generative workflow suite",
-            "50GB render storage",
             "Commercial usage rights",
-            "Enhanced support",
           ].map((feature) => (
             <li key={feature} className="flex items-start gap-2">
-              <FaCheck className="mt-1 text-emerald-500" />
+              <FaCheck className="mt-1 shrink-0 text-emerald-500" />
               <span>{feature}</span>
             </li>
           ))}
@@ -775,10 +922,14 @@ export default function BillingPanelContent() {
           <button
             onClick={handleUpgradePlan}
             disabled={user?.isPremiumUser || isUpgrading}
-            className={`flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60`}
+            className={`flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+              colorMode === "dark"
+                ? "bg-white text-slate-950 hover:bg-slate-200"
+                : "bg-slate-950 text-white hover:bg-slate-800"
+            }`}
           >
             <FaArrowRight />
-            {user?.isPremiumUser ? "You're on Premium" : isUpgrading ? "Redirecting..." : "Get Premium"}
+            {user?.isPremiumUser ? "Creators plan active" : isUpgrading ? "Opening checkout..." : "Subscribe for $50/mo"}
           </button>
           {user?.isPremiumUser && (
             <SecondaryButton onClick={handleCancelMembership} disabled={isCancelling}>
@@ -788,7 +939,7 @@ export default function BillingPanelContent() {
         </div>
         {!user?.isPremiumUser && (
           <p className={`text-xs ${subtleText} mt-3`}>
-            Upgrade to unlock monthly credits and premium features.
+            Subscribe when steady monthly generation is more useful than manual top-ups.
           </p>
         )}
       </div>

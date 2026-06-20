@@ -1,0 +1,54 @@
+.purchase-credits-prompt {
+  animation: purchase-credits-prompt-enter 260ms ease-out both;
+}
+
+.purchase-credits-prompt__motion {
+  overflow: hidden;
+}
+
+.purchase-credits-prompt__coin {
+  animation: purchase-credits-prompt-nudge 1.35s ease-in-out infinite;
+}
+
+.purchase-credits-prompt__cta svg {
+  animation: purchase-credits-prompt-arrow 1.1s ease-in-out infinite;
+}
+
+@keyframes purchase-credits-prompt-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes purchase-credits-prompt-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(82px);
+  }
+}
+
+@keyframes purchase-credits-prompt-arrow {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .purchase-credits-prompt,
+  .purchase-credits-prompt__coin,
+  .purchase-credits-prompt__cta svg {
+    animation: none;
+  }
+}

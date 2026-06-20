@@ -24,7 +24,6 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
-const AddCreditsDialog = lazy(() => import("../account/AddCreditsDialog.jsx"));
 const AddLicense = lazy(() => import('../license/AddLicense.jsx'));
 const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
 const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
@@ -232,7 +231,7 @@ const showLicenseDialog = () => {
     </div>
   );
 
-  const { user, getUserAPI } = useUser();
+  const { user } = useUser();
   const navigate = useNavigate();
 
   let userProfile = <span />;
@@ -631,82 +630,6 @@ const showLicenseDialog = () => {
     }
   };
 
-  const purchaseCreditsForUser = useCallback((amountToPurchase) => {
-    const purchaseAmountRequest = parseInt(amountToPurchase, 10);
-
-    if (Number.isNaN(purchaseAmountRequest) || purchaseAmountRequest <= 0) {
-      toast.error(t("topNav.invalidPurchaseAmount"), { position: "bottom-center" });
-      return;
-    }
-
-    const headers = getHeaders();
-
-    const payload = {
-      amount: purchaseAmountRequest,
-    };
-
-    axios
-      .post(`${PROCESSOR_SERVER}/users/purchase_credits`, payload, headers)
-      .then(function (dataRes) {
-
-        const data = dataRes.data;
-
-        if (data.url) {
-          window.open(data.url, "_blank", "noopener,noreferrer");
-          toast.success(t("topNav.redirectingToCheckout"), { position: "bottom-center" });
-        } else {
-          
-          toast.error(t("topNav.checkoutFailed"), { position: "bottom-center" });
-        }
-      })
-      .catch(function (error) {
-        
-        toast.error(t("topNav.paymentProcessFailed"), { position: "bottom-center" });
-      });
-  }, [t]);
-
-  const requestApplyCreditsCoupon = useCallback((couponCode) => {
-    if (!couponCode) {
-      toast.error(t("topNav.enterCouponCode"), { position: "bottom-center" });
-      return;
-    }
-
-    axios
-      .post(`${PROCESSOR_SERVER}/users/apply_credits_coupon`, { couponCode }, getHeaders())
-      .then(() => {
-        toast.success(t("topNav.couponApplied"), { position: "bottom-center" });
-        if (typeof getUserAPI === "function") {
-          getUserAPI();
-        }
-      })
-      .catch(() => {
-        toast.error(t("topNav.couponApplyFailed"), { position: "bottom-center" });
-      });
-  }, [getUserAPI, t]);
-
-  const openPurchaseCreditsDialog = useCallback(() => {
-
-    const alertDialogContent = (
-      <Suspense fallback={dialogFallback}>
-        <AddCreditsDialog
-          onClose={closeAlertDialog}
-          purchaseCreditsForUser={purchaseCreditsForUser}
-          requestApplyCreditsCoupon={requestApplyCreditsCoupon}
-        />
-      </Suspense>
-    );
-
-    openAlertDialog(alertDialogContent, undefined, false, {
-      centerContent: true,
-      containerClassName: 'w-full max-w-[560px]',
-      fullBleed: true,
-      hideBorder: true,
-      hideCloseButton: true,
-      transparentShell: true,
-    });
-
-  }, [closeAlertDialog, openAlertDialog, purchaseCreditsForUser, requestApplyCreditsCoupon]);
-
   useEffect(() => {
     // Auto-popup for zero credits removed.
   }, []);
@@ -763,17 +686,17 @@ const showLicenseDialog = () => {
       ? 'border border-white/10 bg-black/15 text-slate-100 hover:border-cyan-300/35 hover:bg-[#13233d]'
       : 'border border-slate-200 bg-white/75 text-slate-900 hover:border-slate-300 hover:bg-white';
     const creditsLabelClass = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+    const formattedCredits = formatCredits(userCredits);
 
     userCreditsDisplay = (
       <button
         type="button"
         onClick={gotoCreditsUsage}
-        className={`inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold leading-none transition-colors ${creditsButtonClass}`}
-        aria-label="View credits usage"
-        title="View credits usage"
+        className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold leading-none transition-colors ${creditsButtonClass}`}
+        aria-label={`View credit usage. Current balance ${formattedCredits} credits`}
       >
         <span className={creditsLabelClass}>Credits remaining</span>
-        <span>{formatCredits(userCredits)}</span>
+        <span>{formattedCredits}</span>
       </button>
     );
   }

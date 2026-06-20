@@ -21,6 +21,10 @@ const STATIC_ASSET_BASE_URL = (
 ).replace(/\/+$/, '');
 const PREVIEW_MUSIC_DUCKED_VOLUME_RATIO = 0.225;
 const PREVIEW_MEDIA_PRELOAD_TIMEOUT_MS = 15000;
+const PREVIEW_MEDIA_OBJECT_URL_CACHE_TTL_MS = 10 * 60 * 1000;
+const PREVIEW_MEDIA_OBJECT_URL_FAILURE_TTL_MS = 60 * 1000;
+const PREVIEW_MEDIA_OBJECT_URL_CACHE_MAX_ENTRIES = 24;
+const PREVIEW_MEDIA_OBJECT_URL_CACHE_MAX_BYTES = 256 * 1024 * 1024;
 const PREVIEW_AUDIO_SEEK_TOLERANCE_SECONDS = 0.12;
 const PREVIEW_VIDEO_SEEK_TOLERANCE_SECONDS = 0.12;
 const PREVIEW_VIDEO_METADATA_READY_STATE = 1;
@@ -30,6 +34,9 @@ const USER_RESOURCES_PREFIX = 'user_resources/';
 const MOBILE_SINGLE_VIDEO_LOAD_STAGES = new Set(['ai_video_generation', 'lip_sync_generation']);
 const previewVisualReadyCache = new Set();
 const previewVisualPreloadPromises = new Map();
+const previewVisualObjectUrlCache = new Map();
+const previewVisualObjectUrlPromises = new Map();
+const previewVisualObjectUrlFailures = new Map();
 
 const STAGE_ORDER = [
   'prompt_generation',
@@ -398,6 +405,164 @@ function getPreviewVisualCacheKey(segment) {
   return `${segment.type || 'media'}:${segment.url}`;
 }
 
+function canCachePreviewVisualUrl(url) {
+  return typeof url === 'string' && /^https?:\/\//i.test(url.trim());
+}
+
+function revokePreviewVisualObjectUrl(entry) {
+  if (!entry?.objectUrl || typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') {
+    return;
+  }
+  URL.revokeObjectURL(entry.objectUrl);
+}
+
+function prunePreviewVisualObjectUrlCache(now = Date.now()) {
+  previewVisualObjectUrlFailures.forEach((expiresAt, cacheKey) => {
+    if (expiresAt <= now) {
+      previewVisualObjectUrlFailures.delete(cacheKey);
+    }
+  });
+
+  previewVisualObjectUrlCache.forEach((entry, cacheKey) => {
+    if (!entry || entry.expiresAt <= now) {
+      revokePreviewVisualObjectUrl(entry);
+      previewVisualObjectUrlCache.delete(cacheKey);
+    }
+  });
+
+  const entriesByLastAccess = [...previewVisualObjectUrlCache.entries()]
+    .sort((left, right) => (left[1]?.lastAccessed || 0) - (right[1]?.lastAccessed || 0));
+
+  const getTotalBytes = () => [...previewVisualObjectUrlCache.values()]
+    .reduce((total, entry) => total + (entry?.bytes || 0), 0);
+
+  while (previewVisualObjectUrlCache.size > PREVIEW_MEDIA_OBJECT_URL_CACHE_MAX_ENTRIES) {
+    const oldest = entriesByLastAccess.shift();
+    if (!oldest) break;
+    const [cacheKey, entry] = oldest;
+    revokePreviewVisualObjectUrl(entry);
+    previewVisualObjectUrlCache.delete(cacheKey);
+  }
+
+  let totalBytes = getTotalBytes();
+  while (totalBytes > PREVIEW_MEDIA_OBJECT_URL_CACHE_MAX_BYTES && entriesByLastAccess.length > 0) {
+    const [cacheKey, entry] = entriesByLastAccess.shift();
+    revokePreviewVisualObjectUrl(entry);
+    previewVisualObjectUrlCache.delete(cacheKey);
+    totalBytes -= entry?.bytes || 0;
+  }
+}
+
+function getCachedPreviewVisualObjectUrl(segment) {
+  const cacheKey = getPreviewVisualCacheKey(segment);
+  if (!cacheKey) return null;
+
+  const now = Date.now();
+  prunePreviewVisualObjectUrlCache(now);
+  const entry = previewVisualObjectUrlCache.get(cacheKey);
+  if (!entry) return null;
+
+  entry.lastAccessed = now;
+  entry.expiresAt = now + PREVIEW_MEDIA_OBJECT_URL_CACHE_TTL_MS;
+  return entry.objectUrl;
+}
+
+function storePreviewVisualObjectUrl(cacheKey, blob) {
+  if (
+    !cacheKey ||
+    !blob ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
+    return null;
+  }
+
+  const previousEntry = previewVisualObjectUrlCache.get(cacheKey);
+  if (previousEntry) {
+    revokePreviewVisualObjectUrl(previousEntry);
+  }
+
+  const now = Date.now();
+  const objectUrl = URL.createObjectURL(blob);
+  previewVisualObjectUrlCache.set(cacheKey, {
+    objectUrl,
+    bytes: blob.size || 0,
+    expiresAt: now + PREVIEW_MEDIA_OBJECT_URL_CACHE_TTL_MS,
+    lastAccessed: now,
+  });
+  prunePreviewVisualObjectUrlCache(now);
+  return objectUrl;
+}
+
+function cachePreviewVisualObjectUrl(segment) {
+  const cacheKey = getPreviewVisualCacheKey(segment);
+  if (!cacheKey || !canCachePreviewVisualUrl(segment?.url)) {
+    return Promise.resolve(null);
+  }
+
+  const now = Date.now();
+  const failureExpiresAt = previewVisualObjectUrlFailures.get(cacheKey);
+  if (failureExpiresAt && failureExpiresAt > now) {
+    return Promise.resolve(null);
+  }
+  if (failureExpiresAt) {
+    previewVisualObjectUrlFailures.delete(cacheKey);
+  }
+
+  const cachedUrl = getCachedPreviewVisualObjectUrl(segment);
+  if (cachedUrl) {
+    return Promise.resolve(cachedUrl);
+  }
+
+  if (
+    typeof fetch !== 'function' ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
+    return Promise.resolve(null);
+  }
+
+  if (previewVisualObjectUrlPromises.has(cacheKey)) {
+    return previewVisualObjectUrlPromises.get(cacheKey);
+  }
+
+  const promise = fetch(segment.url, { cache: 'force-cache' })
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Preview media fetch failed: ${response.status}`);
+      }
+
+      const contentLength = Number(response.headers?.get?.('content-length'));
+      if (
+        Number.isFinite(contentLength) &&
+        contentLength > PREVIEW_MEDIA_OBJECT_URL_CACHE_MAX_BYTES
+      ) {
+        throw new Error('Preview media is too large to cache.');
+      }
+
+      return response.blob();
+    })
+    .then((blob) => {
+      if (!blob || blob.size > PREVIEW_MEDIA_OBJECT_URL_CACHE_MAX_BYTES) {
+        return null;
+      }
+      return storePreviewVisualObjectUrl(cacheKey, blob);
+    })
+    .catch(() => {
+      previewVisualObjectUrlFailures.set(
+        cacheKey,
+        Date.now() + PREVIEW_MEDIA_OBJECT_URL_FAILURE_TTL_MS
+      );
+      return null;
+    })
+    .finally(() => {
+      previewVisualObjectUrlPromises.delete(cacheKey);
+    });
+
+  previewVisualObjectUrlPromises.set(cacheKey, promise);
+  return promise;
+}
+
 function shouldAutoplayPreview() {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return true;
@@ -628,8 +793,9 @@ export default function ProgressIndicator(props) {
     ));
   }, [activeVisualSegment?.key, shouldLimitMobileVideoPreload, visualSegments]);
   const activeVisualCacheKey = getPreviewVisualCacheKey(activeVisualSegment);
+  const activeVisualSourceUrl = getCachedPreviewVisualObjectUrl(activeVisualSegment) || activeVisualSegment?.url || '';
   const activeVisualRenderKey = activeVisualSegment
-    ? `${activeVisualSegment.key}-${activeVisualSegment.stage}-${activeVisualSegment.url}`
+    ? `${activeVisualSegment.key}-${activeVisualSegment.stage}-${activeVisualSourceUrl || activeVisualSegment.url}`
     : null;
   const isVisualSegmentPreloaded = useCallback((segment) => {
     // visualPreloadVersion intentionally forces recalculation after async preloads settle.
@@ -838,6 +1004,11 @@ export default function ProgressIndicator(props) {
     visualSegmentsToPreload.forEach((segment) => {
       preloadPreviewVisualSegment(segment).then(() => {
         if (isMounted) {
+          setVisualPreloadVersion((version) => version + 1);
+        }
+      });
+      cachePreviewVisualObjectUrl(segment).then((objectUrl) => {
+        if (isMounted && objectUrl) {
           setVisualPreloadVersion((version) => version + 1);
         }
       });
@@ -1057,7 +1228,7 @@ export default function ProgressIndicator(props) {
                   <video
                     key={activeVisualRenderKey}
                     ref={activeVideoRef}
-                    src={activeVisualSegment.url}
+                    src={activeVisualSourceUrl}
                     muted
                     playsInline
                     preload="auto"
@@ -1078,7 +1249,7 @@ export default function ProgressIndicator(props) {
                 </div>
               ) : isActiveVisualReady ? (
                 <img
-                  src={activeVisualSegment.url}
+                  src={activeVisualSourceUrl}
                   alt={activeVisualSegment.title || 'Generated preview'}
                   onLoad={handleActiveImageReady}
                   onError={handleActiveImageReady}

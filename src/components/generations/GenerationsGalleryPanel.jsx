@@ -17,8 +17,16 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { fitDimensionsToCanvas, getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 
-const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
+const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API || '';
 const DEFAULT_PAGE_SIZE = 80;
+
+function isAbsoluteAssetUrl(value) {
+  return typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim());
+}
+
+function firstNonEmptyString(values = []) {
+  return values.find((value) => typeof value === 'string' && value.trim()) || '';
+}
 
 function resolveAssetUrl(assetPath) {
   if (typeof assetPath !== 'string') {
@@ -30,11 +38,43 @@ function resolveAssetUrl(assetPath) {
     return null;
   }
 
-  if (/^https?:\/\//i.test(trimmedPath)) {
+  if (isAbsoluteAssetUrl(trimmedPath)) {
     return trimmedPath;
   }
 
-  return `${PROCESSOR_API}${trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`}`;
+  const normalizedPath = trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`;
+  const baseUrl = typeof PROCESSOR_API === 'string' ? PROCESSOR_API.trim().replace(/\/+$/, '') : '';
+  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
+}
+
+function resolveGalleryVideoUrl(item = {}) {
+  return resolveAssetUrl(firstNonEmptyString([
+    item?.remoteURL,
+    item?.remoteUrl,
+    item?.assetPath,
+    item?.url,
+    item?.videoLink,
+  ]));
+}
+
+function resolveGalleryPreviewImageUrl(item = {}) {
+  return resolveAssetUrl(firstNonEmptyString([
+    item?.thumbnailPath,
+    item?.thumbnail,
+    item?.previewImage,
+    item?.poster,
+  ]));
+}
+
+function resolveGalleryPreviewVideoUrl(item = {}) {
+  return resolveAssetUrl(firstNonEmptyString([
+    item?.thumbnailVideoRemoteUrl,
+    item?.thumbnailVideoRemoteURL,
+    item?.previewVideoRemoteUrl,
+    item?.previewVideoRemoteURL,
+    item?.thumbnailVideoPath,
+    item?.previewVideoPath,
+  ]));
 }
 
 function formatGalleryTimestamp(value) {
@@ -199,6 +239,7 @@ export default function GenerationsGalleryPanel({
   const [isOpenStudioPending, setIsOpenStudioPending] = useState(false);
   const [studioErrorMessage, setStudioErrorMessage] = useState('');
   const [copiedItemId, setCopiedItemId] = useState(null);
+  const [failedMediaByKey, setFailedMediaByKey] = useState({});
 
   const fetchGallery = useCallback(
     async (pageToLoad = 1, nextSearchTerm = searchTerm) => {
@@ -339,12 +380,26 @@ export default function GenerationsGalleryPanel({
     ? 'border border-white/10 bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
     : 'border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700';
 
+  const markMediaFailed = useCallback((mediaKey) => {
+    if (!mediaKey) {
+      return;
+    }
+
+    setFailedMediaByKey((previousValue) => (
+      previousValue[mediaKey]
+        ? previousValue
+        : { ...previousValue, [mediaKey]: true }
+    ));
+  }, []);
+
   const handleDownload = useCallback((item) => {
     if (!item) {
       return;
     }
 
-    const assetUrl = resolveAssetUrl(item?.assetPath || item?.url);
+    const assetUrl = item?.mediaType === 'video'
+      ? resolveGalleryVideoUrl(item)
+      : resolveAssetUrl(item?.assetPath || item?.url);
     const fileExtension = item?.mediaType === 'video' ? 'mp4' : 'png';
     const fallbackName = `${resolveGalleryCardTitle(item)}.${fileExtension}`;
     downloadAsset(assetUrl, fallbackName);
@@ -604,9 +659,20 @@ export default function GenerationsGalleryPanel({
             {!isLoading && galleryItems.length > 0 && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {galleryItems.map((item) => {
-                  const previewImageUrl = resolveAssetUrl(item?.thumbnailPath || item?.thumbnail);
-                  const previewVideoUrl = resolveAssetUrl(item?.thumbnailVideoPath || item?.previewVideoPath);
-                  const fullAssetUrl = resolveAssetUrl(item?.assetPath || item?.url);
+                  const itemKey = `${item.mediaType}-${item._id}`;
+                  const previewImageUrl = resolveGalleryPreviewImageUrl(item);
+                  const previewVideoUrl = resolveGalleryPreviewVideoUrl(item);
+                  const fullAssetUrl = item?.mediaType === 'video'
+                    ? resolveGalleryVideoUrl(item)
+                    : resolveAssetUrl(item?.assetPath || item?.url);
+                  const previewImageMediaKey = `${itemKey}:image:${previewImageUrl || ''}`;
+                  const previewVideoMediaKey = `${itemKey}:video-preview:${previewVideoUrl || ''}`;
+                  const displayPreviewImageUrl = previewImageUrl && !failedMediaByKey[previewImageMediaKey]
+                    ? previewImageUrl
+                    : null;
+                  const displayPreviewVideoUrl = previewVideoUrl && !failedMediaByKey[previewVideoMediaKey]
+                    ? previewVideoUrl
+                    : null;
                   const createdAtLabel = formatGalleryTimestamp(item?.createdAt || item?.updatedAt);
                   const durationLabel = formatDuration(item?.duration);
                   const isVideo = item?.mediaType === 'video';
@@ -617,7 +683,7 @@ export default function GenerationsGalleryPanel({
 
                   return (
                     <button
-                      key={`${item.mediaType}-${item._id}`}
+                      key={itemKey}
                       type="button"
                       className={`group overflow-hidden rounded-[24px] text-left transition hover:-translate-y-[2px] ${tileSurface}`}
                       onClick={() => setActiveItem(item)}
@@ -625,22 +691,23 @@ export default function GenerationsGalleryPanel({
                       <div className="flex h-full flex-col">
                         <div className={`relative overflow-hidden bg-slate-950 ${aspectRatioClass}`}>
                           {isVideo ? (
-                            previewVideoUrl ? (
+                            displayPreviewImageUrl ? (
+                              <img
+                                src={displayPreviewImageUrl}
+                                alt={titleLabel}
+                                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                                onError={() => markMediaFailed(previewImageMediaKey)}
+                              />
+                            ) : displayPreviewVideoUrl ? (
                               <video
-                                src={previewVideoUrl}
-                                poster={previewImageUrl || undefined}
+                                src={displayPreviewVideoUrl}
                                 className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
                                 autoPlay
                                 muted
                                 loop
                                 playsInline
                                 preload="metadata"
-                              />
-                            ) : previewImageUrl ? (
-                              <img
-                                src={previewImageUrl}
-                                alt={titleLabel}
-                                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                                onError={() => markMediaFailed(previewVideoMediaKey)}
                               />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center bg-slate-950 text-sm text-slate-300">
@@ -758,8 +825,8 @@ export default function GenerationsGalleryPanel({
             <div className="flex min-h-[320px] flex-1 items-center justify-center bg-slate-950 p-4">
               {activeItem.mediaType === 'video' ? (
                 <video
-                  src={resolveAssetUrl(activeItem.assetPath || activeItem.url) || undefined}
-                  poster={resolveAssetUrl(activeItem.thumbnailPath || activeItem.thumbnail) || undefined}
+                  src={resolveGalleryVideoUrl(activeItem) || undefined}
+                  poster={resolveGalleryPreviewImageUrl(activeItem) || undefined}
                   className="max-h-[75vh] w-full rounded-[22px] bg-black object-contain"
                   controls
                   autoPlay

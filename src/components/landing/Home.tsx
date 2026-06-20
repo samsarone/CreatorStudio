@@ -7,7 +7,7 @@ import 'react-tooltip/dist/react-tooltip.css';
 
 import { consumePostAuthRedirect, getAuthToken, getHeaders, persistAuthToken } from '../../utils/web.jsx';
 import {
-  hasNoGenerationCredits,
+  hasInsufficientGenerationCredits,
   hasStudioAccess as userHasStudioAccess,
 } from '../../utils/defaultRoutes.js';
 import {
@@ -238,7 +238,7 @@ export default function Home() {
     if (hasStudioAccess) return;
     if (isAccessAllowedPath) return;
 
-    const redirectTarget = user && hasNoGenerationCredits(user)
+    const redirectTarget = user && hasInsufficientGenerationCredits(user)
       ? '/vidgenie?purchaseCredits=1'
       : user
         ? '/account/billing'
@@ -261,7 +261,7 @@ export default function Home() {
       return;
     }
 
-    const resolvedSearch = hasNoGenerationCredits(resolvedUser)
+    const resolvedSearch = hasInsufficientGenerationCredits(resolvedUser)
       ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
       : sanitizedRouteSearch;
     const targetPath = await resolveAuthenticatedEntryPath({
@@ -300,7 +300,7 @@ export default function Home() {
         }
 
         const resolvedHasStudioAccess = userHasStudioAccess(resolvedUser);
-        if (!resolvedHasStudioAccess && !hasNoGenerationCredits(resolvedUser)) {
+        if (!resolvedHasStudioAccess && !hasInsufficientGenerationCredits(resolvedUser)) {
           navigate('/account/billing', { replace: true });
           return;
         }
@@ -311,7 +311,7 @@ export default function Home() {
           return;
         }
 
-        const resolvedSearch = !resolvedHasStudioAccess && hasNoGenerationCredits(resolvedUser)
+        const resolvedSearch = !resolvedHasStudioAccess && hasInsufficientGenerationCredits(resolvedUser)
           ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
           : sanitizedRouteSearch;
         const targetPath = await resolveAuthenticatedEntryPath({
@@ -414,7 +414,7 @@ export default function Home() {
   } else {
     bodyBGColor = "bg-[#f7f9fc] text-slate-900";
   }
-  const rootAuthenticatedSearch = !hasStudioAccess && hasNoGenerationCredits(user)
+  const rootAuthenticatedSearch = !hasStudioAccess && hasInsufficientGenerationCredits(user)
     ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
     : sanitizedRouteSearch;
 
@@ -436,7 +436,7 @@ export default function Home() {
               !userInitiated || userFetching
                 ? <RouteLoadingScreen />
                 : user && user._id
-                  ? !hasStudioAccess && !hasNoGenerationCredits(user)
+                  ? !hasStudioAccess && !hasInsufficientGenerationCredits(user)
                     ? <Navigate to="/account/billing" replace />
                     : <DefaultAuthenticatedRoute user={user} isMobile={isMobile} search={rootAuthenticatedSearch} />
                   : <VideoEditorLandingHome />

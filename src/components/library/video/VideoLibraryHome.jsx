@@ -11,7 +11,19 @@ import {
 import { getHeaders } from '../../../utils/web';
 import { useColorMode } from '../../../contexts/ColorMode';
 
-const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const API_SERVER = import.meta.env.VITE_PROCESSOR_API || '';
+
+function isAbsoluteMediaUrl(value) {
+  return typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim());
+}
+
+function looksLikeStudioVideoRoute(value) {
+  return typeof value === 'string' && /^\/?video\/[a-f0-9]{24}$/i.test(value.trim());
+}
+
+function firstNonEmptyString(values = []) {
+  return values.find((value) => typeof value === 'string' && value.trim()) || '';
+}
 
 function resolveVideoUrl(assetPath) {
   if (typeof assetPath !== 'string') {
@@ -19,37 +31,61 @@ function resolveVideoUrl(assetPath) {
   }
 
   const trimmedPath = assetPath.trim();
-  if (!trimmedPath) {
+  if (!trimmedPath || looksLikeStudioVideoRoute(trimmedPath)) {
     return null;
   }
 
-  if (/^https?:\/\//i.test(trimmedPath)) {
+  if (isAbsoluteMediaUrl(trimmedPath)) {
     return trimmedPath;
   }
 
-  return `${API_SERVER}${trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`}`;
+  const normalizedPath = trimmedPath.startsWith('/') ? trimmedPath : `/${trimmedPath}`;
+  const baseUrl = typeof API_SERVER === 'string' ? API_SERVER.trim().replace(/\/+$/, '') : '';
+  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
+}
+
+function resolveAssetVideoUrl(item = {}) {
+  return resolveVideoUrl(firstNonEmptyString([
+    item?.remoteURL,
+    item?.remoteUrl,
+    item?.assetPath,
+    item?.url,
+    item?.videoLink,
+  ]));
 }
 
 function resolveThumbnailUrl(item = {}) {
-  const thumbnailPath = [
+  const thumbnailPath = firstNonEmptyString([
     item?.thumbnailPath,
     item?.thumbnail,
+    item?.startThumbnailPath,
+    item?.aiVideoThumbnailPath,
+    item?.userVideoThumbnailPath,
+    item?.lipSyncThumbnailPath,
+    item?.soundEffectThumbnailPath,
     item?.previewImage,
     item?.poster,
     item?.aiLayerStartFrame,
-  ].find((value) => typeof value === 'string' && value.trim());
+  ]);
 
-  return resolveVideoUrl(thumbnailPath || '');
+  return resolveVideoUrl(thumbnailPath);
 }
 
 function resolvePreviewVideoUrl(item = {}) {
-  const previewVideoPath = [
+  const previewVideoPath = firstNonEmptyString([
+    item?.thumbnailVideoRemoteUrl,
+    item?.thumbnailVideoRemoteURL,
+    item?.previewVideoRemoteUrl,
+    item?.previewVideoRemoteURL,
     item?.thumbnailVideoPath,
     item?.previewVideoPath,
-    item?.thumbnailVideoRemoteUrl,
-  ].find((value) => typeof value === 'string' && value.trim());
+    item?.aiVideoThumbnailVideo,
+    item?.userVideoThumbnailVideo,
+    item?.lipSyncThumbnailVideo,
+    item?.soundEffectThumbnailVideo,
+  ]);
 
-  return resolveVideoUrl(previewVideoPath || '');
+  return resolveVideoUrl(previewVideoPath);
 }
 
 function formatDuration(duration) {
@@ -60,6 +96,27 @@ function formatDuration(duration) {
 
   const roundedDuration = Math.round(numericDuration * 10) / 10;
   return `${roundedDuration.toFixed(roundedDuration >= 10 ? 0 : 1)}s`;
+}
+
+function resolveAspectRatioStyle(item = {}) {
+  const aspectRatio = firstNonEmptyString([
+    item?.aspectRatio,
+    item?.sessionAspectRatio,
+    item?.canvasAspectRatio,
+    item?.videoAspectRatio,
+  ]);
+  const match = aspectRatio.match(/^(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)$/);
+  if (!match) {
+    return '16 / 9';
+  }
+
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return '16 / 9';
+  }
+
+  return `${width} / ${height}`;
 }
 
 function getTrimKey(item = {}) {
@@ -97,6 +154,7 @@ export default function VideoLibraryHome(props) {
   const [errorMessage, setErrorMessage] = useState('');
   const [previewingVideoId, setPreviewingVideoId] = useState(null);
   const [trimByVideoId, setTrimByVideoId] = useState({});
+  const [failedMediaByKey, setFailedMediaByKey] = useState({});
   const videoRefs = useRef({});
 
   const panelSurface = colorMode === 'dark'
@@ -218,7 +276,7 @@ export default function VideoLibraryHome(props) {
   };
 
   const handleDownload = (item) => {
-    const videoUrl = resolveVideoUrl(item?.assetPath || item?.url);
+    const videoUrl = resolveAssetVideoUrl(item);
     if (!videoUrl) {
       return;
     }
@@ -251,6 +309,18 @@ export default function VideoLibraryHome(props) {
     });
   };
 
+  const markMediaFailed = (mediaKey) => {
+    if (!mediaKey) {
+      return;
+    }
+
+    setFailedMediaByKey((previousValue) => (
+      previousValue[mediaKey]
+        ? previousValue
+        : { ...previousValue, [mediaKey]: true }
+    ));
+  };
+
   const renderEmptyState = (message) => (
     <div className={`rounded-xl border border-dashed px-4 py-6 text-sm ${sectionSurface} ${mutedText}`}>
       {message}
@@ -263,50 +333,62 @@ export default function VideoLibraryHome(props) {
     }
 
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+      <div
+        className="grid items-start gap-4"
+        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))' }}
+      >
         {items.map((item, index) => {
           const itemKey = getTrimKey(item) || `${sectionKey}-${index}`;
-          const videoUrl = resolveVideoUrl(item?.assetPath || item?.url);
+          const videoUrl = resolveAssetVideoUrl(item);
           const thumbnailUrl = resolveThumbnailUrl(item);
           const previewVideoUrl = resolvePreviewVideoUrl(item);
+          const mediaAspectRatio = resolveAspectRatioStyle(item);
+          const thumbnailMediaKey = `${itemKey}:thumbnail:${thumbnailUrl || ''}`;
+          const previewVideoMediaKey = `${itemKey}:preview:${previewVideoUrl || ''}`;
+          const fullVideoMediaKey = `${itemKey}:video:${videoUrl || ''}`;
+          const displayThumbnailUrl = thumbnailUrl && !failedMediaByKey[thumbnailMediaKey] ? thumbnailUrl : null;
+          const displayPreviewVideoUrl = previewVideoUrl && !failedMediaByKey[previewVideoMediaKey] ? previewVideoUrl : null;
+          const canPlayFullVideo = Boolean(videoUrl && !failedMediaByKey[fullVideoMediaKey]);
           const durationLabel = formatDuration(item?.duration);
           const isPreviewing = previewingVideoId === itemKey;
 
           return (
             <div key={`${sectionKey}-${itemKey}-${index}`} className={`rounded-2xl p-3 shadow-sm ${cardSurface}`}>
               <div className="relative overflow-hidden rounded-xl bg-slate-950">
-                {isPreviewing && videoUrl ? (
+                {isPreviewing && canPlayFullVideo ? (
                   <video
                     ref={(node) => {
                       videoRefs.current[itemKey] = node;
                     }}
                     src={videoUrl}
-                    poster={thumbnailUrl || undefined}
-                    className="h-48 w-full rounded-xl object-cover bg-black"
+                    poster={displayThumbnailUrl || undefined}
+                    className="w-full rounded-xl bg-black object-cover"
+                    style={{ aspectRatio: mediaAspectRatio }}
                     preload="metadata"
                     controls
                     autoPlay
                     playsInline
+                    onError={() => {
+                      markMediaFailed(fullVideoMediaKey);
+                      setPreviewingVideoId((currentValue) => (currentValue === itemKey ? null : currentValue));
+                    }}
                     onEnded={() => {
                       setPreviewingVideoId((currentValue) => (currentValue === itemKey ? null : currentValue));
                     }}
                   />
-                ) : previewVideoUrl ? (
+                ) : displayThumbnailUrl ? (
                   <button
                     type="button"
-                    className="group relative block h-48 w-full overflow-hidden rounded-xl"
+                    className="group relative block w-full overflow-hidden rounded-xl"
+                    style={{ aspectRatio: mediaAspectRatio }}
                     onClick={() => handlePreviewToggle(itemKey)}
-                    disabled={!videoUrl}
+                    disabled={!canPlayFullVideo}
                   >
-                    <video
-                      src={previewVideoUrl}
-                      poster={thumbnailUrl || undefined}
+                    <img
+                      src={displayThumbnailUrl}
+                      alt={item?.title || item?.sourceLabel || 'Video preview'}
                       className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      preload="metadata"
+                      onError={() => markMediaFailed(thumbnailMediaKey)}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -315,17 +397,23 @@ export default function VideoLibraryHome(props) {
                       </span>
                     </div>
                   </button>
-                ) : thumbnailUrl ? (
+                ) : displayPreviewVideoUrl ? (
                   <button
                     type="button"
-                    className="group relative block h-48 w-full overflow-hidden rounded-xl"
+                    className="group relative block w-full overflow-hidden rounded-xl"
+                    style={{ aspectRatio: mediaAspectRatio }}
                     onClick={() => handlePreviewToggle(itemKey)}
-                    disabled={!videoUrl}
+                    disabled={!canPlayFullVideo}
                   >
-                    <img
-                      src={thumbnailUrl}
-                      alt={item?.title || item?.sourceLabel || 'Video preview'}
+                    <video
+                      src={displayPreviewVideoUrl}
                       className="h-full w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="metadata"
+                      onError={() => markMediaFailed(previewVideoMediaKey)}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -337,12 +425,13 @@ export default function VideoLibraryHome(props) {
                 ) : (
                   <button
                     type="button"
-                    className="flex h-48 w-full items-center justify-center rounded-xl bg-slate-900/70 text-slate-200"
+                    className="flex w-full items-center justify-center rounded-xl bg-slate-900/70 text-slate-200"
+                    style={{ aspectRatio: mediaAspectRatio }}
                     onClick={() => handlePreviewToggle(itemKey)}
-                    disabled={!videoUrl}
+                    disabled={!canPlayFullVideo}
                   >
                     <FaVideo className="mr-2" />
-                    {videoUrl ? 'Preview video' : 'Preview unavailable'}
+                    {canPlayFullVideo ? 'Preview video' : 'Preview unavailable'}
                   </button>
                 )}
 
@@ -350,7 +439,7 @@ export default function VideoLibraryHome(props) {
                   type="button"
                   className="absolute bottom-3 right-3 inline-flex items-center gap-2 rounded-full bg-black/65 px-3 py-2 text-xs font-semibold text-white backdrop-blur"
                   onClick={() => handlePreviewToggle(itemKey)}
-                  disabled={!videoUrl}
+                  disabled={!canPlayFullVideo}
                 >
                   {isPreviewing ? <FaPause /> : <FaPlay />}
                   {isPreviewing ? 'Hide' : 'Preview'}

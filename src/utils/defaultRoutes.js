@@ -1,4 +1,5 @@
-const STUDIO_ACCESS_CREDIT_THRESHOLD = 100;
+export const STUDIO_ACCESS_CREDIT_THRESHOLD = 100;
+export const VIDGENIE_MINIMUM_GENERATION_CREDITS = STUDIO_ACCESS_CREDIT_THRESHOLD;
 const VIDGENIE_MOBILE_CREDIT_THRESHOLD = 300;
 
 export function getGenerationCredits(user) {
@@ -8,6 +9,14 @@ export function getGenerationCredits(user) {
 export function hasNoGenerationCredits(user) {
   if (!user || user.isExternalUser) return false;
   return getGenerationCredits(user) <= 0;
+}
+
+export function hasInsufficientGenerationCredits(
+  user,
+  threshold = VIDGENIE_MINIMUM_GENERATION_CREDITS,
+) {
+  if (!user || user.isExternalUser) return false;
+  return getGenerationCredits(user) < threshold;
 }
 
 export function hasStudioAccess(user) {

@@ -230,7 +230,7 @@ export default function CanvasControlBar(props) {
   return (
     <div
       className={`relative flex min-h-[34px] items-center justify-center ${disabledShellClass}`}
-      style={{ zIndex: 5 }}
+      style={{ zIndex: 1230 }}
       aria-disabled={isRenderPending}
     >
       <div className="flex max-w-full items-center gap-2 whitespace-nowrap">

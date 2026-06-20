@@ -9,7 +9,7 @@ import React, {
 import ace from 'ace-builds';
 import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   FaChevronCircleDown,
   FaChevronDown,
@@ -29,6 +29,10 @@ import {
   FaPlay,
   FaRedo,
   FaCheck,
+  FaLanguage,
+  FaClosedCaptioning,
+  FaUserCircle,
+  FaClone,
 } from 'react-icons/fa';
 import axios from 'axios';
 
@@ -45,10 +49,7 @@ import PrimaryPublicButton from '../common/buttons/PrimaryPublicButton.tsx';
 import PublishOptionsDialog from '../video/toolbars/frame_toolbar/PublishOptionsDialog.jsx';
 import VidgenieSkeletonLoader from './VidgenieSkeletonLoader.jsx';
 import VideoEditAdvancedDialog from '../video/advanced/VideoEditAdvancedDialog.jsx';
-import PurchaseCreditsPromptDialog, {
-  PURCHASE_CREDITS_PROMPT_STORAGE_KEY,
-  PURCHASE_CREDITS_ROUTE,
-} from '../account/PurchaseCreditsPromptDialog.jsx';
+import { PURCHASE_CREDITS_ROUTE } from '../account/PurchaseCreditsPromptDialog.jsx';
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
@@ -64,7 +65,6 @@ import {
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
-import { hasNoGenerationCredits } from '../../utils/defaultRoutes.js';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 
 import 'ace-builds/src-noconflict/mode-json';
@@ -92,7 +92,6 @@ const USER_RESOURCES_PREFIX = 'user_resources/';
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 const POST_PROCESSING_PENDING_SESSION_KEY = 'vidgeniePostProcessingPendingSession';
 const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
-const PURCHASE_CREDITS_PROMPT_DELAY_MS = 2200;
 
 // ───────────────────────────────────────────────────────────
 //  Polling constants
@@ -193,12 +192,20 @@ const DEFAULT_POST_PROCESSING_FORM = Object.freeze({
   footerCtaText: '',
   footerCtaLogo: '',
   footerCtaUrl: '',
+  translationLanguage: '',
+  translationEnableSubtitles: true,
+  translationTranslateOutro: true,
+  translationTranslateFooter: true,
   rerollLayerIndexes: [],
 });
 const POST_PROCESSING_ACTIONS = Object.freeze([
+  { key: 'retranslate', label: 'Retranslate', icon: FaLanguage },
+  { key: 'avatar', label: 'Avatar', icon: FaUserCircle },
+  { key: 'subtitles', label: 'Subtitles', icon: FaClosedCaptioning },
   { key: 'generated_outro', label: 'Outro CTA', icon: FaImage },
   { key: 'footer_cta', label: 'Footer CTA', icon: FaLink },
   { key: 'reroll_layers', label: 'Reroll layers', icon: FaRedo },
+  { key: 'clone_render', label: 'Clone', icon: FaClone },
   { key: 'advanced_edits', label: 'Edits', icon: FaCog },
 ]);
 const INITIAL_EXPRESS_GENERATION_STATUS = Object.freeze({
@@ -293,6 +300,97 @@ function findDefaultVideoModelOption(options = [], savedValue = '') {
     options[0] ||
     null
   );
+}
+
+function normalizeModeToken(value) {
+  return typeof value === 'string'
+    ? value.trim().toLowerCase().replace(/[\s-]+/g, '_')
+    : '';
+}
+
+function getNestedValue(source, path) {
+  return path.reduce((current, key) => (
+    current && typeof current === 'object' ? current[key] : undefined
+  ), source);
+}
+
+function sessionHasImageListInput(session) {
+  if (!isPlainObject(session)) return false;
+  const candidates = [
+    session.image_urls,
+    session.imageUrls,
+    session.input_image_urls,
+    session.inputImageUrls,
+    session.expressImageUrls,
+    session.expressImageList,
+    session.imageListPayload,
+    session.expressGenerationBuilder?.image_urls,
+    session.expressGenerationBuilder?.input?.image_urls,
+    session.expressGenerationBuilder?.payload?.image_urls,
+  ];
+  return candidates.some((candidate) => Array.isArray(candidate) && candidate.length > 0);
+}
+
+function resolveVidgenieGenerationModeFromSession(session) {
+  if (!isPlainObject(session)) return null;
+
+  const nestedSessionMode = isPlainObject(session.session)
+    ? resolveVidgenieGenerationModeFromSession(session.session)
+    : null;
+  if (nestedSessionMode) {
+    return nestedSessionMode;
+  }
+
+  const modeCandidatePaths = [
+    ['expressGenerationType'],
+    ['generationType'],
+    ['requestType'],
+    ['sessionSubType'],
+    ['session_sub_type'],
+    ['cloneType'],
+    ['expressGenerationBuilder', 'routeType'],
+    ['expressGenerationBuilder', 'builderRouteType'],
+    ['expressGenerationBuilder', 'expressGenerationType'],
+    ['expressGenerationBuilder', 'sessionSubType'],
+    ['metadata', 'routeType'],
+    ['metadata', 'builderRouteType'],
+    ['metadata', 'expressGenerationType'],
+    ['metadata', 'sessionSubType'],
+  ];
+  const modeTokens = modeCandidatePaths
+    .map((path) => normalizeModeToken(getNestedValue(session, path)))
+    .filter(Boolean);
+
+  if (modeTokens.some((token) =>
+    token === 'text_to_video' ||
+    token === 'text_video' ||
+    token === 'texttovideo'
+  )) {
+    return 'T2V';
+  }
+
+  if (modeTokens.some((token) =>
+    token === 'image_list_to_video' ||
+    token === 'image_to_video' ||
+    token === 'imagelist_to_video' ||
+    token === 'imagetovideo'
+  )) {
+    return 'I2V';
+  }
+
+  if (sessionHasImageListInput(session)) {
+    return 'I2V';
+  }
+
+  if (session.isExpressGeneration === true) {
+    return 'I2V';
+  }
+
+  if (hasTextValue(session.inputPrompt) || hasTextValue(session.expressInputPrompt)) {
+    return 'T2V';
+  }
+
+  return null;
 }
 
 function resolveJsonImageModelAlias(modelKey) {
@@ -1963,64 +2061,15 @@ export default function OneshotEditor() {
   const { t, language } = useLocalization();
   const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const showLoginDialog = useCallback(() => {
     openAlertDialog(<AuthContainer />, undefined, false, AUTH_DIALOG_OPTIONS);
   }, [openAlertDialog]);
-  const hasOpenedPurchaseCreditsPromptRef = useRef(false);
 
   const goToPurchaseCredits = useCallback(() => {
     closeAlertDialog();
     navigate(PURCHASE_CREDITS_ROUTE);
   }, [closeAlertDialog, navigate]);
-
-  const closePurchaseCreditsPrompt = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY);
-    }
-    closeAlertDialog();
-  }, [closeAlertDialog]);
-
-  const openPurchaseCreditsPrompt = useCallback(() => {
-    hasOpenedPurchaseCreditsPromptRef.current = true;
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY);
-    }
-    openAlertDialog(
-      <PurchaseCreditsPromptDialog
-        onClose={closePurchaseCreditsPrompt}
-        onPurchaseCredits={goToPurchaseCredits}
-      />,
-      undefined,
-      false,
-      {
-        centerContent: true,
-        containerClassName: 'w-full max-w-[380px]',
-        fullBleed: true,
-        hideBorder: true,
-        hideCloseButton: true,
-        transparentShell: true,
-      }
-    );
-  }, [closePurchaseCreditsPrompt, goToPurchaseCredits, openAlertDialog]);
-
-  useEffect(() => {
-    if (!user?._id || hasOpenedPurchaseCreditsPromptRef.current) return;
-
-    const params = new URLSearchParams(location.search);
-    const requestedByRoute = params.get('purchaseCredits') === '1';
-    const requestedBySignup = typeof window !== 'undefined'
-      ? localStorage.getItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY) === 'true'
-      : false;
-
-    if (!requestedByRoute && !requestedBySignup && !hasNoGenerationCredits(user)) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(openPurchaseCreditsPrompt, PURCHASE_CREDITS_PROMPT_DELAY_MS);
-    return () => window.clearTimeout(timeoutId);
-  }, [location.search, openPurchaseCreditsPrompt, user]);
 
   const activeSessionIdRef = useRef(id);
   const currentPollRequestIdRef = useRef(null);
@@ -2128,6 +2177,8 @@ export default function OneshotEditor() {
   const [postProcessingMessage, setPostProcessingMessage] = useState('');
   const [postProcessingError, setPostProcessingError] = useState('');
   const [currentRenderGeneratedOutro, setCurrentRenderGeneratedOutro] = useState(false);
+  const [isCompletedRequestExpanded, setIsCompletedRequestExpanded] = useState(false);
+  const completedRequestCollapseKeyRef = useRef('');
 
   useEffect(() => {
     activeRequestIdRef.current = activeRequestId;
@@ -3825,6 +3876,10 @@ export default function OneshotEditor() {
         data,
         forceAdvancedEditPoll || usePostProcessingPoll
       );
+      const resolvedGenerationMode = resolveVidgenieGenerationModeFromSession(data);
+      if (resolvedGenerationMode) {
+        setGenerationMode(resolvedGenerationMode);
+      }
 
       if (data.inputPrompt) {
         updatePromptText(data.inputPrompt);
@@ -4287,6 +4342,8 @@ export default function OneshotEditor() {
     setPostProcessingMessage('');
     setPostProcessingError('');
     setCurrentRenderGeneratedOutro(false);
+    setIsCompletedRequestExpanded(false);
+    completedRequestCollapseKeyRef.current = '';
   };
 
 
@@ -4417,7 +4474,46 @@ export default function OneshotEditor() {
     let successLabel = 'Post-processing';
 
     try {
-      if (actionKey === 'generated_outro') {
+      if (actionKey === 'retranslate') {
+        const languageCode = resolveLanguageCode(postProcessingForm.translationLanguage, '');
+        if (!languageCode || languageCode === 'auto') {
+          throw new Error('Choose a target language for retranslation.');
+        }
+
+        payload = {
+          ...payload,
+          language: languageCode,
+          enable_subtitles: postProcessingForm.translationEnableSubtitles === true,
+          translate_outro: postProcessingForm.translationTranslateOutro !== false,
+          translate_footer: postProcessingForm.translationTranslateFooter !== false,
+        };
+        endpoint = 'retranslate_video';
+        successLabel = 'Retranslation';
+      } else if (actionKey === 'add_subtitles') {
+        endpoint = 'add_subtitles';
+        successLabel = 'Subtitle add';
+      } else if (actionKey === 'remove_subtitles') {
+        const shouldRemove = window.confirm('Remove subtitles and render a new version?');
+        if (!shouldRemove) {
+          return;
+        }
+
+        endpoint = 'remove_subtitles';
+        successLabel = 'Subtitle removal';
+      } else if (actionKey === 'regenerate_avatar') {
+        const shouldRegenerateAvatar = window.confirm(
+          'Generate a fresh narrator avatar and render a new version?'
+        );
+        if (!shouldRegenerateAvatar) {
+          return;
+        }
+
+        endpoint = 'regenerate_avatar';
+        successLabel = 'Narrator avatar regeneration';
+      } else if (actionKey === 'clone_render') {
+        endpoint = 'clone';
+        successLabel = 'Clone render';
+      } else if (actionKey === 'generated_outro') {
         const ctaUrl = postProcessingForm.ctaUrl.trim();
         if (!isHttpUrl(ctaUrl)) {
           throw new Error('Enter a valid outro CTA URL.');
@@ -4687,6 +4783,21 @@ export default function OneshotEditor() {
     if (videoLink) return 'complete';
     return 'idle';
   }, [isGenerationPending, isGenerationWaitingForApproval, isPaused, videoLink]);
+  const shouldCollapseOriginalRequest = renderState === 'complete' && Boolean(videoLink);
+  const shouldShowOriginalRequestInputs =
+    !shouldCollapseOriginalRequest || isCompletedRequestExpanded;
+  useEffect(() => {
+    if (!shouldCollapseOriginalRequest) {
+      completedRequestCollapseKeyRef.current = '';
+      return;
+    }
+
+    const collapseKey = id || activeRequestId || videoLink || 'completed-render';
+    if (completedRequestCollapseKeyRef.current !== collapseKey) {
+      completedRequestCollapseKeyRef.current = collapseKey;
+      setIsCompletedRequestExpanded(false);
+    }
+  }, [activeRequestId, id, shouldCollapseOriginalRequest, videoLink]);
   const shouldCollapseJsonEditorForProgress =
     isJsonMode && showResultDisplay && (
       isGenerationPending ||
@@ -4817,9 +4928,15 @@ export default function OneshotEditor() {
         ? `${submitButtonClass} border border-rose-300/30 text-rose-100 hover:bg-rose-400/10`
         : `${submitButtonClass} border border-rose-200 text-rose-700 hover:bg-rose-50`;
     const fieldClass = `min-h-[40px] w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`;
+    const checkboxClass = 'mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
     const isGeneratedOutroPending = postProcessingPendingAction === 'generated_outro';
     const isFooterPending = postProcessingPendingAction === 'footer_cta';
     const isRemoveFooterPending = postProcessingPendingAction === 'remove_footer';
+    const isRetranslatePending = postProcessingPendingAction === 'retranslate';
+    const isAddSubtitlesPending = postProcessingPendingAction === 'add_subtitles';
+    const isRemoveSubtitlesPending = postProcessingPendingAction === 'remove_subtitles';
+    const isAvatarPending = postProcessingPendingAction === 'regenerate_avatar';
+    const isClonePending = postProcessingPendingAction === 'clone_render';
     const isRerollPending = postProcessingPendingAction === 'reroll_layers';
     const rerollQuoteTotalCredits = Number(rerollLocalCreditEstimate?.totalCredits);
     const rerollQuoteImageCredits = Number(rerollLocalCreditEstimate?.imageCredits);
@@ -4829,7 +4946,10 @@ export default function OneshotEditor() {
       isAnyPostProcessingPending ||
       !rerollLayerIndexes.length;
 
-    const panelWidthClass = postProcessingAction === 'reroll_layers' ? 'max-w-5xl' : 'max-w-3xl';
+    const panelWidthClass =
+      postProcessingAction === 'reroll_layers' || postProcessingAction === 'retranslate'
+        ? 'max-w-5xl'
+        : 'max-w-3xl';
 
     return (
       <div className={`mx-auto w-full ${panelWidthClass} rounded-xl p-3 ring-1 ${panelClass} ${extraClasses}`}>
@@ -4863,6 +4983,113 @@ export default function OneshotEditor() {
         </div>
 
         <div className="mt-3">
+          {postProcessingAction === 'retranslate' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                <select
+                  value={postProcessingForm.translationLanguage}
+                  onChange={(event) =>
+                    updatePostProcessingFormField('translationLanguage', event.target.value)
+                  }
+                  disabled={isAnyPostProcessingPending}
+                  aria-label="Retranslation language"
+                  className={fieldClass}
+                >
+                  <option value="">Choose target language</option>
+                  {SUPPORTED_LANGUAGES.map((languageOption) => (
+                    <option key={languageOption.code} value={languageOption.code}>
+                      {languageOption.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => submitPostProcessingOperation('retranslate')}
+                  disabled={isAnyPostProcessingPending || !postProcessingForm.translationLanguage}
+                  className={primarySubmitClass}
+                >
+                  {isRetranslatePending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaLanguage className="h-3.5 w-3.5" aria-hidden="true" />}
+                  Retranslate video
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <label className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ${inactiveActionClass}`}>
+                  <input
+                    type="checkbox"
+                    checked={postProcessingForm.translationEnableSubtitles}
+                    onChange={(event) =>
+                      updatePostProcessingFormField('translationEnableSubtitles', event.target.checked)
+                    }
+                    disabled={isAnyPostProcessingPending}
+                    className={checkboxClass}
+                  />
+                  <span>Add translated subtitles</span>
+                </label>
+                <label className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ${inactiveActionClass}`}>
+                  <input
+                    type="checkbox"
+                    checked={postProcessingForm.translationTranslateOutro}
+                    onChange={(event) =>
+                      updatePostProcessingFormField('translationTranslateOutro', event.target.checked)
+                    }
+                    disabled={isAnyPostProcessingPending}
+                    className={checkboxClass}
+                  />
+                  <span>Translate outro</span>
+                </label>
+                <label className={`flex items-start gap-2 rounded-lg px-3 py-2 text-sm ring-1 ${inactiveActionClass}`}>
+                  <input
+                    type="checkbox"
+                    checked={postProcessingForm.translationTranslateFooter}
+                    onChange={(event) =>
+                      updatePostProcessingFormField('translationTranslateFooter', event.target.checked)
+                    }
+                    disabled={isAnyPostProcessingPending}
+                    className={checkboxClass}
+                  />
+                  <span>Translate footer</span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {postProcessingAction === 'avatar' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => submitPostProcessingOperation('regenerate_avatar')}
+                disabled={isAnyPostProcessingPending}
+                className={primarySubmitClass}
+              >
+                {isAvatarPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaUserCircle className="h-3.5 w-3.5" aria-hidden="true" />}
+                Regenerate narrator avatar
+              </button>
+            </div>
+          )}
+
+          {postProcessingAction === 'subtitles' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => submitPostProcessingOperation('add_subtitles')}
+                disabled={isAnyPostProcessingPending}
+                className={primarySubmitClass}
+              >
+                {isAddSubtitlesPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaClosedCaptioning className="h-3.5 w-3.5" aria-hidden="true" />}
+                Add subtitles
+              </button>
+              <button
+                type="button"
+                onClick={() => submitPostProcessingOperation('remove_subtitles')}
+                disabled={isAnyPostProcessingPending}
+                className={dangerSubmitClass}
+              >
+                {isRemoveSubtitlesPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaTrash className="h-3.5 w-3.5" aria-hidden="true" />}
+                Remove subtitles
+              </button>
+            </div>
+          )}
+
           {postProcessingAction === 'generated_outro' && (
             <div className="space-y-3">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -4964,6 +5191,20 @@ export default function OneshotEditor() {
               <FaCog className="h-3.5 w-3.5" aria-hidden="true" />
               Open advanced edits
             </button>
+          )}
+
+          {postProcessingAction === 'clone_render' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => submitPostProcessingOperation('clone_render')}
+                disabled={isAnyPostProcessingPending}
+                className={secondarySubmitClass}
+              >
+                {isClonePending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaClone className="h-3.5 w-3.5" aria-hidden="true" />}
+                Clone render
+              </button>
+            </div>
           )}
 
           {postProcessingAction === 'reroll_layers' && (
@@ -5362,7 +5603,34 @@ export default function OneshotEditor() {
           </div>
         </div>
 
-        {!isJsonMode && (
+        {shouldCollapseOriginalRequest && (
+          <div className={`mt-4 rounded-xl p-3 ring-1 ${
+            colorMode === 'dark'
+              ? 'bg-[#0b1224] ring-white/10'
+              : 'bg-slate-50 ring-slate-200'
+          }`}>
+            <button
+              type="button"
+              onClick={() => setIsCompletedRequestExpanded((expanded) => !expanded)}
+              aria-expanded={isCompletedRequestExpanded}
+              className="flex w-full items-center justify-between gap-3 text-left"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">Original request</span>
+                <span className={`mt-0.5 block text-xs ${mutedText}`}>
+                  Prompt, source images, settings
+                </span>
+              </span>
+              {isCompletedRequestExpanded ? (
+                <FaChevronDown className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <FaChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {!isJsonMode && shouldShowOriginalRequestInputs && (
           <>
         {/* 2️⃣ Options grid */}
         <div className="vidgenie-options-section w-full mt-4">
@@ -5765,6 +6033,7 @@ export default function OneshotEditor() {
       )}
 
       {/* ───────── Submission form ───────── */}
+      {shouldShowOriginalRequestInputs && (
       <form onSubmit={handleSubmit}>
         {isJsonMode && shouldCollapseJsonEditorForProgress ? (
           <div className={`mt-4 rounded-2xl p-4 ring-1 transition ${
@@ -6215,9 +6484,11 @@ export default function OneshotEditor() {
           </div>
         )}
       </form>
-      {renderSubmitButton()}
+      )}
+      {shouldShowOriginalRequestInputs && renderSubmitButton()}
 
       {/* ───────── Assistant Chat ───────── */}
+      {shouldShowOriginalRequestInputs && (
       <div className={`vidgenie-assistant-anchor mt-6 rounded-2xl p-3 sm:p-4 ring-1 transition-shadow hover:shadow-sm ${
         colorMode === 'dark'
           ? 'bg-[#0f1629] text-slate-100 ring-[#1f2a3d]'
@@ -6234,6 +6505,7 @@ export default function OneshotEditor() {
           getSessionImageLayers={getSessionImageLayers}
         />
       </div>
+      )}
     </div>
   );
 }
