@@ -127,25 +127,25 @@ export default function SceneLibraryHome(props) {
   };
 
   return (
-    <div className={`space-y-4 ${textColor}`}>
+    <div className={`min-w-0 space-y-4 ${textColor}`}>
       {/* Top Toolbar */}
-      <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className={`flex items-center rounded-lg border overflow-hidden ${borderColor}`}>
+      <div className={`flex flex-col gap-3 rounded-lg border ${borderColor} ${cardBg} p-3 shadow-sm sm:p-4 lg:flex-row lg:items-center lg:justify-between`}>
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className={`flex min-w-0 items-center rounded-lg border overflow-hidden ${borderColor}`}>
             <button
               onClick={handlePrevPage}
               disabled={currentPage === 1}
-              className={`px-3 py-2 text-sm font-semibold border-r ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`shrink-0 px-3 py-2 text-sm font-semibold border-r ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               Prev
             </button>
-            <span className={`px-4 py-2 text-sm ${headerBg}`}>
+            <span className={`min-w-0 flex-1 px-3 py-2 text-center text-sm sm:flex-none sm:px-4 ${headerBg}`}>
               Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={handleNextPage}
               disabled={currentPage === totalPages}
-              className={`px-3 py-2 text-sm font-semibold border-l ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`shrink-0 px-3 py-2 text-sm font-semibold border-l ${borderColor} ${surfaceButton} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               Next
             </button>
@@ -156,15 +156,15 @@ export default function SceneLibraryHome(props) {
             placeholder="Search"
             value={searchTerm}
             onChange={handleSearchChange}
-            className={`ml-2 px-3 py-2 text-sm rounded-lg border ${borderColor} ${surfaceButton} focus:outline-none`}
+            className={`w-full px-3 py-2 text-sm rounded-lg border sm:w-64 ${borderColor} ${surfaceButton} focus:outline-none`}
           />
         </div>
       </div>
 
       {/* Grid Display */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {libraryData.map((item) => (
-          <div key={item._id} className={`rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
+          <div key={item._id} className={`min-w-0 rounded-lg border ${borderColor} ${cardBg} p-3 shadow-sm sm:p-4`}>
             <div className="relative">
               {playingVideoId === item._id ? (
                 <video
@@ -220,19 +220,19 @@ export default function SceneLibraryHome(props) {
               </button>
             </div>
             {/* Description */}
-            <h2 className="mt-3 text-lg font-semibold">
+            <h2 className="mt-3 break-words text-lg font-semibold">
               {item.description || 'No Description'}
             </h2>
             {/* Model and Prompt */}
-            <p className={`text-sm ${mutedText}`}>
+            <p className={`break-words text-sm ${mutedText}`}>
               Model: {item.model || 'Unknown'}
             </p>
-            <p className={`text-sm ${mutedText}`}>
+            <p className={`break-words text-sm ${mutedText}`}>
               Prompt: {item.prompt || 'No Prompt'}
             </p>
 
             {/* Download and Select Buttons */}
-            <div className="mt-3 flex justify-between items-center">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <button
                 className={`px-3 py-2 rounded-lg border ${borderColor} ${surfaceButton}`}
                 onClick={() => handleDownload(item)}

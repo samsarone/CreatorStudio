@@ -1,14 +1,14 @@
 import React, { useRef, useEffect } from "react";
 import { Image, Transformer, Group } from 'react-konva';
 import { useImage } from 'react-konva-utils';
-import { getScalingFactor } from '../../utils/image.jsx';
+import { getRenderableImageUrl, getScalingFactor } from '../../utils/image.jsx';
 import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
 
 const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
 
 export default function RotatableImage({ image, isSelected, onSelect, onUnselect, updateToolbarButtonPosition, ...props }) {
   const { isDraggable, showMask, id } = props;
-  const imageSrc = image.src;
+  const imageSrc = getRenderableImageUrl(image, IMAGE_BASE);
   const [img] = useImage(imageSrc, 'anonymous');
   const shapeRef = useRef();
   const trRef = useRef();

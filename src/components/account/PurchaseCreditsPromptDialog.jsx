@@ -21,8 +21,8 @@ export default function PurchaseCreditsPromptDialog({
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-600';
   const subtleText = isDark ? 'text-slate-500' : 'text-slate-500';
   const primaryButtonClasses = isDark
-    ? 'bg-[#39d881] text-[#041420] hover:bg-[#55e8a2] focus:ring-[#72f1b0]'
-    : 'bg-slate-950 text-white hover:bg-slate-800 focus:ring-slate-300';
+    ? 'border border-[#2a4e70] bg-[#16213a] text-slate-100 hover:bg-[#1b2b49] focus:ring-cyan-700/40'
+    : 'border border-slate-200 bg-slate-100 text-slate-900 hover:bg-slate-200 focus:ring-slate-300';
   const quietButtonClasses = isDark
     ? 'text-slate-400 hover:bg-white/[0.04] hover:text-slate-200'
     : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800';
@@ -30,8 +30,8 @@ export default function PurchaseCreditsPromptDialog({
     ? 'border-[#1f2a3d] bg-[#0f1629]'
     : 'border-slate-200 bg-slate-50';
   const motionIconClasses = isDark
-    ? 'bg-[#39d881] text-[#041420] shadow-[0_10px_24px_rgba(57,216,129,0.28)]'
-    : 'bg-slate-950 text-white shadow-[0_10px_24px_rgba(15,23,42,0.18)]';
+    ? 'bg-[#16213a] text-slate-100 shadow-[0_10px_24px_rgba(42,78,112,0.24)]'
+    : 'bg-slate-100 text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.12)]';
 
   return (
     <div className={`purchase-credits-prompt relative w-full max-w-[360px] rounded-2xl border p-5 text-left ${shellClasses}`}>

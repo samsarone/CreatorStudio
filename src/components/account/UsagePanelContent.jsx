@@ -115,24 +115,28 @@ export default function UsagePanelContent() {
   };
 
   return (
-    <div className={`flex flex-col gap-6 ${textColor}`}>
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className={`flex min-w-0 flex-col gap-5 sm:gap-6 ${textColor}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Usage</h2>
           <p className={`text-sm ${secondaryTextColor}`}>
             Track every API call and the credits consumed.
           </p>
         </div>
-        <SecondaryButton onClick={() => fetchUsageLogs(pagination.page)} isPending={loading}>
+        <SecondaryButton
+          onClick={() => fetchUsageLogs(pagination.page)}
+          isPending={loading}
+          className="w-full sm:w-auto"
+        >
           <FaSync className={`mr-2 ${loading ? "animate-spin" : ""}`} />
           Refresh
         </SecondaryButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-4`}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className={`rounded-lg border ${borderColor} ${cardBgColor} p-4`}>
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-rose-500/10 p-3 text-rose-400">
+            <div className="shrink-0 rounded-full bg-rose-500/10 p-3 text-rose-400">
               <FaBolt />
             </div>
             <div>
@@ -146,9 +150,9 @@ export default function UsagePanelContent() {
           </div>
         </div>
 
-        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-4`}>
+        <div className={`rounded-lg border ${borderColor} ${cardBgColor} p-4`}>
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-indigo-500/10 p-3 text-indigo-400">
+            <div className="shrink-0 rounded-full bg-indigo-500/10 p-3 text-indigo-400">
               <FaDatabase />
             </div>
             <div>
@@ -160,9 +164,9 @@ export default function UsagePanelContent() {
           </div>
         </div>
 
-        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} p-4`}>
+        <div className={`rounded-lg border ${borderColor} ${cardBgColor} p-4`}>
           <div className="flex items-center gap-3">
-            <div className="rounded-full bg-emerald-500/10 p-3 text-emerald-400">
+            <div className="shrink-0 rounded-full bg-emerald-500/10 p-3 text-emerald-400">
               <FaClock />
             </div>
             <div>
@@ -177,8 +181,8 @@ export default function UsagePanelContent() {
         </div>
       </div>
 
-      <div className={`rounded-2xl border ${borderColor} ${cardBgColor} overflow-hidden`}>
-        <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor} ${headerBg}`}>
+      <div className={`min-w-0 rounded-lg border ${borderColor} ${cardBgColor} overflow-hidden`}>
+        <div className={`flex flex-col gap-2 px-4 py-3 border-b sm:flex-row sm:items-center sm:justify-between ${borderColor} ${headerBg}`}>
           <div>
             <p className="text-lg font-semibold">Usage log</p>
             <p className={`text-xs ${secondaryTextColor}`}>
@@ -201,8 +205,8 @@ export default function UsagePanelContent() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <div className="max-w-full overflow-x-auto">
+            <table className="min-w-[760px] text-sm">
               <thead className={headerBg}>
                 <tr>
                   <th className="px-4 py-3 text-left">Endpoint</th>
@@ -245,17 +249,18 @@ export default function UsagePanelContent() {
         )}
       </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className={`text-sm ${secondaryTextColor}`}>
           Page {pagination.page} of {pagination.totalPages || 1}
         </p>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex">
           <SecondaryButton
             onClick={() => {
               if (disablePrev) return;
               goToPage((pagination.page || 1) - 1);
             }}
             extraClasses={disablePrev ? "opacity-50 pointer-events-none" : ""}
+            className="w-full sm:w-auto"
             isPending={loading && pagination.hasPreviousPage}
           >
             Previous
@@ -266,6 +271,7 @@ export default function UsagePanelContent() {
               goToPage((pagination.page || 1) + 1);
             }}
             extraClasses={disableNext ? "opacity-50 pointer-events-none" : ""}
+            className="w-full sm:w-auto"
             isPending={loading && pagination.hasNextPage}
           >
             Next

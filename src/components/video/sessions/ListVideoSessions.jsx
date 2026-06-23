@@ -11,6 +11,10 @@ import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
 import SingleSelect from '../../common/SingleSelect'; // adjust path as needed
 
 const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
+const SESSION_PREVIEW_PLACEHOLDER_IMAGES = {
+  dark: '/session-thumbnail-placeholder-dark.png',
+  light: '/session-thumbnail-placeholder-light.png',
+};
 
 // Options for the filters
 const renderTypeOptions = [
@@ -36,6 +40,70 @@ const truncateSessionDescription = (value, maxLength = 110) => {
     return normalized;
   }
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
+};
+
+const firstNonEmptyString = (values = []) => (
+  values.find((value) => typeof value === 'string' && value.trim()) || ''
+);
+
+const isAbsolutePreviewUrl = (value) => (
+  typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim())
+);
+
+const getSessionPreviewPlaceholderImage = (colorMode = 'dark') => (
+  colorMode === 'light'
+    ? SESSION_PREVIEW_PLACEHOLDER_IMAGES.light
+    : SESSION_PREVIEW_PLACEHOLDER_IMAGES.dark
+);
+
+const getRawSessionPreviewImage = (session = {}) => (
+  firstNonEmptyString([
+    session.thumbnailUrl,
+    session.thumbnailURL,
+    session.previewImageUrl,
+    session.previewImageURL,
+    session.previewImage,
+    session.thumbnail,
+  ])
+);
+
+const resolveSessionPreviewImage = (session = {}, colorMode = 'dark', forcePlaceholder = false) => {
+  const placeholderImage = getSessionPreviewPlaceholderImage(colorMode);
+  const previewImage = getRawSessionPreviewImage(session);
+
+  if (forcePlaceholder || !previewImage) {
+    return {
+      src: placeholderImage,
+      isPlaceholder: true,
+    };
+  }
+
+  const trimmedPreviewImage = previewImage.trim();
+  if (isAbsolutePreviewUrl(trimmedPreviewImage)) {
+    return {
+      src: trimmedPreviewImage,
+      isPlaceholder: false,
+    };
+  }
+
+  if (trimmedPreviewImage.startsWith('//')) {
+    return {
+      src: `https:${trimmedPreviewImage}`,
+      isPlaceholder: false,
+    };
+  }
+
+  const normalizedPath = trimmedPreviewImage.startsWith('/')
+    ? trimmedPreviewImage
+    : `/${trimmedPreviewImage}`;
+  const processorBaseUrl = typeof PROCESSOR_API === 'string'
+    ? PROCESSOR_API.trim().replace(/\/+$/, '')
+    : '';
+
+  return {
+    src: processorBaseUrl ? `${processorBaseUrl}${normalizedPath}` : normalizedPath,
+    isPlaceholder: false,
+  };
 };
 
 function DeleteVideoSessionDialog({ session, onDeleted, onClose, colorMode }) {
@@ -140,6 +208,7 @@ export default function ListVideoSessions() {
   const [limit] = useState(30); // Show 30 items per page by default
   const [totalPages, setTotalPages] = useState(1);
   const [refreshCounter, setRefreshCounter] = useState(0);
+  const [failedPreviewKeys, setFailedPreviewKeys] = useState(() => new Set());
 
   const [renderType, setRenderType] = useState('All');
   const [aspectRatio, setAspectRatio] = useState('All');
@@ -377,6 +446,25 @@ export default function ListVideoSessions() {
     }
   };
 
+  const getSessionKey = (session, index) => (
+    (session?.id ?? session?._id ?? `session-${index}`).toString()
+  );
+
+  const handleSessionPreviewImageError = (sessionKey) => {
+    if (!sessionKey) {
+      return;
+    }
+
+    setFailedPreviewKeys((currentKeys) => {
+      if (currentKeys.has(sessionKey)) {
+        return currentKeys;
+      }
+      const nextKeys = new Set(currentKeys);
+      nextKeys.add(sessionKey);
+      return nextKeys;
+    });
+  };
+
   // If sessionList is null or undefined, return nothing
   if (!sessionList) return null;
 
@@ -463,19 +551,24 @@ export default function ListVideoSessions() {
         <div className="mx-auto grid w-full max-w-[1600px] grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-4 sm:gap-5 lg:gap-6">
           {sessionList.map((session, index) => {
             if (!session) return null;
+            const sessionKey = getSessionKey(session, index);
+            const rawPreviewImage = getRawSessionPreviewImage(session);
+            const sessionPreviewKey = `${sessionKey}:${rawPreviewImage || 'missing'}`;
             const sessionName = normalizeSessionText(session.sessionName);
             const sessionDescription = normalizeSessionText(session.sessionDescription);
             const sessionDisplayName = sessionName || session.name;
             const sessionDisplayDescription = truncateSessionDescription(sessionDescription);
-            const sessionPreviewImage = session.thumbnail
-              ? `${PROCESSOR_API}/${session.thumbnail}`
-              : '/q2.png';
+            const sessionPreview = resolveSessionPreviewImage(
+              session,
+              colorMode,
+              failedPreviewKeys.has(sessionPreviewKey)
+            );
             const isExpressSession = Boolean(session.isExpressGeneration);
             const isImportedSession = Boolean(session.isImportedSession);
 
             return (
               <div
-                key={session?.id ?? session?._id ?? index}
+                key={sessionKey}
                 className={`group relative min-w-0 cursor-pointer overflow-hidden rounded-lg ${cardSurface} transition-transform duration-200 hover:-translate-y-1`}
                 onClick={(event) => gotoPage(event, session)}
               >
@@ -533,13 +626,26 @@ export default function ListVideoSessions() {
                     )}
                   </div>
                 </div>
-                <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
                   <img
-                    src={sessionPreviewImage}
-                    onError={(e) => (e.target.src = '/q2.png')}
+                    src={sessionPreview.src}
+                    onError={() => handleSessionPreviewImageError(sessionPreviewKey)}
                     className="h-full w-full object-cover"
-                    alt={`Session ${index + 1}`}
+                    alt={sessionPreview.isPlaceholder ? 'Missing thumbnail' : `Session ${index + 1}`}
                   />
+                  {sessionPreview.isPlaceholder && (
+                    <div className="pointer-events-none absolute inset-x-0 top-[calc(50%+1.25rem)] z-[1] flex justify-center px-4">
+                      <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                          colorMode === 'dark'
+                            ? 'bg-slate-950/55 text-slate-200 ring-1 ring-white/10'
+                            : 'bg-white/75 text-slate-600 ring-1 ring-slate-200/80'
+                        }`}
+                      >
+                        Missing thumbnail
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="px-4 py-3 text-xs text-slate-500">
                   Tap to open in Studio

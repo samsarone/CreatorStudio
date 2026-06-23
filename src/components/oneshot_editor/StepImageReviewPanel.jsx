@@ -72,9 +72,29 @@ function buildReviewScenes(sessionPreview) {
     .map((layer, sceneIndex) => {
       const fallbackPrompt = normalizeString(layer.image?.prompt) || normalizeString(layer.prompt);
       const imageItems = Array.isArray(layer.image?.items) ? layer.image.items : [];
+      const editedImageUrl = normalizeString(
+        layer.image?.editedImage ||
+        layer.editedImage?.url ||
+        (typeof layer.editedImage === 'string' ? layer.editedImage : ''),
+      );
+      const editedImageRawUrl = normalizeString(
+        layer.image?.editedImageRawUrl ||
+        layer.editedImage?.rawUrl,
+      );
+      const fallbackImageUrl = editedImageUrl || layer.image?.url;
       const items = imageItems.length
-        ? imageItems
-        : layer.image?.url
+        ? imageItems.map((item) => (
+          editedImageUrl && (item.isPrimary === true || item.is_base_image === true || item.role === 'primary')
+            ? {
+              ...item,
+              url: editedImageUrl,
+              rawUrl: editedImageRawUrl || item.rawUrl || editedImageUrl,
+              src: editedImageRawUrl || item.src || editedImageUrl,
+              image: editedImageRawUrl || item.image || editedImageUrl,
+            }
+            : item
+        ))
+        : fallbackImageUrl
           ? [{
             id: 'item_0',
             itemId: 'item_0',
@@ -82,10 +102,10 @@ function buildReviewScenes(sessionPreview) {
             role: 'primary',
             isPrimary: true,
             is_base_image: true,
-            url: layer.image.url,
-            rawUrl: layer.image.rawUrl || layer.image.url,
-            src: layer.image.rawUrl || layer.image.url,
-            image: layer.image.rawUrl || layer.image.url,
+            url: fallbackImageUrl,
+            rawUrl: editedImageRawUrl || layer.image?.rawUrl || fallbackImageUrl,
+            src: editedImageRawUrl || layer.image?.rawUrl || fallbackImageUrl,
+            image: editedImageRawUrl || layer.image?.rawUrl || fallbackImageUrl,
             prompt: fallbackPrompt,
           }]
           : [];

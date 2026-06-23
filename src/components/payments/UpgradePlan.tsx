@@ -86,7 +86,7 @@ export default function UpgradePlan() {
           <li>Access to all models</li>
           <li>Full generative workflow suite</li>
           <li>Free Cloud storage for renders up to 50GB</li>
-          <li>Commercial usage rights</li>
+          <li>Priority support</li>
           <li>No watermarks</li>
           <li>Discord support</li>
         </ul>

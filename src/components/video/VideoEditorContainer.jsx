@@ -37,6 +37,7 @@ import { FaCheck, FaTimes } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 import { drawCanvasTextItem } from '../../utils/canvasText.js';
 import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
+import { getRenderableImageUrl } from '../../utils/image.jsx';
 
 
 
@@ -988,7 +989,7 @@ export default function VideoEditorContainer(props) {
         }
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
+        img.src = getRenderableImageUrl(src, PROCESSOR_API_URL);
       });
 
     for (const item of currentLayer.imageSession.activeItemList || []) {
@@ -1009,9 +1010,7 @@ export default function VideoEditorContainer(props) {
       }
 
       if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
+        const imgSrc = getRenderableImageUrl(item, PROCESSOR_API_URL);
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
@@ -1465,7 +1464,7 @@ export default function VideoEditorContainer(props) {
         img.crossOrigin = 'Anonymous';
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
+        img.src = getRenderableImageUrl(src, PROCESSOR_API_URL);
       });
 
 
@@ -1486,9 +1485,7 @@ export default function VideoEditorContainer(props) {
         ctx.translate(-width / 2, -height / 2);
       }
       if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
+        const imgSrc = getRenderableImageUrl(item, PROCESSOR_API_URL);
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
@@ -2173,9 +2170,16 @@ export default function VideoEditorContainer(props) {
       });
   };
 
-  const selectImageFromLibrary = (imageItem) => {
+  const selectImageFromLibrary = (imageItem, selectionMeta = {}) => {
     const newItemId = `item_${activeItemList.length}`;
     const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+    const previewUrl = [
+      selectionMeta?.previewUrl,
+      selectionMeta?.url,
+      selectionMeta?.imageUrl,
+      selectionMeta?.asset?.previewUrl,
+      selectionMeta?.asset?.url,
+    ].find((value) => typeof value === 'string' && value.trim())?.trim();
     const newItem = createCurrentLayerImageItem({
       src: imageItem,
       id: newItemId,
@@ -2184,6 +2188,10 @@ export default function VideoEditorContainer(props) {
       width: canvasDimensions.width,
       height: canvasDimensions.height,
     });
+    if (previewUrl) {
+      newItem.previewUrl = previewUrl;
+      newItem.url = previewUrl;
+    }
     const newItemList = [...activeItemList, newItem];
     setActiveItemList(newItemList);
     updateSessionLayerActiveItemList(newItemList);

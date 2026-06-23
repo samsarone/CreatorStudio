@@ -29,6 +29,7 @@ import {
   MIN_CANVAS_DIMENSION,
   normalizeCanvasDimensions,
 } from '../../utils/canvas.jsx';
+import { getRenderableImageUrl } from '../../utils/image.jsx';
 import {
   captureAssistantStageImageData,
   captureStageCanvas,
@@ -59,6 +60,10 @@ const IMAGE_STUDIO_CANVAS_ZOOM_SCALE_STORAGE_KEY = 'imageStudioCanvasZoomScale';
 const IMAGE_STUDIO_CANVAS_ZOOM_STEP = 0.25;
 const IMAGE_STUDIO_CANVAS_ZOOM_MIN = 0.5;
 const IMAGE_STUDIO_CANVAS_ZOOM_MAX = 4;
+
+function firstStringValue(values = []) {
+  return values.find((value) => typeof value === 'string' && value.trim())?.trim() || '';
+}
 
 function clampImageStudioCanvasZoom(value) {
   const numericValue = Number(value);
@@ -1170,16 +1175,27 @@ export default function ImageStudioHome() {
   );
 
   const selectImageFromLibrary = useCallback(
-    async (imageItem) => {
-      if (!imageItem) {
+    async (imageItem, selectionMeta = {}) => {
+      const imageSource = typeof imageItem === 'string' ? imageItem : '';
+      const previewSource = firstStringValue([
+        selectionMeta?.previewUrl,
+        selectionMeta?.url,
+        selectionMeta?.imageUrl,
+        selectionMeta?.asset?.previewUrl,
+        selectionMeta?.asset?.url,
+      ]);
+      const sourceToMeasure = previewSource || imageSource;
+      if (!imageSource && !sourceToMeasure) {
         return;
       }
 
       try {
-        const placement = await resolveCanvasImagePlacement(imageItem);
+        const placement = await resolveCanvasImagePlacement(sourceToMeasure);
         const newItemId = `item_${activeItemList.length}`;
         const newItem = {
-          src: placement.url,
+          src: imageSource || placement.url,
+          previewUrl: previewSource || undefined,
+          url: previewSource || undefined,
           id: newItemId,
           type: 'image',
           x: placement.x,
@@ -1345,7 +1361,7 @@ export default function ImageStudioHome() {
         }
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
+        img.src = getRenderableImageUrl(src, PROCESSOR_API_URL);
       });
 
     for (const item of activeItemList || []) {
@@ -1362,9 +1378,7 @@ export default function ImageStudioHome() {
       }
 
       if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
+        const imgSrc = getRenderableImageUrl(item, PROCESSOR_API_URL);
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);

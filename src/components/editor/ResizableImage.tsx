@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import { Image, Transformer, Group, Text } from 'react-konva';
 import { useImage } from 'react-konva-utils';
 import { getStageDimensions} from '../../constants/Image.jsx';
+import { getRenderableImageUrl } from '../../utils/image.jsx';
 
 const IMAGE_BASE = `${import.meta.env.VITE_PROCESSOR_API}`;
 const MIN_IMAGE_EDGE = 16;
@@ -44,13 +45,7 @@ export default function ResizableImage({
     height: baseStageDimensions.height * (stageZoomScale || 1),
   };
 
-  if (image.src) {
-    if (image.src.startsWith('data:image')) {
-      imageSrc = image.src;
-    } else {
-      imageSrc = `${IMAGE_BASE}/${image.src}`;
-    }
-  }
+  imageSrc = getRenderableImageUrl(image, IMAGE_BASE);
 
   const [img, status] = useImage(imageSrc, 'anonymous');
   const [transformEndCalled, setTransformEndCalled] = useState(false);

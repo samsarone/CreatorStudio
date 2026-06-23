@@ -216,11 +216,15 @@ function buildVideoSegment({
 }
 
 function resolveLayerPreviewAsset(layer = {}) {
+  const editedImageUrl = layer.image?.editedImage ||
+    layer.editedImage?.url ||
+    (typeof layer.editedImage === 'string' ? layer.editedImage : '');
   const candidates = [
     { type: 'video', stage: 'lip_sync_generation', url: layer.lipSyncVideo?.url },
     { type: 'video', stage: 'sound_effect_generation', url: layer.soundEffectVideo?.url },
     { type: 'video', stage: 'ai_video_generation', url: layer.aiVideo?.url },
     { type: 'video', stage: 'user_video', url: layer.userVideo?.url },
+    { type: 'image', stage: 'image_generation', url: editedImageUrl },
     { type: layer.preview?.type || 'image', stage: layer.preview?.stage, url: layer.preview?.url },
     { type: 'image', stage: 'image_generation', url: layer.image?.url },
   ];
@@ -563,13 +567,6 @@ function cachePreviewVisualObjectUrl(segment) {
   return promise;
 }
 
-function shouldAutoplayPreview() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return true;
-  }
-  return !window.matchMedia(MOBILE_PREVIEW_MEDIA_QUERY).matches;
-}
-
 function primeInactiveAudioElement(element) {
   if (!element) return;
   const previousTime = element.currentTime;
@@ -724,8 +721,8 @@ export default function ProgressIndicator(props) {
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
-  const [isPreviewPlaying, setIsPreviewPlaying] = useState(() => shouldAutoplayPreview());
-  const [previewAudioMuted, setPreviewAudioMuted] = useState(false);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [previewAudioMuted, setPreviewAudioMuted] = useState(true);
   const [previewAudioVolume, setPreviewAudioVolume] = useState(1);
   const [previewAudioUnlocked, setPreviewAudioUnlocked] = useState(false);
   const [visualPreloadVersion, setVisualPreloadVersion] = useState(0);
@@ -778,6 +775,8 @@ export default function ProgressIndicator(props) {
   );
   const hasTimelinePreview = visualSegments.length > 0 || audioSegments.length > 0;
   const hasPreviewAudio = audioSegments.length > 0;
+  const isPreviewAudioEffectivelyMuted =
+    previewAudioMuted || !previewAudioUnlocked || previewAudioVolume <= 0;
   const activeVisualSegment = useMemo(
     () => findActiveVisualSegment(visualSegments, previewTime),
     [previewTime, visualSegments],
@@ -831,11 +830,7 @@ export default function ProgressIndicator(props) {
       ? 'min(56dvh, 520px)'
       : 'min(44dvh, 360px)',
   };
-  const previewPlaybackButtonLabel = isPreviewPlaying && hasPreviewAudio && !previewAudioUnlocked
-    ? 'Enable preview audio'
-    : isPreviewPlaying
-      ? 'Pause preview'
-      : 'Play preview';
+  const previewPlaybackButtonLabel = isPreviewPlaying ? 'Pause preview' : 'Play preview';
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -921,16 +916,6 @@ export default function ProgressIndicator(props) {
   }, [activeVisualSegment, videoLink]);
 
   const handlePreviewPlaybackToggle = useCallback(() => {
-    if (isPreviewPlaying && hasPreviewAudio && !previewAudioUnlocked) {
-      setPreviewAudioUnlocked(true);
-      syncActiveVideoElement(previewTime, true);
-      syncActiveAudioElements(previewTime, true, {
-        forceAudioUnlocked: true,
-        primeInactive: true,
-      });
-      return;
-    }
-
     const shouldPlay = !isPreviewPlaying;
     if (shouldPlay) {
       setPreviewAudioUnlocked(true);
@@ -942,9 +927,7 @@ export default function ProgressIndicator(props) {
     });
     setIsPreviewPlaying(shouldPlay);
   }, [
-    hasPreviewAudio,
     isPreviewPlaying,
-    previewAudioUnlocked,
     previewTime,
     syncActiveAudioElements,
     syncActiveVideoElement,
@@ -952,10 +935,10 @@ export default function ProgressIndicator(props) {
 
   const handlePreviewAudioMuteToggle = useCallback(() => {
     setPreviewAudioUnlocked(true);
-    if (previewAudioMuted && previewAudioVolume <= 0) {
+    if (isPreviewAudioEffectivelyMuted && previewAudioVolume <= 0) {
       setPreviewAudioVolume(1);
     }
-    const shouldMute = !previewAudioMuted;
+    const shouldMute = !isPreviewAudioEffectivelyMuted;
     setPreviewAudioMuted(shouldMute);
     syncActiveAudioElements(previewTime, isPreviewPlaying && !videoLink && isActiveVisualReady, {
       forceAudioMuted: shouldMute,
@@ -965,7 +948,7 @@ export default function ProgressIndicator(props) {
   }, [
     isActiveVisualReady,
     isPreviewPlaying,
-    previewAudioMuted,
+    isPreviewAudioEffectivelyMuted,
     previewAudioVolume,
     previewTime,
     syncActiveAudioElements,
@@ -1280,11 +1263,7 @@ export default function ProgressIndicator(props) {
               aria-label={previewPlaybackButtonLabel}
               title={previewPlaybackButtonLabel}
             >
-              {isPreviewPlaying && hasPreviewAudio && !previewAudioUnlocked
-                ? <FaVolumeUp />
-                : isPreviewPlaying
-                  ? <FaPause />
-                  : <FaPlay />}
+              {isPreviewPlaying ? <FaPause /> : <FaPlay />}
             </button>
             <input
               type="range"
@@ -1307,34 +1286,30 @@ export default function ProgressIndicator(props) {
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                   }`}
                   aria-label={
-                    !previewAudioUnlocked
-                      ? 'Enable preview audio'
-                      : previewAudioMuted
-                        ? 'Unmute preview audio'
-                        : 'Mute preview audio'
+                    isPreviewAudioEffectivelyMuted
+                      ? 'Unmute preview audio'
+                      : 'Mute preview audio'
                   }
                   title={
-                    !previewAudioUnlocked
-                      ? 'Enable preview audio'
-                      : previewAudioMuted
-                        ? 'Unmute preview audio'
-                        : 'Mute preview audio'
+                    isPreviewAudioEffectivelyMuted
+                      ? 'Unmute preview audio'
+                      : 'Mute preview audio'
                   }
                 >
-                  {previewAudioMuted || previewAudioVolume <= 0 ? <FaVolumeMute /> : <FaVolumeUp />}
+                  {isPreviewAudioEffectivelyMuted ? <FaVolumeMute /> : <FaVolumeUp />}
                 </button>
                 <input
                   type="range"
                   min="0"
                   max="1"
                   step="0.01"
-                  value={previewAudioMuted ? 0 : previewAudioVolume}
+                  value={isPreviewAudioEffectivelyMuted ? 0 : previewAudioVolume}
                   onChange={handlePreviewAudioVolumeChange}
                   className="w-24 sm:w-28"
                   aria-label="Preview audio volume"
                 />
                 <span className={`w-9 text-right text-[11px] tabular-nums ${mutedText}`}>
-                  {Math.round((previewAudioMuted ? 0 : previewAudioVolume) * 100)}%
+                  {Math.round((isPreviewAudioEffectivelyMuted ? 0 : previewAudioVolume) * 100)}%
                 </span>
               </div>
             )}

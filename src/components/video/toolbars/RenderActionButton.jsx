@@ -33,7 +33,8 @@ export default function RenderActionButton(props) {
 
   const isAnonymousGuest = !user?._id;
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
-  const hasExistingRender = Boolean(resolvedDownloadLink);
+  const canUseDownloadLink = Boolean(resolvedDownloadLink && !isRenderPending);
+  const hasExistingRender = canUseDownloadLink;
   const canCancelPendingRender = Boolean(isRenderPending && typeof cancelPendingRender === 'function');
   const hasPendingSceneChanges = Boolean(isCanvasDirty);
   const shouldShowDropdown = !isAnonymousGuest && hasExistingRender && !canCancelPendingRender;
@@ -59,7 +60,7 @@ export default function RenderActionButton(props) {
   const cancelButtonShadow = colorMode === 'dark' ? 'shadow-[0_6px_14px_rgba(3,12,28,0.2)]' : '';
 
   const submitDownloadVideo = () => {
-    if (!resolvedDownloadLink) {
+    if (!canUseDownloadLink) {
       return;
     }
 
@@ -96,7 +97,7 @@ export default function RenderActionButton(props) {
       label: 'Render again',
       onClick: submitRenderVideo,
     });
-  } else if (resolvedDownloadLink) {
+  } else if (canUseDownloadLink) {
     dropdownItems.push({
       label: 'Download',
       onClick: submitDownloadVideo,
@@ -143,7 +144,7 @@ export default function RenderActionButton(props) {
     );
   }
 
-  if (isAnonymousGuest && resolvedDownloadLink) {
+  if (isAnonymousGuest && canUseDownloadLink) {
     return (
       <PublicPrimaryButton
         onClick={submitDownloadVideo}

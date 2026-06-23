@@ -618,7 +618,7 @@ export default function SettingsPanelContent(props) {
   const formInputClasses = `border ${borderColor} rounded px-4 py-2 w-full ${inputBgColor} ${textColor}`;
 
   return (
-    <div className={`p-6 rounded-2xl shadow-sm border ${borderColor} ${cardBgColor} ${textColor} space-y-6`}>
+    <div className={`min-w-0 rounded-lg shadow-sm border ${borderColor} ${cardBgColor} ${textColor} p-4 space-y-5 sm:p-6 sm:space-y-6`}>
       <div className="space-y-3">
         <div>
           <h2 className="text-xl font-semibold">Settings</h2>
@@ -626,7 +626,7 @@ export default function SettingsPanelContent(props) {
             Manage your workspace defaults, agent voices, and account security.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
           {SETTINGS_TABS.map((tab) => (
             <SettingsTabButton
               key={tab.key}
@@ -690,7 +690,7 @@ export default function SettingsPanelContent(props) {
               </div>
             </div>
             <div className="block">
-              <SecondaryButton className="rounded-l-none" type="submit">
+              <SecondaryButton className="w-full sm:w-auto" type="submit">
                 {t("account.updateButton")}
               </SecondaryButton>
             </div>
@@ -713,14 +713,14 @@ export default function SettingsPanelContent(props) {
                   key={endpoint.id || index}
                   className={`rounded-lg border ${borderColor} ${mutedBg} p-4 space-y-4`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <div className="text-sm font-semibold">Endpoint {index + 1}</div>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveCustomEndpoint(index)}
-                      className={`rounded px-3 py-1 text-sm border ${borderColor} ${inputBgColor}`}
+                      className={`rounded px-3 py-2 text-sm border sm:py-1 ${borderColor} ${inputBgColor}`}
                     >
                       Remove
                     </button>
@@ -801,12 +801,12 @@ export default function SettingsPanelContent(props) {
                 </div>
               ))}
             </div>
-            <div className="flex flex-wrap gap-3">
-              <SecondaryButton type="button" onClick={handleAddCustomEndpoint}>
+            <div className="grid gap-3 sm:flex sm:flex-wrap">
+              <SecondaryButton type="button" onClick={handleAddCustomEndpoint} className="w-full sm:w-auto">
                 Add Endpoint
               </SecondaryButton>
-              <SecondaryButton type="submit">Save Custom Configuration</SecondaryButton>
-              <SecondaryButton type="button" onClick={handleClearCustomAdapters}>
+              <SecondaryButton type="submit" className="w-full sm:w-auto">Save Custom Configuration</SecondaryButton>
+              <SecondaryButton type="button" onClick={handleClearCustomAdapters} className="w-full sm:w-auto">
                 Clear Configuration
               </SecondaryButton>
             </div>
@@ -883,7 +883,7 @@ export default function SettingsPanelContent(props) {
               })}
             </div>
             <div className="block">
-              <SecondaryButton type="submit">Save Font Preferences</SecondaryButton>
+              <SecondaryButton type="submit" className="w-full sm:w-auto">Save Font Preferences</SecondaryButton>
             </div>
           </div>
         </form>
@@ -926,7 +926,7 @@ export default function SettingsPanelContent(props) {
             </div>
 
             <div className="block">
-              <SecondaryButton type="submit">Save Speaker Preferences</SecondaryButton>
+              <SecondaryButton type="submit" className="w-full sm:w-auto">Save Speaker Preferences</SecondaryButton>
             </div>
           </div>
         </form>
@@ -960,14 +960,14 @@ export default function SettingsPanelContent(props) {
               />
             </div>
             <div className="mt-4">
-              <SecondaryButton onClick={handleUpdatePassword}>
+              <SecondaryButton onClick={handleUpdatePassword} className="w-full sm:w-auto">
                 {t("account.updatePassword")}
               </SecondaryButton>
             </div>
           </div>
 
           <div>
-            <SecondaryButton onClick={logoutUser}>{t("account.logout")}</SecondaryButton>
+            <SecondaryButton onClick={logoutUser} className="w-full sm:w-auto">{t("account.logout")}</SecondaryButton>
           </div>
         </div>
       )}
@@ -979,19 +979,19 @@ export default function SettingsPanelContent(props) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <SecondaryButton
               onClick={() => openDangerConfirmation("projects")}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
             >
               {t("account.deleteAllProjects")}
             </SecondaryButton>
             <SecondaryButton
               onClick={() => openDangerConfirmation("generations")}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
             >
               {t("account.deleteAllGenerations")}
             </SecondaryButton>
             <SecondaryButton
               onClick={() => openDangerConfirmation("account")}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="w-full bg-red-600 hover:bg-red-700 text-white"
             >
               {t("account.deleteMyAccount")}
             </SecondaryButton>
@@ -1016,7 +1016,7 @@ function SettingsTabButton({ label, isActive, onClick, colorMode }) {
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? activeClasses : idleClasses}`}
+      className={`shrink-0 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? activeClasses : idleClasses}`}
     >
       {label}
     </button>

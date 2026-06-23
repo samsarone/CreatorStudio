@@ -12,6 +12,7 @@ import { FaStar } from 'react-icons/fa6';
 import { getHeaders } from '../../utils/web.jsx';
 import { toast } from 'react-toastify';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
+import { hasInsufficientGenerationCredits } from '../../utils/defaultRoutes.js';
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
@@ -81,6 +82,11 @@ export default function TopNav(props) {
     location.pathname.includes('/iamge/') ||
     location.pathname.includes('/image_sessions');
   const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/');
+  const isGenerationWorkspace =
+    isImageEditor ||
+    isVideoEditor ||
+    location.pathname === '/vidgenie' ||
+    location.pathname.startsWith('/vidgenie/');
   const isGenerationsView = location.pathname.startsWith('/generations');
 
   const {
@@ -240,8 +246,8 @@ const showLicenseDialog = () => {
     navigate('/account');
   };
 
-  const gotoCreditsUsage = () => {
-    navigate('/account/usage');
+  const gotoCreditsBilling = () => {
+    navigate('/account/billing');
   };
 
   const showLoginDialog = () => {
@@ -630,10 +636,6 @@ const showLicenseDialog = () => {
     }
   };
 
-  useEffect(() => {
-    // Auto-popup for zero credits removed.
-  }, []);
-
   const showAddNewMovieMakerSession = () => {
     const headers = getHeaders();
     const payload = {
@@ -687,17 +689,34 @@ const showLicenseDialog = () => {
       : 'border border-slate-200 bg-white/75 text-slate-900 hover:border-slate-300 hover:bg-white';
     const creditsLabelClass = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
     const formattedCredits = formatCredits(userCredits);
+    const showLowCreditCue = isGenerationWorkspace && hasInsufficientGenerationCredits(user);
+    const cueClasses = colorMode === 'dark'
+      ? 'border-cyan-300/20 bg-[#eef6ff] text-slate-950 shadow-[0_14px_30px_rgba(0,0,0,0.28)]'
+      : 'border-slate-200 bg-slate-950 text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)]';
+    const cuePointerClasses = colorMode === 'dark'
+      ? 'border-l-cyan-300/20 border-t-cyan-300/20 bg-[#eef6ff]'
+      : 'border-l-slate-200 border-t-slate-200 bg-slate-950';
 
     userCreditsDisplay = (
-      <button
-        type="button"
-        onClick={gotoCreditsUsage}
-        className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold leading-none transition-colors ${creditsButtonClass}`}
-        aria-label={`View credit usage. Current balance ${formattedCredits} credits`}
-      >
-        <span className={creditsLabelClass}>Credits remaining</span>
-        <span>{formattedCredits}</span>
-      </button>
+      <div className="relative">
+        {showLowCreditCue ? (
+          <div
+            className={`pointer-events-none absolute right-0 top-full z-[1300] mt-2 w-max rounded-lg border px-3 py-2 text-xs font-semibold leading-none animate-bounce motion-reduce:animate-none ${cueClasses}`}
+          >
+            Add credits to generate
+            <span className={`absolute right-6 top-[-5px] h-3 w-3 rotate-45 border-l border-t ${cuePointerClasses}`} />
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={gotoCreditsBilling}
+          className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold leading-none transition-colors ${creditsButtonClass}`}
+          aria-label={`Open billing. Current balance ${formattedCredits} credits`}
+        >
+          <span className={creditsLabelClass}>Credits remaining</span>
+          <span>{formattedCredits}</span>
+        </button>
+      </div>
     );
   }
 

@@ -20,6 +20,7 @@ import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+import { getRenderableImageUrl } from '../../utils/image.jsx';
 import { normalizeActiveTextItemListForCanvas } from '../../constants/TextConfig.jsx';
 import useUndoRedoState from '../../hooks/useUndoRedoState.js';
 
@@ -45,6 +46,8 @@ const PORTRAIT_CANVAS_INITIAL_ZOOM_RATIO = 0.5;
 const MAX_CANVAS_ZOOM_RATIO = 4;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 const SHARE_COPY_AFTER_AUTH_KEY = 'studioShareCopyAfterAuth';
+const RENDER_STATUS_POLL_MS = 3000;
+const MAX_RENDER_STATUS_FAILURES = 5;
 
 function isSessionRenderPending(sessionDetails) {
   return Boolean(
@@ -242,6 +245,80 @@ function resolveLatestSessionVideoUrl(sessionDetails) {
   ];
   const videoUrl = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
   return normalizeVideoDownloadUrl(videoUrl);
+}
+
+function resolveCompletedSessionVideoUrl(sessionDetails) {
+  if (isSessionRenderPending(sessionDetails)) {
+    return null;
+  }
+
+  return resolveLatestSessionVideoUrl(sessionDetails);
+}
+
+function getImageItemUrlCandidate(item) {
+  return [
+    item?.previewUrl,
+    item?.preview_url,
+    item?.signedUrl,
+    item?.signed_url,
+    item?.displayUrl,
+    item?.display_url,
+    item?.url,
+    item?.imageUrl,
+    item?.image_url,
+    item?.src,
+    item?.image,
+  ].find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+}
+
+function hasRenderableImageItemUrl(item) {
+  const candidate = getImageItemUrlCandidate(item);
+  if (!candidate) {
+    return false;
+  }
+
+  const trimmedCandidate = candidate.trim();
+  return /^(https?:|data:|blob:)/i.test(trimmedCandidate)
+    || trimmedCandidate.startsWith('/')
+    || trimmedCandidate.includes('/');
+}
+
+function hasHydratedStudioLayers(sessionDetails) {
+  const sessionLayers = Array.isArray(sessionDetails?.layers) ? sessionDetails.layers : [];
+  if (sessionLayers.length === 0) {
+    return false;
+  }
+
+  return sessionLayers.every((layer) => {
+    const activeItemList = layer?.imageSession?.activeItemList;
+    if (!Array.isArray(activeItemList)) {
+      return false;
+    }
+
+    return activeItemList.every((item) => (
+      item?.type !== 'image' || hasRenderableImageItemUrl(item)
+    ));
+  });
+}
+
+function mergeRenderStatusSessionDetails(previousSessionDetails, renderSessionDetails) {
+  if (!previousSessionDetails || !renderSessionDetails) {
+    return renderSessionDetails || previousSessionDetails;
+  }
+
+  const previousLayers = Array.isArray(previousSessionDetails.layers)
+    ? previousSessionDetails.layers
+    : [];
+
+  if (previousLayers.length > 0 && !hasHydratedStudioLayers(renderSessionDetails)) {
+    return {
+      ...previousSessionDetails,
+      ...renderSessionDetails,
+      layers: previousLayers,
+    };
+  }
+
+  return renderSessionDetails;
 }
 
 function clampCanvasZoomScale(nextScale, fitZoomScale = 1) {
@@ -509,6 +586,7 @@ export default function VideoHome(props) {
 
   const [renderCompletedThisSession, setRenderCompletedThisSession] = useState(false);
   const renderPollTimerRef = useRef(null);
+  const renderPollFailureCountRef = useRef(0);
   const layerPollTimerRef = useRef(null);
   const layersRef = useRef([]);
   const currentLayerRef = useRef({});
@@ -943,7 +1021,7 @@ export default function VideoHome(props) {
           const imageItems = layer.imageSession.activeItemList.filter(i => i.type === 'image');
           imageItems.forEach(item => {
             const img = new Image();
-            img.src = item.src.startsWith('http') ? item.src : `${PROCESSOR_API_URL}/${item.src}`;
+            img.src = getRenderableImageUrl(item, PROCESSOR_API_URL);
             img.style.display = 'none'; // Hide the image
             //   hiddenContainer.appendChild(img);
           });
@@ -1256,7 +1334,7 @@ export default function VideoHome(props) {
         startVideoRenderPoll();
       }
 
-      const downloadLink = resolveLatestSessionVideoUrl(sessionDetails);
+      const downloadLink = resolveCompletedSessionVideoUrl(sessionDetails);
 
       setDownloadLink(downloadLink);
       if (downloadLink) {
@@ -1574,25 +1652,63 @@ export default function VideoHome(props) {
     layerPollTimerRef.current = timer;
   }
 
+  const clearRenderPollTimer = (timer) => {
+    if (timer) {
+      clearInterval(timer);
+    }
+    if (!timer || renderPollTimerRef.current === timer) {
+      renderPollTimerRef.current = null;
+    }
+    renderPollFailureCountRef.current = 0;
+  };
+
+  const stopRenderPollAfterFailureLimit = (timer, message) => {
+    renderPollFailureCountRef.current += 1;
+    if (renderPollFailureCountRef.current < MAX_RENDER_STATUS_FAILURES) {
+      return false;
+    }
+
+    clearRenderPollTimer(timer);
+    setIsVideoGenerating(false);
+    clearAdvancedVideoEditPendingSession(id);
+    toast.error(message, {
+      position: "bottom-center",
+      className: "custom-toast",
+    });
+    return true;
+  };
+
   const startVideoRenderPoll = () => {
     setRenderCompletedThisSession(false);
+    renderPollFailureCountRef.current = 0;
     if (isReadOnlyShareView) {
       if (!shareToken) {
         return;
       }
 
       if (renderPollTimerRef.current) {
-        clearInterval(renderPollTimerRef.current);
-        renderPollTimerRef.current = null;
+        clearRenderPollTimer(renderPollTimerRef.current);
       }
 
-      const timer = setInterval(() => {
-        axios.get(`${PROCESSOR_API_URL}/video_sessions/share/${encodeURIComponent(shareToken)}`).then((dataRes) => {
+      let isStatusRequestInFlight = false;
+      const timer = setInterval(async () => {
+        if (isStatusRequestInFlight) {
+          return;
+        }
+        isStatusRequestInFlight = true;
+
+        try {
+          const dataRes = await axios.get(`${PROCESSOR_API_URL}/video_sessions/share/${encodeURIComponent(shareToken)}`);
           const sessionData = dataRes.data;
           if (!sessionData) {
+            stopRenderPollAfterFailureLimit(
+              timer,
+              'Unable to confirm render status after several attempts. Refresh the session before trying again.'
+            );
             return;
           }
 
+          renderPollFailureCountRef.current = 0;
           const resolvedSessionId = sessionData?._id?.toString?.() || sessionData?._id || null;
           if (resolvedSessionId) {
             setSharedSessionId(resolvedSessionId);
@@ -1603,7 +1719,7 @@ export default function VideoHome(props) {
           setAudioLayers(sessionData.audioLayers || []);
           setIsLayerGenerationPending(hasPendingFrameOrLayerGeneration(sessionData));
 
-          const videoLink = resolveLatestSessionVideoUrl(sessionData);
+          const videoLink = resolveCompletedSessionVideoUrl(sessionData);
           if (videoLink) {
             setRenderedVideoPath(videoLink);
             setDownloadVideoDisplay(true);
@@ -1611,16 +1727,18 @@ export default function VideoHome(props) {
           }
 
           if (!isSessionRenderPending(sessionData)) {
-            clearInterval(timer);
-            renderPollTimerRef.current = null;
+            clearRenderPollTimer(timer);
             setIsVideoGenerating(false);
           }
-        }).catch(() => {
-          clearInterval(timer);
-          renderPollTimerRef.current = null;
-          setIsVideoGenerating(false);
-        });
-      }, 3000);
+        } catch {
+          stopRenderPollAfterFailureLimit(
+            timer,
+            'Unable to confirm render status after several attempts. Refresh the session before trying again.'
+          );
+        } finally {
+          isStatusRequestInFlight = false;
+        }
+      }, RENDER_STATUS_POLL_MS);
 
       renderPollTimerRef.current = timer;
       return;
@@ -1633,32 +1751,55 @@ export default function VideoHome(props) {
     }
 
     if (renderPollTimerRef.current) {
-      clearInterval(renderPollTimerRef.current);
-      renderPollTimerRef.current = null;
+      clearRenderPollTimer(renderPollTimerRef.current);
     }
 
-    const timer = setInterval(() => {
-      axios.post(`${PROCESSOR_API_URL}/video_sessions/get_render_video_status`, { id: id }, headers).then((dataRes) => {
+    let isStatusRequestInFlight = false;
+    const timer = setInterval(async () => {
+      if (isStatusRequestInFlight) {
+        return;
+      }
+      isStatusRequestInFlight = true;
+
+      try {
+        const dataRes = await axios.post(`${PROCESSOR_API_URL}/video_sessions/get_render_video_status`, { id: id }, headers);
         const renderData = dataRes.data || {};
         const renderStatus = renderData.status;
         const sessionData = renderData.session;
 
         if (sessionData) {
-          setVideoSessionDetails(sessionData);
+          setVideoSessionDetails((prevDetails) => (
+            mergeRenderStatusSessionDetails(prevDetails, sessionData)
+          ));
         }
 
         if (renderStatus === 'PENDING') {
+          renderPollFailureCountRef.current = 0;
           setIsVideoGenerating(true);
+          return;
+        }
+
+        if (!renderStatus) {
+          stopRenderPollAfterFailureLimit(
+            timer,
+            'Unable to confirm render status after several attempts. Refresh the session before trying again.'
+          );
           return;
         }
 
         if (renderStatus === 'IDLE' && shouldForceAdvancedVideoEditPolling(id)) {
+          const didStopPolling = stopRenderPollAfterFailureLimit(
+            timer,
+            'Render status stayed unavailable after several attempts. Refresh the session before trying again.'
+          );
+          if (didStopPolling) {
+            return;
+          }
           setIsVideoGenerating(true);
           return;
         }
 
-        clearInterval(timer);
-        renderPollTimerRef.current = null;
+        clearRenderPollTimer(timer);
         setIsVideoGenerating(false);
 
         if (renderStatus === 'COMPLETED' && sessionData) {
@@ -1699,20 +1840,22 @@ export default function VideoHome(props) {
             expressGenerationPending: false,
           };
         });
-      }).catch(() => {
-        clearInterval(timer);
-        renderPollTimerRef.current = null;
-        setIsVideoGenerating(false);
-      });
-    }, 3000);
+      } catch {
+        stopRenderPollAfterFailureLimit(
+          timer,
+          'Unable to confirm render status after several attempts. Refresh the session before trying again.'
+        );
+      } finally {
+        isStatusRequestInFlight = false;
+      }
+    }, RENDER_STATUS_POLL_MS);
 
     renderPollTimerRef.current = timer;
   }
 
   const stopVideoRenderPoll = () => {
     if (renderPollTimerRef.current) {
-      clearInterval(renderPollTimerRef.current);
-      renderPollTimerRef.current = null;
+      clearRenderPollTimer(renderPollTimerRef.current);
     }
   };
 

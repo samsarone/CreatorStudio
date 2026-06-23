@@ -233,12 +233,12 @@ export default function APIKeysPanelContent() {
   };
 
   return (
-    <div className={`flex flex-col flex-grow gap-4 ${textColor}`}>
+    <div className={`flex min-w-0 flex-col flex-grow gap-4 ${textColor}`}>
       <ToastContainer />
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <h2 className="text-2xl font-bold">API Keys</h2>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
+        <div className="grid w-full gap-3 sm:w-auto sm:grid-cols-2 lg:flex lg:items-center lg:flex-wrap">
+          <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
             <label htmlFor="api-key-expiry" className={`text-sm ${secondaryTextColor}`}>
               Expiry
             </label>
@@ -246,7 +246,7 @@ export default function APIKeysPanelContent() {
               id="api-key-expiry"
               value={selectedExpiry}
               onChange={(e) => setSelectedExpiry(e.target.value)}
-              className={`border ${borderColor} rounded px-3 py-2 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+              className={`w-full border ${borderColor} rounded px-3 py-2 sm:w-auto ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
             >
               {API_KEY_EXPIRY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -255,7 +255,7 @@ export default function APIKeysPanelContent() {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid min-w-0 grid-cols-1 gap-1 sm:col-span-2 sm:grid-cols-[auto_minmax(120px,1fr)_minmax(110px,0.6fr)] sm:items-center sm:gap-2 lg:col-span-1">
             <label htmlFor="api-key-limit-period" className={`text-sm ${secondaryTextColor}`}>
               Limit
             </label>
@@ -263,7 +263,7 @@ export default function APIKeysPanelContent() {
               id="api-key-limit-period"
               value={selectedLimitPeriod}
               onChange={(e) => setSelectedLimitPeriod(e.target.value)}
-              className={`border ${borderColor} rounded px-3 py-2 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+              className={`w-full border ${borderColor} rounded px-3 py-2 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
             >
               {API_KEY_LIMIT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
@@ -279,10 +279,10 @@ export default function APIKeysPanelContent() {
               disabled={selectedLimitPeriod === 'none'}
               onChange={(e) => setSelectedUsageLimit(e.target.value)}
               placeholder="Credits"
-              className={`w-28 border ${borderColor} rounded px-3 py-2 disabled:opacity-50 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+              className={`w-full border ${borderColor} rounded px-3 py-2 disabled:opacity-50 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
             />
           </div>
-          <SecondaryButton onClick={handleCreateKey}>Create Key</SecondaryButton>
+          <SecondaryButton onClick={handleCreateKey} className="w-full sm:w-auto">Create Key</SecondaryButton>
         </div>
       </div>
       {loading ? (
@@ -290,13 +290,13 @@ export default function APIKeysPanelContent() {
       ) : apiKeys.length === 0 ? (
         <p className={`text-lg ${secondaryTextColor}`}>No API keys found.</p>
       ) : (
-        <div className={`rounded-2xl border ${borderColor} ${cardBgColor} overflow-hidden shadow-sm`}>
-          <div className={`flex items-center justify-between px-4 py-3 border-b ${borderColor} ${headerBg}`}>
+        <div className={`min-w-0 rounded-2xl border ${borderColor} ${cardBgColor} overflow-hidden shadow-sm`}>
+          <div className={`flex flex-col gap-1 px-4 py-3 border-b sm:flex-row sm:items-center sm:justify-between ${borderColor} ${headerBg}`}>
             <p className="text-lg font-semibold">Manage your API keys</p>
             <p className={`text-sm ${secondaryTextColor}`}>Store and rotate keys securely.</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <div className="max-w-full overflow-x-auto">
+            <table className="min-w-[900px] text-sm">
               <thead className={headerBg}>
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Index</th>
@@ -320,7 +320,7 @@ export default function APIKeysPanelContent() {
                       <td className="px-4 py-3">{index + 1}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <span>
+                          <span className="font-mono text-xs break-all">
                             {showKey[keyItem._id]
                               ? keyItem.apiKey
                               : maskedKey(keyItem.apiKey)}
@@ -342,7 +342,7 @@ export default function APIKeysPanelContent() {
                           : 'Never'}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-col gap-2 min-w-[260px]">
+                        <div className="flex min-w-[220px] flex-col gap-2">
                           <div className="flex items-center gap-2">
                             <select
                               value={limitDrafts[keyItem._id]?.usageLimitPeriod || 'none'}
@@ -363,7 +363,7 @@ export default function APIKeysPanelContent() {
                               disabled={(limitDrafts[keyItem._id]?.usageLimitPeriod || 'none') === 'none'}
                               onChange={(e) => handleLimitDraftChange(keyItem._id, 'usageLimit', e.target.value)}
                               placeholder="Credits"
-                              className={`w-24 border ${borderColor} rounded px-2 py-1 disabled:opacity-50 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
+                              className={`w-24 min-w-0 border ${borderColor} rounded px-2 py-1 disabled:opacity-50 ${colorMode === 'dark' ? 'bg-[#0f1629]' : 'bg-white'} ${textColor}`}
                             />
                             <button
                               type="button"

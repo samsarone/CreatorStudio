@@ -10,6 +10,7 @@ import ace from 'ace-builds';
 import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Tooltip } from 'react-tooltip';
 import {
   FaChevronCircleDown,
   FaChevronDown,
@@ -54,6 +55,7 @@ import { PURCHASE_CREDITS_ROUTE } from '../account/PurchaseCreditsPromptDialog.j
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
   IDEOGRAM_IMAGE_STYLES,
+  INFERENCE_MODEL_TYPES,
   PIXVERRSE_VIDEO_STYLES,
   VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
@@ -70,6 +72,7 @@ import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 import 'ace-builds/src-noconflict/mode-json';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
+import 'react-tooltip/dist/react-tooltip.css';
 import './mobileStyles.css';
 
 ace.config.set('useWorker', false);
@@ -166,6 +169,11 @@ const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'HAPPYHORSEI2V',
   'CUSTOM_IMAGE_TO_VIDEO',
 ];
+const DEFAULT_INFERENCE_MODEL = 'gpt-5.5';
+const INFERENCE_MODEL_LABEL_BY_VALUE = INFERENCE_MODEL_TYPES.reduce((result, option) => {
+  result[option.value] = option.label;
+  return result;
+}, {});
 const JSON_MODE_ASPECT_RATIOS = ['16:9', '9:16'];
 const JSON_MODE_VIDEO_MODEL_SUB_TYPES = ['anime', '3d_animation', 'clay', 'comic', 'cyberpunk'];
 const GENERATION_STEP_MODE_ONE_STEP = 'one_step';
@@ -302,6 +310,63 @@ function findDefaultVideoModelOption(options = [], savedValue = '') {
   );
 }
 
+function coerceSupportedInferenceModelKey(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === 'gemini-3.1-pro' ||
+    normalized === 'gemini-3.1-pro-preview' ||
+    normalized === 'gemini-3-pro' ||
+    normalized === 'gemini-3-pro-preview' ||
+    normalized === 'gemini 3.1 pro' ||
+    normalized === 'gemini 3.1 pro preview' ||
+    normalized === 'gemini 3 pro' ||
+    normalized === 'gemini 3 pro preview' ||
+    normalized === 'gemini31pro' ||
+    normalized === 'gemini31propreview' ||
+    normalized === 'gemini3pro' ||
+    normalized === 'gemini3propreview'
+  ) {
+    return 'gemini-3.1-pro';
+  }
+  if (normalized === DEFAULT_INFERENCE_MODEL || normalized.startsWith(`${DEFAULT_INFERENCE_MODEL}-`)) {
+    return DEFAULT_INFERENCE_MODEL;
+  }
+  if (normalized === 'gpt 5.5' || normalized === 'gpt55') {
+    return DEFAULT_INFERENCE_MODEL;
+  }
+  return '';
+}
+
+function normalizeInferenceModelKey(value) {
+  const supportedKey = coerceSupportedInferenceModelKey(value);
+  if (supportedKey) {
+    return supportedKey;
+  }
+  return DEFAULT_INFERENCE_MODEL;
+}
+
+function getInferenceModelOption(value, fallbackValue = DEFAULT_INFERENCE_MODEL) {
+  const normalizedValue = normalizeInferenceModelKey(value || fallbackValue);
+  return (
+    INFERENCE_MODEL_TYPES.find((option) => option.value === normalizedValue) ||
+    INFERENCE_MODEL_TYPES.find((option) => option.value === DEFAULT_INFERENCE_MODEL) ||
+    INFERENCE_MODEL_TYPES[0]
+  );
+}
+
+function isSupportedInferenceModelKey(value) {
+  const supportedKey = coerceSupportedInferenceModelKey(value);
+  return INFERENCE_MODEL_TYPES.some((option) => option.value === supportedKey);
+}
+
+function getInferenceModelDisplayLabel(value) {
+  const normalizedValue = normalizeInferenceModelKey(value);
+  return INFERENCE_MODEL_LABEL_BY_VALUE[normalizedValue] || normalizedValue;
+}
+
 function normalizeModeToken(value) {
   return typeof value === 'string'
     ? value.trim().toLowerCase().replace(/[\s-]+/g, '_')
@@ -391,6 +456,35 @@ function resolveVidgenieGenerationModeFromSession(session) {
   }
 
   return null;
+}
+
+function resolveInferenceModelFromSession(session) {
+  if (!isPlainObject(session)) return '';
+
+  const nestedSessionModel = isPlainObject(session.session)
+    ? resolveInferenceModelFromSession(session.session)
+    : '';
+  if (nestedSessionModel) {
+    return nestedSessionModel;
+  }
+
+  const inferenceModelCandidatePaths = [
+    ['expressGenerationInferenceModel'],
+    ['inferenceModel'],
+    ['inference_model'],
+    ['selectedInferenceModel'],
+    ['expressStepGeneration', 'inferenceModel'],
+    ['expressStepGeneration', 'inference_model'],
+    ['expressGenerationBuilder', 'inferenceModel'],
+    ['expressGenerationBuilder', 'inference_model'],
+    ['metadata', 'inferenceModel'],
+    ['metadata', 'inference_model'],
+  ];
+
+  const rawValue = inferenceModelCandidatePaths
+    .map((path) => getNestedValue(session, path))
+    .find((value) => typeof value === 'string' && value.trim());
+  return rawValue ? normalizeInferenceModelKey(rawValue) : '';
 }
 
 function resolveJsonImageModelAlias(modelKey) {
@@ -677,6 +771,7 @@ function normalizeJsonInputAliases(input) {
     ['footer_metadata', ['footerMetadata']],
     ['limit_single_narrator', ['limitSingleNarrator']],
     ['add_narrator_avatar', ['addNarratorAvatar']],
+    ['inference_model', ['inferenceModel']],
   ];
 
   for (const [canonicalName, aliasNames] of aliases) {
@@ -698,6 +793,7 @@ function buildDefaultJsonModeInput({
   aspectRatio,
   language,
   enableSubtitles,
+  inferenceModel,
 }) {
   const normalizedAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
   const normalizedLanguage = language || 'en';
@@ -727,6 +823,7 @@ function buildDefaultJsonModeInput({
         language: normalizedLanguage,
         font_key: 'Poppins',
         enable_subtitles: enableSubtitles,
+        inference_model: normalizeInferenceModelKey(inferenceModel),
         limit_single_narrator: false,
         add_narrator_avatar: false,
         add_footer_animation: true,
@@ -761,6 +858,7 @@ function buildDefaultJsonModeInput({
       language: normalizedLanguage,
       font_key: 'Poppins',
       enable_subtitles: enableSubtitles,
+      inference_model: normalizeInferenceModelKey(inferenceModel),
     },
     null,
     2,
@@ -1352,6 +1450,17 @@ function validateCommonJsonInput(input) {
     return 'JSON input.footer_metadata must include at least one item when add_footer_animation is true.';
   }
 
+  if (input.inference_model !== undefined) {
+    if (typeof input.inference_model !== 'string') {
+      return 'JSON input.inference_model must be a string when provided.';
+    }
+    if (!isSupportedInferenceModelKey(input.inference_model)) {
+      return 'JSON input.inference_model must be one of: gpt-5.5, gemini-3.1-pro.';
+    }
+    input.inference_model = normalizeInferenceModelKey(input.inference_model);
+    input.inferenceModel = input.inference_model;
+  }
+
   if (input.add_outro_focus_area === true && input.add_outro_animation !== true) {
     return 'JSON input.add_outro_focus_area requires add_outro_animation to be true.';
   }
@@ -1694,9 +1803,17 @@ function buildAdvancedRequestConfiguration({
   advancedOptions,
   customAdapters,
   selectedCustomAdapterEndpointId,
+  selectedInferenceModel,
 }) {
   const input = {};
   const root = {};
+
+  const inferenceModelValue = selectedInferenceModel?.value || selectedInferenceModel;
+  if (!isSupportedInferenceModelKey(inferenceModelValue)) {
+    return { error: 'Inference model must be one of: GPT 5.5, Gemini 3.1 Pro.' };
+  }
+  input.inference_model = normalizeInferenceModelKey(inferenceModelValue);
+  input.inferenceModel = input.inference_model;
 
   if (isTextToVideo && hasTextValue(advancedOptions.tone)) {
     input.tone = advancedOptions.tone.trim();
@@ -2742,6 +2859,9 @@ export default function OneshotEditor() {
   const [advancedOptions, setAdvancedOptions] = useState(() => ({
     ...DEFAULT_ADVANCED_OPTIONS,
   }));
+  const [selectedInferenceModel, setSelectedInferenceModel] = useState(() =>
+    getInferenceModelOption(user?.selectedInferenceModel)
+  );
   const [selectedCustomAdapterEndpointId, setSelectedCustomAdapterEndpointId] = useState('');
 
   const updateAdvancedOption = useCallback((key, value) => {
@@ -2762,6 +2882,18 @@ export default function OneshotEditor() {
       current === endpointId ? '' : endpointId
     ));
   }, []);
+
+  useEffect(() => {
+    const sessionInferenceModel = resolveInferenceModelFromSession(sessionDetails);
+    setSelectedInferenceModel((current) => {
+      const targetModel =
+        sessionInferenceModel ||
+        user?.selectedInferenceModel ||
+        current?.value ||
+        DEFAULT_INFERENCE_MODEL;
+      return getInferenceModelOption(targetModel, user?.selectedInferenceModel);
+    });
+  }, [sessionDetails, user?.selectedInferenceModel]);
 
   const availableCustomAdapterEndpoints = useMemo(
     () => getAvailableCustomAdapterEndpoints(user?.custom_adapters),
@@ -4199,6 +4331,7 @@ export default function OneshotEditor() {
       advancedOptions,
       customAdapters: user?.custom_adapters,
       selectedCustomAdapterEndpointId,
+      selectedInferenceModel,
     });
     if (advancedRequestConfiguration.error) {
       setErrorMessage({ error: advancedRequestConfiguration.error });
@@ -4330,6 +4463,7 @@ export default function OneshotEditor() {
     setSelectedImageStyle(null);
     setIsAdvancedOpen(false);
     setAdvancedOptions({ ...DEFAULT_ADVANCED_OPTIONS });
+    setSelectedInferenceModel(getInferenceModelOption(user?.selectedInferenceModel));
     setSelectedCustomAdapterEndpointId('');
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
@@ -4692,6 +4826,7 @@ export default function OneshotEditor() {
       aspectRatio: selectedAspectRatioOption?.value || '16:9',
       language: resolveLanguageCode(jsonModeLanguageValue, 'en'),
       enableSubtitles,
+      inferenceModel: selectedInferenceModel?.value || user?.selectedInferenceModel || DEFAULT_INFERENCE_MODEL,
     })
   ), [
     enableSubtitles,
@@ -4700,7 +4835,9 @@ export default function OneshotEditor() {
     selectedAspectRatioOption?.value,
     selectedDurationOption?.value,
     selectedImageModel?.value,
+    selectedInferenceModel?.value,
     selectedVideoModel?.value,
+    user?.selectedInferenceModel,
   ]);
 
   useEffect(() => {
@@ -4783,6 +4920,13 @@ export default function OneshotEditor() {
     if (videoLink) return 'complete';
     return 'idle';
   }, [isGenerationPending, isGenerationWaitingForApproval, isPaused, videoLink]);
+  const sessionInferenceModelKey = useMemo(
+    () => resolveInferenceModelFromSession(sessionDetails),
+    [sessionDetails],
+  );
+  const sessionInferenceModelLabel = sessionInferenceModelKey
+    ? getInferenceModelDisplayLabel(sessionInferenceModelKey)
+    : '';
   const shouldCollapseOriginalRequest = renderState === 'complete' && Boolean(videoLink);
   const shouldShowOriginalRequestInputs =
     !shouldCollapseOriginalRequest || isCompletedRequestExpanded;
@@ -5328,6 +5472,21 @@ export default function OneshotEditor() {
     colorMode === 'dark'
       ? 'text-slate-300 hover:text-white hover:bg-white/5'
       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100';
+  const modeTooltipClassName = `vidgenie-mode-tooltip ${
+    colorMode === 'dark'
+      ? 'vidgenie-mode-tooltip--dark'
+      : 'vidgenie-mode-tooltip--light'
+  }`;
+  const textToVideoTooltip = t(
+    "vidgenie.textToVideoTabTooltip",
+    {},
+    "Create videos in any style or theme from text prompts."
+  );
+  const imageToVideoTooltip = t(
+    "vidgenie.imageToVideoTabTooltip",
+    {},
+    "Create marketing or ad videos from image list + product description"
+  );
   const imagePickerShell =
     colorMode === 'dark'
       ? 'bg-gray-950/90 text-white ring-white/10'
@@ -5466,6 +5625,9 @@ export default function OneshotEditor() {
                 disabled={isModeToggleDisabled}
                 onClick={() => handleGenerationModeChange('T2V')}
                 aria-pressed={generationMode === 'T2V'}
+                aria-label={t("vidgenie.titleTextToVideo")}
+                data-tooltip-id="vidgenie-t2v-mode-tooltip"
+                data-tooltip-content={textToVideoTooltip}
                 className={`flex-1 rounded-full px-4 py-1.5 text-xs font-semibold transition sm:flex-none ${generationMode === 'T2V' ? toggleActive : toggleInactive}`}
               >
                 T2V
@@ -5475,11 +5637,32 @@ export default function OneshotEditor() {
                 disabled={isModeToggleDisabled}
                 onClick={() => handleGenerationModeChange('I2V')}
                 aria-pressed={generationMode === 'I2V'}
+                aria-label={t("vidgenie.titleImageListToVideo")}
+                data-tooltip-id="vidgenie-i2v-mode-tooltip"
+                data-tooltip-content={imageToVideoTooltip}
                 className={`flex-1 rounded-full px-4 py-1.5 text-xs font-semibold transition sm:flex-none ${generationMode === 'I2V' ? toggleActive : toggleInactive}`}
               >
                 I2V
               </button>
             </div>
+            <Tooltip
+              id="vidgenie-t2v-mode-tooltip"
+              place="bottom"
+              offset={10}
+              delayShow={120}
+              opacity={1}
+              className={modeTooltipClassName}
+              classNameArrow="vidgenie-mode-tooltip-arrow"
+            />
+            <Tooltip
+              id="vidgenie-i2v-mode-tooltip"
+              place="bottom"
+              offset={10}
+              delayShow={120}
+              opacity={1}
+              className={modeTooltipClassName}
+              classNameArrow="vidgenie-mode-tooltip-arrow"
+            />
           </div>
 
           <div className="vidgenie-header-actions flex w-full flex-wrap items-center justify-center gap-2 sm:ml-auto sm:w-auto sm:justify-end">
@@ -5508,6 +5691,19 @@ export default function OneshotEditor() {
                 >
                   Express
                 </span>
+                {sessionInferenceModelLabel && (
+                  <span
+                    className={`
+                      inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold
+                      ${colorMode === 'dark'
+                        ? 'bg-violet-400/12 text-violet-200 ring-1 ring-violet-300/25'
+                        : 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                      }
+                    `}
+                  >
+                    Inference: {sessionInferenceModelLabel}
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={openAdvancedVideoEditDialog}
@@ -5804,6 +6000,24 @@ export default function OneshotEditor() {
 
           {isAdvancedOpen && (
             <div className="mt-3 space-y-5">
+              <div>
+                <label className={advancedLabelClasses}>Inference model</label>
+                <select
+                  value={selectedInferenceModel?.value || DEFAULT_INFERENCE_MODEL}
+                  onChange={(event) =>
+                    setSelectedInferenceModel(getInferenceModelOption(event.target.value))
+                  }
+                  disabled={isFormDisabled}
+                  className={advancedInputClasses}
+                >
+                  {INFERENCE_MODEL_TYPES.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {generationMode === 'T2V' && (
                 <div>
                   <label className={advancedLabelClasses}>Tone</label>

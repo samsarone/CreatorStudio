@@ -29,6 +29,36 @@
   margin-top: 10px;
 }
 
+.vidgenie-mode-tooltip {
+  max-width: min(260px, calc(100vw - 32px));
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.35 !important;
+  text-align: left;
+  white-space: normal;
+  z-index: 10000 !important;
+}
+
+.vidgenie-mode-tooltip--dark {
+  background: #111a2f !important;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+  color: #e2e8f0 !important;
+}
+
+.vidgenie-mode-tooltip--light {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  color: #334155 !important;
+}
+
+.vidgenie-mode-tooltip-arrow {
+  background: inherit;
+}
+
 @media (max-width: 767px) {
   .vidgenie-page-shell {
     width: 100%;

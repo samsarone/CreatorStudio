@@ -6709,7 +6709,8 @@ export default function FrameToolbar(props) {
 
   const isAnonymousGuest = !user?._id;
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
-  const hasExistingRender = Boolean(resolvedDownloadLink);
+  const canUseDownloadLink = Boolean(resolvedDownloadLink && !isRenderPending);
+  const hasExistingRender = canUseDownloadLink;
   const canCancelPendingRender = Boolean(isRenderPending && typeof cancelPendingRender === 'function');
   const hasPendingSceneChanges = Boolean(isCanvasDirty);
   const shouldShowDropdown = !isAnonymousGuest && hasExistingRender && !canCancelPendingRender;
@@ -6723,7 +6724,7 @@ export default function FrameToolbar(props) {
 
   let prevDownloadLink = <span />;
 
-  if (resolvedDownloadLink) {
+  if (canUseDownloadLink) {
     const dateNowStr = new Date().toISOString().replace(/:/g, '-');
     prevDownloadLink = (
       <SecondaryButton extraClasses='!m-0'>
@@ -6781,7 +6782,7 @@ export default function FrameToolbar(props) {
   };
 
   let additionalActionToolbar = <span />;
-  if (resolvedDownloadLink) {
+  if (canUseDownloadLink) {
     // additionalActionToolbar = (
     //   <div className='mt-2'>
     //     <div >
@@ -6794,7 +6795,7 @@ export default function FrameToolbar(props) {
   }
 
   const submitDownloadVideo = () => {
-    if (!resolvedDownloadLink) {
+    if (!canUseDownloadLink) {
       return;
     }
     const a = document.createElement('a');
@@ -6810,7 +6811,7 @@ export default function FrameToolbar(props) {
       label: "Render again",
       onClick: submitRenderVideo,
     });
-  } else if (resolvedDownloadLink) {
+  } else if (canUseDownloadLink) {
     dropdownItems.push({
       label: "Download",
       onClick: submitDownloadVideo,
@@ -6838,7 +6839,7 @@ export default function FrameToolbar(props) {
 
   const canRestartCompletedExpressRender = Boolean(
     isExpressSession
-    && resolvedDownloadLink
+    && canUseDownloadLink
     && !canCancelPendingRender
     && !isCanvasDirty
     && typeof restartExpressRenderFromCheckpoint === 'function'
@@ -6903,7 +6904,7 @@ export default function FrameToolbar(props) {
         </button>
       </div>
     );
-  } else if (isAnonymousGuest && resolvedDownloadLink) {
+  } else if (isAnonymousGuest && canUseDownloadLink) {
     submitRenderDisplay = (
       <div>
         <PublicPrimaryButton
@@ -7223,7 +7224,7 @@ export default function FrameToolbar(props) {
                 Audio Options
               </button>
 
-              {resolvedDownloadLink ? (
+              {canUseDownloadLink ? (
                 <button
                   type="button"
                   className={settingsActionButtonClasses}

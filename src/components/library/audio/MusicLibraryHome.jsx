@@ -857,7 +857,7 @@ export default function MusicLibraryHome({
   };
 
   const renderAudioPaginationControls = () => (
-    <div className={`flex shrink-0 items-center overflow-hidden rounded-lg border ${borderColor}`}>
+    <div className={`flex w-full shrink-0 items-center overflow-hidden rounded-lg border sm:w-auto ${borderColor}`}>
       <button
         type="button"
         onClick={handlePreviousAudioPage}
@@ -868,7 +868,7 @@ export default function MusicLibraryHome({
       >
         <FaChevronLeft className="text-xs" />
       </button>
-      <span className={`flex h-10 shrink-0 items-center px-3 text-xs font-semibold ${headerBg}`}>
+      <span className={`flex h-10 min-w-0 flex-1 items-center justify-center px-3 text-xs font-semibold sm:flex-none ${headerBg}`}>
         Page {normalizedAudioPage} of {totalAudioPages}
       </span>
       <button
@@ -901,10 +901,10 @@ export default function MusicLibraryHome({
       : addConfig.duration;
 
     return (
-      <div key={item._id} className={`relative rounded-xl border ${borderColor} ${cardBg} p-4 shadow-sm`}>
-        <div className="mb-3 flex items-center gap-2">
+      <div key={item._id} className={`relative min-w-0 rounded-lg border ${borderColor} ${cardBg} p-3 shadow-sm sm:p-4`}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
-            className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
+            className={`shrink-0 px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
             onClick={() => handlePlayPause(item)}
           >
             {isPlaying ? (
@@ -915,26 +915,26 @@ export default function MusicLibraryHome({
           </button>
 
           {isPlaying && (
-            <div className="flex-1 mx-2 flex items-center gap-2">
-              <span className="text-sm">{formatTime(currentTime)}</span>
+            <div className="order-last flex w-full min-w-0 items-center gap-2 sm:order-none sm:mx-2 sm:flex-1">
+              <span className="shrink-0 text-sm">{formatTime(currentTime)}</span>
               <input
                 type="range"
                 min="0"
                 max={duration || 0}
                 value={currentTime}
                 onChange={handleSeekChange}
-                className="flex-1 appearance-none h-2 rounded-full"
+                className="min-w-0 flex-1 appearance-none h-2 rounded-full"
                 style={{
                   accentColor: sliderAccent,
                   background: `linear-gradient(to right, ${sliderAccent} 0%, ${sliderAccent} ${(duration ? currentTime / duration : 0) * 100}%, ${sliderTrack} ${(duration ? currentTime / duration : 0) * 100}%, ${sliderTrack} 100%)`,
                 }}
               />
-              <span className="text-sm">{formatTime(duration)}</span>
+              <span className="shrink-0 text-sm">{formatTime(duration)}</span>
             </div>
           )}
 
           <button
-            className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
+            className={`shrink-0 px-3 py-2 rounded-full border ${borderColor} ${surfaceButton}`}
             onClick={() => handleDownload(item)}
           >
             <FaDownload className={iconColor} />
@@ -943,7 +943,7 @@ export default function MusicLibraryHome({
           {!hideSelectButton && item.libraryType === AUDIO_TYPE_SPEECH && (
             <button
               type="button"
-              className={`px-3 py-2 rounded-full border ${borderColor} ${surfaceButton} disabled:cursor-not-allowed disabled:opacity-50`}
+              className={`shrink-0 px-3 py-2 rounded-full border ${borderColor} ${surfaceButton} disabled:cursor-not-allowed disabled:opacity-50`}
               onClick={() => handleAddSpeechToCurrentLayer(item)}
               disabled={!hasCurrentLayer}
               title={hasCurrentLayer ? 'Add speech to current layer' : 'Select a layer before adding speech'}
@@ -955,13 +955,13 @@ export default function MusicLibraryHome({
         </div>
 
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">{displayTitle}</h2>
+          <div className="min-w-0">
+            <h2 className="break-words text-lg font-semibold">{displayTitle}</h2>
             <p className={`mt-1 text-xs ${mutedText}`}>
               {item.speakerCharacterName || item.projectName || getAudioTypeLabel(item.libraryType)}
             </p>
           </div>
-          <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${tagBg}`}>
+          <span className={`inline-flex shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${tagBg}`}>
             {getAudioTypeLabel(item.libraryType)}
           </span>
         </div>
@@ -1011,7 +1011,7 @@ export default function MusicLibraryHome({
 
         {!hideSelectButton && (
           <div className="relative z-20">
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <label className="block">
                 <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Start</span>
                 <input
@@ -1082,7 +1082,7 @@ export default function MusicLibraryHome({
     }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {paginatedProjectItems.map((item) => renderAudioCard(item))}
       </div>
     );
@@ -1117,7 +1117,7 @@ export default function MusicLibraryHome({
       <div className="space-y-6">
         {paginatedGlobalGroups.map((group) => (
           <section key={`${selectedAudioType}-${group.projectId}`} className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div>
                 <h2 className="text-lg font-semibold">{group.projectName}</h2>
                 <p className={`text-xs ${mutedText}`}>
@@ -1126,7 +1126,7 @@ export default function MusicLibraryHome({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {group.items.map((item) => renderAudioCard(item))}
             </div>
           </section>
@@ -1162,7 +1162,7 @@ export default function MusicLibraryHome({
               type="button"
               onClick={openUploadPicker}
               disabled={isAudioUploadPending || !(sessionEndTime > 0)}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 font-semibold ${selectButtonBg} disabled:cursor-not-allowed disabled:opacity-60`}
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold sm:w-auto ${selectButtonBg} disabled:cursor-not-allowed disabled:opacity-60`}
             >
               <FaUpload />
               {isAudioUploadPending ? 'Uploading...' : 'Upload MP3'}
@@ -1180,12 +1180,12 @@ export default function MusicLibraryHome({
   };
 
   return (
-    <div className={`h-full min-h-0 w-full overflow-y-auto px-3 pt-3 pb-40 lg:pb-48 ${textColor}`}>
+    <div className={`h-full min-h-0 w-full min-w-0 overflow-y-auto px-0 pt-0 pb-12 sm:px-3 sm:pt-3 lg:pb-20 ${textColor}`}>
       <div className="space-y-4">
-        <div className={`sticky top-0 z-20 rounded-2xl border ${borderColor} ${cardBg} p-3 shadow-sm`}>
+        <div className={`sticky top-0 z-20 rounded-lg border ${borderColor} ${cardBg} p-3 shadow-sm`}>
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
-              <div className="min-w-[150px] shrink-0">
+              <div className="min-w-0 shrink-0">
                 <h1 className="text-lg font-bold">Audio Library</h1>
                 <p className={`mt-0.5 text-xs ${mutedText}`}>
                   {getScopeLabel(selectedScope)} {getAudioTypeLabel(selectedAudioType)} artefacts - {activeAudioItems.length} items
@@ -1233,7 +1233,7 @@ export default function MusicLibraryHome({
                 ))}
               </div>
 
-              <div className="flex shrink-0 justify-end">
+              <div className="flex w-full shrink-0 justify-end sm:w-auto">
                 {renderAudioPaginationControls()}
               </div>
             </div>
