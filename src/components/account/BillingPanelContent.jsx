@@ -253,7 +253,13 @@ export default function BillingPanelContent() {
               <p className={`text-sm ${subtleText}`}>Current balance: {currentCredits} credits</p>
             </div>
           </div>
-          <p className={`text-sm ${subtleText}`}>$1 = 100 credits</p>
+          <div className="flex min-w-0 flex-col gap-1 sm:items-end">
+            <p className={`text-sm ${subtleText}`}>$1 = 100 credits</p>
+            <p className={`flex items-start gap-2 text-sm ${subtleText}`}>
+              <FaCheck className="mt-1 shrink-0 text-cyan-500" />
+              <span>Commercial usage rights for all renders</span>
+            </p>
+          </div>
         </div>
 
         <div className="grid min-w-0 gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -299,10 +305,6 @@ export default function BillingPanelContent() {
             <p className={`text-xs uppercase tracking-[0.18em] ${mutedText}`}>Checkout</p>
             <p className="mt-2 break-words text-3xl font-semibold sm:text-4xl">{numberFormatter.format(purchaseCreditCount)}</p>
             <p className={`text-sm ${subtleText}`}>credits for ${numberFormatter.format(purchaseAmountUsd)}</p>
-            <p className={`mt-4 flex items-start gap-2 text-sm ${subtleText}`}>
-              <FaCheck className="mt-1 shrink-0 text-cyan-500" />
-              <span>Commercial usage rights for all renders</span>
-            </p>
             <button
               type="button"
               onClick={() => purchaseCreditsForUser(purchaseAmountUsd)}

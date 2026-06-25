@@ -212,7 +212,7 @@ const POST_PROCESSING_ACTIONS = Object.freeze([
   { key: 'subtitles', label: 'Subtitles', icon: FaClosedCaptioning },
   { key: 'generated_outro', label: 'Outro CTA', icon: FaImage },
   { key: 'footer_cta', label: 'Footer CTA', icon: FaLink },
-  { key: 'reroll_layers', label: 'Reroll layers', icon: FaRedo },
+  { key: 'reroll_layers', label: 'Reroll scenes', icon: FaRedo },
   { key: 'clone_render', label: 'Clone', icon: FaClone },
   { key: 'advanced_edits', label: 'Edits', icon: FaCog },
 ]);
@@ -2191,6 +2191,7 @@ export default function OneshotEditor() {
   const activeSessionIdRef = useRef(id);
   const currentPollRequestIdRef = useRef(null);
   const activeRequestIdRef = useRef(null);
+  const postProcessingPollActionRef = useRef('');
 
   const lastWakePoll = useRef(Date.now());
 
@@ -3517,10 +3518,19 @@ export default function OneshotEditor() {
         const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
         if (normalizedStatus === 'COMPLETED' && videoActualLink) {
           continuePolling = false;
+          const completedPostProcessingAction = postProcessingPollActionRef.current;
+          postProcessingPollActionRef.current = '';
           setIsGenerationPending(false);
           setIsPaused(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           clearPostProcessingPendingSession(data.session_id || requestId);
+          if (completedPostProcessingAction === 'reroll_layers') {
+            setPostProcessingForm((current) => ({
+              ...current,
+              rerollLayerIndexes: [],
+            }));
+            setPostProcessingAction('generated_outro');
+          }
           setVideoLink(videoActualLink);
           return;
         }
@@ -3533,6 +3543,7 @@ export default function OneshotEditor() {
           setIsPaused(false);
           clearAdvancedVideoEditPendingSession(data.session_id || requestId);
           clearPostProcessingPendingSession(data.session_id || requestId);
+          postProcessingPollActionRef.current = '';
           setErrorMessage({ error: getDetailedGenerationErrorMessage(data, failureStatus) });
         }
       } catch (err) {
@@ -3544,6 +3555,7 @@ export default function OneshotEditor() {
           setIsPaused(false);
           clearAdvancedVideoEditPendingSession(requestId);
           clearPostProcessingPendingSession(requestId);
+          postProcessingPollActionRef.current = '';
           setErrorMessage({
             error: getDetailedGenerationErrorMessage(err.response.data, failureStatus),
           });
@@ -4451,6 +4463,7 @@ export default function OneshotEditor() {
     activeRequestIdRef.current = null;
     activeRequestStepModeRef.current = GENERATION_STEP_MODE_ONE_STEP;
     currentPollRequestIdRef.current = null;
+    postProcessingPollActionRef.current = '';
     setSessionMessages([]);
     setIsAssistantQueryGenerating(false);   // ⬅️ NEW
     setIsPaused(false);                     // ⬅️ NEW
@@ -4700,7 +4713,7 @@ export default function OneshotEditor() {
         successLabel = 'Footer removal';
       } else if (actionKey === 'reroll_layers') {
         if (!rerollLayerIndexes.length) {
-          throw new Error('Select at least one layer to reroll.');
+          throw new Error('Select at least one scene to reroll.');
         }
 
         payload = {
@@ -4708,7 +4721,7 @@ export default function OneshotEditor() {
           layer_indexes: rerollLayerIndexes,
         };
         endpoint = 'reroll-layers';
-        successLabel = 'Layer reroll';
+        successLabel = 'Scene reroll';
       } else {
         return;
       }
@@ -4730,6 +4743,7 @@ export default function OneshotEditor() {
         throw new Error('Post-processing did not return a request id.');
       }
 
+      postProcessingPollActionRef.current = actionKey;
       setPostProcessingMessage(`${successLabel} queued.`);
       if (actionKey === 'generated_outro') {
         setCurrentRenderGeneratedOutro(true);
@@ -5376,7 +5390,7 @@ export default function OneshotEditor() {
                           {item.visualUrl ? (
                             <img
                               src={item.visualUrl}
-                              alt={`Layer ${item.layerIndex}`}
+                              alt={`Scene ${item.layerIndex}`}
                               loading="lazy"
                               className="h-full w-full object-cover"
                             />
@@ -5386,7 +5400,7 @@ export default function OneshotEditor() {
                             </div>
                           )}
                           <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                            Layer {item.layerIndex}
+                            Scene {item.layerIndex}
                           </span>
                           {isSelected ? (
                             <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300 text-slate-950 shadow">
@@ -5407,7 +5421,7 @@ export default function OneshotEditor() {
                 </div>
               ) : (
                 <div className={`rounded-lg px-3 py-2 text-sm ${mutedText}`}>
-                  No rerollable layers found.
+                  No rerollable scenes found.
                 </div>
               )}
 
@@ -5422,7 +5436,7 @@ export default function OneshotEditor() {
                       : ''}
                   </span>
                 ) : (
-                  <span className={mutedText}>Select layers to estimate credits.</span>
+                  <span className={mutedText}>Select scenes to estimate credits.</span>
                 )}
               </div>
 
@@ -5433,7 +5447,7 @@ export default function OneshotEditor() {
                 className={primarySubmitClass}
               >
                 {isRerollPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaRedo className="h-3.5 w-3.5" aria-hidden="true" />}
-                Reroll selected layers
+                Reroll selected scenes
               </button>
             </div>
           )}

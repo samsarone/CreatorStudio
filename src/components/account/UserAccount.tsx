@@ -263,6 +263,18 @@ export default function UserAccount() {
     </li>
   );
 
+  const accountNavItems = [
+    { panel: "account", label: "Account" },
+    { panel: "billing", label: "Billing" },
+    { panel: "settings", label: "Settings" },
+    { panel: "images", label: "Images" },
+    { panel: "sounds", label: "Sounds" },
+    { panel: "scenes", label: "Scenes" },
+    { panel: "videos", label: "Videos" },
+    { panel: "apiKeys", label: "API Keys" },
+    { panel: "usage", label: "Usage" },
+  ];
+
   const pageLabels = {
     account: "Account Information",
     images: "Image Library",
@@ -323,15 +335,9 @@ export default function UserAccount() {
                 X
               </button>
               <ul>
-                <NavLink panel="account" label="Account" />
-                <NavLink panel="images" label="Images" />
-                <NavLink panel="sounds" label="Sounds" />
-                <NavLink panel="scenes" label="Scenes" />
-                <NavLink panel="videos" label="Videos" />
-                <NavLink panel="apiKeys" label="API Keys" />
-                <NavLink panel="usage" label="Usage" />
-                <NavLink panel="billing" label="Billing" />
-                <NavLink panel="settings" label="Settings" />
+                {accountNavItems.map((item) => (
+                  <NavLink key={item.panel} panel={item.panel} label={item.label} />
+                ))}
               </ul>
             </nav>
           </div>
@@ -340,15 +346,9 @@ export default function UserAccount() {
         <div className="flex flex-1 min-w-0">
           <nav className={`hidden md:block w-48 shrink-0 p-4 ${bgColor} shadow-sm border-r ${borderColor}`}>
             <ul>
-              <NavLink panel="account" label="Account" />
-              <NavLink panel="images" label="Images" />
-              <NavLink panel="sounds" label="Sounds" />
-              <NavLink panel="scenes" label="Scenes" />
-              <NavLink panel="videos" label="Videos" />
-              <NavLink panel="apiKeys" label="API Keys" />
-              <NavLink panel="usage" label="Usage" />
-              <NavLink panel="billing" label="Billing" />
-              <NavLink panel="settings" label="Settings" />
+              {accountNavItems.map((item) => (
+                <NavLink key={item.panel} panel={item.panel} label={item.label} />
+              ))}
             </ul>
           </nav>
 
