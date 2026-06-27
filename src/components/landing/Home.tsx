@@ -7,13 +7,8 @@ import 'react-tooltip/dist/react-tooltip.css';
 
 import { consumePostAuthRedirect, getAuthToken, getHeaders, persistAuthToken } from '../../utils/web.jsx';
 import {
-  hasInsufficientGenerationCredits,
-  hasStudioAccess as userHasStudioAccess,
-} from '../../utils/defaultRoutes.js';
-import {
   appendRouteSearch,
   resolveAuthenticatedEntryPath,
-  upsertRouteSearchParam,
 } from '../../utils/vidgenieRouting.js';
 import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
@@ -195,14 +190,11 @@ export default function Home() {
   ]);
 
   const isExternalUser = Boolean(user?.isExternalUser);
-  const hasStudioAccess = Boolean(
-    isExternalUser ||
-    userHasStudioAccess(user)
-  );
   const isVidgeniePath = location.pathname.startsWith('/vidgenie');
   const isAccessAllowedPath = (() => {
     if (location.pathname.startsWith('/video/share/')) return true;
     if (location.pathname.startsWith('/video/collab/')) return true;
+    if (location.pathname === '/video' || location.pathname.startsWith('/video/')) return true;
     if (location.pathname.startsWith('/external/studio') && isExternalUser) return true;
     if (user && isVidgeniePath) return true;
     if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
@@ -235,18 +227,13 @@ export default function Home() {
       }
       return;
     }
-    if (hasStudioAccess) return;
+    if (user?._id) return;
     if (isAccessAllowedPath) return;
 
-    const redirectTarget = user && hasInsufficientGenerationCredits(user)
-      ? '/vidgenie?purchaseCredits=1'
-      : user
-        ? '/account/billing'
-        : '/login';
-    if (location.pathname !== redirectTarget) {
-      navigate(redirectTarget, { replace: true });
+    if (location.pathname !== '/login') {
+      navigate('/login', { replace: true });
     }
-  }, [initialAuthenticatedRootStatus, userInitiated, userFetching, hasStudioAccess, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
+  }, [initialAuthenticatedRootStatus, userInitiated, userFetching, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
 
   const appendQueryParams = useCallback((url) => {
     const paramsString = extraProps.toString();
@@ -261,15 +248,12 @@ export default function Home() {
       return;
     }
 
-    const resolvedSearch = hasInsufficientGenerationCredits(resolvedUser)
-      ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
-      : sanitizedRouteSearch;
     const targetPath = await resolveAuthenticatedEntryPath({
       user: resolvedUser,
       isMobile,
       apiServer: PROCESSOR_SERVER,
       headers,
-      search: resolvedSearch,
+      search: sanitizedRouteSearch,
       createIfMissing: true,
     });
     navigate(targetPath || appendQueryParams('/vidgenie'), { replace: true });
@@ -299,27 +283,18 @@ export default function Home() {
           return;
         }
 
-        const resolvedHasStudioAccess = userHasStudioAccess(resolvedUser);
-        if (!resolvedHasStudioAccess && !hasInsufficientGenerationCredits(resolvedUser)) {
-          navigate('/account/billing', { replace: true });
-          return;
-        }
-
         const headers = getHeaders();
         if (!headers) {
           navigate('/login', { replace: true });
           return;
         }
 
-        const resolvedSearch = !resolvedHasStudioAccess && hasInsufficientGenerationCredits(resolvedUser)
-          ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
-          : sanitizedRouteSearch;
         const targetPath = await resolveAuthenticatedEntryPath({
           user: resolvedUser,
           isMobile,
           apiServer: PROCESSOR_SERVER,
           headers,
-          search: resolvedSearch,
+          search: sanitizedRouteSearch,
           createIfMissing: true,
         });
         if (isCancelled) return;
@@ -414,9 +389,7 @@ export default function Home() {
   } else {
     bodyBGColor = "bg-[#f7f9fc] text-slate-900";
   }
-  const rootAuthenticatedSearch = !hasStudioAccess && hasInsufficientGenerationCredits(user)
-    ? upsertRouteSearchParam(sanitizedRouteSearch, 'purchaseCredits', '1')
-    : sanitizedRouteSearch;
+  const rootAuthenticatedSearch = sanitizedRouteSearch;
 
   if (initialAuthenticatedRootStatus === 'pending') {
     return (
@@ -436,9 +409,7 @@ export default function Home() {
               !userInitiated || userFetching
                 ? <RouteLoadingScreen />
                 : user && user._id
-                  ? !hasStudioAccess && !hasInsufficientGenerationCredits(user)
-                    ? <Navigate to="/account/billing" replace />
-                    : <DefaultAuthenticatedRoute user={user} isMobile={isMobile} search={rootAuthenticatedSearch} />
+                  ? <DefaultAuthenticatedRoute user={user} isMobile={isMobile} search={rootAuthenticatedSearch} />
                   : <VideoEditorLandingHome />
             }
           />

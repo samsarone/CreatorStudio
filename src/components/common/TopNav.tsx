@@ -69,6 +69,7 @@ export default function TopNav(props) {
     isEditableShareView,
     isImportedSession,
     onRequestEditSession,
+    openAuthDialog,
   } = props;
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
@@ -251,10 +252,20 @@ const showLicenseDialog = () => {
   };
 
   const showLoginDialog = () => {
+    if (typeof openAuthDialog === 'function') {
+      openAuthDialog();
+      return;
+    }
+
     navigate('/login');
   };
 
   const showRegisterDialog = () => {
+    if (typeof openAuthDialog === 'function') {
+      openAuthDialog({ initView: 'register' });
+      return;
+    }
+
     const registerComponent = (
       <Suspense fallback={dialogFallback}>
         <AuthContainer initView="register" />

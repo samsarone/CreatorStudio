@@ -1071,6 +1071,7 @@ export default function FrameToolbar(props) {
     updateGlobalVideos,
     updateSessionHints,
     focusHintsPanelRequest = 0,
+    onRequireEditableAction,
 
   } = props;
 
@@ -5123,6 +5124,10 @@ export default function FrameToolbar(props) {
     );
   };
 
+  const requireEditableAction = () => (
+    typeof onRequireEditableAction !== 'function' || onRequireEditableAction()
+  );
+
   const updateSelectedVideoEditRange = (nextRange) => {
     if (!selectedVideoTrack) {
       return;
@@ -5140,6 +5145,10 @@ export default function FrameToolbar(props) {
   };
 
   const applyVideoEditForTrack = async (track, toolConfig, rangeFrames) => {
+    if (!requireEditableAction()) {
+      return { success: false, authRequired: true };
+    }
+
     if (
       !track
       || track.videoEditPending
@@ -5212,6 +5221,10 @@ export default function FrameToolbar(props) {
   };
 
   const handleSelectedVideoToolChange = (toolConfig) => {
+    if (!requireEditableAction()) {
+      return;
+    }
+
     if (!selectedVideoTrack || !toolConfig) {
       return;
     }
@@ -5239,6 +5252,10 @@ export default function FrameToolbar(props) {
   };
 
   const updateSelectedVideoSpeedMultiplier = (nextMultiplier) => {
+    if (!requireEditableAction()) {
+      return;
+    }
+
     if (!selectedVideoTrack) {
       return;
     }
@@ -5273,6 +5290,10 @@ export default function FrameToolbar(props) {
   };
 
   const queueSelectedVideoOperation = () => {
+    if (!requireEditableAction()) {
+      return { success: false, authRequired: true };
+    }
+
     if (!selectedVideoTrack || selectedVideoTrack.videoEditPending) {
       return {
         success: false,
@@ -5375,6 +5396,10 @@ export default function FrameToolbar(props) {
   };
 
   const applySelectedVideoEditOperations = async () => {
+    if (!requireEditableAction()) {
+      return { success: false, authRequired: true };
+    }
+
     if (
       !selectedVideoTrack
       || selectedVideoTrack.videoEditPending

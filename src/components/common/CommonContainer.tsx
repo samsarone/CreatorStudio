@@ -29,6 +29,7 @@ export default function CommonContainer(props) {
     isEditableShareView,
     isImportedSession,
     onRequestEditSession,
+    openAuthDialog,
   } = props;
   const { colorMode } = useColorMode();
 
@@ -110,6 +111,7 @@ export default function CommonContainer(props) {
         isEditableShareView={isEditableShareView}
         isImportedSession={isImportedSession}
         onRequestEditSession={onRequestEditSession}
+        openAuthDialog={openAuthDialog}
       />
       <div>
         <AlertDialog />

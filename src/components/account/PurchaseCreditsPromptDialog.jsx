@@ -1,6 +1,7 @@
 import React from 'react';
 import { FaCoins, FaTimes } from 'react-icons/fa';
 import { FaArrowRight } from 'react-icons/fa6';
+import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import './PurchaseCreditsPromptDialog.css';
 
@@ -12,12 +13,15 @@ export default function PurchaseCreditsPromptDialog({
   onClose,
   onPurchaseCredits,
 }) {
+  const { closeAlertDialog } = useAlertDialog();
   const { colorMode } = useColorMode();
   const isDark = colorMode === 'dark';
+  const handleClose = typeof onClose === 'function' ? onClose : closeAlertDialog;
+  const handlePurchaseCredits = typeof onPurchaseCredits === 'function' ? onPurchaseCredits : handleClose;
 
   const shellClasses = isDark
-    ? 'border-[#233149] bg-[#0b1021] text-slate-100 shadow-[0_24px_64px_rgba(0,0,0,0.42)]'
-    : 'border-[#d8e0ed] bg-white text-slate-950 shadow-[0_24px_56px_rgba(15,23,42,0.14)]';
+    ? 'border-[#1f2a3d] bg-[#0f1629] text-slate-100 shadow-[0_18px_54px_rgba(0,0,0,0.36)]'
+    : 'border-[#d7deef] bg-white text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)]';
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-600';
   const subtleText = isDark ? 'text-slate-500' : 'text-slate-500';
   const primaryButtonClasses = isDark
@@ -34,13 +38,15 @@ export default function PurchaseCreditsPromptDialog({
     : 'bg-slate-100 text-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.12)]';
 
   return (
-    <div className={`purchase-credits-prompt relative w-full max-w-[360px] rounded-2xl border p-5 text-left ${shellClasses}`}>
+    <div className={`purchase-credits-prompt relative max-h-[calc(100dvh-1.5rem)] w-full max-w-[380px] overflow-y-auto rounded-xl border p-5 text-left ${shellClasses}`}>
       <button
         type="button"
-        className={`absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full transition ${
-          isDark ? 'text-slate-500 hover:bg-white/[0.04] hover:text-slate-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+        className={`absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 ${
+          isDark
+            ? 'text-slate-400 hover:bg-[#16213a] hover:text-slate-100 focus:ring-cyan-400/40'
+            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-300'
         }`}
-        onClick={onClose}
+        onClick={handleClose}
         aria-label="Close purchase credits dialog"
       >
         <FaTimes className="text-sm" />
@@ -73,7 +79,7 @@ export default function PurchaseCreditsPromptDialog({
       <div className="mt-5 flex flex-col gap-2">
         <button
           type="button"
-          onClick={onPurchaseCredits}
+          onClick={handlePurchaseCredits}
           className={`purchase-credits-prompt__cta inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent ${primaryButtonClasses}`}
         >
           Purchase credits
@@ -81,7 +87,7 @@ export default function PurchaseCreditsPromptDialog({
         </button>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className={`min-h-[36px] rounded-md px-2 py-1 text-sm transition ${quietButtonClasses}`}
         >
           Not now

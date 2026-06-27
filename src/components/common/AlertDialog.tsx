@@ -1,4 +1,5 @@
 import React from 'react';
+import { FaTimes } from 'react-icons/fa';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { useColorMode } from '../../contexts/ColorMode';
 
@@ -18,24 +19,24 @@ export function AlertDialog() {
     bgColor = 'bg-transparent';
   }
   const defaultDialogWidthClass = useXL
-    ? 'w-auto'
+    ? 'w-[calc(100vw-1.5rem)] max-w-6xl'
     : isAuthSurface
       ? 'w-full max-w-md'
-      : 'md:w-[512px]';
+      : 'w-[calc(100vw-1.5rem)] max-w-lg';
   const dialogWidthClass = dialogOptions?.containerClassName || defaultDialogWidthClass;
   const dialogBorderClass = dialogOptions?.hideBorder
     ? isTransparentShell ? 'border-0' : 'border border-transparent'
     : 'border';
-  const dialogPaddingClass = dialogOptions?.fullBleed ? 'p-0' : 'pt-1 pb-5 p-5';
-  const dialogPositionClass = dialogOptions?.centerContent ? '' : 'top-20';
-  const dialogRadiusClass = isTransparentShell ? '' : dialogOptions?.fullBleed ? 'rounded-2xl' : 'rounded-md';
+  const dialogPaddingClass = dialogOptions?.fullBleed ? 'p-0' : 'p-4 sm:p-5';
+  const dialogPositionClass = dialogOptions?.centerContent ? '' : 'my-4 sm:my-8';
+  const dialogRadiusClass = isTransparentShell ? '' : dialogOptions?.fullBleed ? 'rounded-xl' : 'rounded-lg';
   const dialogShadowClass = isTransparentShell || (isAuthSurface && colorMode === 'light') ? '' : 'shadow-lg';
   const overlayClass = dialogOptions?.centerContent
-    ? 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto flex items-center justify-center'
-    : 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full m-auto';
+    ? 'fixed inset-0 overflow-y-auto bg-slate-950/50 p-3 sm:p-4 flex items-center justify-center'
+    : 'fixed inset-0 overflow-y-auto bg-slate-950/50 p-3 sm:p-4 flex items-start justify-center';
   const contentClass = dialogOptions?.centerContent
-    ? 'w-full h-full flex items-center justify-center text-left'
-    : 'mt-1 text-center max-h-[75vh] overflow-y-auto pr-1';
+    ? 'w-full min-h-full flex items-center justify-center text-left'
+    : 'text-center max-h-[calc(100dvh-4rem)] overflow-y-auto pr-1';
 
 
   return (
@@ -50,10 +51,16 @@ export function AlertDialog() {
       >
         {!dialogOptions?.hideCloseButton && (
           <button
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-500 focus:outline-none"
+            type="button"
+            aria-label="Close dialog"
+            className={`absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 ${
+              colorMode === 'dark'
+                ? 'text-slate-400 hover:bg-white/5 hover:text-slate-100 focus:ring-cyan-400/40'
+                : 'text-slate-500 hover:bg-slate-200/70 hover:text-slate-900 focus:ring-slate-300'
+            }`}
             onClick={closeAlertDialog}
           >
-            {/* Close button SVG */}
+            <FaTimes className="text-sm" />
           </button>
         )}
         <div className={contentClass}>

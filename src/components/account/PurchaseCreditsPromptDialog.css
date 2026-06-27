@@ -7,11 +7,11 @@
 }
 
 .purchase-credits-prompt__coin {
-  animation: purchase-credits-prompt-nudge 1.35s ease-in-out infinite;
+  transition: transform 160ms ease;
 }
 
-.purchase-credits-prompt__cta svg {
-  animation: purchase-credits-prompt-arrow 1.1s ease-in-out infinite;
+.purchase-credits-prompt__motion:hover .purchase-credits-prompt__coin {
+  transform: translateX(4px);
 }
 
 @keyframes purchase-credits-prompt-enter {
@@ -25,30 +25,10 @@
   }
 }
 
-@keyframes purchase-credits-prompt-nudge {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(82px);
-  }
-}
-
-@keyframes purchase-credits-prompt-arrow {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  50% {
-    transform: translateX(4px);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .purchase-credits-prompt,
-  .purchase-credits-prompt__coin,
-  .purchase-credits-prompt__cta svg {
+  .purchase-credits-prompt__coin {
     animation: none;
+    transition: none;
   }
 }

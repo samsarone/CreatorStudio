@@ -169,6 +169,9 @@ export default function SelectedVideoTrackDisplay(props) {
 
   const handleAddDraftClick = async () => {
     const response = await onAddDraft?.();
+    if (response?.authRequired) {
+      return;
+    }
     if (response?.success === false) {
       setFeedbackMessage(response.error || 'Unable to stage this selection.');
       return;
@@ -181,6 +184,9 @@ export default function SelectedVideoTrackDisplay(props) {
       ? await onApplyDrafts?.()
       : await onApplySelection?.();
 
+    if (response?.authRequired) {
+      return;
+    }
     if (response?.success === false) {
       setFeedbackMessage(response.error || 'Unable to apply this edit.');
       return;

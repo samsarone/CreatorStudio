@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FaTimes } from 'react-icons/fa';
 import { FaArrowRight, FaChevronDown, FaChevronUp } from 'react-icons/fa6';
+import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { toast } from 'react-toastify';
@@ -23,11 +24,17 @@ export default function AddCreditsDialog(props) {
     onClose,
     variant = 'dialog',
   } = props;
+  const { closeAlertDialog } = useAlertDialog();
   const { colorMode } = useColorMode();
   const { user } = useUser();
   const isDark = colorMode === 'dark';
   const hasUser = Boolean(user?._id);
   const isPage = variant === 'page';
+  const handleClose = typeof onClose === 'function'
+    ? onClose
+    : isPage
+      ? null
+      : closeAlertDialog;
 
   const defaultOption = creditOptions[2] || creditOptions[0];
   const [selectedOption, setSelectedOption] = useState(defaultOption);
@@ -44,8 +51,8 @@ export default function AddCreditsDialog(props) {
   const selectedCredits = selectedOption ? selectedOption.value * 100 : 0;
 
   const shellClasses = isDark
-    ? 'border-[#1f2a3d] bg-[#0b1021] text-slate-100 shadow-[0_24px_80px_rgba(0,0,0,0.42)]'
-    : 'border-[#cbd6e6] bg-[#f3f7fb] text-slate-950 shadow-[0_24px_64px_rgba(15,23,42,0.14)]';
+    ? 'border-[#1f2a3d] bg-[#0f1629] text-slate-100 shadow-[0_18px_54px_rgba(0,0,0,0.36)]'
+    : 'border-[#d7deef] bg-white text-slate-950 shadow-[0_18px_44px_rgba(15,23,42,0.12)]';
 
   const mutedText = isDark ? 'text-slate-400' : 'text-slate-600';
   const subtleText = isDark ? 'text-slate-500' : 'text-slate-500';
@@ -74,10 +81,13 @@ export default function AddCreditsDialog(props) {
   const shellWidthClasses = isPage ? 'max-w-5xl' : 'max-w-[560px]';
   const contentPaddingClasses = isPage
     ? 'px-5 py-7 sm:px-8 sm:py-9 lg:px-10 lg:py-10'
-    : 'px-6 py-7 sm:px-8 sm:py-9';
+    : 'px-4 py-5 sm:px-6 sm:py-6';
   const packGridClasses = isPage
     ? 'grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
-    : 'grid grid-cols-2 gap-3 sm:grid-cols-3';
+    : 'grid grid-cols-1 gap-2 sm:grid-cols-3';
+  const shellOverflowClasses = isPage
+    ? 'overflow-hidden'
+    : 'max-h-[calc(100dvh-1.5rem)] overflow-y-auto';
 
   const handlePurchase = () => {
     if (!selectedOption) {
@@ -104,7 +114,7 @@ export default function AddCreditsDialog(props) {
   };
 
   const headerContent = (
-    <div className="pr-10">
+    <div className={handleClose ? 'pr-10' : ''}>
       <p className={`text-xs font-semibold uppercase tracking-[0.22em] ${accentText}`}>
         Workspace credits
       </p>
@@ -266,16 +276,16 @@ export default function AddCreditsDialog(props) {
   );
 
   return (
-    <div className={`relative w-full ${shellWidthClasses} overflow-hidden rounded-2xl border text-left ${shellClasses}`}>
-      {typeof onClose === 'function' && (
+    <div className={`relative w-full ${shellWidthClasses} ${shellOverflowClasses} rounded-xl border text-left ${shellClasses}`}>
+      {typeof handleClose === 'function' && (
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           aria-label="Close add credits dialog"
-          className={`absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full transition ${
+          className={`absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 ${
             isDark
-              ? 'text-slate-500 hover:bg-[#111a2f] hover:text-slate-200'
-              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+              ? 'text-slate-400 hover:bg-[#16213a] hover:text-slate-100 focus:ring-cyan-400/40'
+              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:ring-slate-300'
           }`}
         >
           <FaTimes className="text-sm" />

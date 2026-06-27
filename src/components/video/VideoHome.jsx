@@ -46,6 +46,8 @@ const PORTRAIT_CANVAS_INITIAL_ZOOM_RATIO = 0.5;
 const MAX_CANVAS_ZOOM_RATIO = 4;
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 const SHARE_COPY_AFTER_AUTH_KEY = 'studioShareCopyAfterAuth';
+const GUEST_SAMPLE_COPY_AFTER_AUTH_KEY = 'studioGuestSampleCopyAfterAuth';
+const PENDING_COPY_MAX_AGE_MS = 10 * 60 * 1000;
 const RENDER_STATUS_POLL_MS = 3000;
 const MAX_RENDER_STATUS_FAILURES = 5;
 
@@ -253,6 +255,21 @@ function resolveCompletedSessionVideoUrl(sessionDetails) {
   }
 
   return resolveLatestSessionVideoUrl(sessionDetails);
+}
+
+function resolveCopiedSessionId(data) {
+  return (
+    data?.session_id ||
+    data?.sessionId ||
+    data?.session?._id ||
+    data?.session?.id ||
+    null
+  );
+}
+
+function isFreshPendingCopyRequest(startedAt) {
+  const numericStartedAt = Number(startedAt);
+  return Number.isFinite(numericStartedAt) && Date.now() - numericStartedAt < PENDING_COPY_MAX_AGE_MS;
 }
 
 function getImageItemUrlCandidate(item) {
@@ -889,17 +906,35 @@ export default function VideoHome(props) {
   }, [currentLayerToBeUpdated, layers]);
 
 
-  const showLoginDialog = (options = {}) => {
-    const loginComponent = (
-
-      <AuthContainer {...options} />
-    );
-    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
-  };
-
   const getCurrentShareRedirectPath = useCallback(() => (
     `${location.pathname}${location.search || ''}`
   ), [location.pathname, location.search]);
+
+  const isGuestSampleView = Boolean(
+    isGuestSession &&
+    !isSharedSessionView &&
+    videoSessionDetails?.isGuestSession
+  );
+
+  const showLoginDialog = useCallback((options = {}) => {
+    const authOptions = { ...options };
+
+    if (!getHeaders() && isGuestSampleView && routeSessionId) {
+      const redirectPath = getCurrentShareRedirectPath();
+      sessionStorage.setItem(
+        GUEST_SAMPLE_COPY_AFTER_AUTH_KEY,
+        JSON.stringify({ sessionId: routeSessionId, path: redirectPath, startedAt: Date.now() })
+      );
+      if (!authOptions.redirectTo) {
+        authOptions.redirectTo = redirectPath;
+      }
+    }
+
+    const loginComponent = (
+      <AuthContainer {...authOptions} />
+    );
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
+  }, [getCurrentShareRedirectPath, isGuestSampleView, openAlertDialog, routeSessionId]);
 
   const copySharedSessionForEditing = useCallback(async () => {
     if (!shareToken) {
@@ -926,11 +961,7 @@ export default function VideoHome(props) {
         { shareToken },
         headers
       );
-      const nextSessionId =
-        response?.data?.session_id ||
-        response?.data?.sessionId ||
-        response?.data?.session?._id ||
-        response?.data?.session?.id;
+      const nextSessionId = resolveCopiedSessionId(response?.data);
 
       if (!nextSessionId) {
         throw new Error('Copy completed without a session id.');
@@ -948,7 +979,7 @@ export default function VideoHome(props) {
       });
       return false;
     }
-  }, [getCurrentShareRedirectPath, navigate, shareToken]);
+  }, [getCurrentShareRedirectPath, navigate, shareToken, showLoginDialog]);
 
   const requestEditableSharedSession = useCallback(() => {
     if (isEditableShareView) {
@@ -981,7 +1012,79 @@ export default function VideoHome(props) {
     isEditableShareView,
     isReadOnlyShareView,
     shareToken,
+    showLoginDialog,
     user?._id,
+  ]);
+
+  const copyGuestSampleSessionForEditing = useCallback(async () => {
+    if (!isGuestSampleView || !routeSessionId) {
+      return false;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+      return false;
+    }
+
+    try {
+      toast.info('Creating an editable copy...', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      const response = await axios.post(
+        `${PROCESSOR_API_URL}/video_sessions/_copy_session`,
+        { videoSessionId: routeSessionId, allowGuestSession: true },
+        headers
+      );
+      const nextSessionId = resolveCopiedSessionId(response?.data);
+
+      if (!nextSessionId) {
+        throw new Error('Copy completed without a session id.');
+      }
+
+      sessionStorage.removeItem(GUEST_SAMPLE_COPY_AFTER_AUTH_KEY);
+      localStorage.setItem('sessionId', nextSessionId);
+      localStorage.setItem('videoSessionId', nextSessionId);
+      navigate(`/video/${nextSessionId}`, { replace: true });
+      return true;
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Unable to create an editable copy.', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      return false;
+    }
+  }, [
+    getCurrentShareRedirectPath,
+    isGuestSampleView,
+    navigate,
+    routeSessionId,
+    showLoginDialog,
+  ]);
+
+  const requireEditableStudioAction = useCallback(() => {
+    if (isSharedSessionView) {
+      return requestEditableSharedSession();
+    }
+
+    if (isGuestSampleView) {
+      void copyGuestSampleSessionForEditing();
+      return false;
+    }
+
+    if (!getHeaders()) {
+      showLoginDialog();
+      return false;
+    }
+
+    return true;
+  }, [
+    copyGuestSampleSessionForEditing,
+    isGuestSampleView,
+    isSharedSessionView,
+    requestEditableSharedSession,
+    showLoginDialog,
   ]);
 
   useEffect(() => {
@@ -1002,6 +1105,31 @@ export default function VideoHome(props) {
       sessionStorage.removeItem(SHARE_COPY_AFTER_AUTH_KEY);
     }
   }, [copySharedSessionForEditing, isReadOnlyShareView, shareToken, user?._id]);
+
+  useEffect(() => {
+    if (!isGuestSampleView || !routeSessionId || !user?._id) {
+      return;
+    }
+
+    try {
+      const rawPendingCopy = sessionStorage.getItem(GUEST_SAMPLE_COPY_AFTER_AUTH_KEY);
+      if (!rawPendingCopy) {
+        return;
+      }
+
+      const pendingCopy = JSON.parse(rawPendingCopy);
+      if (!isFreshPendingCopyRequest(pendingCopy?.startedAt)) {
+        sessionStorage.removeItem(GUEST_SAMPLE_COPY_AFTER_AUTH_KEY);
+        return;
+      }
+
+      if (pendingCopy?.sessionId === routeSessionId) {
+        void copyGuestSampleSessionForEditing();
+      }
+    } catch {
+      sessionStorage.removeItem(GUEST_SAMPLE_COPY_AFTER_AUTH_KEY);
+    }
+  }, [copyGuestSampleSessionForEditing, isGuestSampleView, routeSessionId, user?._id]);
 
   useEffect(() => {
     if (!isSharedSessionView || !videoSessionDetails) {
@@ -1880,6 +2008,10 @@ export default function VideoHome(props) {
   }, [layers, selectedLayerIndex]);
 
   const requestVideoLayerEdit = async ({ layerId, operations }) => {
+    if (!requireEditableStudioAction()) {
+      return { success: false, authRequired: true };
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1958,7 +2090,7 @@ export default function VideoHome(props) {
   };
 
   const submitRenderVideo = async (renderOptions = {}) => {
-    if (isSharedSessionView && !requestEditableSharedSession()) {
+    if (!requireEditableStudioAction()) {
       return false;
     }
 
@@ -1977,8 +2109,8 @@ export default function VideoHome(props) {
       return false;
     }
 
-    const headers = isGuestSession ? undefined : getHeaders();
-    if (!isGuestSession && !headers) {
+    const headers = getHeaders();
+    if (!headers) {
       showLoginDialog();
       return false;
     }
@@ -2014,11 +2146,7 @@ export default function VideoHome(props) {
     }
 
     try {
-      if (isGuestSession) {
-        await axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_guest_video`, renderPayload);
-      } else {
-        await axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, renderPayload, headers);
-      }
+      await axios.post(`${PROCESSOR_API_URL}/video_sessions/request_render_video`, renderPayload, headers);
       setIsVideoGenerating(true);
       startVideoRenderPoll();
       return true;
@@ -4072,6 +4200,7 @@ export default function VideoHome(props) {
           updateSessionHints={updateSessionHints}
           focusHintsPanelRequest={focusHintsPanelRequest}
           requestVideoLayerEdit={requestVideoLayerEdit}
+          onRequireEditableAction={requireEditableStudioAction}
           renderCompletedThisSession={renderCompletedThisSession}
           isRenderPending={isVideoRenderPending}
           isUpdateLayerPending={isUpdateLayerPending}
@@ -4117,6 +4246,7 @@ export default function VideoHome(props) {
       isEditableShareView={isEditableShareView}
       isImportedSession={Boolean(videoSessionDetails?.isImportedSession)}
       onRequestEditSession={requestEditableSharedSession}
+      openAuthDialog={showLoginDialog}
     >
       <PreviewPlaybackController
         applyAudioDucking={applyAudioDucking}
@@ -4208,6 +4338,7 @@ export default function VideoHome(props) {
                 updateSessionHints={updateSessionHints}
                 focusHintsPanelRequest={focusHintsPanelRequest}
                 requestVideoLayerEdit={requestVideoLayerEdit}
+                onRequireEditableAction={requireEditableStudioAction}
                 renderCompletedThisSession={renderCompletedThisSession}
                 isRenderPending={isVideoRenderPending}
                 isUpdateLayerPending={isUpdateLayerPending}
