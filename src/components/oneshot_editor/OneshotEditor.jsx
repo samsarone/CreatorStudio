@@ -181,22 +181,32 @@ const GENERATION_STEP_MODE_TWO_STEP = 'two_step';
 const TWO_STEP_MANUAL_STAGES = ['ai_video_generation'];
 const STEP_IMAGE_GENERATION_POLL_MS = 1_500;
 const STEP_IMAGE_GENERATION_TIMEOUT_MS = 180_000;
+const OUTRO_CTA_TYPE_QR = 'qr';
+const OUTRO_CTA_TYPE_IMAGE = 'image';
+const OUTRO_CTA_TYPE_OPTIONS = [
+  { value: OUTRO_CTA_TYPE_QR, label: 'URL QR code' },
+  { value: OUTRO_CTA_TYPE_IMAGE, label: 'CTA image' },
+];
 const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   tone: 'grounded',
   generate_outro_image: false,
+  outro_cta_type: OUTRO_CTA_TYPE_QR,
   cta_url: '',
   cta_text_top: '',
   cta_text_bottom: '',
   cta_logo: '',
+  outro_cta_image_url: '',
   footer_metadata: '',
   limit_single_narrator: false,
   add_narrator_avatar: false,
 });
 const DEFAULT_POST_PROCESSING_FORM = Object.freeze({
+  outroCtaType: OUTRO_CTA_TYPE_QR,
   ctaUrl: '',
   ctaTextTop: '',
   ctaTextBottom: '',
   ctaLogo: '',
+  outroCtaImageUrl: '',
   footerCtaText: '',
   footerCtaLogo: '',
   footerCtaUrl: '',
@@ -503,6 +513,60 @@ function isHttpUrl(value) {
   }
 }
 
+function getOutroCtaImageMiddleImage(value) {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (!isPlainObject(value)) {
+    return '';
+  }
+  return (
+    value.middle_image ??
+    value.middleImage ??
+    value.center_image ??
+    value.centerImage ??
+    value.middle ??
+    value.center ??
+    value.url ??
+    value.image_url ??
+    value.imageUrl ??
+    value.public_url ??
+    value.publicUrl ??
+    value.src ??
+    value.data_url ??
+    value.dataUrl ??
+    value.image_data ??
+    value.imageData ??
+    ''
+  );
+}
+
+function hasOutroCtaImagePayload(value) {
+  const middleImage = getOutroCtaImageMiddleImage(value);
+  if (typeof middleImage === 'string') {
+    return middleImage.trim().length > 0;
+  }
+  return hasOutroCtaImagePayload(middleImage);
+}
+
+function validateOutroCtaImagePayload(value) {
+  if (value === undefined) {
+    return null;
+  }
+  if (typeof value !== 'string' && !isPlainObject(value)) {
+    return 'JSON input.outro_cta_image must be a string or object when provided.';
+  }
+  const middleImage = getOutroCtaImageMiddleImage(value);
+  if (typeof middleImage !== 'string' || middleImage.trim().length === 0) {
+    return 'JSON input.outro_cta_image.middle_image is required when provided.';
+  }
+  const trimmedMiddleImage = middleImage.trim();
+  if (!isHttpUrl(trimmedMiddleImage) && !trimmedMiddleImage.startsWith('data:image/')) {
+    return 'JSON input.outro_cta_image.middle_image must be an http(s) URL or image data URL.';
+  }
+  return null;
+}
+
 function sessionHasOutroImage(session) {
   if (!session || typeof session !== 'object') {
     return false;
@@ -544,13 +608,18 @@ function payloadRequestsGeneratedOutro(payload) {
     }
 
     const ctaUrl = candidate.cta_url ?? candidate.ctaUrl;
+    const outroCtaImage =
+      candidate.outro_cta_image ??
+      candidate.outroCtaImage ??
+      candidate.cta_image ??
+      candidate.ctaImage;
     const outroImageUrl =
       candidate.outro_image_url ??
       candidate.outroImageUrl ??
       candidate.new_outro_image_url ??
       candidate.newOutroImageUrl;
 
-    return hasTextValue(ctaUrl) && !hasTextValue(outroImageUrl);
+    return (hasTextValue(ctaUrl) || hasOutroCtaImagePayload(outroCtaImage)) && !hasTextValue(outroImageUrl);
   });
 }
 
@@ -767,6 +836,7 @@ function normalizeJsonInputAliases(input) {
     ['cta_text_top', ['ctaTextTop']],
     ['cta_text_bottom', ['ctaTextBottom']],
     ['cta_logo', ['ctaLogo']],
+    ['outro_cta_image', ['outroCtaImage', 'cta_image', 'ctaImage']],
     ['add_footer_animation', ['addFooterAnimation']],
     ['footer_metadata', ['footerMetadata']],
     ['limit_single_narrator', ['limitSingleNarrator']],
@@ -1407,11 +1477,17 @@ function validateCommonJsonInput(input) {
     return 'JSON input.cta_url must be a string when provided.';
   }
 
+  const outroCtaImageError = validateOutroCtaImagePayload(input.outro_cta_image);
+  if (outroCtaImageError) {
+    return outroCtaImageError;
+  }
+
   if (
     input.generate_outro_image === true &&
-    (typeof input.cta_url !== 'string' || input.cta_url.trim().length === 0)
+    (typeof input.cta_url !== 'string' || input.cta_url.trim().length === 0) &&
+    !hasOutroCtaImagePayload(input.outro_cta_image)
   ) {
-    return 'JSON input.cta_url is required when generate_outro_image is true.';
+    return 'JSON input.cta_url or input.outro_cta_image is required when generate_outro_image is true.';
   }
 
   if (hasTextValue(input.cta_url) && !isHttpUrl(input.cta_url)) {
@@ -1822,22 +1898,45 @@ function buildAdvancedRequestConfiguration({
   const shouldGenerateOutro = advancedOptions.generate_outro_image === true;
   if (shouldGenerateOutro) {
     input.generate_outro_image = true;
-    if (!hasTextValue(advancedOptions.cta_url)) {
-      return { error: 'CTA URL is required when generated QR outro is enabled.' };
-    }
-  }
+    const outroCtaType =
+      advancedOptions.outro_cta_type === OUTRO_CTA_TYPE_IMAGE
+        ? OUTRO_CTA_TYPE_IMAGE
+        : OUTRO_CTA_TYPE_QR;
 
-  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_url)) {
-    input.cta_url = advancedOptions.cta_url.trim();
-  }
-  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_text_top)) {
-    input.cta_text_top = advancedOptions.cta_text_top.trim();
-  }
-  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_text_bottom)) {
-    input.cta_text_bottom = advancedOptions.cta_text_bottom.trim();
-  }
-  if (shouldGenerateOutro && hasTextValue(advancedOptions.cta_logo)) {
-    input.cta_logo = advancedOptions.cta_logo.trim();
+    if (outroCtaType === OUTRO_CTA_TYPE_IMAGE) {
+      const middleImageUrl = advancedOptions.outro_cta_image_url?.trim() || '';
+      if (!middleImageUrl) {
+        return { error: 'CTA image URL or upload is required when CTA image outro is enabled.' };
+      }
+      if (!isHttpUrl(middleImageUrl)) {
+        return { error: 'CTA image URL must be a valid http or https URL.' };
+      }
+
+      const outroCtaImage = {
+        middle_image: { url: middleImageUrl },
+      };
+      if (hasTextValue(advancedOptions.cta_text_top)) {
+        outroCtaImage.top_text = advancedOptions.cta_text_top.trim();
+      }
+      if (hasTextValue(advancedOptions.cta_text_bottom)) {
+        outroCtaImage.bottom_text = advancedOptions.cta_text_bottom.trim();
+      }
+      input.outro_cta_image = outroCtaImage;
+    } else {
+      if (!hasTextValue(advancedOptions.cta_url)) {
+        return { error: 'CTA URL is required when generated QR outro is enabled.' };
+      }
+      input.cta_url = advancedOptions.cta_url.trim();
+      if (hasTextValue(advancedOptions.cta_text_top)) {
+        input.cta_text_top = advancedOptions.cta_text_top.trim();
+      }
+      if (hasTextValue(advancedOptions.cta_text_bottom)) {
+        input.cta_text_bottom = advancedOptions.cta_text_bottom.trim();
+      }
+      if (hasTextValue(advancedOptions.cta_logo)) {
+        input.cta_logo = advancedOptions.cta_logo.trim();
+      }
+    }
   }
 
   if (hasTextValue(advancedOptions.footer_metadata)) {
@@ -2407,6 +2506,8 @@ export default function OneshotEditor() {
   const [imageListItems, setImageListItems] = useState(() => [createEmptyImageListItem()]);
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
   const [imageUploadError, setImageUploadError] = useState('');
+  const [uploadingOutroCtaImage, setUploadingOutroCtaImage] = useState(false);
+  const [outroCtaImageUploadError, setOutroCtaImageUploadError] = useState('');
   const [voiceStatusMessage, setVoiceStatusMessage] = useState(null);
   const [voiceError, setVoiceError] = useState(null);
   const [isBrowserRecognitionActive, setIsBrowserRecognitionActive] = useState(false);
@@ -4226,6 +4327,67 @@ export default function OneshotEditor() {
     setImageUploadError('Drop an image file.');
   }, [uploadImageListFile]);
 
+  const uploadOutroCtaImageFile = useCallback(async (file, target = 'advanced') => {
+    if (!file || uploadingOutroCtaImage) {
+      return;
+    }
+    if (!file.type?.startsWith('image/')) {
+      setOutroCtaImageUploadError('Upload an image file.');
+      return;
+    }
+    if (!user) {
+      showLoginDialog();
+      return;
+    }
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    setUploadingOutroCtaImage(true);
+    setOutroCtaImageUploadError('');
+    try {
+      const imageDataUrl = await readFileAsDataUrl(file);
+      const { data } = await axios.post(
+        `${VIDEO_API_BASE}/upload_image_data`,
+        { input: { image_data: [imageDataUrl] } },
+        headers
+      );
+      const uploadedUrl = Array.isArray(data?.image_urls)
+        ? data.image_urls.find((url) => typeof url === 'string' && url.trim())
+        : '';
+      if (!uploadedUrl) {
+        throw new Error('Upload did not return an image URL.');
+      }
+      if (target === 'post_processing') {
+        setPostProcessingForm((current) => ({
+          ...current,
+          outroCtaType: OUTRO_CTA_TYPE_IMAGE,
+          outroCtaImageUrl: uploadedUrl.trim(),
+        }));
+        setPostProcessingError('');
+        setPostProcessingMessage('');
+      } else {
+        updateAdvancedOption('outro_cta_type', OUTRO_CTA_TYPE_IMAGE);
+        updateAdvancedOption('outro_cta_image_url', uploadedUrl.trim());
+      }
+    } catch (err) {
+      const apiMessage = err?.response?.data?.message || err?.message;
+      setOutroCtaImageUploadError(apiMessage || 'CTA image upload failed.');
+    } finally {
+      setUploadingOutroCtaImage(false);
+    }
+  }, [showLoginDialog, updateAdvancedOption, uploadingOutroCtaImage, user]);
+
+  const handleOutroCtaImageUploadInput = useCallback((event, target = 'advanced') => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (file) {
+      uploadOutroCtaImageFile(file, target).catch(() => undefined);
+    }
+  }, [uploadOutroCtaImageFile]);
+
   // ─────────────────────────────────────────────────────────
   //  Submit the text-to-video request
   // ─────────────────────────────────────────────────────────
@@ -4471,6 +4633,8 @@ export default function OneshotEditor() {
     setImageListItems([createEmptyImageListItem()]);
     setUploadingImageIndex(null);
     setImageUploadError('');
+    setUploadingOutroCtaImage(false);
+    setOutroCtaImageUploadError('');
     setEnableSubtitles(false);
     setGenerationStepMode(GENERATION_STEP_MODE_ONE_STEP);
     setSelectedImageStyle(null);
@@ -4661,23 +4825,44 @@ export default function OneshotEditor() {
         endpoint = 'clone';
         successLabel = 'Clone render';
       } else if (actionKey === 'generated_outro') {
-        const ctaUrl = postProcessingForm.ctaUrl.trim();
-        if (!isHttpUrl(ctaUrl)) {
-          throw new Error('Enter a valid outro CTA URL.');
-        }
+        const outroCtaType =
+          postProcessingForm.outroCtaType === OUTRO_CTA_TYPE_IMAGE
+            ? OUTRO_CTA_TYPE_IMAGE
+            : OUTRO_CTA_TYPE_QR;
+        const ctaTextTop = postProcessingForm.ctaTextTop.trim();
+        const ctaTextBottom = postProcessingForm.ctaTextBottom.trim();
+        const ctaLogo = postProcessingForm.ctaLogo.trim();
 
         payload = {
           ...payload,
           generate_outro_image: true,
-          cta_url: ctaUrl,
         };
 
-        const ctaTextTop = postProcessingForm.ctaTextTop.trim();
-        const ctaTextBottom = postProcessingForm.ctaTextBottom.trim();
-        const ctaLogo = postProcessingForm.ctaLogo.trim();
-        if (ctaTextTop) payload.cta_text_top = ctaTextTop;
-        if (ctaTextBottom) payload.cta_text_bottom = ctaTextBottom;
-        if (ctaLogo) payload.cta_logo = ctaLogo;
+        if (outroCtaType === OUTRO_CTA_TYPE_IMAGE) {
+          const middleImageUrl = postProcessingForm.outroCtaImageUrl.trim();
+          if (!middleImageUrl) {
+            throw new Error('CTA image URL or upload is required.');
+          }
+          if (!isHttpUrl(middleImageUrl)) {
+            throw new Error('Enter a valid CTA image URL.');
+          }
+
+          const outroCtaImage = {
+            middle_image: { url: middleImageUrl },
+          };
+          if (ctaTextTop) outroCtaImage.top_text = ctaTextTop;
+          if (ctaTextBottom) outroCtaImage.bottom_text = ctaTextBottom;
+          payload.outro_cta_image = outroCtaImage;
+        } else {
+          const ctaUrl = postProcessingForm.ctaUrl.trim();
+          if (!isHttpUrl(ctaUrl)) {
+            throw new Error('Enter a valid outro CTA URL.');
+          }
+          payload.cta_url = ctaUrl;
+          if (ctaTextTop) payload.cta_text_top = ctaTextTop;
+          if (ctaTextBottom) payload.cta_text_bottom = ctaTextBottom;
+          if (ctaLogo) payload.cta_logo = ctaLogo;
+        }
 
         endpoint = hasExistingOutro ? 'update_outro_image' : 'add_outro_image';
         successLabel = hasExistingOutro ? 'Outro CTA update' : 'Outro CTA add';
@@ -5250,15 +5435,24 @@ export default function OneshotEditor() {
 
           {postProcessingAction === 'generated_outro' && (
             <div className="space-y-3">
+              <select
+                value={postProcessingForm.outroCtaType || OUTRO_CTA_TYPE_QR}
+                onChange={(event) => {
+                  updatePostProcessingFormField('outroCtaType', event.target.value);
+                  setOutroCtaImageUploadError('');
+                }}
+                disabled={isAnyPostProcessingPending}
+                className={fieldClass}
+                aria-label="Outro CTA type"
+              >
+                {OUTRO_CTA_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <input
-                  type="url"
-                  value={postProcessingForm.ctaUrl}
-                  onChange={(event) => updatePostProcessingFormField('ctaUrl', event.target.value)}
-                  placeholder="Outro CTA URL"
-                  aria-label="Outro CTA URL"
-                  className={fieldClass}
-                />
                 <input
                   type="text"
                   value={postProcessingForm.ctaTextTop}
@@ -5275,6 +5469,59 @@ export default function OneshotEditor() {
                   aria-label="Outro bottom text"
                   className={fieldClass}
                 />
+                {postProcessingForm.outroCtaType === OUTRO_CTA_TYPE_IMAGE ? (
+                  <div className="sm:col-span-3">
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="url"
+                        value={postProcessingForm.outroCtaImageUrl}
+                        onChange={(event) => {
+                          updatePostProcessingFormField('outroCtaImageUrl', event.target.value);
+                          setOutroCtaImageUploadError('');
+                        }}
+                        placeholder="CTA / logo URL"
+                        aria-label="CTA image URL"
+                        disabled={isAnyPostProcessingPending || uploadingOutroCtaImage}
+                        className={`${fieldClass} flex-1`}
+                      />
+                      <label
+                        className={`
+                          inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition
+                          ${subtleButtonClass}
+                          ${isAnyPostProcessingPending || uploadingOutroCtaImage ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+                        `}
+                      >
+                        <input
+                          type="file"
+                          accept="image/*,image/heic,image/heif,.heic,.heif"
+                          onChange={(event) => handleOutroCtaImageUploadInput(event, 'post_processing')}
+                          disabled={isAnyPostProcessingPending || uploadingOutroCtaImage}
+                          className="sr-only"
+                        />
+                        {uploadingOutroCtaImage ? (
+                          <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                        ) : (
+                          <FaUpload className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {uploadingOutroCtaImage ? 'Uploading...' : 'Upload image'}
+                      </label>
+                    </div>
+                    {outroCtaImageUploadError ? (
+                      <p className="mt-1 text-[11px] text-rose-500">
+                        {outroCtaImageUploadError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <input
+                    type="url"
+                    value={postProcessingForm.ctaUrl}
+                    onChange={(event) => updatePostProcessingFormField('ctaUrl', event.target.value)}
+                    placeholder="Outro CTA URL"
+                    aria-label="Outro CTA URL"
+                    className={fieldClass}
+                  />
+                )}
               </div>
               <button
                 type="button"
@@ -6072,7 +6319,7 @@ export default function OneshotEditor() {
 
               <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  CTA Outro
+                  Outro image
                 </div>
                 <label className={`flex items-start gap-3 rounded-xl px-3 py-3 ${advancedRowBg}`}>
                   <input
@@ -6087,52 +6334,153 @@ export default function OneshotEditor() {
                   <span className="text-sm font-medium">Generate CTA outro</span>
                 </label>
                 {advancedOptions.generate_outro_image && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <div>
-                      <label className={advancedLabelClasses}>CTA URL</label>
-                      <input
-                        type="url"
-                        value={advancedOptions.cta_url}
-                        onChange={(event) => updateAdvancedOption('cta_url', event.target.value)}
+                      <label className={advancedLabelClasses}>Outro CTA</label>
+                      <select
+                        value={advancedOptions.outro_cta_type || OUTRO_CTA_TYPE_QR}
+                        onChange={(event) => {
+                          updateAdvancedOption('outro_cta_type', event.target.value);
+                          setOutroCtaImageUploadError('');
+                        }}
                         disabled={isFormDisabled}
                         className={advancedInputClasses}
-                        placeholder="https://example.com/book"
-                      />
+                      >
+                        {OUTRO_CTA_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                    <div>
-                      <label className={advancedLabelClasses}>CTA top text</label>
-                      <input
-                        type="text"
-                        value={advancedOptions.cta_text_top}
-                        onChange={(event) =>
-                          updateAdvancedOption('cta_text_top', event.target.value)
-                        }
-                        disabled={isFormDisabled}
-                        className={advancedInputClasses}
-                      />
-                    </div>
-                    <div>
-                      <label className={advancedLabelClasses}>CTA bottom text</label>
-                      <input
-                        type="text"
-                        value={advancedOptions.cta_text_bottom}
-                        onChange={(event) =>
-                          updateAdvancedOption('cta_text_bottom', event.target.value)
-                        }
-                        disabled={isFormDisabled}
-                        className={advancedInputClasses}
-                      />
-                    </div>
-                    <div>
-                      <label className={advancedLabelClasses}>CTA logo URL</label>
-                      <input
-                        type="url"
-                        value={advancedOptions.cta_logo}
-                        onChange={(event) => updateAdvancedOption('cta_logo', event.target.value)}
-                        disabled={isFormDisabled}
-                        className={advancedInputClasses}
-                      />
-                    </div>
+
+                    {advancedOptions.outro_cta_type === OUTRO_CTA_TYPE_IMAGE ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className={advancedLabelClasses}>Top text</label>
+                          <input
+                            type="text"
+                            value={advancedOptions.cta_text_top}
+                            onChange={(event) =>
+                              updateAdvancedOption('cta_text_top', event.target.value)
+                            }
+                            disabled={isFormDisabled}
+                            className={advancedInputClasses}
+                            placeholder="Shop the drop"
+                          />
+                        </div>
+                        <div>
+                          <label className={advancedLabelClasses}>Bottom text</label>
+                          <input
+                            type="text"
+                            value={advancedOptions.cta_text_bottom}
+                            onChange={(event) =>
+                              updateAdvancedOption('cta_text_bottom', event.target.value)
+                            }
+                            disabled={isFormDisabled}
+                            className={advancedInputClasses}
+                            placeholder="Limited availability"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className={advancedLabelClasses}>CTA / logo URL</label>
+                          <div className="flex flex-col gap-2 sm:flex-row">
+                            <input
+                              type="url"
+                              value={advancedOptions.outro_cta_image_url}
+                              onChange={(event) => {
+                                updateAdvancedOption('outro_cta_image_url', event.target.value);
+                                setOutroCtaImageUploadError('');
+                              }}
+                              disabled={isFormDisabled || uploadingOutroCtaImage}
+                              className={`${advancedInputClasses} flex-1`}
+                              placeholder="https://cdn.example.com/logo.png"
+                            />
+                            <label
+                              className={`
+                                inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold
+                                ${colorMode === 'dark'
+                                  ? 'bg-slate-800 text-slate-100 ring-1 ring-slate-700 hover:bg-slate-700'
+                                  : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'}
+                                ${isFormDisabled || uploadingOutroCtaImage ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+                              `}
+                            >
+                              <input
+                                type="file"
+                                accept="image/*,image/heic,image/heif,.heic,.heif"
+                                onChange={handleOutroCtaImageUploadInput}
+                                disabled={isFormDisabled || uploadingOutroCtaImage}
+                                className="sr-only"
+                              />
+                              {uploadingOutroCtaImage ? (
+                                <FaSpinner className="animate-spin text-xs" />
+                              ) : (
+                                <FaUpload className="text-xs" />
+                              )}
+                              {uploadingOutroCtaImage ? 'Uploading...' : 'Upload image'}
+                            </label>
+                          </div>
+                          {outroCtaImageUploadError ? (
+                            <p className="mt-1 text-[11px] text-rose-500">
+                              {outroCtaImageUploadError}
+                            </p>
+                          ) : null}
+                          {hasTextValue(advancedOptions.outro_cta_image_url) ? (
+                            <p className={`mt-1 text-[11px] ${mutedText}`}>
+                              This image will replace the QR code in the outro center area.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className={advancedLabelClasses}>CTA URL</label>
+                          <input
+                            type="url"
+                            value={advancedOptions.cta_url}
+                            onChange={(event) => updateAdvancedOption('cta_url', event.target.value)}
+                            disabled={isFormDisabled}
+                            className={advancedInputClasses}
+                            placeholder="https://example.com/book"
+                          />
+                        </div>
+                        <div>
+                          <label className={advancedLabelClasses}>CTA top text</label>
+                          <input
+                            type="text"
+                            value={advancedOptions.cta_text_top}
+                            onChange={(event) =>
+                              updateAdvancedOption('cta_text_top', event.target.value)
+                            }
+                            disabled={isFormDisabled}
+                            className={advancedInputClasses}
+                          />
+                        </div>
+                        <div>
+                          <label className={advancedLabelClasses}>CTA bottom text</label>
+                          <input
+                            type="text"
+                            value={advancedOptions.cta_text_bottom}
+                            onChange={(event) =>
+                              updateAdvancedOption('cta_text_bottom', event.target.value)
+                            }
+                            disabled={isFormDisabled}
+                            className={advancedInputClasses}
+                          />
+                        </div>
+                        <div>
+                          <label className={advancedLabelClasses}>CTA logo URL</label>
+                          <input
+                            type="url"
+                            value={advancedOptions.cta_logo}
+                            onChange={(event) => updateAdvancedOption('cta_logo', event.target.value)}
+                            disabled={isFormDisabled}
+                            className={advancedInputClasses}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
