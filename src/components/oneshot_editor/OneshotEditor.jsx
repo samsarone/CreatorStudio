@@ -92,6 +92,15 @@ const STATIC_ASSET_BASE_URL = (
   'https://static.samsar.one'
 ).replace(/\/+$/, '');
 const USER_RESOURCES_PREFIX = 'user_resources/';
+const DIRECT_PROCESSOR_ASSET_PREFIXES = [
+  'assets_v2/',
+  'assets/',
+  'generations/',
+  'intermediates/',
+  'temp_images/',
+  'video/',
+  'ai_video/',
+];
 const ADVANCED_VIDEO_EDIT_PENDING_SESSION_KEY = 'advancedVideoEditPendingSession';
 const POST_PROCESSING_PENDING_SESSION_KEY = 'vidgeniePostProcessingPendingSession';
 const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
@@ -644,10 +653,56 @@ function normalizeRerollLayerType(layer) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function looksLikeStudioVideoRoute(value) {
+  return typeof value === 'string' && /^\/?video\/[a-f0-9]{24}$/i.test(value.trim());
+}
+
+function isDirectProcessorAssetPath(value) {
+  return DIRECT_PROCESSOR_ASSET_PREFIXES.some((prefix) => value.startsWith(prefix));
+}
+
+function buildProcessorAssetUrl(relativePath) {
+  const normalizedPath = String(relativePath || '').replace(/^\/+/, '');
+  return PROCESSOR_API_URL ? `${PROCESSOR_API_URL}/${normalizedPath}` : `/${normalizedPath}`;
+}
+
+function hasExpiredCloudFrontSignature(url) {
+  const expires = Number(url.searchParams.get('Expires'));
+  return Number.isFinite(expires) && expires > 0 && expires * 1000 <= Date.now() + 60_000;
+}
+
+function getProcessorAssetFallbackUrl(url) {
+  if (typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+
+  const relativePath = trimmed.replace(/^\/+/, '');
+  if (isDirectProcessorAssetPath(relativePath)) {
+    return buildProcessorAssetUrl(relativePath);
+  }
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return '';
+  }
+
+  try {
+    const parsedUrl = new URL(trimmed);
+    const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    return isDirectProcessorAssetPath(pathname) ? buildProcessorAssetUrl(pathname) : '';
+  } catch {
+    return '';
+  }
+}
+
 function normalizeRerollAssetUrl(url) {
   if (typeof url !== 'string') return '';
   const trimmed = url.trim();
   if (!trimmed) return '';
+  if (looksLikeStudioVideoRoute(trimmed)) return '';
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+
   const relativePath = trimmed.replace(/^\/+/, '');
   if (relativePath.startsWith(USER_RESOURCES_PREFIX)) {
     return `${STATIC_ASSET_BASE_URL}/${relativePath}`;
@@ -655,16 +710,35 @@ function normalizeRerollAssetUrl(url) {
   if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
     try {
       const parsedUrl = new URL(trimmed);
-      const pathname = parsedUrl.pathname.replace(/^\/+/, '');
+      const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
       if (pathname.startsWith(USER_RESOURCES_PREFIX)) {
         return `${STATIC_ASSET_BASE_URL}/${pathname}${parsedUrl.search || ''}`;
+      }
+      if (isDirectProcessorAssetPath(pathname) && hasExpiredCloudFrontSignature(parsedUrl)) {
+        return buildProcessorAssetUrl(pathname);
       }
     } catch {
       return trimmed;
     }
     return trimmed;
   }
+  if (isDirectProcessorAssetPath(relativePath)) {
+    return buildProcessorAssetUrl(relativePath);
+  }
   return `${PROCESSOR_API_URL}/${relativePath}`;
+}
+
+function getRerollAssetUrlPair(values = []) {
+  for (const value of values) {
+    const url = normalizeRerollAssetUrl(value);
+    if (!url) continue;
+    const fallbackUrl = getProcessorAssetFallbackUrl(value) || getProcessorAssetFallbackUrl(url);
+    return {
+      url,
+      fallbackUrl: fallbackUrl && fallbackUrl !== url ? fallbackUrl : '',
+    };
+  }
+  return { url: '', fallbackUrl: '' };
 }
 
 function isRerollCandidateLayer(layer) {
@@ -681,9 +755,17 @@ function getRawItemAssetUrl(item) {
   if (!item || typeof item !== 'object') return '';
   return (
     item.url ||
+    item.previewUrl ||
+    item.preview_url ||
+    item.signedUrl ||
+    item.signed_url ||
+    item.displayUrl ||
+    item.display_url ||
     item.src ||
     item.imageUrl ||
     item.image_url ||
+    item.rawUrl ||
+    item.raw_url ||
     item.enhanced_url ||
     item.enhancedUrl ||
     item.assetPath ||
@@ -703,7 +785,18 @@ function getLayerVisualUrl(layer) {
     rawActiveItems.find((item) => item?.type === 'image') ||
     rawActiveItems[0] ||
     null;
+  const frameImages = layer?.frameImages || {};
   const candidates = [
+    frameImages.startFrameUrl,
+    frameImages.startFrame,
+    frameImages.aiLayerStartFrame,
+    frameImages.baseLayerStartFrame,
+    frameImages.aiVideoThumbnailPath,
+    frameImages.thumbnailPath,
+    layer?.aiLayerStartFrame,
+    layer?.baseLayerStartFrame,
+    layer?.aiVideoThumbnailPath,
+    layer?.thumbnailPath,
     layer?.preview?.type !== 'video' ? layer?.preview?.url : '',
     layer?.image?.url,
     detailedItemUrl,
@@ -715,7 +808,26 @@ function getLayerVisualUrl(layer) {
     layer?.thumbnailPath,
     layer?.aiVideoThumbnailPath,
   ];
-  return candidates.map(normalizeRerollAssetUrl).find(Boolean) || '';
+  return getRerollAssetUrlPair(candidates);
+}
+
+function getLayerPreviewVideoUrlPair(layer) {
+  const candidates = [
+    layer?.lipSyncVideo?.url,
+    layer?.soundEffectVideo?.url,
+    layer?.userVideo?.url,
+    layer?.aiVideo?.url,
+    layer?.preview?.type === 'video' ? layer?.preview?.url : '',
+    layer?.lipSyncRemoteLink,
+    layer?.soundEffectRemoteLink,
+    layer?.userVideoRemoteLink,
+    layer?.aiVideoRemoteLink,
+    layer?.lipSyncVideoLayer,
+    layer?.soundEffectVideoLayer,
+    layer?.userVideoLayer,
+    layer?.aiVideoLayer,
+  ];
+  return getRerollAssetUrlPair(candidates);
 }
 
 function getRerollPromptPreview(layer) {
@@ -736,14 +848,21 @@ function getRerollPromptPreview(layer) {
 function getRerollCandidateLayers(session) {
   const layers = Array.isArray(session?.layers) ? session.layers : [];
   return layers
-    .map((layer, index) => ({
-      layer,
-      layerIndex: index + 1,
-      layerId: layer?._id || layer?.id || `${index + 1}`,
-      duration: Number(layer?.duration) || 0,
-      promptPreview: getRerollPromptPreview(layer),
-      visualUrl: getLayerVisualUrl(layer),
-    }))
+    .map((layer, index) => {
+      const visualUrlPair = getLayerVisualUrl(layer);
+      const videoUrlPair = getLayerPreviewVideoUrlPair(layer);
+      return {
+        layer,
+        layerIndex: index + 1,
+        layerId: layer?._id || layer?.id || `${index + 1}`,
+        duration: Number(layer?.duration) || 0,
+        promptPreview: getRerollPromptPreview(layer),
+        visualUrl: visualUrlPair.url,
+        visualFallbackUrl: visualUrlPair.fallbackUrl,
+        videoUrl: videoUrlPair.url,
+        videoFallbackUrl: videoUrlPair.fallbackUrl,
+      };
+    })
     .filter((item) => isRerollCandidateLayer(item.layer));
 }
 
@@ -777,6 +896,177 @@ function getRerollLocalCreditEstimate({
     imageCredits,
     aiVideoCredits,
   };
+}
+
+function RerollScenePreviewTile({
+  item,
+  isSelected,
+  isPlaying,
+  isDisabled,
+  colorMode,
+  mutedText,
+  activeActionClass,
+  inactiveActionClass,
+  onToggleSelect,
+  onTogglePlayback,
+}) {
+  const videoRef = useRef(null);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState(item.videoUrl || '');
+  const [currentVisualUrl, setCurrentVisualUrl] = useState(item.visualUrl || '');
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setCurrentVideoUrl(item.videoUrl || '');
+    setCurrentVisualUrl(item.visualUrl || '');
+    setVideoLoadFailed(false);
+  }, [item.videoFallbackUrl, item.videoUrl, item.visualFallbackUrl, item.visualUrl]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isPlaying && currentVideoUrl && !videoLoadFailed) {
+      const playPromise = video.play();
+      if (playPromise?.catch) playPromise.catch(() => undefined);
+    } else {
+      video.pause();
+    }
+  }, [currentVideoUrl, isPlaying, videoLoadFailed]);
+
+  const handleVideoError = () => {
+    if (item.videoFallbackUrl && currentVideoUrl !== item.videoFallbackUrl) {
+      setCurrentVideoUrl(item.videoFallbackUrl);
+      setVideoLoadFailed(false);
+      return;
+    }
+    setVideoLoadFailed(true);
+    if (isPlaying) {
+      onTogglePlayback(null);
+    }
+  };
+
+  const handleImageError = () => {
+    if (item.visualFallbackUrl && currentVisualUrl !== item.visualFallbackUrl) {
+      setCurrentVisualUrl(item.visualFallbackUrl);
+      return;
+    }
+    setCurrentVisualUrl('');
+  };
+
+  const handlePlaybackClick = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isDisabled || !currentVideoUrl || videoLoadFailed) return;
+
+    const video = videoRef.current;
+    if (isPlaying) {
+      video?.pause();
+      onTogglePlayback(null);
+      return;
+    }
+
+    onTogglePlayback(item.layerId);
+    const playPromise = video?.play?.();
+    if (playPromise?.catch) playPromise.catch(() => undefined);
+  };
+
+  const handleSelect = () => {
+    if (!isDisabled) {
+      onToggleSelect(item.layerIndex);
+    }
+  };
+
+  const handleSelectKeyDown = (event) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleSelect();
+    }
+  };
+
+  const canAttemptPlayback = Boolean(currentVideoUrl) && !videoLoadFailed;
+  const shouldShowVideo = isPlaying && canAttemptPlayback;
+
+  return (
+    <div
+      role="button"
+      tabIndex={isDisabled ? -1 : 0}
+      onClick={handleSelect}
+      onKeyDown={handleSelectKeyDown}
+      aria-pressed={isSelected}
+      aria-disabled={isDisabled}
+      className={`
+        min-h-[146px] rounded-lg p-1.5 text-left text-xs ring-1 transition
+        ${isSelected ? activeActionClass : inactiveActionClass}
+        ${isDisabled ? 'cursor-not-allowed opacity-50' : 'active:scale-[0.99]'}
+      `}
+    >
+      <div className={`relative aspect-video w-full overflow-hidden rounded-md ${
+        colorMode === 'dark' ? 'bg-slate-900' : 'bg-slate-100'
+      }`}>
+        {currentVisualUrl ? (
+          <img
+            src={currentVisualUrl}
+            alt={`Scene ${item.layerIndex}`}
+            loading="lazy"
+            onError={handleImageError}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
+            <FaImage className="h-5 w-5" aria-hidden="true" />
+          </div>
+        )}
+        {canAttemptPlayback ? (
+          <video
+            ref={videoRef}
+            src={currentVideoUrl}
+            preload="metadata"
+            playsInline
+            loop
+            muted
+            onError={handleVideoError}
+            onLoadedData={() => setVideoLoadFailed(false)}
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}`}
+          />
+        ) : null}
+        <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+          Scene {item.layerIndex}
+        </span>
+        {canAttemptPlayback ? (
+          <button
+            type="button"
+            disabled={isDisabled}
+            aria-label={`${isPlaying ? 'Pause' : 'Play'} scene ${item.layerIndex} preview`}
+            title={`${isPlaying ? 'Pause' : 'Play'} scene preview`}
+            onClick={handlePlaybackClick}
+            className={`
+              absolute bottom-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full
+              bg-black/70 text-white shadow transition hover:bg-black/85
+              ${isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
+            `}
+          >
+            {isPlaying ? (
+              <FaPause className="h-3 w-3" aria-hidden="true" />
+            ) : (
+              <FaPlay className="h-3 w-3 translate-x-px" aria-hidden="true" />
+            )}
+          </button>
+        ) : null}
+        {isSelected ? (
+          <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300 text-slate-950 shadow">
+            <FaCheck className="h-3 w-3" aria-hidden="true" />
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="truncate font-semibold">Scene {item.layerIndex}</span>
+        <span className={mutedText}>{item.duration ? `${item.duration}s` : ''}</span>
+      </div>
+      {item.promptPreview ? (
+        <div className={`mt-1 truncate ${mutedText}`}>{item.promptPreview}</div>
+      ) : null}
+    </div>
+  );
 }
 
 function getJsonModelByKey(modelTypes, modelKey) {
@@ -2393,6 +2683,8 @@ export default function OneshotEditor() {
   const [postProcessingPendingAction, setPostProcessingPendingAction] = useState('');
   const [postProcessingMessage, setPostProcessingMessage] = useState('');
   const [postProcessingError, setPostProcessingError] = useState('');
+  const [isRerollPreviewRefreshing, setIsRerollPreviewRefreshing] = useState(false);
+  const [playingRerollLayerId, setPlayingRerollLayerId] = useState(null);
   const [currentRenderGeneratedOutro, setCurrentRenderGeneratedOutro] = useState(false);
   const [isCompletedRequestExpanded, setIsCompletedRequestExpanded] = useState(false);
   const completedRequestCollapseKeyRef = useRef('');
@@ -4746,7 +5038,27 @@ export default function OneshotEditor() {
     setPostProcessingAction(actionKey);
     setPostProcessingError('');
     setPostProcessingMessage('');
-  }, []);
+    setPlayingRerollLayerId(null);
+
+    if (actionKey !== 'reroll_layers') {
+      return;
+    }
+
+    const requestId = activeRequestIdRef.current || activeRequestId || id;
+    const headers = getHeaders();
+    if (!requestId || !headers) {
+      return;
+    }
+
+    setIsRerollPreviewRefreshing(true);
+    refreshDetailedGenerationStatus(requestId, headers)
+      .catch(() => {
+        setPostProcessingError('Unable to refresh scene previews. You can still reroll using the available scene list.');
+      })
+      .finally(() => {
+        setIsRerollPreviewRefreshing(false);
+      });
+  }, [activeRequestId, id, refreshDetailedGenerationStatus]);
 
   const toggleRerollLayerIndex = useCallback((layerIndex) => {
     setPostProcessingForm((current) => {
@@ -4761,6 +5073,12 @@ export default function OneshotEditor() {
     });
     setPostProcessingError('');
     setPostProcessingMessage('');
+  }, []);
+
+  const toggleRerollLayerPlayback = useCallback((layerId) => {
+    setPlayingRerollLayerId((currentLayerId) => (
+      currentLayerId === layerId ? null : layerId
+    ));
   }, []);
 
   const submitPostProcessingOperation = useCallback(async (actionKey) => {
@@ -4915,6 +5233,7 @@ export default function OneshotEditor() {
       setPostProcessingError('');
       setPostProcessingMessage('');
       setErrorMessage(null);
+      setPlayingRerollLayerId(null);
 
       const { data } = await axios.post(
         `${VIDEO_API_BASE}/${endpoint}`,
@@ -5287,6 +5606,7 @@ export default function OneshotEditor() {
     const hasRerollQuote = Number.isFinite(rerollQuoteTotalCredits);
     const isRerollSubmitDisabled =
       isAnyPostProcessingPending ||
+      isRerollPreviewRefreshing ||
       !rerollLayerIndexes.length;
 
     const panelWidthClass =
@@ -5614,55 +5934,32 @@ export default function OneshotEditor() {
 
           {postProcessingAction === 'reroll_layers' && (
             <div className="space-y-3">
+              {isRerollPreviewRefreshing ? (
+                <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
+                  colorMode === 'dark' ? 'bg-white/[0.04] text-slate-300' : 'bg-slate-50 text-slate-600'
+                }`}>
+                  <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  Refreshing scene previews
+                </div>
+              ) : null}
               {rerollCandidateLayers.length ? (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {rerollCandidateLayers.map((item) => {
                     const isSelected = rerollLayerIndexes.includes(item.layerIndex);
                     return (
-                      <button
+                      <RerollScenePreviewTile
                         key={item.layerId}
-                        type="button"
-                        onClick={() => toggleRerollLayerIndex(item.layerIndex)}
-                        disabled={isAnyPostProcessingPending}
-                        aria-pressed={isSelected}
-                        className={`
-                          min-h-[146px] rounded-lg p-1.5 text-left text-xs ring-1 transition
-                          ${isSelected ? activeActionClass : inactiveActionClass}
-                          ${isAnyPostProcessingPending ? 'cursor-not-allowed opacity-50' : 'active:scale-[0.99]'}
-                        `}
-                      >
-                        <div className={`relative aspect-video w-full overflow-hidden rounded-md ${
-                          colorMode === 'dark' ? 'bg-slate-900' : 'bg-slate-100'
-                        }`}>
-                          {item.visualUrl ? (
-                            <img
-                              src={item.visualUrl}
-                              alt={`Scene ${item.layerIndex}`}
-                              loading="lazy"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
-                              <FaImage className="h-5 w-5" aria-hidden="true" />
-                            </div>
-                          )}
-                          <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                            Scene {item.layerIndex}
-                          </span>
-                          {isSelected ? (
-                            <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300 text-slate-950 shadow">
-                              <FaCheck className="h-3 w-3" aria-hidden="true" />
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <span className="truncate font-semibold">Scene {item.layerIndex}</span>
-                          <span className={mutedText}>{item.duration ? `${item.duration}s` : ''}</span>
-                        </div>
-                        {item.promptPreview ? (
-                          <div className={`mt-1 truncate ${mutedText}`}>{item.promptPreview}</div>
-                        ) : null}
-                      </button>
+                        item={item}
+                        isSelected={isSelected}
+                        isPlaying={playingRerollLayerId === item.layerId}
+                        isDisabled={isAnyPostProcessingPending}
+                        colorMode={colorMode}
+                        mutedText={mutedText}
+                        activeActionClass={activeActionClass}
+                        inactiveActionClass={inactiveActionClass}
+                        onToggleSelect={toggleRerollLayerIndex}
+                        onTogglePlayback={toggleRerollLayerPlayback}
+                      />
                     );
                   })}
                 </div>
