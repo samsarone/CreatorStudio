@@ -9,7 +9,7 @@ import React, {
 import ace from 'ace-builds';
 import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Tooltip } from 'react-tooltip';
 import {
   FaChevronCircleDown,
@@ -965,8 +965,6 @@ function RerollScenePreviewTile({
     }
 
     onTogglePlayback(item.layerId);
-    const playPromise = video?.play?.();
-    if (playPromise?.catch) playPromise.catch(() => undefined);
   };
 
   const handleSelect = () => {
@@ -1016,17 +1014,18 @@ function RerollScenePreviewTile({
             <FaImage className="h-5 w-5" aria-hidden="true" />
           </div>
         )}
-        {canAttemptPlayback ? (
+        {shouldShowVideo ? (
           <video
             ref={videoRef}
             src={currentVideoUrl}
-            preload="metadata"
+            preload="auto"
+            autoPlay
             playsInline
             loop
             muted
             onError={handleVideoError}
             onLoadedData={() => setVideoLoadFailed(false)}
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity ${shouldShowVideo ? 'opacity-100' : 'opacity-0'}`}
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : null}
         <span className="absolute left-1.5 top-1.5 rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-semibold text-white">
@@ -2412,6 +2411,14 @@ function normalizeGenerationStatus(status) {
   return typeof status === 'string' ? status.trim().toUpperCase() : '';
 }
 
+function isCompletedGenerationStatus(status) {
+  const normalizedStatus = normalizeGenerationStatus(status);
+  return normalizedStatus === 'COMPLETED' ||
+    normalizedStatus === 'SUCCESS' ||
+    normalizedStatus === 'SUCCEEDED' ||
+    normalizedStatus === 'DONE';
+}
+
 function hasExpressGenerationStatusProgress(status) {
   if (!isPlainObject(status)) {
     return false;
@@ -2466,11 +2473,16 @@ function isSessionGenerationPending(data, forcePending = false) {
     return false;
   }
 
-  return Boolean(
-    forcePending ||
+  const backendPending = Boolean(
     data.videoGenerationPending ||
     (data.expressGenerationPending && hasStartedGenerationSession(data))
   );
+
+  if (!backendPending && extractVideoResultUrl(data)) {
+    return false;
+  }
+
+  return Boolean(forcePending || backendPending);
 }
 
 function extractErrorText(value) {
@@ -2494,12 +2506,7 @@ function getDetailedGenerationFailureStatus(data) {
   }
 
   const topLevelStatus = normalizeGenerationStatus(data.status);
-  if (
-    topLevelStatus === 'COMPLETED' ||
-    topLevelStatus === 'SUCCESS' ||
-    topLevelStatus === 'SUCCEEDED' ||
-    topLevelStatus === 'DONE'
-  ) {
+  if (isCompletedGenerationStatus(topLevelStatus)) {
     return '';
   }
 
@@ -2567,10 +2574,12 @@ export default function OneshotEditor() {
   const { t, language } = useLocalization();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const showLoginDialog = useCallback(() => {
-    openAlertDialog(<AuthContainer />, undefined, false, AUTH_DIALOG_OPTIONS);
-  }, [openAlertDialog]);
+    const redirectTo = `${location.pathname}${location.search || ''}`;
+    openAlertDialog(<AuthContainer redirectTo={redirectTo} />, undefined, false, AUTH_DIALOG_OPTIONS);
+  }, [location.pathname, location.search, openAlertDialog]);
 
   const goToPurchaseCredits = useCallback(() => {
     closeAlertDialog();
@@ -3908,24 +3917,36 @@ export default function OneshotEditor() {
         setIsPaused(false);
         setIsGenerationWaitingForApproval(false);
 
-        const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
-        if (normalizedStatus === 'COMPLETED' && videoActualLink) {
-          continuePolling = false;
-          const completedPostProcessingAction = postProcessingPollActionRef.current;
-          postProcessingPollActionRef.current = '';
-          setIsGenerationPending(false);
-          setIsPaused(false);
-          clearAdvancedVideoEditPendingSession(data.session_id || requestId);
-          clearPostProcessingPendingSession(data.session_id || requestId);
-          if (completedPostProcessingAction === 'reroll_layers') {
-            setPostProcessingForm((current) => ({
-              ...current,
-              rerollLayerIndexes: [],
-            }));
-            setPostProcessingAction('generated_outro');
+        let videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
+        if (isCompletedGenerationStatus(normalizedStatus)) {
+          if (!videoActualLink) {
+            const latestSessionDetails = await getSessionDetails();
+            if (currentPollRequestIdRef.current !== requestId) {
+              return;
+            }
+            videoActualLink = getNormalizedLatestVideoUrl(latestSessionDetails);
           }
-          setVideoLink(videoActualLink);
-          return;
+
+          if (videoActualLink) {
+            continuePolling = false;
+            const completedPostProcessingAction = postProcessingPollActionRef.current;
+            postProcessingPollActionRef.current = '';
+            setIsGenerationPending(false);
+            setIsGenerationWaitingForApproval(false);
+            setIsPaused(false);
+            setShowResultDisplay(true);
+            clearAdvancedVideoEditPendingSession(data.session_id || requestId);
+            clearPostProcessingPendingSession(data.session_id || requestId);
+            if (completedPostProcessingAction === 'reroll_layers') {
+              setPostProcessingForm((current) => ({
+                ...current,
+                rerollLayerIndexes: [],
+              }));
+              setPostProcessingAction('generated_outro');
+            }
+            setVideoLink(videoActualLink);
+            return;
+          }
         }
 
         const failureStatus = getDetailedGenerationFailureStatus(data);
@@ -4126,13 +4147,29 @@ export default function OneshotEditor() {
 
         setIsGenerationWaitingForApproval(false);
 
-        const videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
-        if (data.status === 'COMPLETED' && videoActualLink) {
-          continuePolling = false;
-          setIsGenerationPending(false);
-          setIsPaused(false);
-          clearAdvancedVideoEditPendingSession(data.session_id || requestId);
-          setVideoLink(videoActualLink);
+        const normalizedStatus = normalizeGenerationStatus(data?.status);
+        let videoActualLink = normalizeVideoUrl(extractVideoResultUrl(data));
+        if (isCompletedGenerationStatus(normalizedStatus)) {
+          if (!videoActualLink) {
+            const latestSessionDetails = await getSessionDetails();
+            if (currentPollRequestIdRef.current !== requestId) {
+              return;
+            }
+            videoActualLink = getNormalizedLatestVideoUrl(latestSessionDetails);
+          }
+
+          if (videoActualLink) {
+            continuePolling = false;
+            postProcessingPollActionRef.current = '';
+            setIsGenerationPending(false);
+            setIsGenerationWaitingForApproval(false);
+            setIsPaused(false);
+            setShowResultDisplay(true);
+            clearAdvancedVideoEditPendingSession(data.session_id || requestId);
+            clearPostProcessingPendingSession(data.session_id || requestId);
+            setVideoLink(videoActualLink);
+            return;
+          }
         }
 
         const failureStatus = getDetailedGenerationFailureStatus(data);
@@ -4399,11 +4436,37 @@ export default function OneshotEditor() {
   const getSessionDetails = async () => {
 
     try {
-      const headers = getHeaders();
-      const { data } = await axios.get(
-        `${API_SERVER}/quick_session/details?sessionId=${id}`,
-        headers
-      );
+      let headers = getHeaders();
+      if (!headers) {
+        await getUserAPI();
+        headers = getHeaders();
+      }
+      if (!headers) return null;
+
+      let sessionResponse;
+      try {
+        sessionResponse = await axios.get(
+          `${API_SERVER}/quick_session/details?sessionId=${id}`,
+          headers
+        );
+      } catch (error) {
+        if (error?.response?.status !== 401) {
+          throw error;
+        }
+
+        await getUserAPI();
+        headers = getHeaders();
+        if (!headers) {
+          throw error;
+        }
+
+        sessionResponse = await axios.get(
+          `${API_SERVER}/quick_session/details?sessionId=${id}`,
+          headers
+        );
+      }
+
+      const { data } = sessionResponse;
       setSessionDetails(data);
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
       const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);

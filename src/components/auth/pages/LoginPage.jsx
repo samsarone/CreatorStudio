@@ -1,13 +1,16 @@
 import React from 'react';
-import axios from 'axios';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getHeaders, hasAcceptedCookies } from '../../../utils/web.jsx';
-import { getDefaultAuthenticatedPath } from '../../../utils/defaultRoutes.js';
-import { resolveAuthenticatedEntryPath } from '../../../utils/vidgenieRouting.js';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 import { useMediaQuery } from 'react-responsive';
+import {
+  buildGoogleLoginUrl,
+  consumeResolvedAuthRedirect,
+  getCurrentAuthRedirect,
+  persistAuthRedirectForFlow,
+  resolvePostAuthDestination,
+} from '../../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -16,6 +19,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
+  const requestedRedirect = getCurrentAuthRedirect(location);
 
   // In a page (vs. a modal), we can define a no-op or minimal function:
   const closeAlertDialog = () => {
@@ -29,63 +33,24 @@ export default function LoginPage() {
     }
   };
 
-  // signInWithGoogle logic copied from your AuthContainer
   const signInWithGoogle = () => {
-    let currentMediaFlowPath = isMobile ? 'quick_video' : 'video';
-    if (location.pathname.includes('/vidgenie/')) {
-      currentMediaFlowPath = 'quick_video';
-    }
-    localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
-
-    const origin = window.location.origin;
-    const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
-    const params = new URLSearchParams({ origin, cookieConsent });
-    params.set('responseMode', 'redirect');
-    window.location.href = `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+    });
   };
 
-  // Similar to AuthContainer
-  const getOrCreateUserSession = async (resolvedUser = null) => {
-    const headers = getHeaders();
-    const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
-    const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
-    const shouldOpenVidgenie =
-      currentMediaFlow === 'quick_video' ||
-      currentMediaFlow === 'vidgpt' ||
-      defaultPath === '/vidgenie';
-
-    if (shouldOpenVidgenie) {
-      try {
-        const targetPath = await resolveAuthenticatedEntryPath({
-          user: resolvedUser,
-          isMobile,
-          apiServer: PROCESSOR_SERVER,
-          headers,
-          search: location.search,
-          createIfMissing: true,
-        });
-        navigate(targetPath || defaultPath, { replace: true });
-      } catch (error) {
-        navigate(defaultPath, { replace: true });
-      }
-      return;
-    }
-
-    axios
-      .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
-      .then((res) => {
-        const sessionData = res.data;
-        if (sessionData) {
-          localStorage.setItem('videoSessionId', sessionData._id);
-          // If user wanted quick_video, navigate there; else normal /video route
-          navigate(`/video/${sessionData._id}`);
-        } else {
-          navigate(defaultPath, { replace: true });
-        }
-      })
-      .catch((error) => {
-        
-      });
+  const navigateAfterAuth = async (resolvedUser = null) => {
+    const redirect = consumeResolvedAuthRedirect(requestedRedirect);
+    const destination = await resolvePostAuthDestination({
+      user: resolvedUser,
+      isMobile,
+      apiServer: PROCESSOR_SERVER,
+      redirect,
+      search: location.search,
+    });
+    navigate(destination, { replace: true });
   };
 
   return (
@@ -96,7 +61,7 @@ export default function LoginPage() {
             signInWithGoogle={signInWithGoogle}
             setUser={setUser}
             closeAlertDialog={closeAlertDialog}
-            getOrCreateUserSession={getOrCreateUserSession}
+            getOrCreateUserSession={navigateAfterAuth}
             showSignupButton={false}
             setCurrentLoginView={handleViewChange}
           />

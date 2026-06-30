@@ -1,27 +1,32 @@
 import React, { useEffect } from 'react';
 import axios from 'axios';
 import { FaSpinner } from 'react-icons/fa6';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useMediaQuery } from 'react-responsive';
 import Loader from '../common/Loader';
-import { persistAuthToken, consumePostAuthRedirect } from '../../utils/web';
+import { persistAuthToken } from '../../utils/web';
 import { useUser } from '../../contexts/UserContext.jsx';
+import {
+  buildLoginPathForRedirect,
+  consumeResolvedAuthRedirect,
+  resolvePostAuthDestination,
+  sanitizeAuthRedirect,
+} from '../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API || 'http://localhost:3002';
 
 export default function VerificationHome() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
   const { getUserAPI } = useUser();
 
-  const query = new URLSearchParams(window.location.search);
+  const query = new URLSearchParams(location.search);
   const authToken = query.get('authToken');
   const loginToken = query.get('loginToken');
   const redirectParam = query.get('redirect');
-  const safeRedirect =
-    typeof redirectParam === 'string' &&
-    redirectParam.startsWith('/') &&
-    !redirectParam.startsWith('//')
-      ? redirectParam
-      : null;
+  const safeRedirect = sanitizeAuthRedirect(redirectParam);
+
   useEffect(() => {
     const finalizeAuth = async (resolvedAuthToken: string) => {
       if (!resolvedAuthToken) {
@@ -38,15 +43,20 @@ export default function VerificationHome() {
         return;
       }
 
-      await getUserAPI();
-      const storedRedirect = consumePostAuthRedirect();
-      const redirectTarget = safeRedirect || storedRedirect;
-      if (redirectTarget) {
-        navigate(redirectTarget, { replace: true });
+      const resolvedUser = await getUserAPI();
+      const redirectTarget = consumeResolvedAuthRedirect(safeRedirect);
+      if (!resolvedUser?._id && !redirectTarget) {
+        navigate(buildLoginPathForRedirect(safeRedirect), { replace: true });
         return;
       }
 
-      navigate('/', { replace: true });
+      const destination = await resolvePostAuthDestination({
+        user: resolvedUser,
+        isMobile,
+        apiServer: PROCESSOR_SERVER,
+        redirect: redirectTarget,
+      });
+      navigate(destination, { replace: true });
     };
 
     if (authToken) {
@@ -58,7 +68,7 @@ export default function VerificationHome() {
       const exchangeLoginToken = async () => {
         try {
           const response = await axios.get(`${PROCESSOR_SERVER}/users/verify_token`, {
-            params: { loginToken },
+            params: { loginToken, _: Date.now() },
           });
           const resolvedAuthToken = response?.data?.authToken;
           if (resolvedAuthToken) {
@@ -69,12 +79,12 @@ export default function VerificationHome() {
           
         }
 
-        navigate('/', { replace: true });
+        navigate(buildLoginPathForRedirect(safeRedirect), { replace: true });
       };
 
       void exchangeLoginToken();
     }
-  }, [authToken, getUserAPI, loginToken, navigate, safeRedirect]);
+  }, [authToken, getUserAPI, isMobile, location.search, loginToken, navigate, safeRedirect]);
 
   if (!authToken && !loginToken) {
     return <FaSpinner className="animate-spin" />;

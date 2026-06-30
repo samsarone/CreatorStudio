@@ -5,11 +5,15 @@ import axios from "axios";
 import 'react-tooltip/dist/react-tooltip.css';
 
 
-import { consumePostAuthRedirect, getAuthToken, getHeaders, persistAuthToken } from '../../utils/web.jsx';
+import { getAuthToken, persistAuthToken } from '../../utils/web.jsx';
+import { appendRouteSearch } from '../../utils/vidgenieRouting.js';
 import {
-  appendRouteSearch,
-  resolveAuthenticatedEntryPath,
-} from '../../utils/vidgenieRouting.js';
+  buildLoginPathForRedirect,
+  consumeResolvedAuthRedirect,
+  getRedirectParam,
+  getRoutePath,
+  resolvePostAuthDestination,
+} from '../../utils/authRedirect.js';
 import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 
@@ -97,28 +101,17 @@ function DefaultAuthenticatedRoute({ user, isMobile, search }) {
       return;
     }
 
-    const headers = getHeaders();
-    if (!headers) {
-      setTargetPath(appendRouteSearch('/login', search));
-      return;
-    }
-
     resolutionStartedRef.current = true;
 
     const resolveRoute = async () => {
-      try {
-        const resolvedPath = await resolveAuthenticatedEntryPath({
-          user,
-          isMobile,
-          apiServer: PROCESSOR_SERVER,
-          headers,
-          search,
-          createIfMissing: true,
-        });
-        setTargetPath(resolvedPath || appendRouteSearch('/vidgenie', search));
-      } catch (error) {
-        setTargetPath(appendRouteSearch('/vidgenie', search));
-      }
+      const resolvedPath = await resolvePostAuthDestination({
+        user,
+        isMobile,
+        apiServer: PROCESSOR_SERVER,
+        search,
+        createIfMissing: true,
+      });
+      setTargetPath(resolvedPath || appendRouteSearch('/vidgenie', search));
     };
 
     void resolveRoute();
@@ -196,7 +189,7 @@ export default function Home() {
     if (location.pathname.startsWith('/video/collab/')) return true;
     if (location.pathname === '/video' || location.pathname.startsWith('/video/')) return true;
     if (location.pathname.startsWith('/external/studio') && isExternalUser) return true;
-    if (user && isVidgeniePath) return true;
+    if (isVidgeniePath) return true;
     if (location.pathname.startsWith('/account') || location.pathname.startsWith('/accounts')) return true;
     if (location.pathname === '/image_sessions' && user) return true;
     const allowed = new Set([
@@ -231,9 +224,19 @@ export default function Home() {
     if (isAccessAllowedPath) return;
 
     if (location.pathname !== '/login') {
-      navigate('/login', { replace: true });
+      navigate(buildLoginPathForRedirect(getRoutePath(location)), { replace: true });
     }
-  }, [initialAuthenticatedRootStatus, userInitiated, userFetching, isAccessAllowedPath, user, location.pathname, navigate, isExternalUser]);
+  }, [
+    initialAuthenticatedRootStatus,
+    userInitiated,
+    userFetching,
+    isAccessAllowedPath,
+    user,
+    location.pathname,
+    location.search,
+    navigate,
+    isExternalUser,
+  ]);
 
   const appendQueryParams = useCallback((url) => {
     const paramsString = extraProps.toString();
@@ -242,17 +245,10 @@ export default function Home() {
   const sanitizedRouteSearch = extraProps.toString() ? `?${extraProps.toString()}` : '';
 
   const navigateToDefaultAuthenticatedView = useCallback(async (resolvedUser = user) => {
-    const headers = getHeaders();
-    if (!headers) {
-      navigate(appendQueryParams('/login'), { replace: true });
-      return;
-    }
-
-    const targetPath = await resolveAuthenticatedEntryPath({
+    const targetPath = await resolvePostAuthDestination({
       user: resolvedUser,
       isMobile,
       apiServer: PROCESSOR_SERVER,
-      headers,
       search: sanitizedRouteSearch,
       createIfMissing: true,
     });
@@ -283,17 +279,10 @@ export default function Home() {
           return;
         }
 
-        const headers = getHeaders();
-        if (!headers) {
-          navigate('/login', { replace: true });
-          return;
-        }
-
-        const targetPath = await resolveAuthenticatedEntryPath({
+        const targetPath = await resolvePostAuthDestination({
           user: resolvedUser,
           isMobile,
           apiServer: PROCESSOR_SERVER,
-          headers,
           search: sanitizedRouteSearch,
           createIfMissing: true,
         });
@@ -333,7 +322,7 @@ export default function Home() {
     channel.onmessage = async (event) => {
       if (event.data === 'oauth_complete') {
         const resolvedUser = await getUserAPI();
-        const redirectTarget = consumePostAuthRedirect();
+        const redirectTarget = consumeResolvedAuthRedirect();
         if (redirectTarget) {
           navigate(redirectTarget, { replace: true });
           return;
@@ -358,14 +347,14 @@ export default function Home() {
     const exchangeLoginToken = async () => {
       try {
         const response = await axios.get(`${PROCESSOR_SERVER}/users/verify_token`, {
-          params: { loginToken },
+          params: { loginToken, _: Date.now() },
         });
         const resolvedAuthToken = response?.data?.authToken;
         if (resolvedAuthToken) {
           persistAuthToken(resolvedAuthToken);
           const resolvedUser = await getUserAPI();
 
-          const redirectTarget = consumePostAuthRedirect();
+          const redirectTarget = consumeResolvedAuthRedirect(getRedirectParam(location));
           if (redirectTarget) {
             navigate(redirectTarget, { replace: true });
             return;
@@ -380,7 +369,7 @@ export default function Home() {
     };
 
     void exchangeLoginToken();
-  }, [location.pathname, location.search, getUserAPI, navigate]);
+  }, [location.pathname, location.search, getUserAPI, navigate, navigateToDefaultAuthenticatedView]);
 
   let bodyBGColor = "bg-stone-100";
   

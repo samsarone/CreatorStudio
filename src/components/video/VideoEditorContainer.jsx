@@ -55,6 +55,36 @@ function isAbsoluteUrl(value) {
   return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
 }
 
+function resolveProcessorAssetUrlFromStaticUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(value.trim());
+    const normalizedHost = parsedUrl.hostname.toLowerCase();
+    const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    if (
+      normalizedHost !== 'static.samsar.one' ||
+      !(
+        normalizedPath.startsWith('assets_v2/') ||
+        normalizedPath.startsWith('assets/')
+      )
+    ) {
+      return null;
+    }
+
+    const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
+      ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
+      : '';
+    return processorBaseUrl
+      ? `${processorBaseUrl}/${normalizedPath}`
+      : `/${normalizedPath}`;
+  } catch {
+    return null;
+  }
+}
+
 function looksLikeStudioVideoRoute(value) {
   if (typeof value !== 'string') {
     return false;
@@ -73,7 +103,7 @@ function resolveMediaUrl(value, baseUrl = '') {
   }
 
   if (isAbsoluteUrl(trimmedValue)) {
-    return trimmedValue;
+    return resolveProcessorAssetUrlFromStaticUrl(trimmedValue) || trimmedValue;
   }
 
   const normalizedPath = trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`;

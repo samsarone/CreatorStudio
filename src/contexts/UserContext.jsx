@@ -1,7 +1,6 @@
 import React, { useState, useContext, createContext, useCallback } from 'react';
 import axios from 'axios';
 import { getHeaders, getAuthToken, clearAuthData } from '../utils/web'; // Adjust the path if needed
-import { useNavigate } from 'react-router-dom';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API || 'http://localhost:3002';
 
@@ -20,8 +19,6 @@ export const UserProvider = ({ children }) => {
   const [user, setUserState] = useState(null);
   const [userFetching, setUserFetching] = useState(true);
   const [userInitiated, setUserInitiated] = useState(false);
-
-  const navigate = useNavigate();
 
   const setUserApi = (profile) => {
     // Placeholder for future use
@@ -50,20 +47,23 @@ export const UserProvider = ({ children }) => {
     setUserFetching(true);
 
     try {
-      const res = await axios.get(`${PROCESSOR_SERVER}/users/verify_token`, getHeaders());
+      const authHeaders = getHeaders();
+      const res = await axios.get(`${PROCESSOR_SERVER}/users/verify_token`, {
+        ...(authHeaders || {}),
+        params: { _: Date.now() },
+      });
       const userProfile = res.data;
       setUserState(userProfile);
       setUserInitiated(true);
       return userProfile;
     } catch (err) {
-      
-      resetUser();
+      setUserState(null);
       setUserInitiated(true);
-      navigate("/");
+      return null;
     } finally {
       setUserFetching(false);
     }
-  }, [navigate, resetUser]);
+  }, []);
 
   return (
     <UserContext.Provider

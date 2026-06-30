@@ -2,13 +2,18 @@ import React from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
-import { getHeaders, persistAuthToken, hasAcceptedCookies } from '../../../utils/web.jsx';
-import { getDefaultAuthenticatedPath } from '../../../utils/defaultRoutes.js';
-import { resolveAuthenticatedEntryPath } from '../../../utils/vidgenieRouting.js';
+import { persistAuthToken } from '../../../utils/web.jsx';
 import Register from '../Register.tsx';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
 import { useMediaQuery } from 'react-responsive';
 import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../../account/PurchaseCreditsPromptDialog.jsx';
+import {
+  buildGoogleLoginUrl,
+  consumeResolvedAuthRedirect,
+  getCurrentAuthRedirect,
+  persistAuthRedirectForFlow,
+  resolvePostAuthDestination,
+} from '../../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -17,6 +22,7 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
+  const requestedRedirect = getCurrentAuthRedirect(location);
 
   // No-op if you don't need a dialog close
   const closeAlertDialog = () => { };
@@ -29,57 +35,26 @@ export default function RegisterPage() {
   };
 
   const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
-    const origin = window.location.origin;
-    const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
-    const params = new URLSearchParams({ origin, cookieConsent });
-    params.set('responseMode', 'redirect');
-    params.set('subscribeToWeeklyNewsletter', String(subscribeToWeeklyNewsletter));
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
     localStorage.setItem('setShowSetPaymentFlow', true);
     localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
-    localStorage.setItem('currentMediaFlowPath', isMobile ? 'quick_video' : 'video');
-    window.location.href = `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+      subscribeToWeeklyNewsletter,
+    });
   };
 
-  const getOrCreateUserSession = async (resolvedUser = null) => {
-    const headers = getHeaders();
-    const currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
-    const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
-    const shouldOpenVidgenie =
-      currentMediaFlowPath === 'quick_video' ||
-      currentMediaFlowPath === 'vidgpt' ||
-      defaultPath === '/vidgenie';
-
-    if (shouldOpenVidgenie) {
-      try {
-        const targetPath = await resolveAuthenticatedEntryPath({
-          user: resolvedUser,
-          isMobile,
-          apiServer: PROCESSOR_SERVER,
-          headers,
-          search: location.search,
-          createIfMissing: true,
-        });
-        navigate(targetPath || defaultPath, { replace: true });
-      } catch (error) {
-        navigate(defaultPath, { replace: true });
-      }
-      return;
-    }
-
-    axios
-      .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
-      .then((res) => {
-        const sessionData = res.data;
-        if (sessionData) {
-          localStorage.setItem('videoSessionId', sessionData._id);
-          navigate(`/video/${sessionData._id}`);
-        } else {
-          navigate(defaultPath, { replace: true });
-        }
-      })
-      .catch((error) => {
-        
-      });
+  const navigateAfterAuth = async (resolvedUser = null) => {
+    const redirect = consumeResolvedAuthRedirect(requestedRedirect);
+    const destination = await resolvePostAuthDestination({
+      user: resolvedUser,
+      isMobile,
+      apiServer: PROCESSOR_SERVER,
+      redirect,
+      search: location.search,
+    });
+    navigate(destination, { replace: true });
   };
 
   // Register with email, same as AuthContainer
@@ -93,7 +68,7 @@ export default function RegisterPage() {
         setUser(userData);
         closeAlertDialog(); // no-op here
         localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
-        getOrCreateUserSession(userData);
+        navigateAfterAuth(userData);
         localStorage.setItem('setShowSetPaymentFlow', 'true');
       })
       .catch((error) => {
@@ -113,7 +88,7 @@ export default function RegisterPage() {
           registerWithGoogle={registerWithGoogle}
           registerUserWithEmail={registerUserWithEmail}
           setUser={setUser}
-          getOrCreateUserSession={getOrCreateUserSession}
+          getOrCreateUserSession={navigateAfterAuth}
           closeAlertDialog={closeAlertDialog}
           setCurrentLoginView={handleViewChange}
           showLoginButton={false}

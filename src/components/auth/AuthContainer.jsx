@@ -6,17 +6,16 @@ import axios from 'axios';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  getHeaders,
-  persistAuthToken,
-  hasAcceptedCookies,
-  consumePostAuthRedirect,
-  setPostAuthRedirect,
-} from '../../utils/web.jsx';
+import { persistAuthToken } from '../../utils/web.jsx';
 import { FaTimes } from 'react-icons/fa';
 import { useMediaQuery } from 'react-responsive';
-import { getDefaultAuthenticatedPath } from '../../utils/defaultRoutes.js';
-import { resolveAuthenticatedEntryPath } from '../../utils/vidgenieRouting.js';
+import {
+  buildGoogleLoginUrl,
+  consumeResolvedAuthRedirect,
+  getCurrentAuthRedirect,
+  persistAuthRedirectForFlow,
+  resolvePostAuthDestination,
+} from '../../utils/authRedirect.js';
 import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../account/PurchaseCreditsPromptDialog.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
@@ -41,23 +40,7 @@ export default function AuthContainer(props) {
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
   const { closeAlertDialog } = useAlertDialog();
   const { setUser } = useUser();
-
-  const buildGoogleLoginUrl = ({ subscribeToWeeklyNewsletter } = {}) => {
-    const origin = window.location.origin;
-    const cookieConsent = hasAcceptedCookies() ? 'accepted' : 'rejected';
-    const params = new URLSearchParams({ origin, cookieConsent });
-    params.set('responseMode', 'redirect');
-    if (subscribeToWeeklyNewsletter !== undefined) {
-      params.set('subscribeToWeeklyNewsletter', String(subscribeToWeeklyNewsletter));
-    }
-    if (normalizedRedirect) {
-      params.set('redirect', normalizedRedirect);
-    }
-    return `${PROCESSOR_SERVER}/users/google_login?${params.toString()}`;
-  };
-
-  const normalizedRedirect =
-    typeof redirectTo === 'string' && redirectTo.startsWith('/') ? redirectTo : null;
+  const requestedRedirect = getCurrentAuthRedirect(location, redirectTo);
 
   useEffect(() => {
     if (initView) {
@@ -70,43 +53,40 @@ export default function AuthContainer(props) {
   }, [initView]);
 
   const signInWithGoogle = () => {
-    let currentMediaFlowPath = 'video';
-    if (location.pathname.includes('/vidgenie/')) {
-      currentMediaFlowPath = 'quick_video';
-    }
-    localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
-    if (normalizedRedirect) {
-      setPostAuthRedirect(normalizedRedirect);
-    }
-
-    window.location.href = buildGoogleLoginUrl();
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+    });
     closeAlertDialog();
   };
 
   const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
-    if (normalizedRedirect) {
-      setPostAuthRedirect(normalizedRedirect);
-    }
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
     localStorage.setItem("setShowSetPaymentFlow", true);
     localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
-    window.location.href = buildGoogleLoginUrl({ subscribeToWeeklyNewsletter });
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+      subscribeToWeeklyNewsletter,
+    });
     closeAlertDialog();
   };
 
-  const navigateAfterAuth = (resolvedUser = null) => {
-    if (normalizedRedirect) {
-      consumePostAuthRedirect();
-      navigate(normalizedRedirect, { replace: true });
-      return;
+  const navigateAfterAuth = async (resolvedUser = null) => {
+    try {
+      const redirect = consumeResolvedAuthRedirect(requestedRedirect);
+      const destination = await resolvePostAuthDestination({
+        user: resolvedUser,
+        isMobile,
+        apiServer: API_SERVER,
+        redirect,
+        search: location.search,
+      });
+      navigate(destination, { replace: true });
+    } catch (error) {
+      setError('Unable to open your workspace.');
     }
-
-    const storedRedirect = consumePostAuthRedirect();
-    if (storedRedirect) {
-      navigate(storedRedirect, { replace: true });
-      return;
-    }
-
-    getOrCreateUserSession(resolvedUser);
   };
 
   const verifyAndSetUserProfile = (profile) => {
@@ -121,52 +101,6 @@ export default function AuthContainer(props) {
       .catch((error) => {
         
         setError('Unable to verify user profile.');
-      });
-  };
-
-  const getOrCreateUserSession = async (resolvedUser = null) => {
-    const headers = getHeaders();
-    const defaultPath = getDefaultAuthenticatedPath(resolvedUser, { isMobile });
-    const shouldOpenVidgenie =
-      location.pathname.includes('/vidgenie/') ||
-      location.pathname.includes('/vidgpt/') ||
-      defaultPath === '/vidgenie';
-
-    if (shouldOpenVidgenie) {
-      try {
-        const targetPath = await resolveAuthenticatedEntryPath({
-          user: resolvedUser,
-          isMobile,
-          apiServer: API_SERVER,
-          headers,
-          createIfMissing: true,
-        });
-        navigate(targetPath || defaultPath, { replace: true });
-      } catch (error) {
-        setError('Unable to create or get a session.');
-      }
-      return;
-    }
-
-    axios.get(`${API_SERVER}/video_sessions/get_session`, headers)
-      .then((res) => {
-        const sessionData = res.data;
-
-        if (sessionData && sessionData._id) {
-          localStorage.setItem('videoSessionId', sessionData._id);
-
-          if (location.pathname.includes('/video/')) {
-            navigate(`/video/${sessionData._id}`);
-          } else {
-            navigate(defaultPath, { replace: true });
-          }
-        } else {
-          navigate(defaultPath, { replace: true });
-        }
-      })
-      .catch((error) => {
-        
-        setError('Unable to create or get a session.');
       });
   };
 

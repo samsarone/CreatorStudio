@@ -40,6 +40,32 @@ function firstImageUrlValue(values = []) {
   return '';
 }
 
+function resolveProcessorAssetUrlFromStaticUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(value.trim());
+    const normalizedHost = parsedUrl.hostname.toLowerCase();
+    const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    if (
+      normalizedHost !== 'static.samsar.one' ||
+      !(
+        normalizedPath.startsWith('assets_v2/') ||
+        normalizedPath.startsWith('assets/')
+      )
+    ) {
+      return null;
+    }
+
+    const normalizedApiServer = typeof API_SERVER === 'string' ? API_SERVER.trim().replace(/\/+$/, '') : '';
+    return normalizedApiServer ? `${normalizedApiServer}/${normalizedPath}` : `/${normalizedPath}`;
+  } catch {
+    return null;
+  }
+}
+
 function getRemoteImageLink(asset) {
   const imagePath = typeof asset === 'string'
     ? asset
@@ -62,7 +88,7 @@ function getRemoteImageLink(asset) {
   }
 
   if (/^(https?:|data:|blob:)/i.test(imagePath)) {
-    return imagePath;
+    return resolveProcessorAssetUrlFromStaticUrl(imagePath) || imagePath;
   }
 
   const normalizedApiServer = typeof API_SERVER === 'string' ? API_SERVER.trim().replace(/\/+$/, '') : '';

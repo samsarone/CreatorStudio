@@ -4,7 +4,7 @@ import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { CURRENT_EDITOR_VIEW, FRAME_TOOLBAR_VIEW } from '../../constants/Types.ts';
-import { getHeaders, clearAuthData } from '../../utils/web.jsx';
+import { getHeaders } from '../../utils/web.jsx';
 import VideoEditorContainer from './VideoEditorContainer.jsx';
 import PreviewPlaybackController from './PreviewPlaybackController.jsx';
 import AddAudioDialog from './util/AddAudioDialog.jsx';
@@ -1499,8 +1499,18 @@ export default function VideoHome(props) {
         });
         return;
       }
-      clearAuthData();
-      window.location.href = '/';
+      if (err?.response?.status === 401) {
+        showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+        return;
+      }
+      if (routeSessionId && (err?.response?.status === 400 || err?.response?.status === 404)) {
+        navigate(`/vidgenie/${routeSessionId}`, { replace: true });
+        return;
+      }
+      toast.error(err?.response?.data?.error || 'Unable to open this session.', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
     })
   }, [
     editableShareToken,
@@ -1508,8 +1518,10 @@ export default function VideoHome(props) {
     isEditableShareView,
     isReadOnlyShareView,
     isSharedSessionView,
+    navigate,
     routeSessionId,
     shareToken,
+    showLoginDialog,
   ]);
 
   const prevCurrentLayerSeekRef = useRef(currentLayerSeek);
