@@ -49,11 +49,17 @@ const CUSTOM_ADAPTER_FIELDS = [
   "api_key",
   "base_url",
   "text_to_image",
+  "text_to_image_authorization",
   "text_to_video",
+  "text_to_video_authorization",
   "image_to_video",
+  "image_to_video_authorization",
   "text_to_speech",
+  "text_to_speech_authorization",
   "text_to_music",
+  "text_to_music_authorization",
   "text_to_sound_effect",
+  "text_to_sound_effect_authorization",
 ];
 const CUSTOM_ENDPOINT_OPERATION_OPTIONS = [
   { key: "image_to_video", label: "Image to video" },
@@ -94,6 +100,10 @@ function createEmptyCustomEndpoint(overrides = {}) {
     provider: "fal",
     ...overrides,
   };
+}
+
+function normalizeAuthorizationMode(value) {
+  return value === "deployed" ? "deployed" : "native";
 }
 
 function normalizeCustomEndpointForForm(endpoint, index = 0) {
@@ -138,6 +148,7 @@ function normalizeCustomEndpointForForm(endpoint, index = 0) {
     provider: typeof source.provider === "string" && source.provider.trim()
       ? source.provider.trim()
       : "fal",
+    authorization: normalizeAuthorizationMode(source.authorization),
   };
 }
 
@@ -232,6 +243,7 @@ function buildCustomAdaptersPayload(customAdapters) {
       provider: row.provider?.trim() || "fal",
       operation,
       base_url: baseUrl,
+      ...(row.authorization === "deployed" ? { authorization: "deployed" } : {}),
       ...(row.api_key?.trim() ? { api_key: row.api_key.trim() } : {}),
       ...(row.has_api_key === true ? { has_api_key: true } : {}),
       endpoint,
