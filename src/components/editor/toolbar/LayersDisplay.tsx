@@ -16,14 +16,19 @@ const LayersDisplay = (props) => {
   } = props;
 
   const { colorMode } = useColorMode();
+  const displayItems = Array.isArray(activeItemList) ? [...activeItemList].reverse() : [];
 
-  const bgColorDragging = colorMode === 'dark' ? '#1f2937' : '#fafafa';
-  const bgColorDraggingOver = colorMode === 'dark' ? '#030712' : '#f5f5f5';
+  const bgColorDragging = colorMode === 'dark' ? '#0f1629' : '#fafafa';
+  const bgColorDraggingOver = colorMode === 'dark' ? '#111a2f' : '#f5f5f5';
   
   const getListStyle = (isDraggingOver) => ({
     background: isDraggingOver ? bgColorDraggingOver : bgColorDragging,
     padding: grid,
-    width: 200
+    width: '100%',
+    maxWidth: '100%',
+    boxSizing: 'border-box',
+    borderRadius: 8,
+    overflow: 'hidden'
   });
 
   const onDragEnd = (result) => {
@@ -31,10 +36,12 @@ const LayersDisplay = (props) => {
       return;
     }
 
+    const actualSourceIndex = activeItemList.length - 1 - result.source.index;
+    const actualDestinationIndex = activeItemList.length - 1 - result.destination.index;
     const newItems = reorder(
       [...activeItemList],
-      result.source.index,
-      result.destination.index
+      actualSourceIndex,
+      actualDestinationIndex
     );
 
     const reorderedItems = newItems.map((item, index) => ({
@@ -58,9 +65,9 @@ const LayersDisplay = (props) => {
     updateSessionLayerActiveItemList(reorderedItems);
   };
 
-  const isDraggingBGColor = colorMode === 'dark' ? '#263B4A' : '#a8a29e';
-  const isStableBGColor = colorMode === 'dark' ? '#171717' : '#d6d3d1';
-  const textColor = colorMode === 'dark' ? 'white' : '#171717';
+  const isDraggingBGColor = colorMode === 'dark' ? '#16213a' : '#a8a29e';
+  const isStableBGColor = colorMode === 'dark' ? '#0b1021' : '#d6d3d1';
+  const textColor = colorMode === 'dark' ? '#e5e7eb' : '#171717';
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -71,38 +78,80 @@ const LayersDisplay = (props) => {
             ref={provided.innerRef}
             style={getListStyle(snapshot.isDraggingOver)}
           >
-            {activeItemList.map((item, index) => (
+            {displayItems.map((item, index) => (
               <Draggable key={item.id} draggableId={item.id} index={index}>
                 {(provided, snapshot) => (
                   <div
                     ref={provided.innerRef}
                     {...provided.draggableProps}
-                    {...provided.dragHandleProps}
                     onClick={() => setSelectedId(item.id)}
                     style={{
                       ...provided.draggableProps.style,
-                      margin: '8px',
+                      width: '100%',
+                      margin: '0 0 8px',
                       backgroundColor: snapshot.isDragging ? isDraggingBGColor : isStableBGColor,
-                      border: '1px solid #64748b',
+                      border: colorMode === 'dark' ? '1px solid #1f2a3d' : '1px solid #64748b',
                       color: textColor,
                       padding: '8px',
                       borderRadius: '5px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer'
+                      gap: '6px',
+                      minWidth: 0,
+                      boxSizing: 'border-box',
+                      cursor: 'pointer',
+                      overflow: 'hidden'
                     }}
                   >
-                    {`item ${item.id} - ${item.type}`}
-                    <div className='ml-1 mr-1'>
-                      <FaEye onClick={() => hideItemInLayer(item.id)} />
+                    <div
+                      {...provided.dragHandleProps}
+                      style={{
+                        flex: '1 1 auto',
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {`item ${item.id} - ${item.type}`}
                     </div>
                     <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        hideItemInLayer(item.id);
+                      }}
+                      aria-label="Toggle layer visibility"
+                      title="Toggle layer visibility"
+                      style={{
+                        color: textColor,
+                        flex: '0 0 24px',
+                        width: 24,
+                        height: 24,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <FaEye />
+                    </button>
+                    <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteItem(item.id);
                       }}
-                      style={{ color: 'white' }}
+                      aria-label="Delete layer"
+                      title="Delete layer"
+                      style={{
+                        color: textColor,
+                        flex: '0 0 24px',
+                        width: 24,
+                        height: 24,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
                     >
                       <FaTimes />
                     </button>

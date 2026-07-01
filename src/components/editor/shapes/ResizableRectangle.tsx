@@ -73,7 +73,7 @@ export default function ResizableRectangle(props) {
         }}
         fill={fillColor || 'red'}
         stroke={strokeColor || 'black'}
-        strokeWidth={strokeWidth || 4}
+        strokeWidth={strokeWidth ?? 4}
         ref={rectangleRef}
         draggable={!config.fixed}
         onDragMove={(e) => updateToolbarButtonPosition(id, e.target.x(), e.target.y())}

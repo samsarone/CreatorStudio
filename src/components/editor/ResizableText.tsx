@@ -22,7 +22,7 @@ const ResizableText = ({
     height: props.config.height || 50,
     fontFamily: props.config.fontFamily || 'Arial',
     fontSize: props.config.fontSize || 16,
-    fillColor: props.config.fillColor || 'black',
+    fillColor: props.config.fillColor || '#ffffff',
     textDecoration: props.config.underline ? 'underline' : '',
     fontStyle: 'normal',
     align: props.config.align || 'left',
@@ -33,8 +33,10 @@ const ResizableText = ({
     shadowOffsetX: props.config.shadowOffsetX || 0,
     shadowOffsetY: props.config.shadowOffsetY || 0,
     rotationAngle: props.config.rotationAngle || 0,
-    autoWrap: props.config.autoWrap || false,
-    capitalizeLetters: props.config.capitalizeLetters || false,
+    autoWrap: props.config.autoWrap !== false,
+    capitalizeLetters: Boolean(props.config.capitalizeLetters),
+    lineHeight: props.config.lineHeight || 1.2,
+    letterSpacing: props.config.letterSpacing || 0,
   });
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -49,7 +51,7 @@ const ResizableText = ({
         y: props.config.y || INIT_DIMENSIONS.y,
         fontFamily: props.config.fontFamily || 'Arial',
         fontSize: props.config.fontSize || 16,
-        fillColor: props.config.fillColor || 'black',
+        fillColor: props.config.fillColor || '#ffffff',
         textDecoration: props.config.underline ? 'underline' : '',
         align: props.config.align || 'left',
         stroke: props.config.stroke || 'transparent',
@@ -59,8 +61,10 @@ const ResizableText = ({
         shadowOffsetX: props.config.shadowOffsetX || 0,
         shadowOffsetY: props.config.shadowOffsetY || 0,
         rotationAngle: props.config.rotationAngle || 0,
-        autoWrap: props.config.autoWrap || false,
-        capitalizeLetters: props.config.capitalizeLetters || false,
+        autoWrap: props.config.autoWrap !== false,
+        capitalizeLetters: Boolean(props.config.capitalizeLetters),
+        lineHeight: props.config.lineHeight || 1.2,
+        letterSpacing: props.config.letterSpacing || 0,
       }));
     }
   }, [props.config, isConfigSet]);
@@ -139,6 +143,8 @@ const ResizableText = ({
     shapeState.rotationAngle,
     shapeState.autoWrap,
     shapeState.capitalizeLetters,
+    shapeState.lineHeight,
+    shapeState.letterSpacing,
   ]);
 
   const handleDragMove = (e) => {
@@ -235,7 +241,10 @@ const ResizableText = ({
         shadowOffsetY={shapeState.shadowOffsetY}
         rotation={shapeState.rotationAngle}
         wrap={shapeState.autoWrap ? 'word' : 'none'}
+        lineHeight={shapeState.lineHeight}
+        letterSpacing={shapeState.letterSpacing}
         width={shapeState.autoWrap ? shapeState.width : undefined}
+        height={shapeState.autoWrap ? shapeState.height : undefined}
         ref={textRef}
         listening={false} // This text is for stroke only, not interactive
       />
@@ -260,7 +269,10 @@ const ResizableText = ({
       shadowOffsetY={shapeState.shadowOffsetY}
       rotation={shapeState.rotationAngle}
       wrap={shapeState.autoWrap ? 'word' : 'none'}
+      lineHeight={shapeState.lineHeight}
+      letterSpacing={shapeState.letterSpacing}
       width={shapeState.autoWrap ? shapeState.width : undefined}
+      height={shapeState.autoWrap ? shapeState.height : undefined}
       ref={textRef}
       onClick={onSelect}
       onTap={onSelect}

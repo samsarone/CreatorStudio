@@ -2,7 +2,7 @@ import { Tooltip } from 'react-tooltip';
 import { FaRegQuestionCircle } from "react-icons/fa";
 
 
-function HeaderTooltip(props) {
+export default function HeaderTooltip(props) {
   const { content , id } = props;
   return (
     <div>

@@ -13,28 +13,90 @@ import MusicPanelContent from "./MusicPanelContent.jsx";
 import ImagePanelContent from "./ImagePanelContent.jsx";
 import SettingsPanelContent from "./SettingsPanelContent.jsx";
 import BillingPanelContent from "./BillingPanelContent.jsx";
+import BillingAccessGate from "./BillingAccessGate.jsx";
 import ToggleButton from "../common/ToggleButton.tsx";
 import SceneLibraryHome from "../library/aivideo/SceneLibraryHome.jsx";
 import OverflowContainer from "../common/OverflowContainer.tsx";
 import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
+import UsagePanelContent from "./UsagePanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
 
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const DEFAULT_TEXT_MODEL = "gpt-5.5";
+const VIDEO_FPS_OPTIONS = [
+  { value: 24, label: "24 FPS" },
+  { value: 16, label: "16 FPS" },
+  { value: 30, label: "30 FPS" },
+];
+
+function getVideoFpsOption(value) {
+  return VIDEO_FPS_OPTIONS.find((option) => option.value === Number(value)) || VIDEO_FPS_OPTIONS[0];
+}
+
+function normalizeInferenceModelValue(value) {
+  if (typeof value !== "string") {
+    return DEFAULT_TEXT_MODEL;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "gemini-3.1-pro" ||
+    normalized === "gemini-3.1-pro-preview" ||
+    normalized === "gemini-3-pro" ||
+    normalized === "gemini-3-pro-preview" ||
+    normalized === "gemini 3.1 pro" ||
+    normalized === "gemini 3.1 pro preview" ||
+    normalized === "gemini 3 pro" ||
+    normalized === "gemini 3 pro preview" ||
+    normalized === "gemini31pro" ||
+    normalized === "gemini31propreview" ||
+    normalized === "gemini3pro" ||
+    normalized === "gemini3propreview"
+  ) {
+    return "gemini-3.1-pro";
+  }
+  if (
+    normalized === DEFAULT_TEXT_MODEL ||
+    normalized.startsWith(`${DEFAULT_TEXT_MODEL}-`) ||
+    normalized === "gpt 5.5" ||
+    normalized === "gpt55"
+  ) {
+    return DEFAULT_TEXT_MODEL;
+  }
+  return DEFAULT_TEXT_MODEL;
+}
+
+function getInferenceModelOption(value) {
+  const normalizedValue = normalizeInferenceModelValue(value);
+  return (
+    INFERENCE_MODEL_TYPES.find((m) => m.value === normalizedValue) ||
+    INFERENCE_MODEL_TYPES.find((m) => m.value === DEFAULT_TEXT_MODEL) ||
+    INFERENCE_MODEL_TYPES[0]
+  );
+}
+
+function getAssistantModelOption(value) {
+  const normalizedValue = normalizeInferenceModelValue(value);
+  return (
+    ASSISTANT_MODEL_TYPES.find((m) => m.value === normalizedValue) ||
+    ASSISTANT_MODEL_TYPES.find((m) => m.value === DEFAULT_TEXT_MODEL) ||
+    ASSISTANT_MODEL_TYPES[0]
+  );
+}
 
 export default function UserAccount() {
   const { colorMode } = useColorMode();
-  const { user, resetUser, getUserAPI } = useUser();
+  const { user, resetUser, getUserAPI, setUser, userFetching, userInitiated } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const textColor = colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
-  const bgColor = colorMode === "dark" ? "bg-neutral-900" : "bg-neutral-100";
-  const secondaryTextColor = colorMode === "dark" ? "text-neutral-400" : "text-neutral-500";
-  const cardBgColor = colorMode === "dark" ? "bg-neutral-800" : "bg-white";
-  const borderColor = colorMode === "dark" ? "border-neutral-800" : "border-neutral-200";
-  const mutedBg = colorMode === "dark" ? "bg-neutral-900/50" : "bg-neutral-50";
+  const textColor = colorMode === "dark" ? "text-slate-100" : "text-slate-900";
+  const bgColor = colorMode === "dark" ? "bg-[#0b1021]" : "bg-[#f7f9fc]";
+  const secondaryTextColor = colorMode === "dark" ? "text-slate-400" : "text-slate-500";
+  const cardBgColor = colorMode === "dark" ? "bg-[#0f1629] shadow-[0_16px_40px_rgba(0,0,0,0.35)]" : "bg-white shadow-sm";
+  const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
+  const mutedBg = colorMode === "dark" ? "bg-[#111a2f]" : "bg-slate-50";
 
   const validPanels = [
     "account",
@@ -43,6 +105,7 @@ export default function UserAccount() {
     "scenes",
     "videos",
     "apiKeys",
+    "usage",
     "billing",
     "settings",
   ];
@@ -57,34 +120,53 @@ export default function UserAccount() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [notifyOnCompletion, setNotifyOnCompletion] = useState(false);
-  const [inferenceModel, setInferenceModel] = useState(INFERENCE_MODEL_TYPES[0]);
-  const [assistantModel, setAssistantModel] = useState(ASSISTANT_MODEL_TYPES[0]);
+  const [inferenceModel, setInferenceModel] = useState(
+    getInferenceModelOption(DEFAULT_TEXT_MODEL)
+  );
+  const [assistantModel, setAssistantModel] = useState(
+    getAssistantModelOption(DEFAULT_TEXT_MODEL)
+  );
+  const [videoFps, setVideoFps] = useState(VIDEO_FPS_OPTIONS[0]);
 
   useEffect(() => {
     if (!user) return;
 
-    setInferenceModel(
-      INFERENCE_MODEL_TYPES.find((m) => m.value === (user.selectedInferenceModel || "GPT4O")) ||
-        INFERENCE_MODEL_TYPES[0]
-    );
-    setAssistantModel(
-      ASSISTANT_MODEL_TYPES.find((m) => m.value === (user.selectedAssistantModel || "GPT4O")) ||
-        ASSISTANT_MODEL_TYPES[0]
-    );
+    setInferenceModel(getInferenceModelOption(user.selectedInferenceModel));
+    setAssistantModel(getAssistantModelOption(user.selectedAssistantModel));
     setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
+    setVideoFps(getVideoFpsOption(user.videoFramesPerSecond));
   }, [user]);
 
   useEffect(() => {
     setDisplayPanel(resolvePanelFromPath());
   }, [location.pathname]);
 
-  if (!user) return <span />;
+  if (!user) {
+    if (displayPanel === "billing") {
+      if (!userInitiated || userFetching) {
+        return (
+          <OverflowContainer>
+            <div className="pt-[50px] min-h-screen" />
+          </OverflowContainer>
+        );
+      }
+      return (
+        <OverflowContainer>
+          <BillingAccessGate />
+        </OverflowContainer>
+      );
+    }
+    return <span />;
+  }
 
   const updateUserDetails = (payload) => {
     axios
       .post(`${PROCESSOR_SERVER}/users/update`, payload, getHeaders())
-      .then(() => {
+      .then((res) => {
         toast.success("User details updated!", { position: "bottom-center" });
+        if (res.data) {
+          setUser(res.data);
+        }
         getUserAPI();
       })
       .catch(() => toast.error("Failed to update user details", { position: "bottom-center" }));
@@ -97,38 +179,52 @@ export default function UserAccount() {
   };
 
   const handleInferenceModelChange = (newVal) => {
-    setInferenceModel(newVal);
-    updateUserDetails({ selectedInferenceModel: newVal.value });
+    const nextOption = getInferenceModelOption(newVal?.value);
+    setInferenceModel(nextOption);
+    updateUserDetails({ selectedInferenceModel: nextOption.value });
   };
 
   const handleAssistantModelChange = (newVal) => {
-    setAssistantModel(newVal);
-    updateUserDetails({ selectedAssistantModel: newVal.value });
+    const nextOption = getAssistantModelOption(newVal?.value);
+    setAssistantModel(nextOption);
+    updateUserDetails({ selectedAssistantModel: nextOption.value });
   };
 
-  const deleteAllGenerationsForUser = () => {
-    axios
-      .post(`${PROCESSOR_SERVER}/users/delete_generations`, {}, getHeaders())
-      .then(() => toast.success("All generations deleted!", { position: "bottom-center" }))
-      .catch(() => toast.error("Failed to delete generations", { position: "bottom-center" }));
+  const handleVideoFpsChange = (newVal) => {
+    setVideoFps(newVal);
+    updateUserDetails({ videoFramesPerSecond: newVal.value });
   };
 
-  const deleteAllProjectsForUser = () => {
-    axios
-      .post(`${PROCESSOR_SERVER}/users/delete_projects`, {}, getHeaders())
-      .then(() => toast.success("All projects deleted!", { position: "bottom-center" }))
-      .catch(() => toast.error("Failed to delete projects", { position: "bottom-center" }));
+  const deleteAllGenerationsForUser = async () => {
+    try {
+      await axios.post(`${PROCESSOR_SERVER}/users/delete_generations`, {}, getHeaders());
+      toast.success("All generations deleted!", { position: "bottom-center" });
+    } catch (err) {
+      toast.error("Failed to delete generations", { position: "bottom-center" });
+      throw err;
+    }
   };
 
-  const deleteAccountForUser = () => {
-    axios
-      .post(`${PROCESSOR_SERVER}/users/delete_user`, {}, getHeaders())
-      .then(() => {
-        toast.success("Account deleted!", { position: "bottom-center" });
-        resetUser();
-        navigate("/");
-      })
-      .catch(() => toast.error("Failed to delete account", { position: "bottom-center" }));
+  const deleteAllProjectsForUser = async () => {
+    try {
+      await axios.post(`${PROCESSOR_SERVER}/users/delete_projects`, {}, getHeaders());
+      toast.success("All projects deleted!", { position: "bottom-center" });
+    } catch (err) {
+      toast.error("Failed to delete projects", { position: "bottom-center" });
+      throw err;
+    }
+  };
+
+  const deleteAccountForUser = async () => {
+    try {
+      await axios.post(`${PROCESSOR_SERVER}/users/delete_user`, {}, getHeaders());
+      toast.success("Account deleted!", { position: "bottom-center" });
+      resetUser();
+      navigate("/");
+    } catch (err) {
+      toast.error("Failed to delete account", { position: "bottom-center" });
+      throw err;
+    }
   };
 
   const logoutUser = () => {
@@ -146,14 +242,38 @@ export default function UserAccount() {
     }
   };
 
+  const navItemBase = "w-full text-left mb-2 px-3 py-2 rounded-lg transition-colors";
+  const navItemActive =
+    colorMode === "dark"
+      ? "bg-[#16213a] border border-rose-400/40 text-rose-200 shadow-[0_0_0_1px_rgba(248,113,113,0.16)]"
+      : "bg-white border border-rose-100 text-rose-700 shadow-sm";
+  const navItemIdle =
+    colorMode === "dark"
+      ? "border border-transparent text-slate-300 hover:bg-[#0f1629]"
+      : "border border-transparent text-slate-600 hover:bg-slate-100";
+
   const NavLink = ({ panel, label }) => (
-    <li
-      className={`mb-4 cursor-pointer ${displayPanel === panel ? "font-semibold" : ""}`}
-      onClick={() => goToPanel(panel)}
-    >
-      {label}
+    <li className="list-none">
+      <button
+        className={`${navItemBase} ${displayPanel === panel ? navItemActive : navItemIdle}`}
+        onClick={() => goToPanel(panel)}
+      >
+        {label}
+      </button>
     </li>
   );
+
+  const accountNavItems = [
+    { panel: "account", label: "Account" },
+    { panel: "billing", label: "Billing" },
+    { panel: "settings", label: "Settings" },
+    { panel: "images", label: "Images" },
+    { panel: "sounds", label: "Sounds" },
+    { panel: "scenes", label: "Scenes" },
+    { panel: "videos", label: "Videos" },
+    { panel: "apiKeys", label: "API Keys" },
+    { panel: "usage", label: "Usage" },
+  ];
 
   const pageLabels = {
     account: "Account Information",
@@ -162,6 +282,7 @@ export default function UserAccount() {
     scenes: "Scene Library",
     videos: "Video Library",
     apiKeys: "API Keys",
+    usage: "Usage Logs",
     billing: "Billing Information",
     settings: "Settings",
   };
@@ -205,85 +326,77 @@ export default function UserAccount() {
         {sidebarOpen && (
           <div className="fixed inset-0 z-40 flex" aria-modal="true" role="dialog">
             <div className="fixed inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
-            <nav className={`relative z-50 w-64 p-6 ${bgColor} shadow-md border-r overflow-y-auto`}>
+            <nav className={`relative z-50 w-[min(18rem,85vw)] p-5 sm:p-6 ${bgColor} shadow-[0_16px_40px_rgba(0,0,0,0.45)] border-r ${borderColor} overflow-y-auto`}>
               <button
-                className="absolute top-4 right-4"
+                className={`absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-lg border ${borderColor}`}
                 onClick={() => setSidebarOpen(false)}
                 aria-label="Close navigation"
               >
                 X
               </button>
               <ul>
-                <NavLink panel="account" label="Account" />
-                <NavLink panel="images" label="Images" />
-                <NavLink panel="sounds" label="Sounds" />
-                <NavLink panel="scenes" label="Scenes" />
-                <NavLink panel="videos" label="Videos" />
-                <NavLink panel="apiKeys" label="API Keys" />
-                <NavLink panel="billing" label="Billing" />
-                <NavLink panel="settings" label="Settings" />
+                {accountNavItems.map((item) => (
+                  <NavLink key={item.panel} panel={item.panel} label={item.label} />
+                ))}
               </ul>
             </nav>
           </div>
         )}
 
-        <div className="flex flex-1">
-          <nav className={`hidden md:block w-40 p-4 ${bgColor} shadow-md border-r`}>
+        <div className="flex flex-1 min-w-0">
+          <nav className={`hidden md:block w-48 shrink-0 p-4 ${bgColor} shadow-sm border-r ${borderColor}`}>
             <ul>
-              <NavLink panel="account" label="Account" />
-              <NavLink panel="images" label="Images" />
-              <NavLink panel="sounds" label="Sounds" />
-              <NavLink panel="scenes" label="Scenes" />
-              <NavLink panel="videos" label="Videos" />
-              <NavLink panel="apiKeys" label="API Keys" />
-              <NavLink panel="billing" label="Billing" />
-              <NavLink panel="settings" label="Settings" />
+              {accountNavItems.map((item) => (
+                <NavLink key={item.panel} panel={item.panel} label={item.label} />
+              ))}
             </ul>
           </nav>
 
-          <div className={`flex-1 flex flex-col ${bgColor} ${textColor}`}>
-            <div className="flex items-center p-4 border-b">
+          <div className={`min-w-0 flex-1 flex flex-col ${bgColor} ${textColor}`}>
+            <div className={`flex flex-wrap items-center gap-3 p-3 sm:p-4 border-b ${borderColor}`}>
               <button
-                className="md:hidden mr-4"
+                className={`md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${borderColor}`}
                 onClick={() => setSidebarOpen(true)}
                 aria-label="Open navigation"
               >
                 <FaBars size={20} />
               </button>
 
-              <div onClick={() => navigate("/")} className="cursor-pointer flex items-center mr-4">
+              <div onClick={() => navigate("/")} className="cursor-pointer flex shrink-0 items-center gap-2">
                 <FaChevronCircleLeft className="mr-2" />
                 <span>Back</span>
               </div>
 
-              <h2 className="text-xl font-bold flex-1 text-center">{pageLabels[displayPanel]}</h2>
+              <h2 className="min-w-0 flex-1 truncate text-center text-lg font-bold sm:text-xl">
+                {pageLabels[displayPanel]}
+              </h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6">
               {displayPanel === "account" && (
-                <div className="flex flex-col min-h-full">
-                  <div className="max-w-5xl w-full mx-auto space-y-6">
+                <div className="flex min-h-full min-w-0 flex-col">
+                  <div className="max-w-5xl w-full mx-auto space-y-4 sm:space-y-6">
                     <div
-                      className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-sm`}
+                      className={`rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm sm:p-6`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex min-w-0 items-center gap-4">
                           {user.profilePicture && (
                             <img
                               src={user.profilePicture}
                               alt="Profile"
-                              className="w-16 h-16 rounded-full object-cover"
+                              className="h-14 w-14 shrink-0 rounded-full object-cover sm:h-16 sm:w-16"
                             />
                           )}
-                          <div>
+                          <div className="min-w-0">
                             <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
                               Signed in as
                             </p>
-                            <h2 className="text-2xl font-bold">{user.username}</h2>
-                            <p className={`text-sm ${secondaryTextColor}`}>{user.email}</p>
+                            <h2 className="break-words text-xl font-bold sm:text-2xl">{user.username}</h2>
+                            <p className={`break-all text-sm ${secondaryTextColor}`}>{user.email}</p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right">
                           <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
                             Plan
                           </p>
@@ -296,22 +409,41 @@ export default function UserAccount() {
                     </div>
 
                     <div
-                      className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-sm space-y-6`}
+                      className={`md:hidden rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm`}
                     >
-                      <div className="flex items-center justify-between gap-3">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                            Credits remaining
+                          </p>
+                          <p className="text-3xl font-bold">{user.generationCredits || 0}</p>
+                          <p className={`text-sm ${secondaryTextColor}`}>
+                            Add credits from Billing when your balance runs low.
+                          </p>
+                        </div>
+                        <SecondaryButton onClick={() => goToPanel("billing")} className="w-full sm:w-auto">
+                          Purchase credits
+                        </SecondaryButton>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm space-y-5 sm:p-6 sm:space-y-6`}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h3 className="text-lg font-semibold">Preferences</h3>
                           <p className={`text-sm ${secondaryTextColor}`}>
                             Quick controls for your workspace.
                           </p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 sm:justify-end">
                           <span className="text-sm font-semibold">Dark Mode</span>
                           <ToggleButton />
                         </div>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-2">
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div className="space-y-2">
                           <p className="text-sm font-semibold">Assistant model</p>
                           <SingleSelect
@@ -328,27 +460,39 @@ export default function UserAccount() {
                             onChange={handleInferenceModelChange}
                           />
                         </div>
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold">Final render FPS</p>
+                          <SingleSelect
+                            options={VIDEO_FPS_OPTIONS}
+                            value={videoFps}
+                            onChange={handleVideoFpsChange}
+                            isSearchable={false}
+                          />
+                          <p className={`text-xs ${secondaryTextColor}`}>
+                            Default render frame rate for new video sessions.
+                          </p>
+                        </div>
                       </div>
 
                       {emailNotificationBlock}
                     </div>
 
                     <div
-                      className={`rounded-2xl border ${borderColor} ${cardBgColor} p-6 shadow-sm space-y-4`}
+                      className={`rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm space-y-4 sm:p-6`}
                     >
-                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <h3 className="text-lg font-semibold">Usage & Billing</h3>
                           <p className={`text-sm ${secondaryTextColor}`}>
                             Track credits and billing status.
                           </p>
                         </div>
-                        <SecondaryButton onClick={() => goToPanel("billing")}>
-                          Go to Billing
+                        <SecondaryButton onClick={() => goToPanel("billing")} className="w-full sm:w-auto">
+                          Purchase credits
                         </SecondaryButton>
                       </div>
 
-                      <div className="grid gap-4 md:grid-cols-3">
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
                           <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
                             Credits remaining
@@ -373,7 +517,7 @@ export default function UserAccount() {
                     </div>
                   </div>
 
-                  <div className="sticky bottom-0 bg-inherit pt-6 mt-6">
+                  <div className="sticky bottom-0 bg-inherit pt-4 mt-4 sm:pt-6 sm:mt-6">
                     <SecondaryButton onClick={logoutUser} className="w-full">
                       Logout
                     </SecondaryButton>
@@ -395,6 +539,7 @@ export default function UserAccount() {
                 />
               )}
               {displayPanel === "apiKeys" && <APIKeysPanelContent />}
+              {displayPanel === "usage" && <UsagePanelContent />}
               {displayPanel === "scenes" && <SceneLibraryHome hideSelectButton />}
               {displayPanel === "videos" && <SceneLibraryHome hideSelectButton />}
             </div>

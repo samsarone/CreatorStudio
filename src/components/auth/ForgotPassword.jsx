@@ -24,7 +24,7 @@ export default function ForgotPassword(props) {
         setError(null);
       })
       .catch((err) => {
-        console.error('Error sending password reset email:', err);
+        
         setError('Failed to send reset email. Please try again.');
         setSuccess(null);
       });

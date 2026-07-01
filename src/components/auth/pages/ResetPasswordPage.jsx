@@ -2,7 +2,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../../constants/supportedLanguages.js';
 import OverflowContainer from '../../common/OverflowContainer.tsx'; // keep as‑is if TSX
+import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -81,21 +83,17 @@ const translations = {
   },
 };
 
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-];
-
 const getInitialLanguage = (urlLang) => {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('preferredLanguage') : null;
   const browser = typeof navigator !== 'undefined' && navigator.language ? navigator.language.split('-')[0] : null;
-  return (urlLang || saved || browser || 'en').toLowerCase();
+  const resolved = resolveLanguageCode(urlLang || saved || browser || 'en', 'en');
+  return resolved === 'auto' ? 'en' : resolved;
 };
 
 export default function ResetPasswordPage() {
   const navigate  = useNavigate();
   const location  = useLocation();
+  const { colorMode } = useColorMode();
 
   /* ——— grab url params ——— */
   const params  = new URLSearchParams(location.search);
@@ -115,6 +113,21 @@ export default function ResetPasswordPage() {
   const [resendStatus,    setResendStatus]    = useState(null);
 
   const copy = useMemo(() => translations[language] || translations.en, [language]);
+  const isLight = colorMode === 'light';
+  const panelClass = isLight
+    ? 'bg-[#f8fafc] text-slate-900 border border-slate-200 rounded-lg p-6 max-w-md w-full'
+    : 'bg-gray-800 text-white rounded-lg p-6 max-w-md w-full';
+  const fieldClass = isLight
+    ? 'w-full rounded border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:outline-none focus:ring focus:ring-indigo-300'
+    : 'w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500';
+  const errorClass = isLight
+    ? 'bg-red-50 text-red-700 border border-red-200 rounded p-2 mb-4'
+    : 'bg-red-600/20 text-red-300 rounded p-2 mb-4';
+  const successClass = isLight ? 'text-green-700 text-center' : 'text-green-400 text-center';
+  const resendPanelClass = isLight
+    ? 'mt-4 border border-slate-200 rounded p-3 bg-white'
+    : 'mt-4 border border-gray-700 rounded p-3 bg-gray-900/50';
+  const resendBodyClass = isLight ? 'text-sm text-slate-600 mb-2' : 'text-sm text-gray-300 mb-2';
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -174,7 +187,7 @@ export default function ResetPasswordPage() {
       setResendStatus('success');
       setError(null);
     } catch (err) {
-      console.error('Error requesting new reset email:', err);
+      
       setResendStatus('error');
     }
   };
@@ -183,13 +196,13 @@ export default function ResetPasswordPage() {
   return (
     <OverflowContainer>
       <div className="w-full flex flex-col items-center justify-center pt-20">
-        <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
+        <div className={panelClass}>
           <h1 className="text-2xl font-semibold text-center mb-6">
             {copy.title}
           </h1>
 
           {error && (
-            <div className="bg-red-600/20 text-red-300 rounded p-2 mb-4">
+            <div className={errorClass}>
               {error}
             </div>
           )}
@@ -199,18 +212,18 @@ export default function ResetPasswordPage() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500"
+              className={fieldClass}
             >
-              {languageOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.nativeName || lang.name}
                 </option>
               ))}
             </select>
           </div>
 
           {success ? (
-            <div className="text-green-400 text-center">
+            <div className={successClass}>
               {copy.success}
             </div>
           ) : (
@@ -222,7 +235,7 @@ export default function ResetPasswordPage() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500"
+                  className={fieldClass}
                 />
               </div>
 
@@ -233,7 +246,7 @@ export default function ResetPasswordPage() {
                   type="password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500"
+                  className={fieldClass}
                 />
               </div>
 
@@ -244,7 +257,7 @@ export default function ResetPasswordPage() {
                   type="password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  className="w-full rounded bg-gray-700 text-white px-3 py-2 focus:outline-none focus:ring focus:ring-indigo-500"
+                  className={fieldClass}
                 />
               </div>
 
@@ -261,9 +274,9 @@ export default function ResetPasswordPage() {
           )}
 
           {allowResend && !success && (
-            <div className="mt-4 border border-gray-700 rounded p-3 bg-gray-900/50">
+            <div className={resendPanelClass}>
               <div className="font-semibold mb-1">{copy.resendTitle}</div>
-              <div className="text-sm text-gray-300 mb-2">{copy.resendBody}</div>
+              <div className={resendBodyClass}>{copy.resendBody}</div>
               <button
                 className="w-full bg-indigo-500 hover:bg-indigo-600 text-white rounded py-2 font-medium disabled:opacity-60"
                 onClick={requestNewLink}

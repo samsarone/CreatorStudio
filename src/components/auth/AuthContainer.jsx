@@ -6,13 +6,30 @@ import axios from 'axios';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getHeaders, persistAuthToken } from '../../utils/web.jsx';
+import { persistAuthToken } from '../../utils/web.jsx';
 import { FaTimes } from 'react-icons/fa';
+import { useMediaQuery } from 'react-responsive';
+import {
+  buildGoogleLoginUrl,
+  consumeResolvedAuthRedirect,
+  getCurrentAuthRedirect,
+  persistAuthRedirectForFlow,
+  resolvePostAuthDestination,
+} from '../../utils/authRedirect.js';
+import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../account/PurchaseCreditsPromptDialog.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
+export const AUTH_DIALOG_OPTIONS = {
+  surface: 'auth',
+  fullBleed: true,
+  centerContent: true,
+  hideBorder: true,
+  hideCloseButton: true,
+};
+
 export default function AuthContainer(props) {
-  const { initView } = props;
+  const { initView, redirectTo } = props;
 
   const [error, setError] = useState('');
   const [currentLoginView, setCurrentLoginView] = useState('login');
@@ -20,8 +37,10 @@ export default function AuthContainer(props) {
   const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
   const { closeAlertDialog } = useAlertDialog();
   const { setUser } = useUser();
+  const requestedRedirect = getCurrentAuthRedirect(location, redirectTo);
 
   useEffect(() => {
     if (initView) {
@@ -34,42 +53,40 @@ export default function AuthContainer(props) {
   }, [initView]);
 
   const signInWithGoogle = () => {
-    let currentMediaFlowPath = 'video';
-    if (location.pathname.includes('/vidgenie/')) {
-      currentMediaFlowPath = 'quick_video';
-    }
-    localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
-
-    const origin = window.location.origin;
-    axios.get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        const googleAuthUrl = authPayload.loginUrl;
-        window.location.href = googleAuthUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        console.error('Error during Google login:', error);
-        setError('Unable to initiate Google login at this time.');
-      });
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+    });
     closeAlertDialog();
   };
 
-  const registerWithGoogle = () => {
-    const origin = window.location.origin;
-    axios.get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        const googleAuthUrl = authPayload.loginUrl;
-
-        localStorage.setItem("setShowSetPaymentFlow", true);
-
-        window.location.href = googleAuthUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        console.error('Error during Google registration:', error);
-        setError('Unable to initiate Google registration at this time.');
-      });
+  const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
+    localStorage.setItem("setShowSetPaymentFlow", true);
+    localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+      subscribeToWeeklyNewsletter,
+    });
     closeAlertDialog();
+  };
+
+  const navigateAfterAuth = async (resolvedUser = null) => {
+    try {
+      const redirect = consumeResolvedAuthRedirect(requestedRedirect);
+      const destination = await resolvePostAuthDestination({
+        user: resolvedUser,
+        isMobile,
+        apiServer: API_SERVER,
+        redirect,
+        search: location.search,
+      });
+      navigate(destination, { replace: true });
+    } catch (error) {
+      setError('Unable to open your workspace.');
+    }
   };
 
   const verifyAndSetUserProfile = (profile) => {
@@ -82,34 +99,8 @@ export default function AuthContainer(props) {
         closeAlertDialog();
       })
       .catch((error) => {
-        console.error('Error verifying user profile:', error);
+        
         setError('Unable to verify user profile.');
-      });
-  };
-
-  const getOrCreateUserSession = () => {
-    const headers = getHeaders();
-
-    axios.get(`${API_SERVER}/video_sessions/get_session`, headers)
-      .then((res) => {
-        const sessionData = res.data;
-
-        if (sessionData && sessionData._id) {
-          localStorage.setItem('videoSessionId', sessionData._id);
-
-          // Navigate based on the current path
-          if (location.pathname.includes('/video/')) {
-            navigate(`/video/${sessionData._id}`);
-          } else {
-            navigate(`/vidgenie/${sessionData._id}`);
-          }
-        } else {
-          navigate('/my_sessions');
-        }
-      })
-      .catch((error) => {
-        console.error('Error getting or creating user session:', error);
-        setError('Unable to create or get a session.');
       });
   };
 
@@ -125,15 +116,17 @@ export default function AuthContainer(props) {
       persistAuthToken(authToken);
       setUser(userData);
       closeAlertDialog();
-      getOrCreateUserSession();
+      localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+      navigateAfterAuth(userData);
 
       localStorage.setItem("setShowSetPaymentFlow", true);
     } catch (error) {
-      console.error('Error during user registration:', error);
+      
 
       // Attempt to bubble server error back to <Register />
-      if (error.response && error.response.data && error.response.data.message) {
-        onError(error.response.data.message);
+      const serverMessage = error.response?.data?.message || error.response?.data?.error;
+      if (serverMessage) {
+        onError(serverMessage);
       } else {
         onError('Unable to register user at this time. Please try again.');
       }
@@ -152,7 +145,7 @@ export default function AuthContainer(props) {
         verifyAndSetUserProfile={verifyAndSetUserProfile}
         setUser={setUser}
         closeAlertDialog={closeAlertDialog}
-        getOrCreateUserSession={getOrCreateUserSession}
+        getOrCreateUserSession={navigateAfterAuth}
         showSignupButton={true}
       />
     );
@@ -170,7 +163,7 @@ export default function AuthContainer(props) {
         registerWithGoogle={registerWithGoogle}
         verifyAndSetUserProfile={verifyAndSetUserProfile}
         setUser={setUser}
-        getOrCreateUserSession={getOrCreateUserSession}
+        getOrCreateUserSession={navigateAfterAuth}
         closeAlertDialog={closeAlertDialog}
         registerUserWithEmail={registerUserWithEmail}
         showLoginButton={true}
@@ -179,16 +172,18 @@ export default function AuthContainer(props) {
   }
 
   return (
-    <div>
-      {/* If you'd like to display container-level errors */}
-      {error && (
-        <div className="text-center text-red-500">
-          {error}
-        </div>
-      )}
+    <div className="w-full h-full flex items-center justify-center">
+      <div className="relative w-full max-w-md">
+        {/* If you'd like to display container-level errors */}
+        {error && (
+          <div className="mb-3 text-center text-red-500">
+            {error}
+          </div>
+        )}
 
-      <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
-      {authoComponent}
+        <FaTimes className="absolute top-3 right-3 cursor-pointer" onClick={closeAlertDialog} />
+        {authoComponent}
+      </div>
     </div>
   );
 }

@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import {
   CURRENT_TOOLBAR_VIEW,
@@ -16,33 +17,130 @@ import {
 
 
 import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
-import UploadImageDialog from '../editor/utils/UploadImageDialog.jsx';
+import ImageUploadDialog from '../image/ImageUploadDialog.jsx';
 import VideoCanvasContainer from './editor/VideoCanvasContainer.jsx';
 import VideoEditorToolbar from './toolbars/VideoEditorToolbar.jsx'
 import LoadingImage from './util/LoadingImage.jsx';
 import LoadingImageBase from './util/LoadingImageBase.jsx';
+import { createLayerBoundImageItem } from './util/layerBoundImageItem.js';
 
 
 import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
 
 import LibraryHome from '../library/LibraryHome.jsx';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import VideoEditorToolbarMinimal from './toolbars/VideoEditorToolbarMinimal.jsx';
 import { ToastContainer, toast } from 'react-toastify';
 
 import 'react-toastify/dist/ReactToastify.css';
 import { FaCheck, FaTimes } from 'react-icons/fa';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+import { drawCanvasTextItem } from '../../utils/canvasText.js';
+import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
+import { getRenderableImageUrl } from '../../utils/image.jsx';
 
 
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
+const VIDEO_TASK_POLL_INTERVAL_MS = 1500;
+const USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
+const DISPLAY_FRAMES_PER_SECOND = 30;
+
+function isActiveUserVideoUploadTask(task) {
+  return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
+}
+
+function isAbsoluteUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+}
+
+function resolveProcessorAssetUrlFromStaticUrl(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(value.trim());
+    const normalizedHost = parsedUrl.hostname.toLowerCase();
+    const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    if (
+      normalizedHost !== 'static.samsar.one' ||
+      !(
+        normalizedPath.startsWith('assets_v2/') ||
+        normalizedPath.startsWith('assets/')
+      )
+    ) {
+      return null;
+    }
+
+    const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
+      ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
+      : '';
+    return processorBaseUrl
+      ? `${processorBaseUrl}/${normalizedPath}`
+      : `/${normalizedPath}`;
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeStudioVideoRoute(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return /^\/?video\/[a-f0-9]{24}$/i.test(value.trim());
+}
+
+function resolveMediaUrl(value, baseUrl = '') {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue || looksLikeStudioVideoRoute(trimmedValue)) {
+    return null;
+  }
+
+  if (isAbsoluteUrl(trimmedValue)) {
+    return resolveProcessorAssetUrlFromStaticUrl(trimmedValue) || trimmedValue;
+  }
+
+  const normalizedPath = trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`;
+  const trimmedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : '';
+  if (!trimmedBaseUrl) {
+    return normalizedPath;
+  }
+
+  return `${trimmedBaseUrl}${normalizedPath}`;
+}
+
+function getLayerId(layer) {
+  return layer?._id?.toString?.() || layer?._id || null;
+}
+
+function getContentDispositionFileName(contentDisposition) {
+  if (typeof contentDisposition !== 'string') {
+    return null;
+  }
+
+  const fileNameMatch = contentDisposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i);
+  if (!fileNameMatch?.[1]) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(fileNameMatch[1]);
+  } catch {
+    return fileNameMatch[1];
+  }
+}
 
 export default function VideoEditorContainer(props) {
   const {
     selectedLayerId,
     currentLayerSeek,
+    setCurrentLayerSeek,
     currentLayer,
     updateSessionLayerActiveItemList,
     updateSessionLayerActiveItemListAnimations,
@@ -65,23 +163,31 @@ export default function VideoEditorContainer(props) {
     displayZoomType,
     toggleStageZoom,
     stageZoomScale,
+    zoomCanvasIn,
+    zoomCanvasOut,
+    resetCanvasZoom,
+    canvasZoomPercent,
+    canZoomInCanvas,
+    canZoomOutCanvas,
     updateCurrentLayerInSessionList,
     updateCurrentLayerAndLayerList,
     totalDuration,
     isUpdateLayerPending,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
+    onRecordSpeechRecordingChange,
+    applyAudioDucking = true,
+    isRenderPending,
     audioLayers,
     setAudioLayers,
-
     layers,
-
-
-
+    onAssistantFrameCaptureChange,
+    onSetAvatarHints,
   } = props;
 
   const [segmentationData, setSegmentationData] = useState([]);
   const [currentLayerDefaultPrompt, setCurrentLayerDefaultPrompt] = useState('');
+  const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
 
   // 1) State to store the current AI video URL and type
   const [aiVideoLayer, setAiVideoLayer] = useState(null);
@@ -116,9 +222,11 @@ export default function VideoEditorContainer(props) {
 
   const showLoginDialog = () => {
     const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
+  const currentLayerRef = useRef(currentLayer);
+  const layersRef = useRef(layers);
   const generationPollIntervalRef = useRef(null);
   const outpaintPollIntervalRef = useRef(null);
   const audioGenerationPollIntervalRef = useRef(null);
@@ -126,72 +234,188 @@ export default function VideoEditorContainer(props) {
   const aiVideoGenerationPollIntervalRef = useRef(null);
   const layeredAudioGenerationPollIntervalRef = useRef(null);
 
+  useEffect(() => {
+    currentLayerRef.current = currentLayer;
+  }, [currentLayer]);
+
+  useEffect(() => {
+    layersRef.current = layers;
+  }, [layers]);
+
 
   const [aiVideoPollType, setAiVideoPollType] = useState(null);
 
-  // Helpers to return full video URLs based on which link is available
-  const getAIVideoLink = () => {
-    if (!currentLayer || !currentLayer.aiVideoLayer) return null;
-    const aiVidLink = currentLayer.aiVideoRemoteLink
-      ? `${STATIC_CDN_URL}/${currentLayer.aiVideoRemoteLink}`
-      : `${PROCESSOR_API_URL}${currentLayer.aiVideoLayer}`;
+  const resolveLayerVideoState = useCallback((layer) => {
+    if (!layer) {
+      return { url: null, type: null };
+    }
 
-    return aiVidLink;
+    const hasLipSyncVideo = Boolean(
+      (layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync') &&
+      layer.lipSyncVideoLayer
+    );
 
-  };
+    if (hasLipSyncVideo) {
+      return {
+        type: 'lip_sync',
+        url: layer.lipSyncRemoteLink
+          ? resolveMediaUrl(layer.lipSyncRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.lipSyncVideoLayer, PROCESSOR_API_URL),
+      };
+    }
 
-  const getLipSyncVideoLink = () => {
-    if (!currentLayer || !currentLayer.lipSyncVideoLayer) return null;
-    return currentLayer.lipSyncRemoteLink
-      ? `${STATIC_CDN_URL}/${currentLayer.lipSyncRemoteLink}`
-      : `${PROCESSOR_API_URL}${currentLayer.lipSyncVideoLayer}`;
-  };
+    if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
+      return {
+        type: 'sound_effect',
+        url: layer.soundEffectRemoteLink
+          ? resolveMediaUrl(layer.soundEffectRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.soundEffectVideoLayer, PROCESSOR_API_URL),
+      };
+    }
 
-  const getSoundEffectVideoLink = () => {
-    if (!currentLayer || !currentLayer.soundEffectVideoLayer) return null;
-    return currentLayer.soundEffectRemoteLink
-      ? `${STATIC_CDN_URL}/${currentLayer.soundEffectRemoteLink}`
-      : `${PROCESSOR_API_URL}${currentLayer.soundEffectVideoLayer}`;
-  };
+    if (layer.hasUserVideoLayer && layer.userVideoLayer) {
+      return {
+        type: 'user_video',
+        url: layer.userVideoRemoteLink
+          ? resolveMediaUrl(layer.userVideoRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.userVideoLayer, PROCESSOR_API_URL),
+      };
+    }
+
+    if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
+      return {
+        type: 'ai_video',
+        url: layer.aiVideoRemoteLink
+          ? resolveMediaUrl(layer.aiVideoRemoteLink, STATIC_CDN_URL)
+          : resolveMediaUrl(layer.aiVideoLayer, PROCESSOR_API_URL),
+      };
+    }
+
+    return { url: null, type: null };
+  }, []);
+
+  const layerHasPendingVideoTask = useCallback((layer) => {
+    if (!layer) {
+      return false;
+    }
+
+    return Boolean(
+      layer.aiVideoGenerationPending
+      || layer.lipSyncGenerationPending
+      || layer.soundEffectGenerationPending
+      || layer.userVideoGenerationPending
+      || isActiveUserVideoUploadTask(layer.userVideoUploadTask)
+    );
+  }, []);
+
+  const layerHasUploadedOrPendingUserVideo = useCallback((layer) => {
+    if (!layer) {
+      return false;
+    }
+
+    return Boolean(
+      layer.userVideoGenerationPending
+      || layer.hasUserVideoLayer
+      || layer.userVideoLayer
+      || layer.userVideoUploadTaskId
+      || isActiveUserVideoUploadTask(layer.userVideoUploadTask)
+    );
+  }, []);
+
+  const layerHasAnyVideoArtefact = useCallback((layer) => {
+    const { url } = resolveLayerVideoState(layer);
+    return Boolean(url) || layerHasPendingVideoTask(layer);
+  }, [layerHasPendingVideoTask, resolveLayerVideoState]);
+
+  const syncCurrentLayerUserVideoUploadTask = useCallback((task, extraLayerPatch = {}) => {
+    const sessionLayers = Array.isArray(layersRef.current) ? layersRef.current : layers;
+    if (!currentLayer?._id || !Array.isArray(sessionLayers)) {
+      return;
+    }
+
+    const currentLayerId = currentLayer._id.toString();
+    const updatedLayers = sessionLayers.map((layer) => {
+      if (layer?._id?.toString?.() !== currentLayerId) {
+        return layer;
+      }
+
+      return {
+        ...layer,
+        ...extraLayerPatch,
+        userVideoUploadTask: task,
+      };
+    });
+    const updatedLayerIndex = updatedLayers.findIndex(
+      (layer) => layer?._id?.toString?.() === currentLayerId
+    );
+
+    if (updatedLayerIndex === -1) {
+      return;
+    }
+
+    updateCurrentLayerAndLayerList(updatedLayers, updatedLayerIndex, { preserveCurrentLayer: true });
+    setVideoSessionDetails((previousSessionDetails) => (
+      previousSessionDetails
+        ? {
+          ...previousSessionDetails,
+          layers: updatedLayers,
+        }
+        : previousSessionDetails
+    ));
+  }, [currentLayer, layers, setVideoSessionDetails, updateCurrentLayerAndLayerList]);
 
   // On each currentLayer change, figure out which AI video layer to use
   useEffect(() => {
     if (!currentLayer) {
       setAiVideoLayer(null);
       setAiVideoLayerType(null);
+      setAiVideoPollType(null);
+      setIsAIVideoGenerationPending(false);
       return;
     }
 
-    if (currentLayer.hasLipSyncVideoLayer && currentLayer.lipSyncVideoLayer) {
-      setAiVideoLayer(getLipSyncVideoLink());
-      setAiVideoLayerType('lip_sync');
-    } else if (currentLayer.hasSoundEffectVideoLayer && currentLayer.soundEffectVideoLayer) {
-      setAiVideoLayer(getSoundEffectVideoLink());
-      setAiVideoLayerType('sound_effect');
-    } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoLayer) {
-
-      const aiVideoLink = getAIVideoLink();
-
-
-      setAiVideoLayer(aiVideoLink);
-      setAiVideoLayerType('ai_video');
-    } else {
-      setAiVideoLayer(null);
-      setAiVideoLayerType(null);
-    }
+    const { url, type } = resolveLayerVideoState(currentLayer);
+    setAiVideoLayer(url);
+    setAiVideoLayerType(type || (isActiveUserVideoUploadTask(currentLayer?.userVideoUploadTask) ? 'user_video' : null));
+    setIsAIVideoGenerationPending(layerHasPendingVideoTask(currentLayer));
 
     if (currentLayer.lipSyncGenerationPending) {
       setAiVideoPollType('lip_sync');
-
     } else if (currentLayer.soundEffectGenerationPending) {
       setAiVideoPollType('sound_effect');
-
+    } else if (
+      currentLayer.userVideoGenerationPending
+      || currentLayer?.userVideoUploadTask?.status === 'PROCESSING'
+    ) {
+      setAiVideoPollType('user_video');
     } else if (currentLayer.aiVideoGenerationPending && currentLayer.layerAiVideoType === 'ai_video') {
       setAiVideoPollType('ai_video');
+    } else {
+      setAiVideoPollType(null);
+    }
+  }, [currentLayer, layerHasPendingVideoTask, resolveLayerVideoState]);
 
+  const nextVideoLayerState = useMemo(() => {
+    if (!isVideoPreviewPlaying || !currentLayer || !Array.isArray(layers)) {
+      return { url: null, type: null };
     }
 
-  }, [currentLayer]);
+    const currentLayerId = currentLayer?._id?.toString?.() || currentLayer?._id || null;
+    if (!currentLayerId) {
+      return { url: null, type: null };
+    }
+
+    const currentLayerIndex = layers.findIndex((layer) => {
+      const layerId = layer?._id?.toString?.() || layer?._id || null;
+      return layerId && layerId.toString() === currentLayerId.toString();
+    });
+
+    if (currentLayerIndex < 0 || currentLayerIndex >= layers.length - 1) {
+      return { url: null, type: null };
+    }
+
+    return resolveLayerVideoState(layers[currentLayerIndex + 1]);
+  }, [currentLayer, isVideoPreviewPlaying, layers, resolveLayerVideoState]);
 
 
   useEffect(() => {
@@ -203,136 +427,6 @@ export default function VideoEditorContainer(props) {
 
     startAIVideoLayerGenerationPoll();
   }, [aiVideoPollType]);
-
-
-
-
-
-
-
-  const audioRefs = useRef([]);  // Each element: { audio: HTMLAudioElement, startTime, endTime, ... }
-
-  function clamp(value, min, max) {
-    return Math.min(Math.max(value, min), max);
-  }
-
-  useEffect(() => {
-
-    audioRefs.current = audioLayers.map((layer) => {
-
-
-      const rawVolume = (layer.volume ?? 100) / 100;
-      const clampedVolume = clamp(rawVolume, 0, 1);     // ensures 0 <= volume <= 1
-
-      const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
-
-      const audioUrl = `${PROCESSOR_API_URL}/${layer.selectedLocalAudioLink}`;
-
-      const audioEl = new Audio(audioUrl);
-      audioEl.preload = "auto";
-      audioEl.volume = clampedVolume;                  // assign the safe, clamped volume
-
-      return {
-        audio: audioEl,
-        startTime: layer.startTime,
-        endTime: layer.endTime,
-      };
-    });
-
-    // On cleanup, make sure to stop and unload
-    return () => {
-      audioRefs.current.forEach(({ audio }) => {
-        audio.pause();
-        audio.src = "";
-      });
-    };
-  }, [audioLayers]);
-
-
-  useEffect(() => {
-    // If we stop playing, pause all audio
-    if (!isVideoPreviewPlaying) {
-      audioRefs.current.forEach(({ audio }) => {
-        audio.pause();
-        // Optionally reset to 0
-        // audio.currentTime = 0;
-      });
-      return;
-    }
-
-    // If we *start* playing:
-    const fps = 30;
-    let frame = currentLayerSeek;
-    const totalFrames = Math.floor(totalDuration * fps);
-
-    const intervalId = setInterval(() => {
-      // If we go beyond total frames, stop
-      if (frame >= totalFrames) {
-
-        clearInterval(intervalId);
-        setIsVideoPreviewPlaying(false);
-        return;
-      }
-
-      // Update the current frame
-      frame++;
-      // Update your "global" preview time in frames
-      props.setCurrentLayerSeek(frame);
-
-      // Convert frames -> seconds
-      const previewTime = frame / fps;
-
-      // Sync each audio
-      audioRefs.current.forEach(({ audio, startTime, endTime }) => {
-
-
-        if (previewTime >= startTime && previewTime < endTime) {
-          const newCurrent = previewTime - startTime;
-          // If not playing, start playing
-          if (audio.paused) {
-            try {
-              audio.play();
-            } catch (err) {
-              console.log(err);
-            }
-          }
-
-          // Keep the audio's time in sync 
-          // (only if drifting too far, to avoid choppy re-seeks)
-          if (Math.abs(audio.currentTime - newCurrent) > 0.3) {
-            audio.currentTime = newCurrent;
-          }
-        } else {
-          // Pause if out of range
-          if (!audio.paused) {
-            audio.pause();
-          }
-        }
-      });
-    }, 1000 / fps);
-
-    return () => clearInterval(intervalId);
-  }, [
-    isVideoPreviewPlaying,
-    currentLayerSeek,
-    totalDuration,
-    props,              // includes setCurrentLayerSeek
-    setIsVideoPreviewPlaying,
-  ]);
-
-
-
-  // Preload hidden <video> once we set aiVideoLayer
-  useEffect(() => {
-    if (aiVideoLayer) {
-      const hiddenContainer = document.getElementById('hidden-video-container');
-      const video = document.createElement('video');
-      video.src = aiVideoLayer;
-      video.preload = 'auto';
-      video.style.display = 'none';
-      hiddenContainer.appendChild(video);
-    }
-  }, [aiVideoLayer]);
 
   useEffect(() => {
     if (currentLayer && currentLayer.segmentation) {
@@ -368,6 +462,8 @@ export default function VideoEditorContainer(props) {
   const [editBrushWidth, setEditBrushWidth] = useState(25);
   const [editMasklines, setEditMaskLines] = useState([]);
   const [currentView, setCurrentView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+  const [rightPanelView, setRightPanelView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+  const [isRightPanelExpanded, setIsRightPanelExpanded] = useState(false);
   const [currentCanvasAction, setCurrentCanvasAction] = useState(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
 
   const [selectedGenerationModel, setSelectedGenerationModel] = useState(() => {
@@ -405,6 +501,7 @@ export default function VideoEditorContainer(props) {
   const [currentLayerHasSpeechLayer, setCurrentLayerHasSpeechLayer] = useState(false);
   const { openAlertDialog, closeAlertDialog, setIsAlertActionPending } = useAlertDialog();
   const { user, getUserAPI } = useUser();
+  const { t } = useLocalization();
 
   const [showCreateNewPromptDisplay, setShowCreateNewPromptDisplay] = useState(false);
   const showCreateNewPrompt = () => {
@@ -414,6 +511,10 @@ export default function VideoEditorContainer(props) {
   const setCurrentViewDisplay = (view) => {
     setCurrentView(view);
   };
+
+  useEffect(() => {
+    setRightPanelView(currentView);
+  }, [currentView]);
 
 
 
@@ -435,6 +536,33 @@ export default function VideoEditorContainer(props) {
   const canvasRef = useRef(null);
   const maskGroupRef = useRef(null);
 
+  const getAssistantFrameImageData = useCallback(async () => {
+    const dataUrl = await captureAssistantStageImageData(canvasRef, {
+      maxDimension: 1536,
+    });
+
+    if (!dataUrl) {
+      return null;
+    }
+
+    return {
+      dataUrl,
+      mimeType: 'image/png',
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof onAssistantFrameCaptureChange !== 'function') {
+      return undefined;
+    }
+
+    onAssistantFrameCaptureChange(getAssistantFrameImageData);
+
+    return () => {
+      onAssistantFrameCaptureChange(null);
+    };
+  }, [getAssistantFrameImageData, onAssistantFrameCaptureChange]);
+
   useEffect(() => {
     if (aspectRatio) {
       const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
@@ -452,7 +580,9 @@ export default function VideoEditorContainer(props) {
       const currentLayerStartTime = currentLayer.durationOffset;
       const currentLayerEndTime = currentLayer.durationOffset + currentLayer.duration;
 
-      const { audioLayers } = videoSessionDetails;
+      const audioLayers = Array.isArray(videoSessionDetails.audioLayers)
+        ? videoSessionDetails.audioLayers
+        : [];
       const audioSpeechLayerOverlaps = audioLayers.some((audioLayer) => {
         const audioLayerStartTime = audioLayer.startTime;
         const audioLayerEndTime = audioLayer.endTime;
@@ -472,26 +602,44 @@ export default function VideoEditorContainer(props) {
 
 
   // Example showing usage for uploading images
+  const createCurrentLayerImageItem = useCallback(
+    (imagePayload) => createLayerBoundImageItem({ layer: currentLayer, ...imagePayload }),
+    [currentLayer]
+  );
+
   const setUploadURL = useCallback(
     (data) => {
       if (!data) return;
-      const newItemId = `item_${activeItemList.length}`;
-      const newItem = {
-        src: data.url,
-        id: newItemId,
-        type: 'image',
-        x: data.x,
-        y: data.y,
-        width: data.width,
-        height: data.height,
-      };
-      const newItemList = [...activeItemList, newItem];
+      const uploads = Array.isArray(data) ? data : [data];
+      if (!uploads.length) return;
+
+      const newItemList = [...activeItemList];
+      let nextIndex = newItemList.length;
+      uploads.forEach((entry) => {
+        if (!entry?.url) return;
+        const newItemId = `item_${nextIndex}`;
+        nextIndex += 1;
+        newItemList.push(createCurrentLayerImageItem({
+          src: entry.url,
+          id: newItemId,
+          x: entry.x,
+          y: entry.y,
+          width: entry.width,
+          height: entry.height,
+          source: 'upload',
+        }));
+      });
+
+      if (newItemList.length === activeItemList.length) {
+        return;
+      }
+
       setActiveItemList(newItemList);
       updateSessionLayerActiveItemList(newItemList);
       closeAlertDialog();
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Image uploaded successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.imageUploadSuccess")}
         </div>,
         {
           position: 'bottom-center',
@@ -499,7 +647,243 @@ export default function VideoEditorContainer(props) {
         }
       );
     },
-    [activeItemList]
+    [activeItemList, createCurrentLayerImageItem, closeAlertDialog, t, updateSessionLayerActiveItemList]
+  );
+
+  const setUploadVideo = useCallback(
+    async (file) => {
+      if (!file || !currentLayer) {
+        return;
+      }
+      if (layerHasAnyVideoArtefact(currentLayer)) {
+        throw new Error('Remove the existing or pending video artefact before uploading a new video.');
+      }
+
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        throw new Error('Unauthorized');
+      }
+
+      const requestUrl = `${PROCESSOR_API_URL}/video_sessions/upload_user_video_layer_chunk`;
+      const resolvedFileName = file.name || 'uploaded_video.mp4';
+      const uploadId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `upload_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const totalChunks = Math.max(1, Math.ceil(file.size / USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES));
+
+      setAiVideoPollType(null);
+      setIsAIVideoGenerationPending(true);
+      syncCurrentLayerUserVideoUploadTask({
+        uploadId,
+        status: 'UPLOADING',
+        fileName: resolvedFileName,
+        totalChunks,
+        uploadedChunks: 0,
+        totalFileSize: file.size,
+        uploadedBytes: 0,
+        progressPercent: 0,
+        message: 'Uploading video to server.',
+      }, {
+        frameGenerationPending: true,
+      });
+      closeAlertDialog();
+
+      try {
+        let response = null;
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex += 1) {
+          const chunkStart = chunkIndex * USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES;
+          const chunkEnd = Math.min(file.size, chunkStart + USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES);
+          const chunk = file.slice(chunkStart, chunkEnd);
+          const chunkRequestUrl =
+            `${requestUrl}` +
+            `?sessionId=${encodeURIComponent(id)}` +
+            `&layerId=${encodeURIComponent(currentLayer._id.toString())}` +
+            `&uploadId=${encodeURIComponent(uploadId)}` +
+            `&chunkIndex=${encodeURIComponent(chunkIndex)}` +
+            `&totalChunks=${encodeURIComponent(totalChunks)}` +
+            `&totalFileSize=${encodeURIComponent(file.size)}` +
+            `&fileName=${encodeURIComponent(resolvedFileName)}`;
+
+          syncCurrentLayerUserVideoUploadTask({
+            uploadId,
+            status: 'UPLOADING',
+            fileName: resolvedFileName,
+            totalChunks,
+            uploadedChunks: chunkIndex,
+            totalFileSize: file.size,
+            uploadedBytes: chunkStart,
+            progressPercent: file.size > 0 ? Math.round((chunkStart / file.size) * 100) : 0,
+            message: 'Uploading video to server.',
+          }, {
+            frameGenerationPending: true,
+          });
+
+          const isLastChunk = chunkIndex === totalChunks - 1;
+          const responsePromise = axios.post(chunkRequestUrl, chunk, {
+            ...headers,
+            headers: {
+              ...headers.headers,
+              'Content-Type': file.type || 'video/mp4',
+            },
+          });
+
+          response = await responsePromise;
+          const responseTask = response?.data?.task;
+          if (responseTask) {
+            syncCurrentLayerUserVideoUploadTask(responseTask, {
+              frameGenerationPending: true,
+              userVideoGenerationPending: responseTask.status === 'PROCESSING',
+            });
+          } else {
+            syncCurrentLayerUserVideoUploadTask({
+              uploadId,
+              status: 'UPLOADING',
+              fileName: resolvedFileName,
+              totalChunks,
+              uploadedChunks: chunkIndex + 1,
+              totalFileSize: file.size,
+              uploadedBytes: chunkEnd,
+              progressPercent: file.size > 0 ? Math.round((chunkEnd / file.size) * 100) : 0,
+              message: isLastChunk
+                ? 'Upload complete. Waiting for server processing.'
+                : 'Uploading video to server.',
+            }, {
+              frameGenerationPending: true,
+            });
+          }
+        }
+
+        if (
+          !response?.data?.session
+          && !response?.data?.layer
+          && !response?.data?.task
+          && response?.data?.status !== 'PENDING'
+          && response?.data?.complete !== true
+        ) {
+          throw new Error('Video upload did not complete successfully.');
+        }
+
+        const { session, layer, audioLayers: updatedAudioLayers, task: responseTask } = response.data;
+        if (session && layer) {
+          const updatedLayerIndex = session.layers.findIndex(
+            (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
+          );
+          const uploadedLayerIsCurrent =
+            currentLayerRef.current?._id?.toString?.() === layer._id.toString();
+
+          setVideoSessionDetails(session);
+          updateCurrentLayerAndLayerList(session.layers, updatedLayerIndex, { preserveCurrentLayer: true });
+          setAudioLayers(updatedAudioLayers || session.audioLayers || []);
+          if (uploadedLayerIsCurrent) {
+            setActiveItemList(layer.imageSession?.activeItemList || []);
+          }
+          setIsCanvasDirty(true);
+        } else {
+          syncCurrentLayerUserVideoUploadTask(responseTask || {
+            uploadId,
+            status: 'PROCESSING',
+            fileName: resolvedFileName,
+            totalChunks,
+            uploadedChunks: totalChunks,
+            totalFileSize: file.size,
+            uploadedBytes: file.size,
+            progressPercent: 100,
+            message: 'Upload complete. Processing video on server.',
+          }, {
+            frameGenerationPending: true,
+            userVideoGenerationPending: true,
+            userVideoUploadTaskId: response?.data?.taskId || null,
+          });
+        }
+
+        setAiVideoPollType('user_video');
+
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> Uploaded video processing started
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      } catch (error) {
+        setIsAIVideoGenerationPending(false);
+        setAiVideoPollType(null);
+        syncCurrentLayerUserVideoUploadTask(null, {
+          userVideoGenerationPending: false,
+          userVideoUploadTaskId: null,
+        });
+        const statusCode = error?.response?.status;
+        const serverError =
+          error?.response?.data?.error
+          || error?.response?.data?.message
+          || error?.message;
+
+        if (statusCode === 413) {
+          toast.error(
+            <div>
+              <FaTimes className='inline-flex mr-2' /> A video upload chunk exceeded the server request limit. Please retry the upload.
+            </div>,
+            {
+              position: 'bottom-center',
+              className: 'custom-toast',
+            }
+          );
+          throw new Error('A video upload chunk exceeded the server request limit. Please retry the upload.');
+        }
+
+        toast.error(
+          <div>
+            <FaTimes className='inline-flex mr-2' /> {serverError || 'Video upload failed.'}
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+        throw new Error(serverError || 'Video upload failed.');
+      }
+    },
+    [
+      closeAlertDialog,
+      currentLayer,
+      id,
+      layerHasAnyVideoArtefact,
+      layers,
+      setActiveItemList,
+      setAudioLayers,
+      setIsCanvasDirty,
+      setVideoSessionDetails,
+      syncCurrentLayerUserVideoUploadTask,
+      updateCurrentLayerAndLayerList,
+    ]
+  );
+
+  const openUploadDialog = useCallback(
+    (options = {}) => {
+      const { closeView = false } = options;
+      if (closeView) {
+        setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
+      }
+      openAlertDialog(
+        <div className='relative w-full max-w-[460px] overflow-hidden pt-8 text-left'>
+          <FaTimes className='absolute right-4 top-3 z-20 cursor-pointer text-slate-300 hover:text-white' onClick={closeAlertDialog} />
+          <ImageUploadDialog
+            setUploadURL={setUploadURL}
+            setUploadVideo={setUploadVideo}
+            aspectRatio={aspectRatio}
+            canvasDimensions={getCanvasDimensionsForAspectRatio(aspectRatio)}
+          />
+        </div>,
+        undefined,
+        false,
+        { hideBorder: true }
+      );
+    },
+    [aspectRatio, closeAlertDialog, openAlertDialog, setCurrentView, setUploadURL, setUploadVideo]
   );
 
   useEffect(() => {
@@ -539,7 +923,7 @@ export default function VideoEditorContainer(props) {
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
-      return;
+      return null;
     }
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/request_generate`, payload, headers)
@@ -552,7 +936,7 @@ export default function VideoEditorContainer(props) {
         startGenerationPoll();
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -565,7 +949,7 @@ export default function VideoEditorContainer(props) {
         setGenerationError(error.message);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit generation request.
+            <FaTimes /> {t("studio.notifications.generationRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -635,10 +1019,15 @@ export default function VideoEditorContainer(props) {
         }
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
+        img.src = getRenderableImageUrl(src, PROCESSOR_API_URL);
       });
 
     for (const item of currentLayer.imageSession.activeItemList || []) {
+      if (item.type === 'text') {
+        drawCanvasTextItem(ctx, item, { width, height });
+        continue;
+      }
+
       ctx.save();
       const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -651,22 +1040,13 @@ export default function VideoEditorContainer(props) {
       }
 
       if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
+        const imgSrc = getRenderableImageUrl(item, PROCESSOR_API_URL);
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
         } catch (error) {
-          console.error('Error loading image:', error);
+          
         }
-      } else if (item.type === 'text') {
-        const fontSize = item.config.fontSize || 40;
-        ctx.fillStyle = item.config.fillColor || '#000000';
-        ctx.font = `${fontSize}px ${item.config.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config.align || 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(item.text, 0, 0);
       } else if (item.type === 'shape') {
         const config = item.config;
         const shapeX = config.x || 0;
@@ -776,11 +1156,7 @@ export default function VideoEditorContainer(props) {
       maskImageData = await exportMaskedGroupAsBlackAndWhite();
     }
 
-    console.log(selectedEditModelValue);
-
-    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANA') {
-      console.log("NANO BANANA SELECTED");
-
+    if (selectedEditModelValue && selectedEditModelValue.key === 'NANOBANANA2') {
       submitNanoBananaOutpaintRequest();
       return;
 
@@ -821,7 +1197,7 @@ export default function VideoEditorContainer(props) {
         startOutpaintPoll();
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Edit request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.editRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -833,7 +1209,7 @@ export default function VideoEditorContainer(props) {
         setOutpaintError(error.message);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit edit request.
+            <FaTimes /> {t("studio.notifications.editRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -902,15 +1278,14 @@ export default function VideoEditorContainer(props) {
       const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
       const nImageList = [
         ...activeItemList,
-        {
+        createCurrentLayerImageItem({
           src: generatedURL,
           id: item_id,
-          type: 'image',
           x: 0,
           y: 0,
           width: stageDimensions.width,
           height: stageDimensions.height,
-        },
+        }),
       ];
 
 
@@ -921,7 +1296,7 @@ export default function VideoEditorContainer(props) {
       setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Generation completed successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationComplete")}
         </div>,
         {
           position: 'bottom-center',
@@ -938,7 +1313,7 @@ export default function VideoEditorContainer(props) {
       setCanvasActionLoading(false);
       toast.error(
         <div>
-          <FaTimes /> Generation failed.
+          <FaTimes /> {t("studio.notifications.generationFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -987,15 +1362,14 @@ export default function VideoEditorContainer(props) {
       const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
       const nImageList = [
         ...activeItemList,
-        {
+        createCurrentLayerImageItem({
           src: generatedURL,
           id: item_id,
-          type: 'image',
           x: 0,
           y: 0,
           width: stageDimensions.width,
           height: stageDimensions.height,
-        },
+        }),
       ];
 
       const generationImages = pollStatusDataResponse.generationImages;
@@ -1008,7 +1382,7 @@ export default function VideoEditorContainer(props) {
       setIsCanvasDirty(true);
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Edit completed successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.editComplete")}
         </div>,
         {
           position: 'bottom-center',
@@ -1019,10 +1393,10 @@ export default function VideoEditorContainer(props) {
       return;
     } else if (pollStatusDataResponse.status === 'FAILED') {
       setIsOutpaintPending(false);
-      setOutpaintError('Failed to generate outpaint');
+      setOutpaintError(t("studio.notifications.outpaintFailed"));
       toast.error(
         <div>
-          <FaTimes /> Outpaint failed.
+          <FaTimes /> {t("studio.notifications.outpaintFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -1041,6 +1415,61 @@ export default function VideoEditorContainer(props) {
 
 
   const downloadCurrentFrame = async () => {
+    const currentLayerId = getLayerId(currentLayer);
+    const currentLayerVideoState = resolveLayerVideoState(currentLayer);
+    if (currentLayerVideoState.url && currentLayerId) {
+      const headers = getHeaders();
+      if (!headers) {
+        showLoginDialog();
+        return;
+      }
+
+      const currentSeekFrame = Number(currentLayerSeek) || 0;
+      const currentLayerOffsetSeconds = Number(currentLayer?.durationOffset) || 0;
+      const currentLayerTimestamp = Math.max(
+        0,
+        (currentSeekFrame / DISPLAY_FRAMES_PER_SECOND) - currentLayerOffsetSeconds
+      );
+
+      try {
+        const frameResponse = await axios.get(
+          `${PROCESSOR_API_URL}/video_sessions/layer_frame`,
+          {
+            ...headers,
+            params: {
+              sessionId: id,
+              layerId: currentLayerId,
+              timestamp: currentLayerTimestamp,
+            },
+            responseType: 'blob',
+          }
+        );
+
+        const blobUrl = window.URL.createObjectURL(frameResponse.data);
+        const link = document.createElement('a');
+        const dateStr = new Date().toISOString().replace(/:/g, '-');
+        link.href = blobUrl;
+        link.download =
+          getContentDispositionFileName(frameResponse.headers?.['content-disposition']) ||
+          `frame_${dateStr}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        toast.error(
+          <div>
+            <FaTimes /> Unable to download current video frame
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      }
+      return;
+    }
+
     const isPremiumUser = user.isPremiumUser;
     const waterMarkImage = 'wm.png';
 
@@ -1065,12 +1494,17 @@ export default function VideoEditorContainer(props) {
         img.crossOrigin = 'Anonymous';
         img.onload = () => resolve(img);
         img.onerror = (err) => reject(err);
-        img.src = src.startsWith('http') ? src : `${PROCESSOR_API_URL}/${src}`;
+        img.src = getRenderableImageUrl(src, PROCESSOR_API_URL);
       });
 
 
     // Draw each item
     for (const item of currentLayer.imageSession.activeItemList || []) {
+      if (item.type === 'text') {
+        drawCanvasTextItem(ctx, item, stageDimensions);
+        continue;
+      }
+
       ctx.save();
       const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1081,22 +1515,13 @@ export default function VideoEditorContainer(props) {
         ctx.translate(-width / 2, -height / 2);
       }
       if (item.type === 'image') {
-        const imgSrc = item.src.startsWith('data:')
-          ? item.src
-          : `${PROCESSOR_API_URL}/${item.src}`;
+        const imgSrc = getRenderableImageUrl(item, PROCESSOR_API_URL);
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
         } catch (error) {
-          console.error('Error loading image:', error);
+          
         }
-      } else if (item.type === 'text') {
-        const fontSize = item.config.fontSize || 40;
-        ctx.fillStyle = item.config.fillColor || '#000000';
-        ctx.font = `${fontSize}px ${item.config.fontFamily || 'Arial'}`;
-        ctx.textAlign = item.config.align || 'left';
-        ctx.textBaseline = 'top';
-        ctx.fillText(item.text, 0, 0);
       } else if (item.type === 'shape') {
         const config = item.config;
         const shapeX = config.x || 0;
@@ -1131,7 +1556,7 @@ export default function VideoEditorContainer(props) {
     //     const y = canvas.height - watermarkImg.height - padding;
     //     ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
     //   } catch (error) {
-    //     console.error('Error loading watermark image:', error);
+    //     
     //   }
     // }
 
@@ -1181,15 +1606,14 @@ export default function VideoEditorContainer(props) {
       }
       if (activeItemList.length > 1) {
         const newItemId = `item_${activeItemList.length}`;
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           src: dataURL,
           id: newItemId,
-          type: 'image',
           x: 0,
           y: 0,
           width: STAGE_DIMENSIONS.width,
           height: STAGE_DIMENSIONS.height,
-        };
+        });
         const newItemList = [...activeItemList, newItem];
         setActiveItemList(newItemList);
         updateSessionLayerActiveItemList(newItemList);
@@ -1204,8 +1628,7 @@ export default function VideoEditorContainer(props) {
           setCanvasActionLoading(true);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Mask generation request submitted
-              successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.maskRequestSubmitted")}
             </div>,
             {
               position: 'bottom-center',
@@ -1216,7 +1639,7 @@ export default function VideoEditorContainer(props) {
         .catch(() => {
           toast.error(
             <div>
-              <FaTimes /> Failed to submit mask generation request.
+              <FaTimes /> {t("studio.notifications.maskRequestFailed")}
             </div>,
             {
               position: 'bottom-center',
@@ -1245,7 +1668,7 @@ export default function VideoEditorContainer(props) {
           setIsCanvasDirty(true);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Mask generation completed successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.maskComplete")}
             </div>,
             {
               position: 'bottom-center',
@@ -1261,7 +1684,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to generate mask.
+            <FaTimes /> {t("studio.notifications.maskFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1290,7 +1713,7 @@ export default function VideoEditorContainer(props) {
         setTemplateOptionList(response.data);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Templates loaded successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.templatesLoaded")}
           </div>,
           {
             position: 'bottom-center',
@@ -1301,7 +1724,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to load templates.
+            <FaTimes /> {t("studio.notifications.templatesLoadFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1322,7 +1745,7 @@ export default function VideoEditorContainer(props) {
         setTemplateOptionList(response.data);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Template search completed successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.templateSearchComplete")}
           </div>,
           {
             position: 'bottom-center',
@@ -1333,7 +1756,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to search templates.
+            <FaTimes /> {t("studio.notifications.templateSearchFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1348,7 +1771,7 @@ export default function VideoEditorContainer(props) {
     const newId = `item_${activeItemList.length}`;
     const nImageList = [
       ...activeItemList,
-      { src: templateURL, id: newId, type: 'image' },
+      createCurrentLayerImageItem({ src: templateURL, id: newId }),
     ];
     setActiveItemList(nImageList);
     setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
@@ -1359,9 +1782,20 @@ export default function VideoEditorContainer(props) {
    *            TEXT / SHAPES
    ************************************************/
   const addTextBoxToCanvas = (payload) => {
+    const normalizedTextConfig = getTextConfigForCanvas(
+      {
+        ...(textConfig || {}),
+        ...(payload?.config || {}),
+      },
+      getCanvasDimensionsForAspectRatio(aspectRatio)
+    );
     const nImageList = [
       ...activeItemList,
-      { ...payload, id: `item_${activeItemList.length}` },
+      {
+        ...payload,
+        id: `item_${activeItemList.length}`,
+        config: normalizedTextConfig,
+      },
     ];
 
     // If any item is an image with a query param in src, remove it
@@ -1398,32 +1832,49 @@ export default function VideoEditorContainer(props) {
     setActiveItemList(newActiveItemList);
   };
 
-  const setSelectedShape = (shapeKey) => {
+  const setSelectedShape = (shapeKey, shapeConfigOverride = null) => {
     let shapeConfig;
-    if (shapeKey === 'dialog') {
+    const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
+    const canvasCenterX = canvasDimensions.width / 2;
+    const canvasCenterY = canvasDimensions.height / 2;
+    const commonShapeConfig = {
+      fillColor: fillColor,
+      strokeColor: strokeColor,
+      strokeWidth: strokeWidthValue,
+    };
+
+    if (shapeConfigOverride && typeof shapeConfigOverride === 'object') {
       shapeConfig = {
-        x: 512,
-        y: 200,
-        width: 100,
-        height: 50,
-        fillColor: fillColor,
-        strokeColor: strokeColor,
-        strokeWidth: strokeWidthValue,
-        pointerX: 512,
-        pointerY: 270,
-        xRadius: 50,
-        yRadius: 20,
+        ...commonShapeConfig,
+        ...shapeConfigOverride,
+      };
+    } else if (shapeKey === 'dialog') {
+      const width = Math.min(canvasDimensions.width * 0.5, 420);
+      const height = Math.min(canvasDimensions.height * 0.22, 180);
+      shapeConfig = {
+        ...commonShapeConfig,
+        x: Math.round(canvasCenterX),
+        y: Math.round(canvasCenterY),
+        width: Math.round(width),
+        height: Math.round(height),
+        pointerX: Math.round(canvasCenterX),
+        pointerY: Math.round(canvasCenterY + height / 2),
+        xRadius: width / 2,
+        yRadius: height / 2,
       };
     } else {
+      const shortSide = Math.min(canvasDimensions.width, canvasDimensions.height);
+      const radius = Math.round(shortSide * 0.18);
+      const width = Math.min(canvasDimensions.width * 0.42, 420);
+      const height = Math.min(canvasDimensions.height * 0.28, 280);
       shapeConfig = {
-        x: 512,
-        y: 200,
-        width: 200,
-        height: 200,
-        fillColor: fillColor,
-        radius: 70,
-        strokeColor: strokeColor,
-        strokeWidth: strokeWidthValue,
+        ...commonShapeConfig,
+        x: shapeKey === 'rectangle' ? Math.round((canvasDimensions.width - width) / 2) : Math.round(canvasCenterX),
+        y: shapeKey === 'rectangle' ? Math.round((canvasDimensions.height - height) / 2) : Math.round(canvasCenterY),
+        width: shapeKey === 'rectangle' ? Math.round(width) : radius * 2,
+        height: shapeKey === 'rectangle' ? Math.round(height) : radius * 2,
+        radius,
+        ...(shapeKey === 'polygon' ? { sides: 6 } : {}),
       };
     }
     const newId = `item_${activeItemList.length}`;
@@ -1542,13 +1993,12 @@ export default function VideoEditorContainer(props) {
     const combinedItem = {
       src: combinedImageDataUrl,
       id: `item_0`,
-      type: 'image',
       x: 0,
       y: 0,
       width: canvasDimensions.width,
       height: canvasDimensions.height,
     };
-    const updatedItemList = [combinedItem];
+    const updatedItemList = [createCurrentLayerImageItem(combinedItem)];
     setActiveItemList(updatedItemList);
     updateSessionLayerActiveItemList(updatedItemList);
     setSelectedId('item_0');
@@ -1572,7 +2022,7 @@ export default function VideoEditorContainer(props) {
         startAudioGenerationPoll(response.data);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Audio generation request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -1583,7 +2033,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to submit audio generation request.
+            <FaTimes /> {t("studio.notifications.audioRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1621,7 +2071,7 @@ export default function VideoEditorContainer(props) {
       }
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Audio generation completed successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioComplete")}
         </div>,
         {
           position: 'bottom-center',
@@ -1634,7 +2084,7 @@ export default function VideoEditorContainer(props) {
       setAudioGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> Audio generation failed.
+          <FaTimes /> {t("studio.notifications.audioFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -1672,7 +2122,7 @@ export default function VideoEditorContainer(props) {
           setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Track added to project successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.trackAdded")}
             </div>,
             {
               position: 'bottom-center',
@@ -1685,7 +2135,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to add track to project.
+            <FaTimes /> {t("studio.notifications.trackAddFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1727,7 +2177,7 @@ export default function VideoEditorContainer(props) {
           setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
           toast.success(
             <div>
-              <FaCheck className='inline-flex mr-2' /> Track added to project successfully!
+              <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.trackAdded")}
             </div>,
             {
               position: 'bottom-center',
@@ -1740,7 +2190,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to add track to project.
+            <FaTimes /> {t("studio.notifications.trackAddFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -1750,18 +2200,28 @@ export default function VideoEditorContainer(props) {
       });
   };
 
-  const selectImageFromLibrary = (imageItem) => {
+  const selectImageFromLibrary = (imageItem, selectionMeta = {}) => {
     const newItemId = `item_${activeItemList.length}`;
     const canvasDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
-    const newItem = {
+    const previewUrl = [
+      selectionMeta?.previewUrl,
+      selectionMeta?.url,
+      selectionMeta?.imageUrl,
+      selectionMeta?.asset?.previewUrl,
+      selectionMeta?.asset?.url,
+    ].find((value) => typeof value === 'string' && value.trim())?.trim();
+    const newItem = createCurrentLayerImageItem({
       src: imageItem,
       id: newItemId,
-      type: 'image',
       x: 0,
       y: 0,
       width: canvasDimensions.width,
       height: canvasDimensions.height,
-    };
+    });
+    if (previewUrl) {
+      newItem.previewUrl = previewUrl;
+      newItem.url = previewUrl;
+    }
     const newItemList = [...activeItemList, newItem];
     setActiveItemList(newItemList);
     updateSessionLayerActiveItemList(newItemList);
@@ -1772,7 +2232,7 @@ export default function VideoEditorContainer(props) {
 
     toast.success(
       <div>
-        <FaCheck className='inline-flex mr-2' /> Image added from library successfully!
+        <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.imageAddedFromLibrary")}
       </div>,
       {
         position: 'bottom-center',
@@ -1786,7 +2246,12 @@ export default function VideoEditorContainer(props) {
   };
 
   // removeAiVideoLayer now includes the layer type in the payload
-  const removeAIVideoLayer = async () => {
+  const removeAIVideoLayer = async (targetLayer = null) => {
+    const layerForRemoval = targetLayer || currentLayer;
+    if (!layerForRemoval?._id) {
+      return;
+    }
+
     setCanvasActionLoading(true);
 
     const headers = getHeaders();
@@ -1795,10 +2260,11 @@ export default function VideoEditorContainer(props) {
       setCanvasActionLoading(false);
       return;
     }
+    const { type: resolvedVideoLayerType } = resolveLayerVideoState(layerForRemoval);
     const payload = {
       sessionId: id,
-      layerId: currentLayer._id.toString(),
-      aiVideoLayerType, // pass the currently active AI video layer type
+      layerId: layerForRemoval._id.toString(),
+      aiVideoLayerType: resolvedVideoLayerType || aiVideoLayerType,
     };
 
 
@@ -1816,20 +2282,16 @@ export default function VideoEditorContainer(props) {
         const currentNewLayerIndex = layerList.findIndex(
           (l) => l._id.toString() === layer._id.toString()
         );
+        setVideoSessionDetails(session);
         updateCurrentLayerAndLayerList(layerList, currentNewLayerIndex);
         setActiveItemList(layer.imageSession.activeItemList);
         setAudioLayers(audioLayers);
 
         setIsCanvasDirty(true);
 
-
-        if (layer.hasAiVideoLayer) {
-          setAiVideoLayer(layer.aiVideoLayer);
-          setAiVideoLayerType(layer.aiVideoLayerType);
-        } else {
-          setAiVideoLayer(null);
-          setAiVideoLayerType(null);
-        }
+        const { url, type } = resolveLayerVideoState(layer);
+        setAiVideoLayer(url);
+        setAiVideoLayerType(type);
       }
 
     } catch (error) {
@@ -1843,7 +2305,7 @@ export default function VideoEditorContainer(props) {
   const requestRegenerateSubtitles = async () => {
     toast.success(
       <div>
-        <FaCheck className='inline-flex mr-2' /> Requested regenerate subtitles.
+        <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.regenerateSubtitlesRequested")}
       </div>,
       {
         position: 'bottom-center',
@@ -1873,8 +2335,7 @@ export default function VideoEditorContainer(props) {
         setIsCanvasDirty(true);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Request to realign layers to speech submitted
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.realignLayersToSpeechRequested")}
           </div>,
           {
             position: 'bottom-center',
@@ -1897,8 +2358,7 @@ export default function VideoEditorContainer(props) {
         setIsCanvasDirty(true);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Request to realign layers to AI video submitted
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.realignLayersToAiVideoRequested")}
           </div>,
           {
             position: 'bottom-center',
@@ -1917,8 +2377,7 @@ export default function VideoEditorContainer(props) {
     const payload = { sessionId: id };
     toast.success(
       <div>
-        <FaCheck className='inline-flex mr-2' /> Request to regenerate animations submitted
-        successfully!
+        <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.regenerateAnimationsRequested")}
       </div>,
       {
         position: 'bottom-center',
@@ -1933,6 +2392,46 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestLipSyncToSpeech = (selectedModel) => {
+    if (layerHasUploadedOrPendingUserVideo(currentLayer)) {
+      toast.error(
+        <div>
+          <FaTimes /> Remove the uploaded or pending video before requesting lip sync.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
+    if (
+      currentLayer?.aiVideoGenerationPending
+      || currentLayer?.lipSyncGenerationPending
+      || currentLayer?.soundEffectGenerationPending
+    ) {
+      toast.error(
+        <div>
+          <FaTimes /> Wait for the pending video task to finish before requesting lip sync.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
+    if (!currentLayer?.aiVideoLayer && !currentLayer?.aiVideoRemoteLink) {
+      toast.error(
+        <div>
+          <FaTimes /> Generate an AI video for this layer before requesting lip sync.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1963,7 +2462,19 @@ export default function VideoEditorContainer(props) {
 
       toast.success(
         <div>
-          <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
+          <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+    }).catch((error) => {
+      setIsAIVideoGenerationPending(false);
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message;
+      toast.error(
+        <div>
+          <FaTimes /> {errorMessage || t("studio.notifications.generationRequestFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -1974,7 +2485,7 @@ export default function VideoEditorContainer(props) {
   };
 
   // Add audio from library
-  const requestAddAudioLayerFromLibrary = (audioItem) => {
+  const requestAddAudioLayerFromLibrary = (audioItem, addConfig = {}) => {
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
@@ -1983,15 +2494,17 @@ export default function VideoEditorContainer(props) {
     const payload = {
       sessionId: id,
       audioItem,
+      ...addConfig,
     };
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/add_audio_from_library`, payload, headers).then((dataRes) => {
+    return axios.post(`${PROCESSOR_API_URL}/video_sessions/add_audio_from_library`, payload, headers).then((dataRes) => {
       const response = dataRes.data;
       const sessionDetails = response.sessionDetails;
       if (sessionDetails) {
         setVideoSessionDetails(sessionDetails);
+        setAudioLayers(sessionDetails.audioLayers || []);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Audio added to project successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioAddedToProject")}
           </div>,
           {
             position: 'bottom-center',
@@ -2003,39 +2516,26 @@ export default function VideoEditorContainer(props) {
     });
   };
 
-  // Add selected AI video to layer
-  const addSelectedAiVideoToLayer = (payload) => {
-
-
-
-    setIsSelectButtonDisabled(true);
-    const { video, trimScene, model } = payload;
-
-
-    const videoURL = video.url;
-
-    const requestPayload = {
-      sessionId: id,
-      videoURL,
-      trimScene,
-      layerId: currentLayer._id.toString(),
-      videoModel: video.model,
-      audioPrompt: video.audioPrompt,
-    };
+  const requestAddGlobalAudioLayerFromLibrary = (audioItem, addConfig = {}) => {
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
-      setIsSelectButtonDisabled(false);
       return;
     }
-    axios
-      .post(`${PROCESSOR_API_URL}/video_sessions/add_ai_video_layer`, requestPayload, headers)
-      .then((dataRes) => {
-        const response = dataRes.data;
-        setIsSelectButtonDisabled(false);
+    const payload = {
+      sessionId: id,
+      audioItem,
+      ...addConfig,
+    };
+    return axios.post(`${PROCESSOR_API_URL}/video_sessions/add_global_audio_from_library`, payload, headers).then((dataRes) => {
+      const response = dataRes.data;
+      const sessionDetails = response.sessionDetails;
+      if (sessionDetails) {
+        setVideoSessionDetails(sessionDetails);
+        setAudioLayers(sessionDetails.audioLayers || []);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Video added to project successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.audioAddedToProject")}
           </div>,
           {
             position: 'bottom-center',
@@ -2043,37 +2543,89 @@ export default function VideoEditorContainer(props) {
           }
         );
         resetImageLibrary();
+      }
+    });
+  };
 
-        const { session, layer } = response;
-        const newLayers = session.layers;
+  // Add selected video to layer
+  const addSelectedAiVideoToLayer = (payload) => {
+    setIsSelectButtonDisabled(true);
+
+    const selectedVideo = payload?.videoItem || payload?.video;
+    const trimScene = Boolean(payload?.trimScene);
+    const sourceType = typeof selectedVideo?.sourceType === 'string'
+      ? selectedVideo.sourceType
+      : 'ai_video';
+    const headers = getHeaders();
+
+    if (!headers) {
+      showLoginDialog();
+      setIsSelectButtonDisabled(false);
+      return;
+    }
+
+    const isLibraryImport = sourceType !== 'ai_video';
+    const requestUrl = isLibraryImport
+      ? `${PROCESSOR_API_URL}/video_sessions/add_video_from_library`
+      : `${PROCESSOR_API_URL}/video_sessions/add_ai_video_layer`;
+    const requestPayload = isLibraryImport
+      ? {
+        sessionId: id,
+        layerId: currentLayer._id.toString(),
+        trimScene,
+        videoItem: selectedVideo,
+      }
+      : {
+        sessionId: id,
+        videoURL: selectedVideo?.url,
+        trimScene,
+        layerId: currentLayer._id.toString(),
+        videoModel: selectedVideo?.model,
+        audioPrompt: selectedVideo?.audioPrompt,
+      };
+
+    axios
+      .post(requestUrl, requestPayload, headers)
+      .then((dataRes) => {
+        const response = dataRes.data;
+        const { session, layer, audioLayers: updatedAudioLayers } = response;
+        const newLayers = Array.isArray(session?.layers) ? session.layers : [];
         const currentLayerIndex = newLayers.findIndex(
-          (l) => l._id.toString() === layer._id.toString()
+          (sessionLayer) => sessionLayer._id.toString() === layer._id.toString()
         );
+
+        setIsSelectButtonDisabled(false);
+        setVideoSessionDetails(session);
+        setAudioLayers(updatedAudioLayers || session.audioLayers || []);
         updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
 
-        // Decide which link to set
-        if (layer.hasLipSyncVideoLayer && layer.lipSyncVideoLayer) {
-          setAiVideoLayerType('lip_sync');
-          setAiVideoLayer(layer.lipSyncRemoteLink
-            ? `${STATIC_CDN_URL}/${layer.lipSyncRemoteLink}`
-            : `${PROCESSOR_API_URL}${layer.lipSyncVideoLayer}`);
-        } else if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
-          setAiVideoLayerType('sound_effect');
-          setAiVideoLayer(layer.soundEffectRemoteLink
-            ? `${STATIC_CDN_URL}/${layer.soundEffectRemoteLink}`
-            : `${PROCESSOR_API_URL}${layer.soundEffectVideoLayer}`);
-        } else if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
-          setAiVideoLayerType('ai_video');
-          setAiVideoLayer(layer.aiVideoRemoteLink
-            ? `${STATIC_CDN_URL}/${layer.aiVideoRemoteLink}`
-            : `${PROCESSOR_API_URL}${layer.aiVideoLayer}`);
-        } else {
-          setAiVideoLayer(null);
-          setAiVideoLayerType(null);
-        }
+        const { url, type } = resolveLayerVideoState(layer);
+        setAiVideoLayerType(type || sourceType);
+        setAiVideoLayer(url);
+
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.videoAddedToProject")}
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+        resetImageLibrary();
       })
-      .catch(() => {
+      .catch((error) => {
         setIsSelectButtonDisabled(false);
+        toast.error(
+          <div>
+            <FaTimes className='inline-flex mr-2' />
+            {error?.response?.data?.error || 'Unable to add the selected video.'}
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
       });
   };
 
@@ -2099,8 +2651,7 @@ export default function VideoEditorContainer(props) {
       .then(() => {
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Layered speech generation request submitted
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.layeredSpeechRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -2115,7 +2666,7 @@ export default function VideoEditorContainer(props) {
         setAudioGenerationPending(false);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit layered speech generation request.
+            <FaTimes /> {t("studio.notifications.layeredSpeechRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2145,8 +2696,7 @@ export default function VideoEditorContainer(props) {
         setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_PREVIEW_SPEECH_LAYERED_DISPLAY);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Layered speech generation completed
-            successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.layeredSpeechComplete")}
           </div>,
           {
             position: 'bottom-center',
@@ -2159,7 +2709,7 @@ export default function VideoEditorContainer(props) {
         setAudioGenerationPending(false);
         toast.error(
           <div>
-            <FaTimes /> Layered speech generation failed.
+            <FaTimes /> {t("studio.notifications.layeredSpeechFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2174,11 +2724,11 @@ export default function VideoEditorContainer(props) {
         }, 1000);
       }
     } catch (error) {
-      console.error('Error in startLayeredAudioGenerationPoll:', error);
+      
       setAudioGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> Layered speech generation failed.
+          <FaTimes /> {t("studio.notifications.layeredSpeechFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -2210,7 +2760,7 @@ export default function VideoEditorContainer(props) {
         setIsUpdateDefaultsPending(false);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Session defaults updated successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.sessionDefaultsUpdated")}
           </div>,
           {
             position: 'bottom-center',
@@ -2221,7 +2771,7 @@ export default function VideoEditorContainer(props) {
       .catch((error) => {
         toast.error(
           <div>
-            <FaTimes /> Failed to update session defaults.
+            <FaTimes /> {t("studio.notifications.sessionDefaultsFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2254,7 +2804,7 @@ export default function VideoEditorContainer(props) {
         setVideoSessionDetails(updatedSession);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Advanced theme updated successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.advancedThemeUpdated")}
           </div>,
           {
             position: 'bottom-center',
@@ -2266,7 +2816,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to update advanced theme.
+            <FaTimes /> {t("studio.notifications.advancedThemeFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2279,7 +2829,9 @@ export default function VideoEditorContainer(props) {
 
   // Poll for AI video generation
   const startAIVideoLayerGenerationPoll = async () => {
-
+    if (!currentLayer) {
+      return;
+    }
 
     const selectedLayerId = currentLayer._id.toString();
     const payload = {
@@ -2307,8 +2859,6 @@ export default function VideoEditorContainer(props) {
     const pollRes = pollResData.data;
     if (pollRes.status === 'COMPLETED') {
       const sessionData = pollRes.session;
-
-
       setIsAIVideoGenerationPending(false);
       const layerData = sessionData.layers.find(
         (layer) => layer._id.toString() === selectedLayerId
@@ -2319,25 +2869,27 @@ export default function VideoEditorContainer(props) {
         (layer) => layer._id.toString() === selectedLayerId
       );
 
-
-      const hiddenContainer = document.getElementById('hidden-video-container');
-      const videoSrc = `${STATIC_CDN_URL}/${layerData.aiVideoRemoteLink}`;
-
-
-      const video = document.createElement('video');
-      video.src = videoSrc;
-      video.preload = 'auto';
-      video.style.display = 'none';
-      hiddenContainer.appendChild(video);
-
-      updateCurrentLayerAndLayerList(newLayers, updatedLayerIndex);
+      setVideoSessionDetails(sessionData);
+      updateCurrentLayerAndLayerList(newLayers, updatedLayerIndex, { preserveCurrentLayer: true });
+      setAudioLayers(sessionData.audioLayers || []);
       setIsCanvasDirty(true);
+      if (aiVideoPollType === 'user_video') {
+        toast.success(
+          <div>
+            <FaCheck className='inline-flex mr-2' /> Uploaded video added to layer
+          </div>,
+          {
+            position: 'bottom-center',
+            className: 'custom-toast',
+          }
+        );
+      }
       getUserAPI();
     } else if (pollRes.status === 'FAILED') {
       setIsAIVideoGenerationPending(false);
       toast.error(
         <div>
-          <FaTimes /> AI Video generation failed.
+          <FaTimes /> {pollRes.error || t("studio.notifications.aiVideoFailed")}
         </div>,
         {
           position: 'bottom-center',
@@ -2348,12 +2900,24 @@ export default function VideoEditorContainer(props) {
     } else {
       aiVideoGenerationPollIntervalRef.current = setTimeout(() => {
         startAIVideoLayerGenerationPoll();
-      }, 1000);
+      }, VIDEO_TASK_POLL_INTERVAL_MS);
     }
   };
 
   // Submit new AI video request
   const submitGenerateNewAIVideoRequest = (requestConfig) => {
+    if (layerHasAnyVideoArtefact(currentLayer)) {
+      toast.error(
+        <div>
+          <FaTimes /> Remove the uploaded or pending video before generating AI video.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
     setIsAIVideoGenerationPending(true);
     const payload = {
       model: selectedVideoGenerationModel,
@@ -2388,7 +2952,7 @@ export default function VideoEditorContainer(props) {
         updateCurrentLayerAndLayerList(newLayers, currentLayerIndex);
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> Generation request submitted successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.generationRequestSubmitted")}
           </div>,
           {
             position: 'bottom-center',
@@ -2400,7 +2964,7 @@ export default function VideoEditorContainer(props) {
         setGenerationError(error.message);
         toast.error(
           <div>
-            <FaTimes /> Failed to submit generation request.
+            <FaTimes /> {t("studio.notifications.generationRequestFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2416,6 +2980,18 @@ export default function VideoEditorContainer(props) {
   };
 
   const requestAddSyncedSoundEffect = (payload) => {
+    if (layerHasAnyVideoArtefact(currentLayer)) {
+      toast.error(
+        <div>
+          <FaTimes /> Remove the uploaded or pending video before generating synced sound effects.
+        </div>,
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
+    }
 
     const headers = getHeaders();
     if (!headers) {
@@ -2465,7 +3041,7 @@ export default function VideoEditorContainer(props) {
 
         toast.success(
           <div>
-            <FaCheck className='inline-flex mr-2' /> MovieGen speakers updated successfully!
+            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.movieGenSpeakersUpdated")}
           </div>,
           {
             position: 'bottom-center',
@@ -2479,7 +3055,7 @@ export default function VideoEditorContainer(props) {
       .catch(() => {
         toast.error(
           <div>
-            <FaTimes /> Failed to update MovieGen speakers.
+            <FaTimes /> {t("studio.notifications.movieGenSpeakersFailed")}
           </div>,
           {
             position: 'bottom-center',
@@ -2509,6 +3085,9 @@ export default function VideoEditorContainer(props) {
             onSelectMusic={requestAddAudioLayerFromLibrary}
             onSelectVideo={addSelectedAiVideoToLayer}
             isSelectButtonDisabled={isSelectButtonDisabled}
+            sessionDetails={videoSessionDetails}
+            sessionId={id}
+            currentLayer={currentLayer}
           />
         );
       } else {
@@ -2555,6 +3134,7 @@ export default function VideoEditorContainer(props) {
               selectedLayerId={selectedLayerId}
               exportAnimationFrames={() => { }}
               currentLayerSeek={currentLayerSeek}
+              isVideoPreviewPlaying={isVideoPreviewPlaying}
               currentLayer={currentLayer}
               updateSessionActiveItemList={updateSessionLayerActiveItemList}
               selectedLayerSelectShape={selectedLayerSelectShape}
@@ -2574,14 +3154,21 @@ export default function VideoEditorContainer(props) {
               displayZoomType={displayZoomType}
               aiVideoLayer={aiVideoLayer}
               aiVideoLayerType={aiVideoLayerType}
+              nextAiVideoLayer={nextVideoLayerState.url}
+              nextAiVideoLayerType={nextVideoLayerState.type}
               requestRegenerateAnimations={requestRegenerateAnimations}
               requestRealignLayers={requestReAlignLayersToSpeechAndRegenerateSubtitles}
               totalDuration={totalDuration}
               selectedEditModelValue={selectedEditModelValue}
-
               createTextLayer={createTextLayer}
               requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
               requestLipSyncToSpeech={requestLipSyncToSpeech}
+              onPersistTextStyle={(nextStyle) =>
+                setTextConfig((prev) => ({
+                  ...(prev || {}),
+                  ...(nextStyle || {}),
+                }))
+              }
               setPromptText={setPromptText}
               promptText={promptText}
               submitGenerateRequest={submitGenerateRequest}
@@ -2599,6 +3186,9 @@ export default function VideoEditorContainer(props) {
               videoPromptText={videoPromptText}
               setVideoPromptText={setVideoPromptText}
 
+              openUploadDialog={openUploadDialog}
+              rightPanelView={rightPanelView}
+              isRightPanelExpanded={isRightPanelExpanded}
               downloadCurrentFrame={downloadCurrentFrame}
             />
 
@@ -2630,6 +3220,7 @@ export default function VideoEditorContainer(props) {
       setEditBrushWidth={setEditBrushWidth}
       setCurrentViewDisplay={setCurrentViewDisplay}
       currentViewDisplay={currentView}
+      onToolbarViewChange={setRightPanelView}
       textConfig={textConfig}
       setTextConfig={setTextConfig}
       activeItemList={activeItemList}
@@ -2657,18 +3248,7 @@ export default function VideoEditorContainer(props) {
       showMoveAction={() => { }}
       showResizeAction={() => { }}
       showSaveAction={() => { }}
-      showUploadAction={() => {
-        setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-        openAlertDialog(
-          <div>
-            <FaTimes className='absolute top-2 right-2 cursor-pointer' onClick={closeAlertDialog} />
-            <UploadImageDialog
-              setUploadURL={setUploadURL}
-              aspectRatio={aspectRatio}
-            />
-          </div>
-        );
-      }}
+      showUploadAction={() => openUploadDialog({ closeView: true })}
       pencilWidth={pencilWidth}
       setPencilWidth={setPencilWidth}
       pencilColor={pencilColor}
@@ -2705,10 +3285,24 @@ export default function VideoEditorContainer(props) {
       submitGenerateNewVideoRequest={submitGenerateNewAIVideoRequest}
       selectedVideoGenerationModel={selectedVideoGenerationModel}
       setSelectedVideoGenerationModel={setSelectedVideoGenerationModel}
+      zoomCanvasIn={zoomCanvasIn}
+      zoomCanvasOut={zoomCanvasOut}
+      resetCanvasZoom={resetCanvasZoom}
+      canvasZoomPercent={canvasZoomPercent}
+      canZoomInCanvas={canZoomInCanvas}
+      canZoomOutCanvas={canZoomOutCanvas}
       aiVideoGenerationPending={isAIVideoGenerationPending}
       aspectRatio={aspectRatio}
       setAdvancedSessionTheme={setAdvancedSessionTheme}
       requestAddAudioLayerFromLibrary={requestAddAudioLayerFromLibrary}
+      requestAddGlobalAudioLayerFromLibrary={requestAddGlobalAudioLayerFromLibrary}
+      setVideoSessionDetails={setVideoSessionDetails}
+      currentLayerSeek={currentLayerSeek}
+      setCurrentLayerSeek={setCurrentLayerSeek}
+      isVideoPreviewPlaying={isVideoPreviewPlaying}
+      setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+      onRecordSpeechRecordingChange={onRecordSpeechRecordingChange}
+      onSetAvatarHints={onSetAvatarHints}
       selectedEditModelValue={selectedEditModelValue}
       submitAddBatchTrackToProject={submitAddBatchTrackToProject}
       currentLayer={currentLayer}
@@ -2722,89 +3316,28 @@ export default function VideoEditorContainer(props) {
       movieVisualList={movieVisualList}
       movieGenSpeakers={movieGenSpeakers}
       updateMovieGenSpeakers={updateMovieGenSpeakers}
+      isRenderPending={isRenderPending}
+      onExpandedChange={setIsRightPanelExpanded}
     />
   )
 
 
   const mainWorkspaceShell =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100'
-      : 'bg-gradient-to-br from-slate-50 via-white to-slate-100 text-slate-900';
-  const toolbarShell =
-    colorMode === 'dark'
-      ? 'bg-slate-950/80 border-l border-white/10'
-      : 'bg-white border-l border-slate-200 shadow-sm';
-  const collapsedToolbarShell =
-    colorMode === 'dark'
-      ? 'bg-slate-950/80 border-l border-white/10'
-      : 'bg-white border-l border-slate-200 shadow-sm';
-
-  if (displayZoomType === 'fill') {
-    let editorToolbarDisplay = <span />;
-    if (mimialEditorDisplay) {
-      editorToolbarDisplay = (
-        <div className={`w-[2%] inline-block ${collapsedToolbarShell}`}>
-          <VideoEditorToolbarMinimal onToggleDisplay={onToggleEditorMinimalDisplay} />
-        </div>
-      );
-    } else {
-      editorToolbarDisplay = (
-        <div className={`w-[18%] inline-block ${toolbarShell}`}>
-          {editorToolbarExpanded}
-          <ToastContainer
-            position='bottom-center'
-            autoClose={5000}
-            hideProgressBar
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            className='custom-toast-container'
-            toastClassName='custom-toast'
-            bodyClassName='custom-toast-body'
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div className={`${mainWorkspaceShell} block min-h-screen`}>
-        <div className='text-center w-[98%] inline-block h-[100vh] overflow-scroll m-auto mb-8'>
-          {viewDisplay}
-
-
-
-
-        </div>
-        {editorToolbarDisplay}
-        <ToastContainer
-          position='bottom-center'
-          autoClose={5000}
-          hideProgressBar
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable
-          pauseOnHover
-          className='custom-toast-container'
-          toastClassName='custom-toast'
-          bodyClassName='custom-toast-body'
-        />
-      </div>
-    );
-  }
+      ? 'bg-[#0b1021] text-slate-100'
+      : 'bg-gradient-to-br from-[#e9edf7] via-[#eef3fb] to-white text-slate-900';
 
   return (
-    <div className={`${mainWorkspaceShell} block min-h-screen`}>
-      <div className='text-center w-[82%] inline-block h-[100vh] overflow-scroll m-auto mb-8'>
-        {viewDisplay}
+    <div className={`${mainWorkspaceShell} flex h-full min-h-0`}>
+      <div
+        className={`min-h-0 min-w-0 flex-1 overflow-auto px-6 py-6 text-center ${disabledShellClass}`}
+        aria-disabled={isRenderPending}
+      >
+        <div className="grid h-max min-h-full w-max min-w-full place-items-center overflow-visible">
+          {viewDisplay}
+        </div>
       </div>
-      <div className={`w-[18%] inline-block ${toolbarShell}`}>
-        {editorToolbarExpanded}
-      </div>
+      {editorToolbarExpanded}
     </div>
   );
 }

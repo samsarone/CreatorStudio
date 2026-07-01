@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import {
   VIDEO_GENERATION_MODEL_TYPES,
@@ -6,7 +6,28 @@ import {
 } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import TextareaAutosize from "react-textarea-autosize";
-import { VIDEO_MODEL_PRICES } from "../../../constants/ModelPrices.jsx";
+import {
+  getModelPriceForAspect,
+  getVideoGenerationModelDropdownData,
+  getVideoGenerationModelMeta,
+} from "../util/videoGenerationModelOptions.js";
+import {
+  formatVideoDurationLabel,
+  getVideoModelDurationUnitsForFramesPerSecond,
+} from "../../../constants/ModelPrices.jsx";
+
+const NATIVE_AUDIO_VIDEO_MODELS = new Set([
+  "KLINGIMGTOVID3PRO",
+  "KLINGTXTTOVID3PRO",
+  "SEEDANCE2.0I2V",
+  "SEEDANCE2.0T2V",
+  "SEEDANCET2V",
+  "VEO3.1",
+  "VEO3.1FAST",
+  "VEO3.1I2V",
+  "VEO3.1FLIV",
+  "VEO3.1I2VFAST",
+]);
 
 export default function VideoPromptGenerator(props) {
   const {
@@ -19,7 +40,26 @@ export default function VideoPromptGenerator(props) {
     generationError,
     aspectRatio,
     activeItemList,
+    currentLayer,
+    sessionDetails,
+    sizeVariant = "default",
   } = props;
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const isSidebarExpanded = sizeVariant === "sidebarExpanded";
+  const controlGridClass = isSidebarExpanded
+    ? "grid w-full grid-cols-2 gap-3"
+    : "flex w-full mb-2 flex-col";
+  const controlGridFullSpanClass = isSidebarExpanded ? "col-span-2" : "w-full";
+  const videoFieldClass = isSidebarExpanded ? "w-full" : "w-full";
+  const videoFieldLabelClass = isSidebarExpanded
+    ? "mb-1 text-sm font-semibold"
+    : "w-full text-sm font-bold mt-1";
+  const actionRowClass = isSidebarExpanded ? "pt-4 flex justify-end" : "text-center";
+  const actionButtonClass = isSidebarExpanded
+    ? "min-w-[168px] text-sm"
+    : isSidebarCollapsed
+    ? "w-full whitespace-normal text-center leading-tight"
+    : "";
 
 
 
@@ -34,39 +74,47 @@ export default function VideoPromptGenerator(props) {
       ? "bg-slate-900/60 text-slate-100 border border-white/10"
       : "bg-white text-slate-900 border border-slate-200 shadow-sm";
 
-  // Build <option> list by checking if the model has a price for the selected aspect ratio
-  const modelOptionMap = VIDEO_GENERATION_MODEL_TYPES
-    .map((model) => {
-      const pricing = VIDEO_MODEL_PRICES.find((p) => p.key === model.key);
-      // If no pricing entry or no match for this aspect ratio, skip
-      if (!pricing) return null;
-      const hasAspectRatio = pricing.prices.some(
-        (priceObj) => priceObj.aspectRatio === aspectRatio
-      );
-      if (!hasAspectRatio) return null;
+  const {
+    hasImageItem,
+    availableModels,
+    availableModelKeys,
+    availableModelKeysSignature,
+  } = getVideoGenerationModelDropdownData({
+    activeItemList,
+    currentLayer,
+    sessionDetails,
+  });
 
-      return (
-        <option key={model.key} value={model.key}>
-          {model.name}
-        </option>
-      );
-    })
-    .filter(Boolean);
+  const modelOptionMap = availableModels.map((model) => (
+    <option key={model.key} value={model.key}>
+      {model.name}
+    </option>
+  ));
 
-  // Identify the selected model definition
-  const selectedModelDef = VIDEO_GENERATION_MODEL_TYPES.find(
-    (m) => m.key === selectedVideoGenerationModel
-  );
-  const isImgToVidModel = selectedModelDef?.isImgToVidModel || false;
-  const isTextToVidModel = selectedModelDef?.isTextToVidModel || false;
+  const hasAvailableModels = availableModelKeys.length > 0;
 
-  const hasImageItem =
-    Array.isArray(activeItemList) &&
-    activeItemList.some((it) => it?.type === "image");
+  const {
+    modelDef: selectedModelDef,
+    pricing: selectedModelPricing,
+    supportsImageToVideo: isImageToVideoModel,
+    supportsTextToVideo: isTextToVideoModel,
+    supportsFirstLastFrameToVideo: isFirstLastFrameToVideoModel,
+  } = getVideoGenerationModelMeta(selectedVideoGenerationModel);
 
   const requiresImageButNone =
-    isImgToVidModel && !isTextToVidModel && !hasImageItem;
-  const useImgToVidSettings = isImgToVidModel && hasImageItem;
+    isImageToVideoModel && !isTextToVideoModel && !hasImageItem;
+  const useImgToVidSettings = isImageToVideoModel && hasImageItem;
+  const supportsNativeAudio = NATIVE_AUDIO_VIDEO_MODELS.has(
+    selectedVideoGenerationModel
+  );
+  const selectedModelDurationUnits = useMemo(() => (
+    selectedModelPricing?.units?.length > 0
+      ? getVideoModelDurationUnitsForFramesPerSecond(
+        selectedVideoGenerationModel,
+        sessionDetails?.framesPerSecond,
+      )
+      : null
+  ), [selectedModelPricing, selectedVideoGenerationModel, sessionDetails?.framesPerSecond]);
 
 
 
@@ -99,49 +147,44 @@ export default function VideoPromptGenerator(props) {
   /**
    * NEW: We also want to show sub-styles if the model is Pixverse.
    * If the model has `modelSubTypes` (for others like "HAIPER2.0") we show those.
-   **/
+  **/
   const [selectedModelSubType, setSelectedModelSubType] = useState("");
+  const [generateAudio, setGenerateAudio] = useState(false);
 
   // ------------------
   //  useEffect for initial values
   // ------------------
   useEffect(() => {
-    // Set the default model from localStorage or first available model
-    const defaultModel =
-      localStorage.getItem("defaultVideoModel") ||
-      (modelOptionMap.length > 0 ? modelOptionMap[0].props.value : "");
-    setSelectedVideoGenerationModel(defaultModel);
+    if (availableModelKeys.length === 0) return;
 
-    if (defaultModel === "HAILUO" || defaultModel === "HAIPER2.0") {
-      const storedOptimizePrompt = localStorage.getItem("defaultOptimizePrompt");
-      setOptimizePrompt(storedOptimizePrompt === "true");
-    } else {
-      setOptimizePrompt(false);
+    const storedModel = localStorage.getItem("defaultVideoModel");
+    const fallbackModel =
+      storedModel && availableModelKeys.includes(storedModel)
+        ? storedModel
+        : availableModelKeys[0];
+
+    if (
+      selectedVideoGenerationModel &&
+      availableModelKeys.includes(selectedVideoGenerationModel)
+    ) {
+      return;
     }
 
-    const modelPricing = VIDEO_MODEL_PRICES.find(
-      (model) => model.key === defaultModel
-    );
-    if (modelPricing && modelPricing.units && modelPricing.units.length > 0) {
-      // Set selectedDuration from localStorage or default to the first
-      const storedDuration = localStorage.getItem("defaultDurationFor" + defaultModel);
-      if (
-        storedDuration &&
-        modelPricing.units.includes(parseInt(storedDuration))
-      ) {
-        setSelectedDuration(parseInt(storedDuration));
-      } else {
-        setSelectedDuration(modelPricing.units[0]);
-      }
-    } else {
-      setSelectedDuration(null);
+    if (fallbackModel && fallbackModel !== selectedVideoGenerationModel) {
+      setSelectedVideoGenerationModel(fallbackModel);
     }
-  }, [modelOptionMap, setSelectedVideoGenerationModel]);
+  }, [
+    availableModelKeysSignature,
+    selectedVideoGenerationModel,
+    setSelectedVideoGenerationModel,
+  ]);
 
   // ------------------
   //  Whenever `selectedVideoGenerationModel` changes
   // ------------------
   useEffect(() => {
+    setGenerateAudio(false);
+
     // If new model is "SDVIDEO", we turn off end frame
     if (selectedVideoGenerationModel === "SDVIDEO") {
       setUseEndFrame(false);
@@ -159,20 +202,21 @@ export default function VideoPromptGenerator(props) {
     }
 
     // Reset or set the duration (based on local storage or first unit) for the newly selected model
-    const modelPricing = VIDEO_MODEL_PRICES.find(
-      (model) => model.key === selectedVideoGenerationModel
-    );
-    if (modelPricing && modelPricing.units && modelPricing.units.length > 0) {
+    if (
+      selectedModelDurationUnits &&
+      selectedModelDurationUnits.length > 0
+    ) {
       const storedDuration = localStorage.getItem(
         "defaultDurationFor" + selectedVideoGenerationModel
       );
+      const parsedStoredDuration = Number(storedDuration);
       if (
-        storedDuration &&
-        modelPricing.units.includes(parseInt(storedDuration))
+        Number.isFinite(parsedStoredDuration) &&
+        selectedModelDurationUnits.includes(parsedStoredDuration)
       ) {
-        setSelectedDuration(parseInt(storedDuration));
+        setSelectedDuration(parsedStoredDuration);
       } else {
-        setSelectedDuration(modelPricing.units[0]);
+        setSelectedDuration(selectedModelDurationUnits[0]);
       }
     } else {
       setSelectedDuration(null);
@@ -219,7 +263,7 @@ export default function VideoPromptGenerator(props) {
     } else {
       setSelectedModelSubType("");
     }
-  }, [selectedVideoGenerationModel]);
+  }, [selectedVideoGenerationModel, selectedModelPricing, selectedModelDurationUnits]);
 
   // ------------------
   //  Handlers
@@ -231,7 +275,7 @@ export default function VideoPromptGenerator(props) {
   };
 
   const handleDurationChange = (e) => {
-    const duration = parseInt(e.target.value);
+    const duration = Number(e.target.value);
     setSelectedDuration(duration);
     localStorage.setItem(
       "defaultDurationFor" + selectedVideoGenerationModel,
@@ -262,6 +306,10 @@ export default function VideoPromptGenerator(props) {
     localStorage.setItem("defaultOptimizePrompt", checked.toString());
   };
 
+  const handleGenerateAudioChange = (e) => {
+    setGenerateAudio(e.target.checked);
+  };
+
   // Save the sub-type to local storage whenever changed
   const handleModelSubTypeChange = (e) => {
     const subType = e.target.value;
@@ -273,6 +321,7 @@ export default function VideoPromptGenerator(props) {
   };
 
   const handleSubmit = () => {
+    if (!hasAvailableModels) return;
     if (requiresImageButNone) return;
     // Validate prompt text
     if (!videoPromptText || videoPromptText.trim().length === 0) {
@@ -282,13 +331,17 @@ export default function VideoPromptGenerator(props) {
     // Build a payload to pass to your generation request
     const payload = {
       useStartFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? true
           : useImgToVidSettings
           ? useStartFrame
           : false,
       useEndFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? false
           : useImgToVidSettings
           ? useEndFrame
@@ -310,6 +363,10 @@ export default function VideoPromptGenerator(props) {
       payload.duration = selectedDuration;
     }
 
+    if (supportsNativeAudio) {
+      payload.generateAudio = generateAudio === true;
+    }
+
     // Add model sub-type if any
     if (selectedModelSubType) {
       payload.modelSubType = selectedModelSubType;
@@ -321,17 +378,19 @@ export default function VideoPromptGenerator(props) {
   // ------------------
   //  Pricing
   // ------------------
-  const modelPricing = VIDEO_MODEL_PRICES.find(
-    (model) => model.key === selectedVideoGenerationModel
-  );
-  // Find price for the currently selected aspect ratio
-  const priceObj = modelPricing
-    ? modelPricing.prices.find((price) => price.aspectRatio === aspectRatio)
-    : null;
+  const modelPricing = selectedModelPricing
+    ? {
+      ...selectedModelPricing,
+      ...(selectedModelDurationUnits ? { units: selectedModelDurationUnits } : {}),
+    }
+    : selectedModelPricing;
+  const priceObj = getModelPriceForAspect(modelPricing, aspectRatio);
   let modelPrice = priceObj ? priceObj.price : 0;
 
   // Adjust price based on selected duration
-  if (modelPricing?.units && selectedDuration !== null) {
+  if (modelPricing?.isPerSecondPricing && selectedDuration !== null) {
+    modelPrice *= selectedDuration;
+  } else if (modelPricing?.units && selectedDuration !== null) {
     const unitIndex = modelPricing.units.findIndex(
       (unit) => unit.toString() === selectedDuration.toString()
     );
@@ -346,8 +405,8 @@ export default function VideoPromptGenerator(props) {
   
   return (
     <div>
-      <div className="flex w-full mb-2 flex-col">
-        <div className="w-full">
+      <div className={controlGridClass}>
+        <div className={controlGridFullSpanClass}>
           <div className="text-xs font-semibold text-gray-300">
             This action will incur{" "}
             <span className="text-blue-300">{modelPrice} Credits</span>
@@ -355,8 +414,8 @@ export default function VideoPromptGenerator(props) {
         </div>
 
         {/* Start / End Frame & Trim Scene Checkboxes (only if we have an image to drive img-to-vid) */}
-        <div className="flex w-full items-center mt-2 flex-wrap">
-          {useImgToVidSettings && (
+        <div className={`${controlGridFullSpanClass} flex w-full items-center mt-2 flex-wrap`}>
+          {useImgToVidSettings && !isFirstLastFrameToVideoModel && (
             <>
               {/* Start Frame Checkbox */}
               <label className="inline-flex items-center text-sm mr-4">
@@ -385,24 +444,40 @@ export default function VideoPromptGenerator(props) {
               <span className="ml-2 text-xs">Optimize Prompt</span>
             </label>
           )}
+
+          {supportsNativeAudio && (
+            <label className="inline-flex items-center text-xs mr-4">
+              <input
+                type="checkbox"
+                checked={generateAudio}
+                onChange={handleGenerateAudioChange}
+                className="form-checkbox h-4 w-4 text-blue-600"
+              />
+              <span className="ml-2 text-xs">Generate audio</span>
+            </label>
+          )}
         </div>
 
         {/* Model Select */}
-        <div className="flex w-full items-center mt-2">
+        <div className={videoFieldClass}>
+          <div className={videoFieldLabelClass}>Model</div>
+          <div className="flex w-full items-center mt-1">
           <select
             onChange={setSelectedModelDisplay}
             className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
             value={selectedVideoGenerationModel}
+            disabled={!hasAvailableModels}
           >
             {modelOptionMap}
           </select>
         </div>
-        <div className="w-full text-sm font-bold mt-1">Model</div>
+        </div>
 
         {/* Duration Select (if pricing info) */}
         {modelPricing?.units && (
-          <>
-            <div className="flex w-full items-center mt-2">
+          <div className={videoFieldClass}>
+            <div className={videoFieldLabelClass}>Duration</div>
+            <div className="flex w-full items-center mt-1">
               <select
                 onChange={handleDurationChange}
                 className={`${selectShell} w-full rounded-md px-3 py-2 bg-transparent`}
@@ -410,20 +485,20 @@ export default function VideoPromptGenerator(props) {
               >
                 {modelPricing.units.map((unit) => (
                   <option key={unit} value={unit}>
-                    {unit} seconds
+                    {formatVideoDurationLabel(unit)} seconds
                   </option>
                 ))}
               </select>
             </div>
-            <div className="w-full text-sm font-bold mt-1">Duration</div>
-          </>
+          </div>
         )}
 
 
 
         {selectedVideoGenerationModel.startsWith("PIXVERSE") ? (
-          <>
-            <div className="flex w-full items-center mt-2">
+          <div className={videoFieldClass}>
+            <div className={videoFieldLabelClass}>Pixverse Style</div>
+            <div className="flex w-full items-center mt-1">
               <select
                 value={selectedModelSubType}
                 onChange={handleModelSubTypeChange}
@@ -436,11 +511,11 @@ export default function VideoPromptGenerator(props) {
                 ))}
               </select>
             </div>
-            <div className="w-full text-sm font-bold mt-1">Pixverse Style</div>
-          </>
+          </div>
         ) : selectedModelDef?.modelSubTypes?.length > 0 ? (
-          <>
-            <div className="flex w-full items-center mt-2">
+          <div className={videoFieldClass}>
+            <div className={videoFieldLabelClass}>Scene Type</div>
+            <div className="flex w-full items-center mt-1">
               <select
                 value={selectedModelSubType}
                 onChange={handleModelSubTypeChange}
@@ -453,8 +528,7 @@ export default function VideoPromptGenerator(props) {
                 ))}
               </select>
             </div>
-            <div className="w-full text-sm font-bold mt-1">Scene Type</div>
-          </>
+          </div>
         ) : null}
       </div>
 
@@ -475,12 +549,13 @@ export default function VideoPromptGenerator(props) {
         </div>
       )}
 
-      <div className="text-center">
+      <div className={actionRowClass}>
         
         <CommonButton
           onClick={handleSubmit}
           isPending={aiVideoGenerationPending}
-          isDisabled={requiresImageButNone}
+          isDisabled={requiresImageButNone || !hasAvailableModels}
+          extraClasses={actionButtonClass}
         >
           Submit
         </CommonButton>

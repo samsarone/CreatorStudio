@@ -1,31 +1,67 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import axios from 'axios';
 import { getHeaders } from '../../utils/web';
+import { useUser } from '../../contexts/UserContext.jsx';
+import { resolveVidgenieEntryPath } from '../../utils/vidgenieRouting.js';
+import VidgenieSkeletonLoader from './VidgenieSkeletonLoader.jsx';
 
 import OneshotEditor from './OneshotEditor.jsx';
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
-const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
 
 export default function OneshotEditorContainer() {
 
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { colorMode } = useColorMode();
+  const { user, userFetching, userInitiated } = useUser();
+  const [routeError, setRouteError] = useState('');
+  const routeResolutionStartedRef = useRef(false);
 
   useEffect(() => {
-
-    if (!id) {
-      const headers = getHeaders();
-      axios.post(`${API_SERVER}/vidgenie/create_blank`, {}, headers).then(function (response) {
-        const {sessionId} = response.data;
-        navigate(`/vidgenie/${sessionId}`);
-      });
+    if (id || routeResolutionStartedRef.current) {
+      return;
     }
-  }, []);
+
+    if (!userInitiated || userFetching) {
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!user || !headers) {
+      return;
+    }
+
+    routeResolutionStartedRef.current = true;
+    setRouteError('');
+
+    const resolveRoute = async () => {
+      try {
+        const targetPath = await resolveVidgenieEntryPath({
+          apiServer: API_SERVER,
+          headers,
+          search: location.search,
+          createIfMissing: true,
+        });
+
+        if (targetPath) {
+          navigate(targetPath, { replace: true });
+          return;
+        }
+
+        setRouteError('Unable to open VidGenie.');
+        routeResolutionStartedRef.current = false;
+      } catch (error) {
+        setRouteError('Unable to open VidGenie.');
+        routeResolutionStartedRef.current = false;
+      }
+    };
+
+    void resolveRoute();
+  }, [id, location.search, navigate, user, userFetching, userInitiated]);
 
   useEffect(() => {
 
@@ -37,16 +73,30 @@ export default function OneshotEditorContainer() {
 
   const outerShell =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100'
-      : 'bg-gradient-to-br from-white via-slate-50 to-sky-50 text-slate-900';
+      ? 'bg-[#0b1021] text-slate-100'
+      : 'bg-gradient-to-br from-[#e9edf7] via-[#eef3fb] to-white text-slate-900';
   const subtleGradient =
     colorMode === 'dark'
-      ? 'bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950'
-      : 'bg-gradient-to-b from-white via-sky-50 to-slate-100';
+      ? 'bg-gradient-to-b from-[#080f21] via-[#0d1830] to-[#0b1226]'
+      : 'bg-gradient-to-b from-[#eef3fb] via-[#e4ebf8] to-[#f7fbff]';
+
+  if (!id) {
+    return (
+      <>
+        <VidgenieSkeletonLoader />
+        {routeError ? (
+          <div className="fixed inset-x-0 bottom-8 z-50 mx-auto w-fit rounded-lg bg-red-600 px-4 py-2 text-sm text-white shadow-lg">
+            {routeError}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <div className={`${outerShell} ${subtleGradient} min-h-screen`}>
       <OverflowContainer>
-        <div className='container m-auto py-6 md:py-10'>
+        <div className="vidgenie-page-shell mx-auto w-full max-w-6xl px-2 py-4 pt-[58px] sm:px-4 sm:py-6 sm:pt-6 md:py-10">
           <OneshotEditor />
         </div>
       </OverflowContainer>

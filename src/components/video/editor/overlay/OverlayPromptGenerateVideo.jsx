@@ -1,12 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { FaTimes, FaQuestionCircle } from "react-icons/fa";
+import React, { useEffect, useMemo, useState } from "react";
+import { FaQuestionCircle } from "react-icons/fa";
 import CommonButton from "../../../common/CommonButton.tsx";
-import { VIDEO_GENERATION_MODEL_TYPES } from "../../../../constants/Types.ts";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 import TextareaAutosize from "react-textarea-autosize";
-import { VIDEO_MODEL_PRICES } from "../../../../constants/ModelPrices.jsx";
 import { Tooltip } from "react-tooltip";
+import {
+  getModelPriceForAspect,
+  getVideoGenerationModelDropdownData,
+  getVideoGenerationModelMeta,
+} from "../../util/videoGenerationModelOptions.js";
+import {
+  formatVideoDurationLabel,
+  getVideoModelDurationUnitsForFramesPerSecond,
+} from "../../../../constants/ModelPrices.jsx";
 import "react-tooltip/dist/react-tooltip.css";
+
+const NATIVE_AUDIO_VIDEO_MODELS = new Set([
+  "KLINGIMGTOVID3PRO",
+  "KLINGTXTTOVID3PRO",
+  "SEEDANCE2.0I2V",
+  "SEEDANCE2.0T2V",
+  "SEEDANCET2V",
+  "VEO3.1",
+  "VEO3.1FAST",
+  "VEO3.1I2V",
+  "VEO3.1FLIV",
+  "VEO3.1I2VFAST",
+]);
 
 export default function OverlayPromptGenerateVideo(props) {
   const {
@@ -19,61 +39,76 @@ export default function OverlayPromptGenerateVideo(props) {
     generationError,
     aspectRatio,
     onCloseOverlay,
+    activeItemList,
+    currentLayer,
+    sessionDetails,
+    layoutMode = "square",
   } = props;
 
   const { colorMode } = useColorMode();
+  const isPortraitLayout = layoutMode === "portrait";
+  const isLandscapeLayout = layoutMode === "landscape";
   const selectShell =
     colorMode === "dark"
-      ? "bg-slate-900/60 text-slate-100 border border-white/10"
-      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+      ? "bg-slate-950 text-slate-100 border border-slate-700"
+      : "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
   const textareaShell =
     colorMode === "dark"
-      ? "bg-slate-900/60 text-slate-100 border border-white/10"
-      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
+      ? "bg-slate-950 text-slate-100 border border-slate-700"
+      : "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
   const chipShell =
     colorMode === "dark"
-      ? "bg-slate-900/40 border border-white/10 text-slate-300 hover:bg-slate-900/60"
-      : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50";
+      ? "bg-slate-950 border border-slate-700 text-slate-300 hover:bg-slate-900"
+      : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-white";
+  const fieldLabelClassName =
+    colorMode === "dark"
+      ? "text-xs font-semibold text-slate-200"
+      : "text-xs font-semibold text-slate-700";
+  const fieldLayoutClassName = isLandscapeLayout
+    ? "grid w-full grid-cols-3 gap-3"
+    : "flex w-full flex-col gap-3";
+  const controlGroupClassName = "flex w-full flex-col gap-1.5";
+  const promptTextareaMaxRows = isPortraitLayout ? 5 : 4;
 
-  // -----------------------------
-  // Filter out only text-to-video models & check if they have pricing for the current aspect ratio
-  // -----------------------------
-  const textToVidModels = VIDEO_GENERATION_MODEL_TYPES.filter(
-    (m) => m.isTextToVidModel
+  const {
+    hasImageItem,
+    availableModels,
+    availableModelKeys,
+    availableModelKeysSignature,
+  } = getVideoGenerationModelDropdownData({
+    activeItemList,
+    currentLayer,
+    sessionDetails,
+  });
+
+  const modelOptions = availableModels.map((model) => (
+    <option key={model.key} value={model.key}>
+      {model.name}
+    </option>
+  ));
+
+  const {
+    modelDef: selectedModelDef,
+    pricing: selectedModelPricing,
+    supportsImageToVideo: isImageToVideoModel,
+    supportsTextToVideo: isTextToVideoModel,
+    supportsFirstLastFrameToVideo: isFirstLastFrameToVideoModel,
+  } = getVideoGenerationModelMeta(selectedVideoGenerationModel);
+  const useImgToVidSettings = isImageToVideoModel && hasImageItem;
+  const useImgOnlySettings =
+    isImageToVideoModel && !isTextToVideoModel && hasImageItem;
+  const supportsNativeAudio = NATIVE_AUDIO_VIDEO_MODELS.has(
+    selectedVideoGenerationModel
   );
+  const selectedModelDurationUnits = useMemo(() => (
+    selectedModelPricing?.units?.length > 0
+      ? getVideoModelDurationUnitsForFramesPerSecond(
+        selectedVideoGenerationModel,
+        sessionDetails?.framesPerSecond,
+      )
+      : null
+  ), [selectedModelPricing, selectedVideoGenerationModel, sessionDetails?.framesPerSecond]);
 
-  const modelOptions = textToVidModels
-    .map((model) => {
-      // Confirm we have a pricing entry for this aspect ratio
-      const pricing = VIDEO_MODEL_PRICES.find((p) => p.key === model.key);
-
-      if (!pricing) return null;
-      const hasAspectRatio = pricing.prices.some(
-        (priceObj) => aspectRatio && priceObj.aspectRatio === aspectRatio
-      );
-
-      if (!hasAspectRatio) return null;
-
-      return (
-        <option key={model.key} value={model.key}>
-          {model.name}
-        </option>
-      );
-    })
-    .filter(Boolean);
-
-  // Identify the selected model definition
-  const selectedModelDef = VIDEO_GENERATION_MODEL_TYPES.find(
-    (m) => m.key === selectedVideoGenerationModel
-  );
-
-  const isImgToVidModel = selectedModelDef?.isImgToVidModel || false;
-  const isTextToVidModel = selectedModelDef?.isTextToVidModel || false;
-
-  // -----------------------------
-  // Local state & Local Storage
-  // -----------------------------
-  // For image-to-video advanced options
   const [useStartFrame, setUseStartFrame] = useState(() => {
     const stored = localStorage.getItem("defaultVideoStartFrame");
     return stored === null ? true : stored === "true";
@@ -90,30 +125,23 @@ export default function OverlayPromptGenerateVideo(props) {
     const stored = localStorage.getItem("clipLayerToAiVideo");
     return stored === "true";
   });
-
   const [optimizePrompt, setOptimizePrompt] = useState(false);
-
-  // For duration-based pricing
   const [selectedDuration, setSelectedDuration] = useState(null);
-
-  // Model sub-type (if available on the selected model)
   const [selectedModelSubType, setSelectedModelSubType] = useState("");
+  const [generateAudio, setGenerateAudio] = useState(false);
 
-  // -----------------------------
-  //  Ensure the selected model is valid, preferring localStorage or first option
-  // -----------------------------
   useEffect(() => {
-    const availableKeys = modelOptions.map((option) => option.props.value);
-    if (availableKeys.length === 0) return;
+    if (availableModelKeys.length === 0) return;
 
     const storedModel = localStorage.getItem("defaultVideoModel");
-    const fallbackModel = storedModel && availableKeys.includes(storedModel)
-      ? storedModel
-      : availableKeys[0];
+    const fallbackModel =
+      storedModel && availableModelKeys.includes(storedModel)
+        ? storedModel
+        : availableModelKeys[0];
 
     if (
       selectedVideoGenerationModel &&
-      availableKeys.includes(selectedVideoGenerationModel)
+      availableModelKeys.includes(selectedVideoGenerationModel)
     ) {
       return;
     }
@@ -121,14 +149,16 @@ export default function OverlayPromptGenerateVideo(props) {
     if (fallbackModel && fallbackModel !== selectedVideoGenerationModel) {
       setSelectedVideoGenerationModel(fallbackModel);
     }
-  }, [modelOptions, selectedVideoGenerationModel, setSelectedVideoGenerationModel]);
+  }, [
+    availableModelKeysSignature,
+    selectedVideoGenerationModel,
+    setSelectedVideoGenerationModel,
+    availableModelKeys,
+  ]);
 
-
-
-  // -----------------------------
-  //  Whenever `selectedVideoGenerationModel` changes
-  // -----------------------------
   useEffect(() => {
+    setGenerateAudio(false);
+
     if (selectedVideoGenerationModel === "SDVIDEO") {
       setUseEndFrame(false);
     }
@@ -137,33 +167,30 @@ export default function OverlayPromptGenerateVideo(props) {
       selectedVideoGenerationModel === "HAILUO" ||
       selectedVideoGenerationModel === "HAIPER2.0"
     ) {
-      const storedOptimizePrompt = localStorage.getItem("defaultOptimizePrompt");
+      const storedOptimizePrompt =
+        localStorage.getItem("defaultOptimizePrompt");
       setOptimizePrompt(storedOptimizePrompt === "true");
     } else {
       setOptimizePrompt(false);
     }
 
-    // Handle durations
-    const modelPricing = VIDEO_MODEL_PRICES.find(
-      (p) => p.key === selectedVideoGenerationModel
-    );
-    if (modelPricing?.units?.length > 0) {
+    if (selectedModelDurationUnits?.length > 0) {
       const storedDuration = localStorage.getItem(
         "defaultDurationFor" + selectedVideoGenerationModel
       );
+      const parsedStoredDuration = Number(storedDuration);
       if (
-        storedDuration &&
-        modelPricing.units.includes(parseInt(storedDuration))
+        Number.isFinite(parsedStoredDuration) &&
+        selectedModelDurationUnits.includes(parsedStoredDuration)
       ) {
-        setSelectedDuration(parseInt(storedDuration));
+        setSelectedDuration(parsedStoredDuration);
       } else {
-        setSelectedDuration(modelPricing.units[0]);
+        setSelectedDuration(selectedModelDurationUnits[0]);
       }
     } else {
       setSelectedDuration(null);
     }
 
-    // If the new model has subTypes, set default or fetch from local storage
     if (selectedModelDef?.modelSubTypes?.length > 0) {
       const localStoreSubType = localStorage.getItem(
         "defaultModelSubTypeFor_" + selectedVideoGenerationModel
@@ -179,20 +206,16 @@ export default function OverlayPromptGenerateVideo(props) {
     } else {
       setSelectedModelSubType("");
     }
-  }, [selectedVideoGenerationModel]);
+  }, [selectedVideoGenerationModel, selectedModelPricing, selectedModelDef, selectedModelDurationUnits]);
 
-  // -----------------------------
-  //  Handlers
-  // -----------------------------
-  const handleModelChange = (evt) => {
-    const newModel = evt.target.value;
-
+  const handleModelChange = (event) => {
+    const newModel = event.target.value;
     setSelectedVideoGenerationModel(newModel);
     localStorage.setItem("defaultVideoModel", newModel);
   };
 
-  const handleDurationChange = (e) => {
-    const duration = parseInt(e.target.value);
+  const handleDurationChange = (event) => {
+    const duration = Number(event.target.value);
     setSelectedDuration(duration);
     localStorage.setItem(
       "defaultDurationFor" + selectedVideoGenerationModel,
@@ -200,26 +223,26 @@ export default function OverlayPromptGenerateVideo(props) {
     );
   };
 
-  const handleStartFrameChange = (e) => {
-    const checked = e.target.checked;
+  const handleStartFrameChange = (event) => {
+    const checked = event.target.checked;
     setUseStartFrame(checked);
     localStorage.setItem("defaultVideoStartFrame", String(checked));
   };
 
-  const handleEndFrameChange = (e) => {
-    const checked = e.target.checked;
+  const handleEndFrameChange = (event) => {
+    const checked = event.target.checked;
     setUseEndFrame(checked);
     localStorage.setItem("defaultVideoEndFrame", String(checked));
   };
 
-  const handleClipLayerChange = (e) => {
-    const checked = e.target.checked;
+  const handleClipLayerChange = (event) => {
+    const checked = event.target.checked;
     setClipLayerToAiVideo(checked);
     localStorage.setItem("clipLayerToAiVideo", String(checked));
   };
 
-  const handleCombineLayersChange = (e) => {
-    const checked = e.target.checked;
+  const handleCombineLayersChange = (event) => {
+    const checked = event.target.checked;
     setCombineLayers(checked);
     localStorage.setItem("combineLayers", String(checked));
   };
@@ -229,8 +252,12 @@ export default function OverlayPromptGenerateVideo(props) {
     localStorage.setItem("defaultOptimizePrompt", String(checked));
   };
 
-  const handleModelSubTypeChange = (e) => {
-    const subType = e.target.value;
+  const handleGenerateAudioChange = (event) => {
+    setGenerateAudio(event.target.checked);
+  };
+
+  const handleModelSubTypeChange = (event) => {
+    const subType = event.target.value;
     setSelectedModelSubType(subType);
     localStorage.setItem(
       "defaultModelSubTypeFor_" + selectedVideoGenerationModel,
@@ -239,25 +266,29 @@ export default function OverlayPromptGenerateVideo(props) {
   };
 
   const handleSubmit = () => {
+    if (modelOptions.length === 0) return;
+
     const payload = {
-      // Only relevant if it’s an img-to-vid model
       useStartFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
           ? true
-          : isImgToVidModel && !isTextToVidModel
+          : selectedVideoGenerationModel === "SDVIDEO"
+          ? true
+          : useImgOnlySettings
           ? useStartFrame
           : false,
       useEndFrame:
-        selectedVideoGenerationModel === "SDVIDEO"
+        isFirstLastFrameToVideoModel
+          ? true
+          : selectedVideoGenerationModel === "SDVIDEO"
           ? false
-          : isImgToVidModel && !isTextToVidModel
+          : useImgOnlySettings
           ? useEndFrame
           : false,
-      combineLayers,
-      clipLayerToAiVideo,
+      combineLayers: useImgToVidSettings ? combineLayers : false,
+      clipLayerToAiVideo: useImgToVidSettings ? clipLayerToAiVideo : false,
     };
 
-    // If HAILUO / HAIPER2.0, add prompt optimization
     if (
       selectedVideoGenerationModel === "HAILUO" ||
       selectedVideoGenerationModel === "HAIPER2.0"
@@ -265,85 +296,76 @@ export default function OverlayPromptGenerateVideo(props) {
       payload.usePromptOptimizer = optimizePrompt;
     }
 
-    // Add durations
     if (selectedDuration !== null) {
       payload.duration = selectedDuration;
     }
 
-    // Model sub-type if available
+    if (supportsNativeAudio) {
+      payload.generateAudio = generateAudio === true;
+    }
+
     if (selectedModelDef?.modelSubTypes?.length > 0) {
       payload.modelSubType = selectedModelSubType;
     }
 
-    // Invoke parent submission with the final payload
     submitGenerateNewVideoRequest(payload);
   };
 
-  // -----------------------------
-  // Pricing
-  // -----------------------------
-  const pricingForSelectedModel = VIDEO_MODEL_PRICES.find(
-    (m) => m.key === selectedVideoGenerationModel
-  );
-  const priceObj = pricingForSelectedModel
-    ? pricingForSelectedModel.prices.find(
-        (price) => price.aspectRatio === aspectRatio
-      )
-    : null;
+  const pricingForSelectedModel = selectedModelPricing
+    ? {
+      ...selectedModelPricing,
+      ...(selectedModelDurationUnits ? { units: selectedModelDurationUnits } : {}),
+    }
+    : selectedModelPricing;
+  const priceObj = getModelPriceForAspect(pricingForSelectedModel, aspectRatio);
   let modelPrice = priceObj ? priceObj.price : 0;
 
-  // Adjust price if there are multiple duration units
-  if (pricingForSelectedModel?.units && selectedDuration !== null) {
-    // The cost multiplier is based on the index of the selected duration
+  if (pricingForSelectedModel?.isPerSecondPricing && selectedDuration !== null) {
+    modelPrice *= selectedDuration;
+  } else if (pricingForSelectedModel?.units && selectedDuration !== null) {
     const unitIndex = pricingForSelectedModel.units.findIndex(
-      (u) => u.toString() === selectedDuration.toString()
+      (unit) => unit.toString() === selectedDuration.toString()
     );
-    // If found, multiply
     if (unitIndex >= 0) modelPrice *= unitIndex + 1;
   }
 
-  // Error display
-  const errorDisplay = generationError && (
-    <div className="text-red-500 text-center text-sm mt-2">{generationError}</div>
-  );
+  const errorDisplay = generationError ? (
+    <div className="mt-2 shrink-0 text-center text-sm text-red-500">
+      {generationError}
+    </div>
+  ) : null;
 
   return (
-    <div className="relative p-3 space-y-4">
-      <div className={`text-xs ${colorMode === "dark" ? "text-slate-300" : "text-slate-500"}`}>
-        Generate an image first to unlock more video model options and controls.
-      </div>
-
-      {/* Top row: Model selection + cost tooltip */}
-      <div className={`flex w-full flex-wrap justify-center items-center gap-4 rounded-xl px-4 py-3 ${colorMode === "dark" ? "bg-slate-900/60 border border-white/10" : "bg-white border border-slate-200 shadow-sm"}`}>
-        {/* Model label + cost tooltip */}
-        <div className="flex items-center space-x-2">
-          <div className="text-sm font-semibold flex items-center">
-            Model
+    <div className="flex min-h-0 w-full flex-col gap-3">
+      <div className={`shrink-0 ${fieldLayoutClassName}`}>
+        <div className={controlGroupClassName}>
+          <div className={`${fieldLabelClassName} flex items-center gap-1`}>
+            <span>Model</span>
             <a
-              data-tooltip-id="modelCostTooltip"
+              data-tooltip-id="videoModelCostTooltip"
               data-tooltip-content={`Currently selected model cost: ${modelPrice} Credits`}
             >
-              <FaQuestionCircle className="ml-1 text-xs" />
+              <FaQuestionCircle className="text-[11px]" />
             </a>
-            <Tooltip id="modelCostTooltip" place="right" effect="solid" />
+            <Tooltip id="videoModelCostTooltip" place="right" effect="solid" />
           </div>
           <select
             onChange={handleModelChange}
-            className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
+            className={`${selectShell} w-full rounded-md px-2.5 py-2`}
             value={selectedVideoGenerationModel}
+            disabled={modelOptions.length === 0}
           >
             {modelOptions}
           </select>
         </div>
 
-        {/* Model subType (if any) */}
-        {selectedModelDef?.modelSubTypes?.length > 0 && (
-          <div className="flex items-center space-x-2">
-            <div className="text-xs font-semibold">Scene Type</div>
+        {selectedModelDef?.modelSubTypes?.length > 0 ? (
+          <div className={controlGroupClassName}>
+            <div className={fieldLabelClassName}>Scene Type</div>
             <select
               value={selectedModelSubType}
               onChange={handleModelSubTypeChange}
-              className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
+              className={`${selectShell} w-full rounded-md px-2.5 py-2`}
             >
               {selectedModelDef.modelSubTypes.map((subType) => (
                 <option key={subType} value={subType}>
@@ -352,32 +374,40 @@ export default function OverlayPromptGenerateVideo(props) {
               ))}
             </select>
           </div>
-        )}
+        ) : null}
 
-        {/* Duration (if pricing info has units) */}
-        {pricingForSelectedModel?.units && (
-          <div className="flex items-center space-x-2">
-            <div className="text-xs font-semibold">Duration</div>
+        {pricingForSelectedModel?.units ? (
+          <div className={controlGroupClassName}>
+            <div className={fieldLabelClassName}>Duration</div>
             <select
               onChange={handleDurationChange}
-              className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
+              className={`${selectShell} w-full rounded-md px-2.5 py-2`}
               value={selectedDuration || ""}
             >
-              {pricingForSelectedModel.units.map((u) => (
-                <option key={u} value={u}>
-                  {u} s
+              {pricingForSelectedModel.units.map((unit) => (
+                <option key={unit} value={unit}>
+                  {formatVideoDurationLabel(unit)} s
                 </option>
               ))}
             </select>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* Second row: checkboxes (only relevant for certain models) */}
-      <div className={`flex flex-wrap items-center gap-3 px-1 text-xs ${colorMode === "dark" ? "text-slate-200" : "text-slate-600"}`}>
-        {isImgToVidModel && !isTextToVidModel && (
+      <div
+        className={`flex shrink-0 flex-wrap items-center gap-2.5 text-xs ${
+          colorMode === "dark" ? "text-slate-200" : "text-slate-600"
+        }`}
+      >
+        {useImgOnlySettings && !isFirstLastFrameToVideoModel ? (
           <label
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${useStartFrame ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              useStartFrame
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
           >
             <input
               type="checkbox"
@@ -387,11 +417,17 @@ export default function OverlayPromptGenerateVideo(props) {
             />
             <span>Use start frame</span>
           </label>
-        )}
+        ) : null}
 
-        {isImgToVidModel && !isTextToVidModel && (
+        {useImgOnlySettings && !isFirstLastFrameToVideoModel ? (
           <label
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${useEndFrame ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              useEndFrame
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
           >
             <input
               type="checkbox"
@@ -401,11 +437,17 @@ export default function OverlayPromptGenerateVideo(props) {
             />
             <span>Use end frame</span>
           </label>
-        )}
+        ) : null}
 
-        {isImgToVidModel && (
+        {useImgToVidSettings ? (
           <label
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${combineLayers ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              combineLayers
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
           >
             <input
               type="checkbox"
@@ -415,11 +457,17 @@ export default function OverlayPromptGenerateVideo(props) {
             />
             <span>Combine layers</span>
           </label>
-        )}
+        ) : null}
 
-        {isImgToVidModel && (
+        {useImgToVidSettings ? (
           <label
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${clipLayerToAiVideo ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              clipLayerToAiVideo
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
           >
             <input
               type="checkbox"
@@ -429,42 +477,78 @@ export default function OverlayPromptGenerateVideo(props) {
             />
             <span>Clip to AI video</span>
           </label>
-        )}
+        ) : null}
 
-        {(selectedVideoGenerationModel === "HAILUO" || selectedVideoGenerationModel === "HAIPER2.0") && (
+        {selectedVideoGenerationModel === "HAILUO" ||
+        selectedVideoGenerationModel === "HAIPER2.0" ? (
           <label
-            className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border transition-colors duration-150 cursor-pointer ${optimizePrompt ? (colorMode === "dark" ? "bg-indigo-500/20 border-indigo-400/40 text-white" : "bg-indigo-500/10 border-indigo-200 text-indigo-600") : chipShell}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              optimizePrompt
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
           >
             <input
               type="checkbox"
               className="hidden"
               checked={optimizePrompt}
-              onChange={(e) => handleOptimizePromptChange(e.target.checked)}
+              onChange={(event) =>
+                handleOptimizePromptChange(event.target.checked)
+              }
             />
             <span>Optimize prompt</span>
           </label>
-        )}
+        ) : null}
+
+        {supportsNativeAudio ? (
+          <label
+            className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
+              generateAudio
+                ? colorMode === "dark"
+                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
+                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                : chipShell
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="hidden"
+              checked={generateAudio}
+              onChange={handleGenerateAudioChange}
+            />
+            <span>Generate audio</span>
+          </label>
+        ) : null}
       </div>
 
-      {/* Prompt Textarea (hide if it's SDVIDEO, which doesn't use text prompt) */}
-      {selectedVideoGenerationModel !== "SDVIDEO" && (
+      {selectedVideoGenerationModel !== "SDVIDEO" ? (
         <TextareaAutosize
-          onChange={(evt) => setVideoPromptText(evt.target.value)}
-          placeholder="Describe the motion, pacing, and cinematic details you want…"
-          className={`${textareaShell} w-full px-3 py-3 rounded-xl bg-transparent`}
-          minRows={3}
+          onChange={(event) => setVideoPromptText(event.target.value)}
+          placeholder="Describe the motion, pacing, and cinematic details you want..."
+          className={`${textareaShell} min-h-0 w-full resize-none overflow-y-auto rounded-lg px-3 py-2`}
+          minRows={isPortraitLayout ? 3 : 2}
+          maxRows={promptTextareaMaxRows}
           value={videoPromptText}
         />
-      )}
+      ) : null}
 
-      {/* Submit Button */}
-      <div className="text-center mt-2">
-        <CommonButton onClick={handleSubmit} isPending={aiVideoGenerationPending}>
+      <div
+        className={`flex shrink-0 pt-1 ${
+          isPortraitLayout ? "justify-stretch" : "justify-end"
+        }`}
+      >
+        <CommonButton
+          onClick={handleSubmit}
+          isPending={aiVideoGenerationPending}
+          isDisabled={modelOptions.length === 0}
+          extraClasses={isPortraitLayout ? "w-full" : "min-w-[140px]"}
+        >
           Submit
         </CommonButton>
       </div>
 
-      {/* Error display */}
       {errorDisplay}
     </div>
   );

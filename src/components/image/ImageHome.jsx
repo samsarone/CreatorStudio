@@ -6,7 +6,7 @@ export default function ImageHome() {
     <CommonContainer >
       <div className='m-auto'>
         <div className='block'>
-          <div className='w-[5%] bg-cyber-black inline-block'>
+          <div className='w-[5%] bg-[#0f1629] inline-block'>
              Video Frames
           </div>
           <EditorHome />

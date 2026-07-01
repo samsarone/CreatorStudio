@@ -1,37 +1,54 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { Suspense, lazy } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { IoMdLogIn } from 'react-icons/io';
-import ToggleButton from './ToggleButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import { IoMdWallet } from 'react-icons/io';
-import Login from '../auth/Login.tsx';
-import UpgradePlan from '../payments/UpgradePlan.tsx';
-import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
-import { FaTwitter, FaStar } from 'react-icons/fa6';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import { FaStar } from 'react-icons/fa6';
 import { getHeaders } from '../../utils/web.jsx';
+import BrandLogo from './BrandLogo.tsx';
+import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
+import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
+const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
+const AUTH_DIALOG_OPTIONS = {
+  surface: 'auth',
+  fullBleed: true,
+  centerContent: true,
+  hideBorder: true,
+  hideCloseButton: true,
+};
+const dialogFallback = <div className="p-6 text-sm">Loading...</div>;
 
 export default function MobileTopNav(props) {
-  const { resetCurrentSession, addCustodyAddress, addNewVidGPTSession } = props;
-  const farcasterSignInButtonRef = useRef(null);
+  const { resetCurrentSession, addNewVidGPTSession } = props;
   const { colorMode } = useColorMode();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
+  const location = useLocation();
 
-  let bgColor = 'from-cyber-black via-blue-900 to-neutral-900 text-neutral-50';
+  const isImageEditor =
+    location.pathname.includes('/image/') ||
+    location.pathname.includes('/iamge/') ||
+    location.pathname.includes('/image_sessions');
+  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/');
+  const isGenerationsView = location.pathname.startsWith('/generations');
 
-  if (colorMode === 'light') {
-    bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
-  }
+  const navShell =
+    colorMode === 'dark'
+      ? 'bg-gradient-to-r from-[#071223] via-[#0d1d35] to-[#0a1b2d] text-slate-100 border-b border-[#2a4e70] shadow-[0_14px_32px_rgba(0,0,0,0.38)]'
+      : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef]';
 
   const resetSession = () => {
     closeAlertDialog();
+    if (isImageEditor) {
+      createNewImageSession();
+      return;
+    }
     createNewSession();
   };
 
@@ -61,10 +78,8 @@ export default function MobileTopNav(props) {
     </div>
   );
 
-  const { user, setUser } = useUser();
+  const { user } = useUser();
   const navigate = useNavigate();
-
-  const [userProfileData, setUserProfileData] = useState({});
 
   let userProfile = <span />;
 
@@ -73,20 +88,53 @@ export default function MobileTopNav(props) {
   };
 
   const showLoginDialog = () => {
-    const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    const loginComponent = (
+      <Suspense fallback={dialogFallback}>
+        <AuthContainer />
+      </Suspense>
+    );
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   const upgradeToPremiumTier = () => {
-    const alertDialogComponent = <UpgradePlan />;
-
+    navigate('/create_payment');
   };
 
-  const createNewSession = () => {
+  const createNewSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          sessionDescription?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || '1:1';
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const normalizedSessionDescription = typeof normalizedSessionConfig.sessionDescription === 'string'
+      ? normalizedSessionConfig.sessionDescription.trim()
+      : '';
     const headers = getHeaders();
-    const payload = {
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      sessionName?: string;
+      sessionDescription?: string;
+    } = {
       prompts: [],
+      aspectRatio: selectedAspectRatio,
     };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (normalizedSessionDescription) {
+      payload.sessionDescription = normalizedSessionDescription;
+    }
     axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
       const session = response.data;
       const sessionId = session._id.toString();
@@ -95,47 +143,145 @@ export default function MobileTopNav(props) {
     });
   };
 
+  const createNewImageSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          canvasDimensions?: { width?: number; height?: number };
+          addBackgroundLayer?: boolean;
+          backgroundLayerColor?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || localStorage.getItem('defaultImageAspectRatio') || '1:1';
+    const fallbackCanvasDimensions = getCanvasDimensionsForAspectRatio(selectedAspectRatio);
+    const rawWidth = Number(normalizedSessionConfig.canvasDimensions?.width);
+    const rawHeight = Number(normalizedSessionConfig.canvasDimensions?.height);
+    const canvasDimensions = {
+      width: Number.isFinite(rawWidth) && rawWidth > 0 ? Math.round(rawWidth) : fallbackCanvasDimensions.width,
+      height: Number.isFinite(rawHeight) && rawHeight > 0 ? Math.round(rawHeight) : fallbackCanvasDimensions.height,
+    };
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const shouldAddBackgroundLayer = Boolean(normalizedSessionConfig.addBackgroundLayer);
+    const backgroundLayerColor =
+      typeof normalizedSessionConfig.backgroundLayerColor === 'string'
+        ? normalizedSessionConfig.backgroundLayerColor
+        : '#ffffff';
+
+    const headers = getHeaders();
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      canvasDimensions: { width: number; height: number };
+      sessionName?: string;
+      addBackgroundLayer?: boolean;
+      backgroundLayerColor?: string;
+    } = {
+      prompts: [],
+      aspectRatio: selectedAspectRatio,
+      canvasDimensions,
+    };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (shouldAddBackgroundLayer) {
+      payload.addBackgroundLayer = true;
+      payload.backgroundLayerColor = backgroundLayerColor;
+    }
+    axios.post(`${PROCESSOR_SERVER}/image_sessions/create_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('imageSessionId', sessionId);
+      navigate(`/image/studio/${session._id}`);
+    });
+  };
+
   const gotoViewSessionsPage = () => {
+    if (isImageEditor) {
+      navigate('/image_sessions');
+      return;
+    }
     navigate('/my_sessions');
   };
 
-  const createNewSessionDialog = () => {
-    openAlertDialog(alertDialogComponent);
+  const openImageEditor = () => {
+    const storedSessionId = localStorage.getItem('imageSessionId');
+    if (storedSessionId) {
+      navigate(`/image/studio/${storedSessionId}`);
+      return;
+    }
+    createNewImageSession();
+  };
+
+  const openVideoEditor = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/video/${storedSessionId}`);
+      return;
+    }
+    createNewSession();
+  };
+
+  const openStudioWorkspace = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/vidgenie/${storedSessionId}`);
+      return;
+    }
+    addNewVidGPTSession();
+  };
+
+  const createNewSessionDialog = (sessionConfig = '1:1') => {
+    openAlertDialog(
+      <div>
+        <div>This will reset your current session. Are you sure you want to proceed?</div>
+        <div className="mt-4 mb-4 m-auto">
+          <div className="inline-flex ml-2 mr-2">
+            <CommonButton
+              onClick={() => {
+                closeAlertDialog();
+                createNewSession(sessionConfig);
+              }}
+            >
+              Yes
+            </CommonButton>
+          </div>
+          <div className="inline-flex ml-2 mr-2">
+            <CommonButton
+              onClick={() => {
+                closeAlertDialog();
+              }}
+            >
+              No
+            </CommonButton>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   let userTierDisplay = <span />;
 
-  let bottomToggleDisplay = <span />;
-
-  let userCredits;
-  let nextUpdate;
-
   if (user && user._id) {
     if (user.isPremiumUser) {
       userTierDisplay = (
-        <div>
-          <FaStar className="inline-flex text-neutral-100" /> Premium
+        <div className="text-[#d7ffeb]">
+          <FaStar className="inline-flex text-[#39d881]" /> Premium
         </div>
       );
     } else {
       userTierDisplay = (
-        <div>
-          <FaStar className="inline-flex text-neutral-700" /> Upgrade
+        <div className="text-slate-400">
+          <FaStar className="inline-flex text-slate-500" /> Upgrade
         </div>
       );
     }
-
-    userCredits = user.generationCredits;
-
-    if (user.isPremiumUser) {
-      const now = new Date();
-      const lastUpdated = new Date(user.premiumUserCreditsLastUpdated);
-      const nextUpdateDate = new Date(lastUpdated);
-      nextUpdateDate.setMonth(nextUpdateDate.getMonth() + 1);
-      const timeDiff = nextUpdateDate.getTime() - now.getTime();
-      nextUpdate = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    }
-
     userProfile = (
       <div className="flex items-center justify-end cursor-pointer" onClick={gotoUserAccount}>
         <div className="flex flex-col text-left mr-2">
@@ -149,17 +295,15 @@ export default function MobileTopNav(props) {
 
       </div>
     );
-
-    bottomToggleDisplay = (
-      <div className="flex justify-end">
-        <ToggleButton />
-      </div>
-    );
   } else {
+    const loginButtonClass = colorMode === 'dark'
+      ? 'm-auto text-center min-w-16 rounded-lg text-slate-100 bg-[#111a2f] pl-8 pr-8 pt-1 pb-2 font-bold text-lg shadow-[0_8px_20px_rgba(0,0,0,0.3)] transition-all duration-200 ease-out hover:-translate-y-[1px] hover:bg-[#162744] hover:text-[#d7ffeb] hover:shadow-[0_12px_24px_rgba(70,191,255,0.2)] active:translate-y-0'
+      : 'm-auto text-center min-w-16 rounded-lg border border-slate-200 bg-white/80 pl-8 pr-8 pt-1 pb-2 text-lg font-bold text-slate-900 transition-all duration-200 ease-out hover:-translate-y-[1px] hover:bg-white active:translate-y-0';
+
     userProfile = (
       <div className="mt-1 flex justify-end">
         <button
-          className="m-auto text-center min-w-16 rounded-lg shadow-lg text-neutral-100 bg-cyber-black pl-8 pr-8 pt-1 pb-2 font-bold text-lg"
+          className={loginButtonClass}
           onClick={showLoginDialog}
         >
           <IoMdLogIn className="inline-flex" /> Login
@@ -169,6 +313,10 @@ export default function MobileTopNav(props) {
   }
 
   const gotoHome = () => {
+    if (user && user._id && !isImageEditor && !isVideoEditor) {
+      navigate('/generations');
+      return;
+    }
     openAlertDialog(alertDialogComponent);
   };
 
@@ -178,63 +326,84 @@ export default function MobileTopNav(props) {
     addSessionButton = (
 
       <div className="">
-        <AddSessionDropdown createNewSession={createNewSessionDialog} gotoViewSessionsPage={gotoViewSessionsPage} 
-        addNewVidGPTSession={addNewVidGPTSession} 
-        />
+        <Suspense fallback={<div className="h-11 w-[118px]" />}>
+          <AddSessionDropdown
+            createNewSession={isImageEditor ? createNewImageSession : createNewSessionDialog}
+            gotoViewSessionsPage={gotoViewSessionsPage}
+            addNewVidGPTSession={addNewVidGPTSession}
+            aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
+            aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
+            useImageProjectModal={isImageEditor}
+            switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
+            onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+            showVideoOptions={!isImageEditor}
+            compact={isGenerationsView}
+          />
+        </Suspense>
       </div>
 
     );
   }
 
-  let daysToUpdate = <span />;
-  let userCreditsDisplay = <span />;
-  if (user && user._id) {
-    if (user.isPremiumUser) {
-      daysToUpdate = <div>{nextUpdate} days until update</div>;
-    } else {
-      daysToUpdate = <div>Free Tier</div>;
-    }
-    userCreditsDisplay = <div>{userCredits} credits</div>;
-  }
-
-
-
   return (
-    <div className={`bg-gradient-to-r ${bgColor} h-[50px] fixed w-[100vw] shadow-lg z-10`}>
-      <div className="flex flex-basis">
-        <div className='basis-1/4'>
-          <button
-            onClick={gotoHome}
-            className={`group ml-2 mr-2 mt-1 flex items-center gap-1 rounded-md border px-2 py-[6px] text-left shadow-sm backdrop-blur transition 
-              ${colorMode === 'dark'
-                ? 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-                : 'border-white/40 bg-white/15 hover:border-white/60 hover:bg-white/25'}`}
-          >
-            <span
-              className={`text-[11px] font-black uppercase tracking-[0.22em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-slate-100 group-hover:text-cyan-100'
-                  : 'text-white group-hover:text-slate-100'}`}
-            >
-              Samsar
-            </span>
-            <span
-              className={`text-[11px] font-black uppercase tracking-[0.22em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-cyan-300 group-hover:text-white'
-                  : 'text-white/90 group-hover:text-white'}`}
-            >
-              One
-            </span>
-          </button>
+    <div className={`${navShell} fixed z-[1200] w-[100vw] ${isGenerationsView ? 'py-2' : 'h-[50px]'}`}>
+      <div className={`${isGenerationsView ? 'flex flex-col gap-3 px-3' : 'flex flex-basis items-center h-full'}`}>
+        <div className={isGenerationsView ? 'flex min-h-[44px] items-center justify-between' : 'basis-1/3 pl-2'}>
+          <BrandLogo onClick={gotoHome} className={isGenerationsView ? '' : 'mt-1'} />
+          {isGenerationsView && (
+            <div className="flex min-w-0 items-center justify-end gap-2">
+              <div className="text-xs inline-flex items-center">
+                {addSessionButton}
+              </div>
+              <div className="inline-flex items-center">{userProfile}</div>
+            </div>
+          )}
         </div>
-        <div className="basis-3/4  ">
-          <div className="text-xs inline-flex">
-            <div>{addSessionButton}</div>
+        {!isGenerationsView && (
+          <div className="basis-2/3">
+            <div className="text-xs inline-flex items-center">
+              <div>{addSessionButton}</div>
+            </div>
+            <div className=" inline-flex float-right mr-2">{userProfile}</div>
           </div>
-          <div className=" inline-flex float-right mr-2">{userProfile}</div>
-        </div>
-
+        )}
+        {isGenerationsView && (
+          <div className={`grid w-full grid-cols-3 gap-2 rounded-full px-2 py-2 ${colorMode === 'dark'
+            ? 'border border-white/10 bg-black/10'
+            : 'border border-white/70 bg-white/80 backdrop-blur'
+          }`}>
+            <button
+              type="button"
+              className={`${colorMode === 'dark'
+                ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              } inline-flex min-h-[42px] min-w-0 items-center justify-center rounded-full px-2 py-2.5 text-[11px] font-semibold transition sm:text-xs`}
+              onClick={openVideoEditor}
+            >
+              Video Editor
+            </button>
+            <button
+              type="button"
+              className={`${colorMode === 'dark'
+                ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              } inline-flex min-h-[42px] min-w-0 items-center justify-center rounded-full px-2 py-2.5 text-[11px] font-semibold transition sm:text-xs`}
+              onClick={openImageEditor}
+            >
+              Image Editor
+            </button>
+            <button
+              type="button"
+              className={`${colorMode === 'dark'
+                ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300'
+              } inline-flex min-h-[42px] min-w-0 items-center justify-center rounded-full px-2 py-2.5 text-[11px] font-semibold transition sm:text-xs`}
+              onClick={openStudioWorkspace}
+            >
+              VidGenie
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

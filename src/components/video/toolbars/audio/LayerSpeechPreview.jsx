@@ -11,17 +11,19 @@ export default function LayerSpeechPreview(props) {
     onBack,
     submitAddTrackToProject,
     colorMode,
+    sessionDetails,
   } = props;
+  const compactButtonClass = '!m-0 !min-w-0 !rounded-md !px-2 !py-1 text-xs leading-tight';
 
   return (
     <div>
       {/* Header with "Back" and "Add All" buttons */}
       <div className="flex justify-between items-center mb-2">
-        <SecondaryButton onClick={onBack}>
-          <FaArrowLeft className="inline mr-2" /> Back
+        <SecondaryButton onClick={onBack} className={compactButtonClass}>
+          <FaArrowLeft className="inline mr-1" /> Back
         </SecondaryButton>
-        <SecondaryButton onClick={onAddAll}>
-          <FaCheck className="inline mr-2" /> Add All
+        <SecondaryButton onClick={onAddAll} className={compactButtonClass}>
+          <FaCheck className="inline mr-1" /> Add All
         </SecondaryButton>
       </div>
 
@@ -31,8 +33,13 @@ export default function LayerSpeechPreview(props) {
           <SpeechSelectToolbar
             audioLayer={layer}
             submitAddTrackToProject={submitAddTrackToProject}
-            setCurrentCanvasAction={() => {}}
+            setCurrentCanvasAction={() => {
+              if (typeof onBack === 'function') {
+                onBack();
+              }
+            }}
             colorMode={colorMode}
+            sessionDetails={sessionDetails}
           />
         </div>
       ))}

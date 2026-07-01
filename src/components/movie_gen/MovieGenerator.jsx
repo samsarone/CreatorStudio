@@ -123,11 +123,8 @@ export default function MovieGenerator() {
   // Reset form on ID change
   useEffect(() => {
     if (id) {
-    resetForm();
-    getSessionDetails(); // Fetch session details for the new ID
-    } else {
-
-      
+      resetForm();
+      getSessionDetails(); // Fetch session details for the new ID
     }
 
   }, [id]);
@@ -199,7 +196,6 @@ export default function MovieGenerator() {
       const response = await axios.post(`${API_SERVER}/moviegen/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
-      console.log(error);
       setIsGenerationPending(false);
     } finally {
       setIsSubmitting(false);
@@ -226,7 +222,7 @@ export default function MovieGenerator() {
           setErrorMessage({ error: 'Video generation failed.' });
         }
       } catch (error) {
-        console.error('Error fetching generation status:', error);
+        
         clearInterval(interval);
         setIsGenerationPending(false);
         setErrorMessage({ error: 'An unexpected error occurred while fetching status.' });
@@ -376,8 +372,8 @@ export default function MovieGenerator() {
   if (pricingDetailsDisplay) {
     pricingDetailsMessage = (
       <div className='block mt-1'>
-        <div>The price is calculated as 100 credits per 10 seconds of video.</div>
-        <div>For example, a 1 minute video will consume 600 credits.</div>
+        <div>The price is calculated as 150 credits per 10 seconds of video.</div>
+        <div>For example, a 1 minute video will consume 900 credits.</div>
         {premiumUsersOnlyMessage}
       </div>
     )

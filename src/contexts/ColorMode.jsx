@@ -9,20 +9,25 @@ const ColorModeContext = createContext({
 
 // Step 3: Create the Context Provider
 export const ColorModeProvider = ({ children }) => {
-  const [colorMode, setColorMode] = useState('dark'); // Default to 'light'
+  const [colorMode, setColorMode] = useState('dark'); // Default to dark
 
   useEffect(() => {
 
     const handleStorageChange = () => {
       // Check the value from localStorage and update colorMode accordingly
-      const colorMode = localStorage.getItem('colorMode')  || 'dark';
-      setColorMode(colorMode);
+      const storedMode = localStorage.getItem('colorMode')  || 'dark';
+      setColorMode(storedMode);
     };
 
     // Add event listener to storage change
     window.addEventListener('storage', handleStorageChange);
 
-    handleStorageChange();
+    if (!localStorage.getItem('colorMode')) {
+      localStorage.setItem('colorMode', 'dark');
+      setColorMode('dark');
+    } else {
+      handleStorageChange();
+    }
 
     // Cleanup the event listener when the component unmounts
    // return () => window.removeEventListener('storage', handleStorageChange);
@@ -34,6 +39,12 @@ export const ColorModeProvider = ({ children }) => {
     setColorMode(newMode);
     localStorage.setItem('colorMode', newMode);
   };
+
+  useEffect(() => {
+    const body = document.body;
+    body.classList.remove('theme-dark', 'theme-light');
+    body.classList.add(colorMode === 'dark' ? 'theme-dark' : 'theme-light');
+  }, [colorMode]);
 
   return (
     <ColorModeContext.Provider value={{ colorMode, setColorMode, toggleColorMode }}>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { FaChevronLeft, FaTimes } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
+import { useColorMode } from '../../contexts/ColorMode.jsx';
 
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
@@ -19,32 +20,40 @@ export default function MobileProgressIndicator(props) {
   } = props;
 
 
+  const { colorMode } = useColorMode();
+  const isLight = colorMode === 'light';
+  const overlayBackground = isLight ? 'rgba(241,245,249,0.88)' : 'rgba(0,0,0,0.5)';
+  const closeButtonClass = isLight
+    ? 'float-right mr-2 mb-8 border border-slate-200 bg-white pl-4 pr-4 pt-1 pb-1 text-slate-900 hover:bg-slate-100'
+    : 'float-right mr-2 mb-8 bg-gray-900 hover:bg-gray-950 pl-4 pr-4 pt-1 pb-1 text-white';
+  const progressTrackColor = isLight ? '#dbe3ef' : '#333';
+  const statusTextColor = isLight ? '#1f2a3d' : 'white';
+  const linkColor = isLight ? '#2563eb' : 'white';
 
   const progressPercentage = expressGenerationStatus ? getProgressPercentage(expressGenerationStatus) : 0;
 
   return (
     <div className="spinner-container absolute t-0 z-10  w-[100%] m-auto" style={{
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: overlayBackground,
       marginTop: '0px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start'
     }}
     >
       <div className='relative mt-0 w-full p-4'>
         <div>
-          <div onClick={() => setShowResultDisplay(false)} className='float-right mr-2 
-          mb-8 bg-gray-900 hover:bg-gray-950 pl-4 pr-4 pt-1 pb-1'>
+          <div onClick={() => setShowResultDisplay(false)} className={closeButtonClass}>
             <FaTimes className='inline-flex' /> Close
           </div>
         </div>
         <div>
           {isGenerationPending && expressGenerationStatus && (
             <div>
-              <div className="progress-bar" style={{ width: '100%', backgroundColor: '#333', borderRadius: '5px', overflow: 'hidden', marginBottom: '10px' }}>
+              <div className="progress-bar" style={{ width: '100%', backgroundColor: progressTrackColor, borderRadius: '5px', overflow: 'hidden', marginBottom: '10px' }}>
                 <div
                   className="progress-bar-fill"
                   style={{ width: `${progressPercentage}%`, height: '20px', backgroundColor: '#4caf50' }}
                 ></div>
               </div>
-              <div className="status" style={{ color: 'white' }}>
+              <div className="status" style={{ color: statusTextColor }}>
                 <p>Image Generation: {expressGenerationStatus.image_generation}</p>
                 <p>Audio Generation: {expressGenerationStatus.audio_generation}</p>
                 <p>Frame Generation: {expressGenerationStatus.frame_generation}</p>
@@ -59,7 +68,7 @@ export default function MobileProgressIndicator(props) {
                 Your browser does not support the video tag.
               </video>
               <div className="download-button" style={{ marginTop: '10px' }}>
-                <a href={`${PROCESSOR_API_URL}/${videoLink}`} download="generated_video.mp4" style={{ color: 'white' }}>
+                <a href={`${PROCESSOR_API_URL}/${videoLink}`} download="generated_video.mp4" style={{ color: linkColor }}>
                   Download Video
                 </a>
               </div>

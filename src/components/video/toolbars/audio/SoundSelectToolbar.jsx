@@ -19,12 +19,13 @@ export default function SoundSelectToolbar(props) {
 
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950/85 text-slate-100 border border-white/10'
+      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
   const inputSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/60 border border-white/10 text-slate-100'
+      ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100'
       : 'bg-white border border-slate-200 text-slate-900 shadow-sm';
+  const compactButtonClass = '!m-0 !min-w-0 !rounded-md !px-2 !py-1 text-xs leading-tight';
 
   // Construct the full audio URL
   const audioUrl = `${PROCESSOR_API_URL}/${audioLayer.localAudioLinks[0]}`;
@@ -43,9 +44,9 @@ export default function SoundSelectToolbar(props) {
   };
 
   return (
-    <div className={`${panelSurface} rounded-xl p-4 space-y-4`}>
+    <div className={`${panelSurface} rounded-xl p-3 space-y-3`}>
       <div className="mt-2">
-        <audio controls className="w-full">
+        <audio controls className="h-8 w-full">
           <source src={audioUrl} type="audio/mpeg" />
           Your browser does not support the audio element.
         </audio>
@@ -87,13 +88,16 @@ export default function SoundSelectToolbar(props) {
               <div className="text-xs text-center">Volume</div>
             </div>
           </div>
-          <div className="mt-2">
-            <SecondaryButton type="submit">Add</SecondaryButton>
+          <div className="mt-2 flex justify-end">
+            <SecondaryButton type="submit" className={compactButtonClass}>Add</SecondaryButton>
           </div>
         </form>
       </div>
-      <div className="mt-2">
-        <SecondaryButton onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}>
+      <div className="mt-2 flex justify-end">
+        <SecondaryButton
+          onClick={() => setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY)}
+          className={compactButtonClass}
+        >
           Cancel
         </SecondaryButton>
       </div>

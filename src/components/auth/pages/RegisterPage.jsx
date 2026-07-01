@@ -1,10 +1,19 @@
 import React from 'react';
 import axios from 'axios';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
-import { getHeaders, persistAuthToken } from '../../../utils/web.jsx';
+import { persistAuthToken } from '../../../utils/web.jsx';
 import Register from '../Register.tsx';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
+import { useMediaQuery } from 'react-responsive';
+import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../../account/PurchaseCreditsPromptDialog.jsx';
+import {
+  buildGoogleLoginUrl,
+  consumeResolvedAuthRedirect,
+  getCurrentAuthRedirect,
+  persistAuthRedirectForFlow,
+  resolvePostAuthDestination,
+} from '../../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -12,49 +21,44 @@ export default function RegisterPage() {
   const { setUser } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
+  const requestedRedirect = getCurrentAuthRedirect(location);
 
   // No-op if you don't need a dialog close
   const closeAlertDialog = () => { };
 
-  const registerWithGoogle = () => {
-    const origin = window.location.origin;
-    axios
-      .get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        localStorage.setItem('setShowSetPaymentFlow', true);
-        window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        console.error('Error during Google registration:', error);
-      });
+  const handleViewChange = (view) => {
+    const targetPath = view === 'register' ? '/register' : '/login';
+    if (location.pathname !== targetPath) {
+      navigate({ pathname: targetPath, search: location.search });
+    }
   };
 
-  const getOrCreateUserSession = () => {
-    const headers = getHeaders();
-    axios
-      .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
-      .then((res) => {
-        const sessionData = res.data;
-        if (sessionData) {
-          localStorage.setItem('videoSessionId', sessionData._id);
-          const currentMediaFlowPath = localStorage.getItem('currentMediaFlowPath');
-          if (currentMediaFlowPath === 'quick_video') {
-            navigate(`/vidgenie/${sessionData._id}`);
-          } else {
-            navigate(`/video/${sessionData._id}`);
-          }
-        } else {
-          navigate('/my_sessions');
-        }
-      })
-      .catch((error) => {
-        console.error('Error getting or creating user session:', error);
-      });
+  const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
+    localStorage.setItem('setShowSetPaymentFlow', true);
+    localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+      subscribeToWeeklyNewsletter,
+    });
+  };
+
+  const navigateAfterAuth = async (resolvedUser = null) => {
+    const redirect = consumeResolvedAuthRedirect(requestedRedirect);
+    const destination = await resolvePostAuthDestination({
+      user: resolvedUser,
+      isMobile,
+      apiServer: PROCESSOR_SERVER,
+      redirect,
+      search: location.search,
+    });
+    navigate(destination, { replace: true });
   };
 
   // Register with email, same as AuthContainer
-  const registerUserWithEmail = (payload) => {
+  const registerUserWithEmail = (payload, onError = () => {}) => {
     axios
       .post(`${PROCESSOR_SERVER}/users/register`, payload)
       .then((dataRes) => {
@@ -63,41 +67,32 @@ export default function RegisterPage() {
         persistAuthToken(authToken);
         setUser(userData);
         closeAlertDialog(); // no-op here
-        getOrCreateUserSession();
+        localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
+        navigateAfterAuth(userData);
         localStorage.setItem('setShowSetPaymentFlow', 'true');
       })
       .catch((error) => {
-        console.error('Error during user registration:', error);
-        // If you need to handle the error inside <Register />, 
-        // you might consider setting some error state here or pass a callback.
+        const serverMessage = error.response?.data?.message || error.response?.data?.error;
+        if (serverMessage) {
+          onError(serverMessage);
+        } else {
+          onError('Unable to register user at this time. Please try again.');
+        }
       });
   };
 
   return (
     <OverflowContainer>
-
-
-      <div className="w-full flex flex-col items-center justify-center pt-20">
-        <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
-          <Register
-            registerWithGoogle={registerWithGoogle}
-            registerUserWithEmail={registerUserWithEmail}
-            setUser={setUser}
-            getOrCreateUserSession={getOrCreateUserSession}
-            closeAlertDialog={closeAlertDialog}
-            showLoginButton={false}
-          // setCurrentLoginView not needed anymore
-          />
-
-          <div className="text-center mt-4">
-            <p>
-              Already have an account?{' '}
-              <Link to="/login" className="underline">
-                Login
-              </Link>
-            </p>
-          </div>
-        </div>
+      <div className="flex min-h-[calc(100vh-96px)] w-full items-center justify-center px-4 py-6 sm:py-8">
+        <Register
+          registerWithGoogle={registerWithGoogle}
+          registerUserWithEmail={registerUserWithEmail}
+          setUser={setUser}
+          getOrCreateUserSession={navigateAfterAuth}
+          closeAlertDialog={closeAlertDialog}
+          setCurrentLoginView={handleViewChange}
+          showLoginButton={false}
+        />
       </div>
     </OverflowContainer>
   );

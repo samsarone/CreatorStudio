@@ -1,5 +1,5 @@
 import VideoCanvas from "./VideoCanvas";
-import React, { forwardRef, useEffect, useState, useRef } from "react";
+import React, { forwardRef, useCallback, useContext, useEffect, useState, useRef } from "react";
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
 import { generateCursor, generatePencilCursor } from "../util/GenerateSVG.jsx";
 import Konva from 'konva';
@@ -8,13 +8,37 @@ import {
   applyGlitchEffect
 } from '../../../utils/frame_animation/GlitchUtils.jsx';
 import { applyBloomEffect } from '../../../utils/frame_animation/BloomUtils.jsx';
+import { createLayerBoundImageItem } from '../util/layerBoundImageItem.js';
+import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
+
+const SHAPE_CONFIG_SCALE_KEYS = [
+  'width',
+  'height',
+  'radius',
+  'strokeWidth',
+  'pointerX',
+  'pointerY',
+  'xRadius',
+  'yRadius',
+];
 
 
 
-export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset) {
+const DISPLAY_FRAMES_PER_SECOND = 30;
+const DEFAULT_SESSION_FRAMES_PER_SECOND = 24;
+const VALID_SESSION_FRAME_RATES = new Set([16, 24, 30]);
+
+function normalizeSessionFramesPerSecond(value) {
+  const parsed = Math.round(Number(value));
+  return VALID_SESSION_FRAME_RATES.has(parsed)
+    ? parsed
+    : DEFAULT_SESSION_FRAMES_PER_SECOND;
+}
+
+export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset, framesPerSecond = DEFAULT_SESSION_FRAMES_PER_SECOND) {
   if (!item.animations) return;
 
-  const FPS = 30; // Frames per second, same as in backend
+  const sessionFramesPerSecond = normalizeSessionFramesPerSecond(framesPerSecond);
   const totalLayerDuration = duration * 1000; // Convert to milliseconds
 
   item.animations.forEach(animation => {
@@ -27,8 +51,8 @@ export function applyAnimationsToNode(node, item, elapsedTime, duration, duratio
 
     if (frameOffset !== undefined && frameDuration !== undefined) {
       const durationOffsetEffective = durationOffset * 1000;
-      startTime = durationOffsetEffective + (frameOffset * (1000 / FPS));
-      endTime = startTime + (frameDuration * (1000 / FPS));
+      startTime = durationOffsetEffective + (frameOffset * (1000 / sessionFramesPerSecond));
+      endTime = startTime + (frameDuration * (1000 / sessionFramesPerSecond));
     } else {
       // Use default layer duration
       startTime = durationOffset * 1000;
@@ -120,10 +144,8 @@ function applyCustomAnimation(node, animation, t) {
     case 'nebula':
     case 'particle':
     case 'lens_flare':
-      console.warn(`Unsupported custom animation type: ${type}`);
       break;
     default:
-      console.warn(`Unknown custom animation type: ${type}`);
       break;
   }
 }
@@ -160,6 +182,20 @@ function applyStaticAnimation(node, type, params) {
   }
 }
 
+const ERASER_HISTORY_LIMIT = 5;
+
+function shouldIgnoreCanvasNudgeShortcut(target) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  const interactiveAncestor = target.closest(
+    'input, textarea, select, button, a, [contenteditable="true"], [role="textbox"], [role="button"]'
+  );
+
+  return Boolean(interactiveAncestor);
+}
+
 const VideoCanvasContainer = forwardRef((props, ref) => {
   const { sessionDetails, activeItemList, setActiveItemList, currentView,
     setCurrentView, editBrushWidth, editMasklines, setEditMaskLines, currentCanvasAction,
@@ -169,7 +205,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     exportAnimationFrames, currentLayer, currentLayerSeek, updateSessionActiveItemList,
     selectedLayerSelectShape, isLayerSeeking, applyFinalFilter, isExpressGeneration,
     stageZoomScale, selectedEditModelValue, createTextLayer, requestRealignToAiVideoAndLayers,
-    requestLipSyncToSpeech
+    requestLipSyncToSpeech, onPersistTextStyle
   } = props;
 
 
@@ -215,7 +251,373 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const [eraserToolbarPosition, setEraserToolbarPosition] = useState({ x: 0, y: 0 });
 
   const [tempTopNode, setTempTopNode] = useState(null);
+  const eraserTargetItemIdRef = useRef(null);
+  const eraserExitHandledRef = useRef(false);
+  const lastEraserPointRef = useRef(null);
+  const activeSnappedEraserColumnRef = useRef(null);
+  const currentEraserStrokeNodesRef = useRef([]);
+  const eraserUndoHistoryRef = useRef([]);
+  const eraserRedoHistoryRef = useRef([]);
+  const [eraserHistoryState, setEraserHistoryState] = useState({
+    undoCount: 0,
+    redoCount: 0,
+  });
+  const {
+    showCanvasNavigationGrid,
+    setShowCanvasNavigationGrid,
+    canvasNavigationGridGranularity,
+    snapEraserToGrid,
+  } = useContext(NavCanvasControlContext);
+  const createCurrentLayerImageItem = (imagePayload) =>
+    createLayerBoundImageItem({ layer: currentLayer, ...imagePayload });
+  const isMaskPaintMode =
+    (
+      currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_DISPLAY
+      && selectedEditModelValue
+      && selectedEditModelValue.editType === 'inpaint'
+    )
+    || currentView === CURRENT_TOOLBAR_VIEW.SHOW_EDIT_MASK_DISPLAY;
 
+  const getTopVisibleImageTarget = (stage, point = null) => {
+    for (let index = activeItemList.length - 1; index >= 0; index -= 1) {
+      const item = activeItemList[index];
+      if (!item?.id || item?.type !== 'image' || item?.isHidden) {
+        continue;
+      }
+
+      const node = stage.findOne(`#group_${item.id}`) || stage.findOne(`#${item.id}`);
+      if (!node) {
+        continue;
+      }
+
+      if (point) {
+        const rect = node.getClientRect({
+          skipTransform: false,
+          skipShadow: false,
+          skipStroke: false,
+        });
+        const pointInsideNode =
+          point.x >= rect.x &&
+          point.x <= rect.x + rect.width &&
+          point.y >= rect.y &&
+          point.y <= rect.y + rect.height;
+
+        if (!pointInsideNode) {
+          continue;
+        }
+      }
+
+      return { item, index, node };
+    }
+
+    return null;
+  };
+
+  const getEraserLayerImageNode = () =>
+    eraserLayer?.findOne('#originalShape') || eraserLayer?.children?.[0] || null;
+
+  const syncEraserHistoryState = useCallback(() => {
+    setEraserHistoryState({
+      undoCount: eraserUndoHistoryRef.current.length,
+      redoCount: eraserRedoHistoryRef.current.length,
+    });
+  }, []);
+
+  const resetEraserHistory = useCallback(() => {
+    currentEraserStrokeNodesRef.current = [];
+    eraserUndoHistoryRef.current = [];
+    eraserRedoHistoryRef.current = [];
+    setEraserHistoryState({
+      undoCount: 0,
+      redoCount: 0,
+    });
+  }, []);
+
+  const recordEraserStrokeNode = useCallback((node) => {
+    if (!node) {
+      return;
+    }
+
+    currentEraserStrokeNodesRef.current.push(node);
+  }, []);
+
+  const commitCurrentEraserStroke = useCallback(() => {
+    const strokeNodes = currentEraserStrokeNodesRef.current.filter(Boolean);
+    currentEraserStrokeNodesRef.current = [];
+
+    if (!strokeNodes.length) {
+      return;
+    }
+
+    eraserUndoHistoryRef.current = [
+      ...eraserUndoHistoryRef.current,
+      strokeNodes,
+    ].slice(-ERASER_HISTORY_LIMIT);
+    eraserRedoHistoryRef.current = [];
+    syncEraserHistoryState();
+  }, [syncEraserHistoryState]);
+
+  const undoEraserStroke = useCallback(() => {
+    if (isPainting || !eraserLayer || !eraserUndoHistoryRef.current.length) {
+      return;
+    }
+
+    const previousStrokeNodes = eraserUndoHistoryRef.current.pop();
+    if (!previousStrokeNodes?.length) {
+      syncEraserHistoryState();
+      return;
+    }
+
+    previousStrokeNodes.forEach((node) => node.remove());
+    eraserRedoHistoryRef.current = [
+      previousStrokeNodes,
+      ...eraserRedoHistoryRef.current,
+    ].slice(0, ERASER_HISTORY_LIMIT);
+    eraserLayer.batchDraw();
+    syncEraserHistoryState();
+  }, [eraserLayer, isPainting, syncEraserHistoryState]);
+
+  const redoEraserStroke = useCallback(() => {
+    if (isPainting || !eraserLayer || !eraserRedoHistoryRef.current.length) {
+      return;
+    }
+
+    const nextStrokeNodes = eraserRedoHistoryRef.current.shift();
+    if (!nextStrokeNodes?.length) {
+      syncEraserHistoryState();
+      return;
+    }
+
+    nextStrokeNodes.forEach((node) => eraserLayer.add(node));
+    eraserUndoHistoryRef.current = [
+      ...eraserUndoHistoryRef.current,
+      nextStrokeNodes,
+    ].slice(-ERASER_HISTORY_LIMIT);
+    eraserLayer.batchDraw();
+    syncEraserHistoryState();
+  }, [eraserLayer, isPainting, syncEraserHistoryState]);
+
+  const getCanvasGridStep = (stage) => {
+    const stageWidth = Number(stage?.width?.()) || 0;
+    const stageHeight = Number(stage?.height?.()) || 0;
+    const granularityMultiplier = Math.min(
+      Math.max(Number(canvasNavigationGridGranularity) || 1, 1),
+      10
+    );
+    return {
+      x: stageWidth > 0 ? stageWidth / (20 * granularityMultiplier) : 0,
+      y: stageHeight > 0 ? stageHeight / (20 * granularityMultiplier) : 0,
+    };
+  };
+
+  const getResolvedEraserPoint = (stage, point) => {
+    if (!point) {
+      return null;
+    }
+
+    if (!snapEraserToGrid) {
+      return point;
+    }
+
+    const { x: stepX, y: stepY } = getCanvasGridStep(stage);
+    const stageWidth = Number(stage?.width?.()) || point.x;
+    const stageHeight = Number(stage?.height?.()) || point.y;
+    if (!stepX || !stepY) {
+      return point;
+    }
+
+    return {
+      x: Math.min(Math.max(Math.round(point.x / stepX) * stepX, 0), stageWidth),
+      y: Math.min(Math.max(Math.round(point.y / stepY) * stepY, 0), stageHeight),
+    };
+  };
+
+  const getGridAlignedEraserColumn = (activeEraserLayer, stage, point) => {
+    if (!activeEraserLayer || !stage || !point) {
+      return null;
+    }
+
+    const { x: stepX } = getCanvasGridStep(stage);
+    const eraserImageNode =
+      activeEraserLayer.findOne('#originalShape') || activeEraserLayer.children?.[0] || null;
+
+    if (!stepX || !eraserImageNode) {
+      return null;
+    }
+
+    const imageBounds = eraserImageNode.getClientRect({
+      skipTransform: false,
+      skipShadow: false,
+      skipStroke: false,
+    });
+    if (!imageBounds?.width || !imageBounds?.height) {
+      return null;
+    }
+
+    const imageLeft = imageBounds.x;
+    const imageRight = imageBounds.x + imageBounds.width;
+    const imageTop = imageBounds.y;
+    const imageBottom = imageBounds.y + imageBounds.height;
+    const stageWidth = Number(stage?.width?.()) || imageRight;
+    const clampedX = Math.min(
+      Math.max(point.x, imageLeft),
+      Math.max(imageLeft, imageRight - 0.001)
+    );
+    const columnIndex = Math.max(Math.floor(clampedX / stepX), 0);
+    const columnStart = columnIndex * stepX;
+    const columnEnd = Math.min(columnStart + stepX, stageWidth);
+    const x = Math.max(columnStart, imageLeft);
+    const width = Math.min(columnEnd, imageRight) - x;
+
+    if (width <= 0) {
+      return null;
+    }
+
+    return {
+      x,
+      y: imageTop,
+      width,
+      height: imageBottom - imageTop,
+    };
+  };
+
+  const drawEraserStrokeAtPoint = (activeEraserLayer, stage, point, options = {}) => {
+    if (!activeEraserLayer || !stage || !point) {
+      return;
+    }
+
+    const resolvedPoint = getResolvedEraserPoint(stage, point);
+    if (!resolvedPoint) {
+      return;
+    }
+
+    const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
+    const isInitialPoint = options.isInitialPoint || !lastEraserPointRef.current;
+
+    if (snapEraserToGrid) {
+      const activeGridColumn =
+        activeSnappedEraserColumnRef.current
+        || getGridAlignedEraserColumn(activeEraserLayer, stage, point);
+
+      if (activeGridColumn) {
+        const columnTop = activeGridColumn.y;
+        const columnBottom = activeGridColumn.y + activeGridColumn.height;
+        const currentY = Math.min(Math.max(point.y, columnTop), columnBottom);
+        let segmentTop = Math.max(currentY - eraserRadius, columnTop);
+        let segmentBottom = Math.min(currentY + eraserRadius, columnBottom);
+
+        activeSnappedEraserColumnRef.current = activeGridColumn;
+
+        if (!isInitialPoint && lastEraserPointRef.current) {
+          segmentTop = Math.max(Math.min(lastEraserPointRef.current.y, currentY), columnTop);
+          segmentBottom = Math.min(Math.max(lastEraserPointRef.current.y, currentY), columnBottom);
+        }
+
+        if (segmentBottom > segmentTop) {
+          const eraserStrip = new Konva.Rect({
+            x: activeGridColumn.x,
+            y: segmentTop,
+            width: activeGridColumn.width,
+            height: segmentBottom - segmentTop,
+            fill: 'black',
+            globalCompositeOperation: 'destination-out',
+            listening: false,
+            id: 'eraserGridStrip',
+          });
+          activeEraserLayer.add(eraserStrip);
+          recordEraserStrokeNode(eraserStrip);
+          activeEraserLayer.batchDraw();
+        }
+
+        lastEraserPointRef.current = {
+          x: activeGridColumn.x + activeGridColumn.width / 2,
+          y: currentY,
+        };
+        return;
+      }
+    }
+
+    if (!snapEraserToGrid) {
+      const eraserShape = new Konva.Circle({
+        x: resolvedPoint.x,
+        y: resolvedPoint.y,
+        radius: eraserRadius,
+        fill: 'black',
+        globalCompositeOperation: 'destination-out',
+        listening: false,
+        id: 'eraserCircle',
+      });
+      activeEraserLayer.add(eraserShape);
+      recordEraserStrokeNode(eraserShape);
+    }
+
+    lastEraserPointRef.current = resolvedPoint;
+    activeEraserLayer.batchDraw();
+  };
+
+  const getEraserResultPayload = () => {
+    if (!eraserLayer) {
+      return null;
+    }
+
+    const eraserLayerImage = getEraserLayerImageNode();
+    if (!eraserLayerImage) {
+      return null;
+    }
+
+    const boundingBox = eraserLayerImage.getClientRect({
+      skipTransform: false,
+      skipShadow: false,
+      skipStroke: false,
+    });
+
+    if (!boundingBox?.width || !boundingBox?.height) {
+      return null;
+    }
+
+    return {
+      boundingBox,
+      dataURL: eraserLayer.toDataURL({
+        x: boundingBox.x,
+        y: boundingBox.y,
+        width: boundingBox.width,
+        height: boundingBox.height,
+        pixelRatio: 1,
+      }),
+    };
+  };
+
+  const finishEraserStroke = (activeEraserLayer = eraserLayer) => {
+    if (!activeEraserLayer) {
+      setIsPainting(false);
+      activeSnappedEraserColumnRef.current = null;
+      currentEraserStrokeNodesRef.current = [];
+      lastEraserPointRef.current = null;
+      return;
+    }
+
+    commitCurrentEraserStroke();
+
+    const imageNode = activeEraserLayer.findOne('#originalShape') || activeEraserLayer.children?.[0];
+    const boundingBox = imageNode?.getClientRect?.();
+    if (boundingBox) {
+      setEraserToolbarPosition({ x: boundingBox.x, y: boundingBox.y + 50 });
+      setEraserToolbarVisible(true);
+    }
+    setIsPainting(false);
+    activeSnappedEraserColumnRef.current = null;
+    lastEraserPointRef.current = null;
+    setEraserLayer(activeEraserLayer);
+    activeEraserLayer.off('mousemove');
+    activeEraserLayer.off('mouseup');
+  };
+
+
+  useEffect(() => {
+    if (snapEraserToGrid && !showCanvasNavigationGrid) {
+      setShowCanvasNavigationGrid(true);
+    }
+  }, [showCanvasNavigationGrid, setShowCanvasNavigationGrid, snapEraserToGrid]);
 
   useEffect(() => {
     const stage = ref.current.getStage();
@@ -238,6 +640,96 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     setButtonPositions(positions);
   }, [activeItemList, ref, selectedId]);
 
+  const nudgeSelectedTextItem = useCallback((deltaX, deltaY) => {
+    if (!selectedId || selectedLayerType !== 'text') {
+      return false;
+    }
+
+    const selectedTextItem = activeItemList.find(
+      (item) => item?.id === selectedId && item?.type === 'text' && !item?.isHidden
+    );
+
+    if (!selectedTextItem) {
+      return false;
+    }
+
+    const currentX = Number(selectedTextItem.config?.x);
+    const currentY = Number(selectedTextItem.config?.y);
+
+    if (!Number.isFinite(currentX) || !Number.isFinite(currentY)) {
+      return false;
+    }
+
+    const nextActiveItemList = activeItemList.map((item) => {
+      if (item?.id !== selectedId) {
+        return item;
+      }
+
+      return {
+        ...item,
+        config: {
+          ...(item.config || {}),
+          x: currentX + deltaX,
+          y: currentY + deltaY,
+        },
+      };
+    });
+
+    setActiveItemList(nextActiveItemList);
+    updateSessionActiveItemList(nextActiveItemList);
+    return true;
+  }, [
+    activeItemList,
+    selectedId,
+    selectedLayerType,
+    setActiveItemList,
+    updateSessionActiveItemList,
+  ]);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+
+      if (shouldIgnoreCanvasNudgeShortcut(event.target)) {
+        return;
+      }
+
+      const step = event.shiftKey ? 10 : 1;
+      let deltaX = 0;
+      let deltaY = 0;
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          deltaX = -step;
+          break;
+        case 'ArrowRight':
+          deltaX = step;
+          break;
+        case 'ArrowUp':
+          deltaY = -step;
+          break;
+        case 'ArrowDown':
+          deltaY = step;
+          break;
+        default:
+          return;
+      }
+
+      const moved = nudgeSelectedTextItem(deltaX, deltaY);
+      if (moved) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [nudgeSelectedTextItem]);
+
 
   useEffect(() => {
     initialParamsRef.current = {};
@@ -245,19 +737,18 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
   useEffect(() => {
-    const FPS = 30;
     const { duration, durationOffset } = currentLayer;
-    const elapsedTime = (currentLayerSeek / FPS) * 1000; // Convert to milliseconds
+    const elapsedTime = (currentLayerSeek / DISPLAY_FRAMES_PER_SECOND) * 1000; // Convert to milliseconds
     const stage = ref.current.getStage();
     const layer = stage.findOne("#baseGroup");
     if (!layer) return;
     activeItemList.forEach(item => {
       const node = layer.findOne(`#${item.id}`);
       if (node) {
-        applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset);
+        applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset, sessionDetails?.framesPerSecond);
       }
     });
-  }, [currentLayerSeek, currentLayer, activeItemList]);
+  }, [currentLayerSeek, currentLayer, activeItemList, sessionDetails?.framesPerSecond]);
   
 
 
@@ -307,11 +798,32 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
   useEffect(() => {
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
+      eraserExitHandledRef.current = false;
       const stage = ref.current.getStage();
       const container = stage.container();
       container.style.cursor = generateCursor(eraserWidth);
     }
-  }, [eraserWidth]);
+  }, [currentCanvasAction, eraserWidth]);
+
+  useEffect(() => {
+    if (!isPainting || currentCanvasAction !== TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
+      return undefined;
+    }
+
+    const handlePointerRelease = () => {
+      finishEraserStroke();
+    };
+
+    window.addEventListener('mouseup', handlePointerRelease);
+    window.addEventListener('pointerup', handlePointerRelease);
+    window.addEventListener('pointercancel', handlePointerRelease);
+
+    return () => {
+      window.removeEventListener('mouseup', handlePointerRelease);
+      window.removeEventListener('pointerup', handlePointerRelease);
+      window.removeEventListener('pointercancel', handlePointerRelease);
+    };
+  }, [currentCanvasAction, eraserLayer, isPainting]);
 
 
   const previousActionViewRef = useRef();
@@ -320,28 +832,37 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     if (previousActionViewRef.current === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY && currentCanvasAction !== TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
       setEraserToolbarPosition(null);
       setEraserToolbarVisible(false);
-      replaceTopLayer();
+      if (!eraserExitHandledRef.current) {
+        replaceTopLayer();
+      }
+      eraserExitHandledRef.current = false;
     }
   }, [currentCanvasAction]);
 
 
 
   const replaceEraserImage = () => {
+    eraserExitHandledRef.current = true;
     replaceTopLayer();
     setEraserToolbarVisible(false);
     setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-    setCurrentCanvasAction(null);
+    setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
   }
 
   const duplicateEraserImage = () => {
+    eraserExitHandledRef.current = true;
     duplicateTopLayer();
     setEraserToolbarVisible(false);
     setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-    setCurrentCanvasAction(null);
+    setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
   }
 
   const resetEraserImage = () => {
     const stage = ref.current.getStage();
+    eraserExitHandledRef.current = true;
+    activeSnappedEraserColumnRef.current = null;
+    resetEraserHistory();
+    lastEraserPointRef.current = null;
     if (eraserLayer) {
       eraserLayer.destroy();
       setEraserLayer(null);
@@ -353,13 +874,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         layer.draw();
       }
     }
+    eraserTargetItemIdRef.current = null;
     setEraserToolbarVisible(false);
     setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-    setCurrentCanvasAction(null);
+    setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
   };
 
   useEffect(() => {
-    if (previousActionViewRef.current === CURRENT_TOOLBAR_VIEW.SHOW_PENCIL_DISPLAY && currentView !== CURRENT_TOOLBAR_VIEW.SHOW_PENCIL_DISPLAY) {
+    if (previousActionViewRef.current === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY && currentCanvasAction !== TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
 
       const stage = ref.current.getStage();
       const pencilGroup = stage.findOne('#pencilGroup');
@@ -370,15 +892,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         const imageObj = new window.Image();
         imageObj.onload = () => {
           const groupClientRect = pencilGroup.getClientRect();
-          const newItem = {
+          const newItem = createCurrentLayerImageItem({
             id: `item_${activeItemList.length}`,
-            type: 'image',
             src: dataURL,
             x: groupClientRect.x,
             y: groupClientRect.y,
             width: groupClientRect.width,
             height: groupClientRect.height,
-          };
+          });
           const newItemList = [...activeItemList, newItem];
 
 
@@ -410,67 +931,69 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         setToolbarShapeProps({ x: point.x, y: point.y, radius: 0 });
       }
     } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
-      const point = stage.getPointerPosition();
-      const topShape = stage.getIntersection(point);
-      if (topShape) {
-        const topItemParentId = topShape.getParent().attrs.id;
-        const topItemParentNode = stage.findOne(`#${topItemParentId}`);
-        if (topItemParentNode) {
-          let newEraserLayer;
-          if (eraserLayer) {
-            newEraserLayer = eraserLayer;
-          } else {
-            newEraserLayer = new Konva.Layer();
-            const clonedItem = topItemParentNode.clone();
-            clonedItem.attrs.id = 'originalShape';
-            clonedItem.hide();
-            setTempTopNode(topItemParentNode.clone());
-            topItemParentNode.destroy();
-            const clonedItemChild = clonedItem.children[0];
-            newEraserLayer.add(clonedItemChild);
-            stage.add(newEraserLayer);
-            setEraserLayer(newEraserLayer);
-          }
-          setHandlersForLayer(newEraserLayer);
-          newEraserLayer.on('mousedown', () => {
-            if (showEraserRef.current) setHandlersForLayer(newEraserLayer);
-            setEraserToolbarPosition(null);
-            setEraserToolbarVisible(false);
-          });
-
-          function setHandlersForLayer(newEraserLayer) {
-            newEraserLayer.on('mousemove', (e) => {
-              const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
-              const point = stage.getPointerPosition();
-              const eraserShape = new Konva.Circle({
-                x: point.x,
-                y: point.y,
-                radius: eraserRadius / 2,
-                fill: 'black',
-                globalCompositeOperation: 'destination-out',
-                id: 'eraserCircle'
-              });
-              newEraserLayer.add(eraserShape);
-              newEraserLayer.batchDraw();
-            });
-            newEraserLayer.on('mouseup', () => {
-              const boundingBox = newEraserLayer.getClientRect();
-              setEraserToolbarPosition({ x: boundingBox.x, y: boundingBox.y + 50 });
-              setEraserToolbarVisible(true);
-              setIsPainting(false);
-              setEraserLayer(newEraserLayer);
-              newEraserLayer.off('mousemove');
-              newEraserLayer.off('mouseup');
-            });
-          }
+      let newEraserLayer = eraserLayer;
+      if (!newEraserLayer) {
+        const target = getTopVisibleImageTarget(stage, point);
+        if (!target) {
+          return;
         }
+
+        const targetImageNode = target.node.findOne('Image') || target.node.children?.[0];
+        if (!targetImageNode) {
+          return;
+        }
+
+        newEraserLayer = new Konva.Layer();
+        const clonedImageNode = targetImageNode.clone({ id: 'originalShape' });
+        setTempTopNode(target.node.clone());
+        eraserTargetItemIdRef.current = target.item.id;
+        activeSnappedEraserColumnRef.current = null;
+        resetEraserHistory();
+        target.node.destroy();
+        newEraserLayer.add(clonedImageNode);
+        stage.add(newEraserLayer);
+        setEraserLayer(newEraserLayer);
       }
+
+      setEraserToolbarPosition(null);
+      setEraserToolbarVisible(false);
+      setIsPainting(true);
+      setHandlersForLayer(newEraserLayer);
+      newEraserLayer.off('mousedown');
+      newEraserLayer.on('mousedown', () => {
+        if (showEraserRef.current) {
+          setIsPainting(true);
+          activeSnappedEraserColumnRef.current = null;
+          currentEraserStrokeNodesRef.current = [];
+          lastEraserPointRef.current = null;
+          setHandlersForLayer(newEraserLayer);
+        }
+        setEraserToolbarPosition(null);
+        setEraserToolbarVisible(false);
+      });
+
+      function setHandlersForLayer(nextEraserLayer) {
+        nextEraserLayer.off('mousemove');
+        nextEraserLayer.off('mouseup');
+        nextEraserLayer.on('mousemove', () => {
+          const currentPoint = stage.getPointerPosition();
+          drawEraserStrokeAtPoint(nextEraserLayer, stage, currentPoint);
+        });
+        nextEraserLayer.on('mouseup', () => {
+          finishEraserStroke(nextEraserLayer);
+        });
+      }
+
+      activeSnappedEraserColumnRef.current = null;
+      currentEraserStrokeNodesRef.current = [];
+      lastEraserPointRef.current = null;
+      drawEraserStrokeAtPoint(newEraserLayer, stage, point, { isInitialPoint: true });
     } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
       setIsPainting(true);
       setPaintToolbarVisible(false);
       const pos = e.target.getStage().getPointerPosition();
       setPencilLines([...pencilLines, { points: [pos.x, pos.y], stroke: pencilColor, strokeWidth: pencilWidth }]);
-    } else {
+    } else if (isMaskPaintMode) {
       setIsPainting(true);
       const pos = e.target.getStage().getPointerPosition();
       addLine([pos.x, pos.y, pos.x, pos.y]);
@@ -510,16 +1033,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     if (!isPainting) return;
     const point = stage.getPointerPosition();
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY && eraserLayer) {
-      const eraserRadius = eraserWidthRef.current ? eraserWidthRef.current / 2 : eraserWidth / 2;
-      const eraserShape = new Konva.Circle({
-        x: point.x,
-        y: point.y,
-        radius: eraserRadius,
-        fill: 'black',
-        globalCompositeOperation: 'destination-out'
-      });
-      eraserLayer.add(eraserShape);
-      eraserLayer.batchDraw();
+      drawEraserStrokeAtPoint(eraserLayer, stage, point);
     } else if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_PENCIL_DISPLAY) {
       let lastLine = pencilLines[pencilLines.length - 1];
       if (lastLine) {
@@ -534,6 +1048,10 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   };
 
   const handleLayerMouseUp = () => {
+    if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY && eraserLayer) {
+      finishEraserStroke();
+    }
+
     setIsPainting(false);
     setIsDrawing(false);
 
@@ -569,105 +1087,82 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
   
   const replaceTopLayer = () => {
-    const stage = ref.current.getStage();
-    const layer1 = stage.children[1];
-    if (layer1) {
-      const eraserLayerImage = layer1.children[0];
-      const eraserImageSrc = eraserLayerImage.attrs.src;
-      const boundingBox = eraserLayerImage.getClientRect();
-      const offscreenCanvas = document.createElement('canvas');
-      offscreenCanvas.width = boundingBox.width;
-      offscreenCanvas.height = boundingBox.height;
-      const offscreenCtx = offscreenCanvas.getContext('2d');
-      offscreenCtx.drawImage(
-        layer1.toCanvas(),
-        boundingBox.x, boundingBox.y,
-        boundingBox.width, boundingBox.height,
-        0, 0,
-        boundingBox.width, boundingBox.height
-      );
-      const eraserShapes = eraserLayer.children.filter((child) => child.attrs.id === 'eraserCircle');
-      eraserShapes.forEach(shape => {
-        const shapeClientRect = shape.getClientRect();
-        offscreenCtx.clearRect(
-          shapeClientRect.x - boundingBox.x,
-          shapeClientRect.y - boundingBox.y,
-          shapeClientRect.width,
-          shapeClientRect.height
-        );
-      });
-      const dataURL = offscreenCanvas.toDataURL();
-      const imageObj = new window.Image();
-      imageObj.onload = () => {
-        const newItem = {
-          id: `item_${activeItemList.length - 1}`,
-          type: 'image',
-          src: dataURL,
-          width: imageObj.width / stageZoomScale,
-          height: imageObj.height / stageZoomScale,
-          x: boundingBox.x / stageZoomScale,
-          y: boundingBox.y / stageZoomScale,
-        };
-        const newActiveItemList = activeItemList.slice(0, -1).concat(newItem);
-        setActiveItemList(newActiveItemList);
-        eraserLayer.off();
-        eraserLayer.destroy();
-        setEraserLayer(null);
-        updateSessionActiveItemList(newActiveItemList);
-
-        setSelectedId(null); /// CHECK THIS
-      };
-      imageObj.src = dataURL;
+    const eraserResult = getEraserResultPayload();
+    if (!eraserResult) {
+      return;
     }
+
+    lastEraserPointRef.current = null;
+
+    const { boundingBox, dataURL } = eraserResult;
+    const targetItemId = eraserTargetItemIdRef.current;
+    const targetIndex = activeItemList.findIndex((item) => item?.id === targetItemId);
+    const resolvedTargetIndex = targetIndex >= 0 ? targetIndex : activeItemList.length - 1;
+    const targetItem = activeItemList[resolvedTargetIndex];
+
+    if (!targetItem) {
+      return;
+    }
+
+    const imageObj = new window.Image();
+    imageObj.onload = () => {
+      const newItem = createCurrentLayerImageItem({
+        ...targetItem,
+        id: targetItem.id,
+        src: dataURL,
+        width: imageObj.width / stageZoomScale,
+        height: imageObj.height / stageZoomScale,
+        x: boundingBox.x / stageZoomScale,
+        y: boundingBox.y / stageZoomScale,
+      });
+      const newActiveItemList = activeItemList.map((item, index) =>
+        index === resolvedTargetIndex ? newItem : item
+      );
+      setActiveItemList(newActiveItemList);
+      eraserLayer.off();
+      eraserLayer.destroy();
+      setEraserLayer(null);
+      setTempTopNode(null);
+      activeSnappedEraserColumnRef.current = null;
+      resetEraserHistory();
+      eraserTargetItemIdRef.current = null;
+      updateSessionActiveItemList(newActiveItemList);
+      setSelectedId(null);
+    };
+    imageObj.src = dataURL;
   }
 
   const duplicateTopLayer = () => {
-    const stage = ref.current.getStage();
-    const layer0 = stage.children[0];
-    if (eraserLayer) {
-      const boundingBox = eraserLayer.getClientRect();
-      const offscreenCanvas = document.createElement('canvas');
-      offscreenCanvas.width = boundingBox.width;
-      offscreenCanvas.height = boundingBox.height;
-      const offscreenCtx = offscreenCanvas.getContext('2d');
-      offscreenCtx.drawImage(
-        stage.toCanvas(),
-        boundingBox.x, boundingBox.y,
-        boundingBox.width, boundingBox.height,
-        0, 0,
-        boundingBox.width, boundingBox.height
-      );
-      const eraserShapes = eraserLayer.children.filter((child) => child.attrs.id === 'eraserCircle');
-      eraserShapes.forEach(shape => {
-        const shapeClientRect = shape.getClientRect();
-        offscreenCtx.clearRect(
-          shapeClientRect.x - boundingBox.x,
-          shapeClientRect.y - boundingBox.y,
-          shapeClientRect.width,
-          shapeClientRect.height
-        );
-      });
-      const dataURL = offscreenCanvas.toDataURL();
-      const imageObj = new window.Image();
-      imageObj.onload = () => {
-        const newItem = {
-          id: `item_${activeItemList.length}`,
-          type: 'image',
-          src: dataURL,
-          width: imageObj.width,
-          height: imageObj.height,
-          x: boundingBox.x,
-          y: boundingBox.y,
-        };
-        const newActiveItemList = [...activeItemList, newItem];
-        setActiveItemList(newActiveItemList);
-        updateSessionActiveItemList(newActiveItemList);
-        eraserLayer.off();
-        eraserLayer.destroy();
-        setEraserLayer(null);
-      };
-      imageObj.src = dataURL;
+    const eraserResult = getEraserResultPayload();
+    if (!eraserResult) {
+      return;
     }
+
+    lastEraserPointRef.current = null;
+
+    const { boundingBox, dataURL } = eraserResult;
+    const imageObj = new window.Image();
+    imageObj.onload = () => {
+      const newItem = createCurrentLayerImageItem({
+        id: `item_${activeItemList.length}`,
+        src: dataURL,
+        width: imageObj.width / stageZoomScale,
+        height: imageObj.height / stageZoomScale,
+        x: boundingBox.x / stageZoomScale,
+        y: boundingBox.y / stageZoomScale,
+      });
+      const newActiveItemList = [...activeItemList, newItem];
+      setActiveItemList(newActiveItemList);
+      updateSessionActiveItemList(newActiveItemList);
+      eraserLayer.off();
+      eraserLayer.destroy();
+      setEraserLayer(null);
+      setTempTopNode(null);
+      activeSnappedEraserColumnRef.current = null;
+      resetEraserHistory();
+      eraserTargetItemIdRef.current = null;
+    };
+    imageObj.src = dataURL;
   }
 
 
@@ -783,15 +1278,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const dataURL = offscreenCanvas.toDataURL();
       const imageObj = new window.Image();
       imageObj.onload = () => {
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length}`,
-          type: 'image',
           src: dataURL,
           width: imageObj.width / stageZoomScale,
           height: imageObj.height / stageZoomScale,
           x: boundingBox.x / stageZoomScale,
           y: boundingBox.y / stageZoomScale,
-        };
+        });
 
         const newActiveItemList = [...activeItemList, newItem];
 
@@ -856,15 +1350,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const dataURL = offscreenCanvas.toDataURL();
       const imageObj = new window.Image();
       imageObj.onload = () => {
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length - 1}`,
-          type: 'image',
           src: dataURL,
           width: imageObj.width / stageZoomScale,
           height: imageObj.height / stageZoomScale,
           x: boundingBox.x / stageZoomScale,
           y: boundingBox.y / stageZoomScale,
-        };
+        });
 
         let prevActiveList = [...activeItemList];
         prevActiveList[prevActiveList.length - 1] = newItem;
@@ -986,22 +1479,16 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
 
-    const newWidth = newConfig.width / stageZoomScale;
-
     let scaledNewConfig = {
       ...newConfig,
       x: newConfig.x / stageZoomScale,
       y: newConfig.y / stageZoomScale,
     }
-    if (newConfig.width) {
-      scaledNewConfig.width = newConfig.width / stageZoomScale;
-    }
-    if (newConfig.height) {
-      scaledNewConfig.height = newConfig.height / stageZoomScale;
-    }
-    if (newConfig.fontSize) {
-      scaledNewConfig.fontSize = newConfig.fontSize / stageZoomScale;
-    }
+    SHAPE_CONFIG_SCALE_KEYS.forEach((key) => {
+      if (typeof newConfig[key] === 'number') {
+        scaledNewConfig[key] = newConfig[key] / stageZoomScale;
+      }
+    });
 
     const newActiveItemList = activeItemList.map((item) => {
       if (item.id === id) {
@@ -1056,60 +1543,95 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
   const updateTargetTextActiveLayerConfig = (id, newConfig) => {
+    const {
+      text: nextText,
+      positionMode,
+      styleValueSpace = 'canvas',
+      bringToFront = false,
+      ...configChanges
+    } = newConfig || {};
 
-
-    const stage = ref.current.getStage();
+    const stage = ref.current?.getStage?.();
+    const useExplicitCenterPosition =
+      positionMode === 'center'
+      && typeof configChanges.x === 'number'
+      && typeof configChanges.y === 'number';
 
     
-    const textNode = stage.findOne(`#${id}`);
-    if (!textNode) {
-      console.error(`No text node found with id ${id}`);
+    const textNode = stage?.findOne?.(`#${id}`);
+    if (!textNode && !useExplicitCenterPosition) {
+      
       return;
     }
   
-    const boundingBox = textNode.getClientRect();
+    const boundingBox = textNode?.getClientRect?.();
   
-    let centerX = boundingBox.x + boundingBox.width / 2;
-    let centerY = boundingBox.y + boundingBox.height / 2;
-  
-    const newWidth = newConfig.width / stageZoomScale;
-  
-    const newHeight = newConfig.height / stageZoomScale;
+    let centerX = boundingBox ? boundingBox.x + boundingBox.width / 2 : 0;
+    let centerY = boundingBox ? boundingBox.y + boundingBox.height / 2 : 0;
+    const useRawStyleValues = styleValueSpace === 'raw';
 
   
     let scaledNewConfig = {
-      ...newConfig,
-      x: centerX / stageZoomScale,
-      y: centerY / stageZoomScale,
-      width: newWidth,
-      height: newHeight,
+      ...configChanges,
+      x: useExplicitCenterPosition ? configChanges.x : centerX / stageZoomScale,
+      y: useExplicitCenterPosition ? configChanges.y : centerY / stageZoomScale,
     };
-    if (newConfig.width) {
-      scaledNewConfig.width = newConfig.width / stageZoomScale;
+    if (typeof configChanges.width === 'number') {
+      scaledNewConfig.width = useRawStyleValues
+        ? configChanges.width
+        : configChanges.width / stageZoomScale;
     }
-    if (newConfig.height) {
-      scaledNewConfig.height = newConfig.height / stageZoomScale;
+    if (typeof configChanges.height === 'number') {
+      scaledNewConfig.height = useRawStyleValues
+        ? configChanges.height
+        : configChanges.height / stageZoomScale;
     }
-    if (newConfig.fontSize) {
-      scaledNewConfig.fontSize = newConfig.fontSize / stageZoomScale;
+    if (typeof configChanges.fontSize === 'number') {
+      scaledNewConfig.fontSize =
+        useRawStyleValues
+          ? configChanges.fontSize
+          : configChanges.fontSize / stageZoomScale;
     }
+    if (typeof configChanges.strokeWidth === 'number') {
+      scaledNewConfig.strokeWidth =
+        useRawStyleValues
+          ? configChanges.strokeWidth
+          : configChanges.strokeWidth / stageZoomScale;
+    }
+    ['letterSpacing', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY'].forEach((key) => {
+      if (typeof configChanges[key] === 'number') {
+        scaledNewConfig[key] = useRawStyleValues
+          ? configChanges[key]
+          : configChanges[key] / stageZoomScale;
+      }
+    });
   
 
+    let updatedItem = null;
     const newActiveItemList = activeItemList.map((item) => {
       if (item.id === id) {
-        return {
+        updatedItem = {
           ...item,
+          ...(typeof nextText === 'string' ? { text: nextText } : {}),
           config: {
             ...item.config,
             ...scaledNewConfig,
           },
         };
+        return updatedItem;
       }
       return item;
     });
   
-    setActiveItemList(newActiveItemList);
-    updateSessionActiveItemList(newActiveItemList);
+    const nextActiveItemList = bringToFront && updatedItem
+      ? [
+        ...newActiveItemList.filter((item) => item.id !== id),
+        updatedItem,
+      ]
+      : newActiveItemList;
+
+    setActiveItemList(nextActiveItemList);
+    updateSessionActiveItemList(nextActiveItemList);
   };
 
 
@@ -1124,15 +1646,14 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       const imageObj = new window.Image();
       imageObj.onload = () => {
         const groupClientRect = pencilGroup.getClientRect();
-        const newItem = {
+        const newItem = createCurrentLayerImageItem({
           id: `item_${activeItemList.length}`,
-          type: 'image',
           src: dataURL,
-        x: groupClientRect.x / stageZoomScale,
-        y: groupClientRect.y / stageZoomScale,
-        width: groupClientRect.width / stageZoomScale,
-        height: groupClientRect.height / stageZoomScale,
-        };
+          x: groupClientRect.x / stageZoomScale,
+          y: groupClientRect.y / stageZoomScale,
+          width: groupClientRect.width / stageZoomScale,
+          height: groupClientRect.height / stageZoomScale,
+        });
         const newItemList = [...activeItemList, newItem];
         setActiveItemList(newItemList);
         pencilGroup.off();
@@ -1191,6 +1712,8 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         resetEraserImage={resetEraserImage}
         replaceEraserImage={replaceEraserImage}
         duplicateEraserImage={duplicateEraserImage}
+        undoEraserStroke={undoEraserStroke}
+        redoEraserStroke={redoEraserStroke}
         showEraser={showEraser}
         showMask={showMask}
         showPencil={showPencil}
@@ -1210,12 +1733,18 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
         eraserWidthRef={eraserWidthRef}
         eraserToolbarPosition={eraserToolbarPosition}
         eraserToolbarVisible={eraserToolbarVisible}
+        eraserUndoCount={eraserHistoryState.undoCount}
+        eraserRedoCount={eraserHistoryState.redoCount}
+        eraserHistoryLimit={ERASER_HISTORY_LIMIT}
+        canUndoEraserStroke={eraserHistoryState.undoCount > 0 && !isPainting}
+        canRedoEraserStroke={eraserHistoryState.redoCount > 0 && !isPainting}
         isExpressGeneration={isExpressGeneration}
         createTextLayer={createTextLayer}
         updateTargetImageActiveLayerConfig={updateTargetImageActiveLayerConfig}
         updateTargetShapeActiveLayerConfigNoScale={updateTargetShapeActiveLayerConfigNoScale}
         requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
         requestLipSyncToSpeech={requestLipSyncToSpeech}
+        onPersistTextStyle={onPersistTextStyle}
       />
 
     </div>

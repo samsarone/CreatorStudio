@@ -1,14 +1,12 @@
 // src/components/util/RangeOverlaySlider.js
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
-import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
 export default function RangeOverlaySlider({
   min,
   max,
   value,
   onChange,
-  highlightBoundaries,
   layerDurationUpdated,
   onDragAmountChange, // Add this prop
   onBeforeChange, onAfterChange 
@@ -16,7 +14,8 @@ export default function RangeOverlaySlider({
   const [sliderValues, setSliderValues] = useState(value);
   const [initialValue, setInitialValue] = useState(null);
   const sliderRef = useRef(null);
-  const { colorMode } = useColorMode();
+  const latestSliderValuesRef = useRef(value);
+  const isInteractionActiveRef = useRef(false);
 
   // Define constants for minimum duration
   const MIN_LAYER_DURATION = 0.1; // Minimum layer duration in seconds
@@ -25,6 +24,7 @@ export default function RangeOverlaySlider({
 
   const handleSliderChange = (values, index) => {
     // Update internal slider values
+    latestSliderValuesRef.current = values;
     setSliderValues(values);
 
     // Call the parent onChange handler
@@ -34,26 +34,93 @@ export default function RangeOverlaySlider({
   };
 
   const handleMouseDown = (event) => {
+    event.preventDefault();
     event.stopPropagation();
-    if (onBeforeChange) onBeforeChange();
   };
+
+  const finishInteraction = useCallback(() => {
+    if (!isInteractionActiveRef.current) {
+      return;
+    }
+
+    isInteractionActiveRef.current = false;
+    setInitialValue(null);
+
+    if (onDragAmountChange) {
+      onDragAmountChange(0);
+    }
+
+    const settledValues = latestSliderValuesRef.current;
+    if (layerDurationUpdated) {
+      layerDurationUpdated(settledValues);
+    }
+    if (onAfterChange) {
+      onAfterChange(settledValues);
+    }
+  }, [layerDurationUpdated, onAfterChange, onDragAmountChange]);
+
+  const scheduleForcedInteractionStop = useCallback(() => {
+    requestAnimationFrame(() => {
+      if (!isInteractionActiveRef.current) {
+        return;
+      }
+
+      if (sliderRef.current?.onMouseUp) {
+        sliderRef.current.onMouseUp();
+        return;
+      }
+
+      finishInteraction();
+    });
+  }, [finishInteraction]);
 
   // Update sliderValues only when not dragging
   useEffect(() => {
+    latestSliderValuesRef.current = value;
     if (initialValue === null) {
       setSliderValues(value);
     }
   }, [value]);
 
-  const { height } = highlightBoundaries;
+  useEffect(() => {
+    const handleWindowBlur = () => {
+      scheduleForcedInteractionStop();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        scheduleForcedInteractionStop();
+      }
+    };
 
+    window.addEventListener('mouseup', scheduleForcedInteractionStop, true);
+    window.addEventListener('pointerup', scheduleForcedInteractionStop, true);
+    window.addEventListener('touchend', scheduleForcedInteractionStop, true);
+    window.addEventListener('blur', handleWindowBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('mouseup', scheduleForcedInteractionStop, true);
+      window.removeEventListener('pointerup', scheduleForcedInteractionStop, true);
+      window.removeEventListener('touchend', scheduleForcedInteractionStop, true);
+      window.removeEventListener('blur', handleWindowBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [scheduleForcedInteractionStop]);
 
   return (
     <div
       style={{
         height: `100%`,
+        overflow: 'visible',
       }}
       onMouseDown={handleMouseDown}
+      onMouseUp={(event) => {
+        event.stopPropagation();
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
     >
       <ReactSlider
         ref={sliderRef}
@@ -69,48 +136,32 @@ export default function RangeOverlaySlider({
               key={key}
               {...thumbProps}
               className={className}
-              style={style}
-            />
-          );
-        }}
-        renderTrack={(props, state) => {
-          const isActiveSegment = state.index === 1;
-          const classes = `track rounded-full ${
-            isActiveSegment
-              ? colorMode === 'dark'
-                ? 'bg-indigo-500/35'
-                : 'bg-sky-300/60'
-              : colorMode === 'dark'
-                ? 'bg-slate-900/50'
-                : 'bg-slate-200'
-          }`;
-
-          const { key, className: incomingClass, style, ...trackProps } = props;
-          return (
-            <div
-              key={key}
-              {...trackProps}
-              className={`${classes} ${incomingClass ?? ''}`}
-              style={style}
+              style={{
+                ...style,
+                left: '50%',
+                transform: 'translateX(-50%)',
+              }}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                thumbProps.onMouseDown?.(event);
+              }}
             />
           );
         }}
         onBeforeChange={() => {
-          setInitialValue(sliderValues);
+          isInteractionActiveRef.current = true;
+          setInitialValue(latestSliderValuesRef.current);
+          if (onBeforeChange) {
+            onBeforeChange(latestSliderValuesRef.current);
+          }
         }}
         onAfterChange={() => {
-          // Reset initial value after dragging
-          setInitialValue(null);
-          // Reset drag amount
-          if (onDragAmountChange) {
-            onDragAmountChange(0);
-          }
-          if (layerDurationUpdated) {
-            layerDurationUpdated(sliderValues);
-          }
+          finishInteraction();
         }}
         orientation="vertical"
         minDistance={MIN_DISTANCE_IN_FRAMES}
+        withTracks={false}
         style={{ height: '100%', pointerEvents: 'auto' }}
       />
     </div>

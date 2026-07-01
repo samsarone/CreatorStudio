@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import SecondaryButton from '../../../../common/SecondaryButton.tsx';
-import { FaPlus, FaTimes, FaEye, FaEyeSlash, FaCheck, FaPlay, FaPause, FaMagic, FaChevronCircleLeft } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaEye, FaEyeSlash, FaCheck, FaPlay, FaMagic, FaChevronCircleLeft } from 'react-icons/fa';
 import { FaRegCircleStop } from "react-icons/fa6";
 import SingleSelect from '../../../../common/SingleSelect.jsx';
 
@@ -26,12 +26,22 @@ export default function SelectedTextToolbarDisplay(props) {
     showTextTrackAnimations,
     selectedAnimation,
     removeAnimationLayer,
+    colorMode = 'dark',
     // Add the new prop:
     onBackClicked
   } = props;
 
   const [mode, setMode] = useState('view');
   const [selectedTextAnimation, setSelectedTextAnimation] = useState(null);
+  const neutralButtonClassName = colorMode === 'light'
+    ? 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
+    : 'bg-neutral-800 text-white';
+  const dangerButtonClassName = colorMode === 'light'
+    ? 'bg-rose-600 text-white hover:bg-rose-500'
+    : 'bg-red-800 text-white';
+  const animationDangerButtonClassName = colorMode === 'light'
+    ? 'bg-rose-600 text-white hover:bg-rose-500'
+    : 'bg-red-700 text-white';
 
   const startFrame = selectedAnimation ? selectedAnimation.startFrame : selectedTextTrack.startFrame;
   const endFrame = selectedAnimation ? selectedAnimation.endFrame : selectedTextTrack.endFrame;
@@ -60,7 +70,7 @@ export default function SelectedTextToolbarDisplay(props) {
   };
 
   return (
-    <div className="flex flex-nowrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {mode === 'view' ? (
         selectedAnimation ? (
           // If an animation is selected, show only Start/End time, Save, Remove, and Back button
@@ -69,11 +79,11 @@ export default function SelectedTextToolbarDisplay(props) {
               e.preventDefault();
               handleSaveChanges();
             }}
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
           >
             <button
               type="button"
-              className="bg-neutral-800 rounded rounded-sm text-white flex items-center px-2 py-1 mr-2"
+              className={`rounded-sm flex items-center px-2 py-1 mr-2 ${neutralButtonClassName}`}
               onClick={() => {
                 // Call the onBackClicked prop to reset view and unselect all layers
                 if (onBackClicked) {
@@ -118,7 +128,7 @@ export default function SelectedTextToolbarDisplay(props) {
             {/* Remove Effect Button */}
             <button
               type="button"
-              className="bg-red-700 rounded-sm text-white flex items-center px-2 py-1"
+              className={`rounded-sm flex items-center px-2 py-1 ${animationDangerButtonClassName}`}
               onClick={() => removeAnimationLayer(selectedAnimation, selectedTextTrack)}
             >
               <FaTimes className='mr-1' />
@@ -131,7 +141,7 @@ export default function SelectedTextToolbarDisplay(props) {
               e.preventDefault();
               handleSaveChanges();
             }}
-            className="flex items-center gap-2"
+            className="flex flex-wrap items-center gap-2"
           >
             {/* Start Time Input */}
             <div className="flex items-center gap-1">
@@ -181,7 +191,7 @@ export default function SelectedTextToolbarDisplay(props) {
 
             <button
               type="button"
-              className="bg-red-800 rounded-sm text-white flex items-center px-2 py-1"
+              className={`rounded-sm flex items-center px-2 py-1 ${dangerButtonClassName}`}
               onClick={() => removeTextLayer(textTrackId)}
             >
               <FaTimes />
@@ -257,7 +267,7 @@ export default function SelectedTextToolbarDisplay(props) {
           {/* Cancel Button */}
           <button
             type="button"
-            className="bg-neutral-800 rounded-sm text-white flex items-center px-2 py-1"
+            className={`rounded-sm flex items-center px-2 py-1 ${neutralButtonClassName}`}
             onClick={() => setMode('view')}
           >
             <FaTimes />

@@ -7,4 +7,9 @@ export default defineConfig({
   plugins: [react(),
     tailwindcss()
   ],
+  build: {
+    outDir: 'dist_build',
+    // Route-level code splitting keeps the largest editor chunks below this budget.
+    chunkSizeWarningLimit: 700,
+  },
 })

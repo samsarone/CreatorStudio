@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
-import { Stage, Layer, Rect, Text } from 'react-konva';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -58,9 +57,9 @@ export default function EditorHome(props) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const { colorMode } = useColorMode();
-  const initialBackgroundFillColor = colorMode === 'dark' ? '#030712' : '#f5f5f5';
-  const initFillColor = colorMode === 'dark' ? '#f5f5f5' : '#030712';
-  const initTextFillColor = colorMode === 'dark' ? '#000000' : '#ffffff';
+  const initialBackgroundFillColor = colorMode === 'dark' ? '#0b1226' : '#eef3fb';
+  const initFillColor = colorMode === 'dark' ? '#e9edf7' : '#0b1226';
+  const initTextFillColor = colorMode === 'dark' ? '#e9edf7' : '#0b1226';
 
   const [fillColor, setFillColor] = useState(initFillColor);
   const [strokeColor, setStrokeColor] = useState(initFillColor);
@@ -142,7 +141,7 @@ export default function EditorHome(props) {
       }
       setSessionDetails(response.data);
     }).catch((error) => {
-      console.error(error);
+      
     });
   }, []);
 
@@ -176,7 +175,7 @@ export default function EditorHome(props) {
       }
       setSessionDetails(response.data);
     }).catch((error) => {
-      console.error(error);
+      
     });
   }, [id]);
 
@@ -237,7 +236,7 @@ export default function EditorHome(props) {
 
         
       }).catch((error) => {
-        console.error(error);
+        
       });
     }
   }, [user, id]);
@@ -306,7 +305,7 @@ export default function EditorHome(props) {
       });
       return dataUrl;
     } else {
-      console.error('Base group not found');
+      
       return null;
     }
   };
@@ -345,7 +344,7 @@ export default function EditorHome(props) {
       const dataUrl = offscreenCanvas.toDataURL('image/png', 1); // Ensure full quality
       return dataUrl;
     } else {
-      console.error('Mask group not found');
+      
       return null;
     }
   };
@@ -388,7 +387,7 @@ export default function EditorHome(props) {
       const dataUrl = offscreenCanvas.toDataURL();
       return dataUrl;
     } else {
-      console.error('Mask group not found');
+      
       return null;
     }
   };
@@ -498,7 +497,7 @@ export default function EditorHome(props) {
         window.location.href = `${PUBLISHER_URL}/p/${publicationId}`;
 
       }).catch(function (err) {
-        console.error(err);
+        
         setIsPublicationPending(false);
       });
     }
@@ -586,12 +585,27 @@ export default function EditorHome(props) {
     openAlertDialog(<UploadImageDialog setUploadURL={setUploadURL} />);
   }
 
-  const setSelectedShape = (shapeKey) => {
+  const setSelectedShape = (shapeKey, shapeConfigOverride = null) => {
     let currentLayerList: any = Object.assign([], activeItemList);
-    const shapeConfig = {
-      x: 512, y: 200, width: 200, height: 200, fill: fillColor, radius: 70,
-      stroke: strokeColor, strokeWidth: strokeWidthValue
+    const defaultShapeSize = Math.min(STAGE_DIMENSIONS.width, STAGE_DIMENSIONS.height) * 0.25;
+    const fallbackShapeConfig = {
+      x: Math.round((STAGE_DIMENSIONS.width - defaultShapeSize) / 2),
+      y: Math.round((STAGE_DIMENSIONS.height - defaultShapeSize) / 2),
+      width: Math.round(defaultShapeSize),
+      height: Math.round(defaultShapeSize),
+      fillColor: fillColor,
+      radius: Math.round(defaultShapeSize / 2),
+      strokeColor: strokeColor,
+      strokeWidth: strokeWidthValue
     }
+    const shapeConfig = shapeConfigOverride && typeof shapeConfigOverride === 'object'
+      ? {
+        fillColor: fillColor,
+        strokeColor: strokeColor,
+        strokeWidth: strokeWidthValue,
+        ...shapeConfigOverride,
+      }
+      : fallbackShapeConfig;
     const newItem = {
       'type': 'shape',
       'shape': shapeKey,
@@ -721,7 +735,7 @@ export default function EditorHome(props) {
     <CommonContainer resetSession={resetSession}>
       <div className='m-auto'>
         <div className='block'>
-          <div className='w-[5%] bg-cyber-black inline-block'>
+          <div className='w-[5%] bg-[#0f1629] inline-block'>
             <ActionToolbar
               setCurrentAction={setCurrentAction}
               setCurrentViewDisplay={setCurrentViewDisplay}
@@ -746,7 +760,7 @@ export default function EditorHome(props) {
           <div className='text-center w-[78%] inline-block h-[100vh] overflow-scroll m-auto  mb-8 '>
             {viewDisplay}
           </div>
-          <div className='w-[17%] inline-block bg-cyber-black '>
+          <div className='w-[17%] inline-block bg-[#0f1629] '>
             <EditorToolbar promptText={promptText} setPromptText={setPromptText}
               submitGenerateRequest={submitGenerateRequest}
               submitOutpaintRequest={submitOutpaintRequest}

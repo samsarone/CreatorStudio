@@ -8,9 +8,8 @@ export default function AddAudioDialog(props) {
     const selectedFile = event.target.files[0];
     if (selectedFile && selectedFile.type.includes('audio')) {
       setFile(selectedFile);
-      console.log('File selected:', selectedFile);
     } else {
-      console.error('Please select an MP3 file.');
+      setFile(null);
     }
   };
 
@@ -20,7 +19,7 @@ export default function AddAudioDialog(props) {
     if (droppedFile && droppedFile.type.includes('audio')) {
       setFile(droppedFile);
     } else {
-      console.error('Please drop an MP3 file.');
+      setFile(null);
     }
   };
 
@@ -31,8 +30,6 @@ export default function AddAudioDialog(props) {
   const handleSubmit = () => {
     if (file) {
       props.addAudioToProject(file);
-    } else {
-      console.error('No file to submit.');
     }
   };
 

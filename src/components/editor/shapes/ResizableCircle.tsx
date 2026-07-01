@@ -59,7 +59,7 @@ export default function ResizableCircle(props) {
         radius={radius || 70}
         fill={fillColor || 'red'}
         stroke={strokeColor || 'black'}
-        strokeWidth={strokeWidth || 4}
+        strokeWidth={strokeWidth ?? 4}
         draggable
         onDragMove={(e) => updateToolbarButtonPosition(id, e.target.x(), e.target.y())}
         onDragEnd={handleDragEnd}

@@ -20,7 +20,7 @@ export default function UpgradePlan() {
 
     try {
       if (!user || !user._id) {
-        console.error('User not found');
+        
         // Optionally close the blank tab if there's no user
         if (upgradeWindow && !upgradeWindow.closed) {
           upgradeWindow.close();
@@ -52,7 +52,7 @@ export default function UpgradePlan() {
         upgradeWindow.location.href = data.url;
       }
     } catch (error) {
-      console.error('Upgrade plan error:', error);
+      
       setErrorMessage('Failed to upgrade the plan. Please try again.');
 
       // Close the blank tab if there’s an error
@@ -86,7 +86,7 @@ export default function UpgradePlan() {
           <li>Access to all models</li>
           <li>Full generative workflow suite</li>
           <li>Free Cloud storage for renders up to 50GB</li>
-          <li>Commercial usage rights</li>
+          <li>Priority support</li>
           <li>No watermarks</li>
           <li>Discord support</li>
         </ul>

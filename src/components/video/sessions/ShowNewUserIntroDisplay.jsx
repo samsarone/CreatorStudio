@@ -4,7 +4,7 @@ import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { getHeaders } from '../../../utils/web';
 import { useNavigate } from 'react-router-dom';
 
-import { FaVideo, FaForward, FaStar, FaQuestionCircle } from "react-icons/fa";
+import { FaVideo, FaStar, FaQuestionCircle } from "react-icons/fa";
 
 // 1) Import react-tooltip
 import 'react-tooltip/dist/react-tooltip.css';
@@ -15,7 +15,7 @@ const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 export default function ShowNewUserIntroDisplay(props) {
   const { createNewStudioSession, createNewQuickSession, createNewVidGPTSession, 
     
-    handleImportClick, createNewAdVideoSession, createNewInfoVideoSession } = props;
+    handleImportClick, createNewAdVideoSession } = props;
 
   const [introSessionList, setIntroSessionList] = useState([]);
   const [selectedSessionIndex, setSelectedSessionIndex] = useState(null);
@@ -34,13 +34,13 @@ export default function ShowNewUserIntroDisplay(props) {
   const { colorMode } = useColorMode();
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-slate-950 text-slate-100 border border-white/10'
+      ? 'bg-[#0b1021] text-slate-100 border border-[#1f2a3d]'
       : 'bg-slate-50 text-slate-900 border border-slate-200';
   const cardSurface =
     colorMode === 'dark'
-      ? 'bg-slate-900/70 border border-white/10 shadow-lg shadow-slate-900/40'
+      ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
       : 'bg-white border border-slate-200 shadow-sm';
-  const iconStyle = colorMode === 'dark' ? 'text-indigo-300' : 'text-indigo-500';
+  const iconStyle = colorMode === 'dark' ? 'text-rose-200' : 'text-indigo-500';
 
   const handleSessionClick = (index) => {
     setSelectedSessionIndex(index === selectedSessionIndex ? null : index);

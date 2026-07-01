@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaChevronCircleDown, FaSpinner, FaTimes, FaImage } from 'react-icons/fa';
+import { FaChevronCircleDown, FaSpinner, FaImage } from 'react-icons/fa';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import axios from 'axios';
 import { getHeaders } from '../../utils/web.jsx';
 
@@ -18,11 +18,9 @@ import {
   PIXVERRSE_VIDEO_STYLES,
 } from '../../constants/Types.ts';
 
-import { getOperationExpectedPricing } from '../../constants/pricing/VidGPTPricing.jsx';
 import ProgressIndicator from '../oneshot_editor/ProgressIndicator.jsx';
-import { FaYoutube } from 'react-icons/fa6';
 import AssistantHome from '../assistant/AssistantHome.jsx';
-import { VIDEO_MODEL_PRICES, IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
+import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
@@ -292,7 +290,7 @@ export default function AdVideoCreator() {
   // -------------------------------------
   const showLoginDialog = () => {
     const loginComponent = <AuthContainer />;
-    openAlertDialog(loginComponent);
+    openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
   async function handleDownloadVideo() {
@@ -312,7 +310,7 @@ export default function AdVideoCreator() {
       link.remove();
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
-      console.error('Error downloading video:', error);
+      
     }
   }
 
@@ -341,7 +339,7 @@ export default function AdVideoCreator() {
           }
         })
         .catch((err) => {
-          console.error('Error polling assistant query:', err);
+          
           assistantErrorCountRef.current += 1;
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
@@ -370,7 +368,7 @@ export default function AdVideoCreator() {
         startAssistantQueryPoll();
       })
       .catch((err) => {
-        console.error('Assistant query error:', err);
+        
         setIsAssistantQueryGenerating(false);
       });
   };
@@ -409,7 +407,7 @@ export default function AdVideoCreator() {
         setSessionMessages(response.sessionMessages);
       }
     } catch (err) {
-      console.error('Error fetching session details:', err);
+      
     }
   };
 
@@ -448,7 +446,7 @@ export default function AdVideoCreator() {
           });
         }
       } catch (error) {
-        console.error('Error fetching generation status:', error);
+        
         pollErrorCountRef.current += 1;
 
         if (pollErrorCountRef.current >= 3) {
@@ -494,7 +492,7 @@ export default function AdVideoCreator() {
       await axios.post(`${API_SERVER}/admaker/create`, payload, headers);
       pollGenerationStatus();
     } catch (error) {
-      console.error('Error submitting theme text:', error);
+      
       setErrorMessage({ error: 'An unexpected error occurred.' });
       setIsGenerationPending(false);
     } finally {
@@ -545,7 +543,7 @@ export default function AdVideoCreator() {
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
-  let creditsPerSecondVideo = 10;
+  let creditsPerSecondVideo = 15;
   // Example: you can conditionally change this based on model
   // if (selectedVideoModel.value === 'VEOI2V') {...}
 
@@ -606,7 +604,7 @@ export default function AdVideoCreator() {
           </button>
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,image/heic,image/heif,.heic,.heif"
             multiple
             ref={fileInputRef}
             onChange={handleFileChange}
@@ -766,7 +764,11 @@ export default function AdVideoCreator() {
       {/* AssistantHome */}
       <AssistantHome
         submitAssistantQuery={submitAssistantQuery}
+        sessionId={id}
         sessionMessages={sessionMessages}
+        onSessionMessagesChange={setSessionMessages}
+        onSessionDetailsChange={setSessionDetails}
+        onAssistantQueryGeneratingChange={setIsAssistantQueryGenerating}
         isAssistantQueryGenerating={isAssistantQueryGenerating}
         getSessionImageLayers={getSessionImageLayers}
       />

@@ -1,8 +1,6 @@
 // LayerItem.js
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { Draggable } from 'react-beautiful-dnd';
-import { FaTimes, FaEye } from 'react-icons/fa';
 import './toolbar.css';
 
 const LayerItem = ({
@@ -34,6 +32,11 @@ const LayerItem = ({
   borderColor,
 }) => {
   const layerDuration = layer.duration; // in seconds
+  const isLightMode = textColor?.includes('slate-800') || textColor?.includes('black');
+  const durationUnitClassName = isLightMode ? 'text-slate-500' : 'text-slate-200';
+  const updateButtonClassName = isLightMode
+    ? 'bg-sky-600 text-white border border-sky-600 hover:bg-sky-500'
+    : 'bg-[#111a2f] text-slate-100 border border-[#1f2a3d]';
 
   const layerItem = (
     <div
@@ -85,17 +88,17 @@ const LayerItem = ({
                     onChange={(e) =>
                       layerDurationCellUpdated(e.target.value, openPopupLayerIndex)
                     }
-                    className={`w-[120px] inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${
+                  className={`w-[120px] inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${
                       durationChanged ? 'highlight' : ''
                     }`}
                   />
-                  <label className='inline-block text-xs text-white ml-[-30px]'>s</label>
+                  <label className={`inline-block text-xs ml-[-30px] ${durationUnitClassName}`}>s</label>
                 </div>
                 {durationChanged && (
                   <div className='mt-1 mb-2'>
                     <button
                       onClick={onUpdateDuration}
-                      className={`px-4 py-2 text-xs text-white rounded bg-gray-900 m-auto ${
+                      className={`px-4 py-2 text-xs rounded m-auto ${updateButtonClassName} ${
                         durationChanged ? 'highlight' : ''
                       }`}
                     >

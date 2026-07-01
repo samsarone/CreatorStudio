@@ -1,397 +1,198 @@
-import React, { useState, useEffect } from 'react';
-import CommonButton from "../../../common/CommonButton.tsx";
-import { useColorMode } from '../../../../contexts/ColorMode.jsx';
-import SingleSelect from '../../../common/SingleSelect.jsx';
+import React, { useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
-import { CgColorPicker } from "react-icons/cg";
-import { HexColorPicker } from "react-colorful";
+import { FaSlidersH } from 'react-icons/fa';
 
-import {
-  FaAlignCenter, FaAlignLeft, FaAlignRight,
-  FaBold, FaItalic, FaUnderline, FaChevronDown, FaTimes
-} from "react-icons/fa";
+import TextStylePanel, {
+  buildTextStyleDraft,
+  loadStoredTextStyleConfig,
+  mapTextDraftToConfig,
+  mapTextDraftToStyleConfig,
+  persistTextStyleConfig,
+} from '../../../common/TextStylePanel.jsx';
+import CanvasActionOptionsDialog from '../../../editor/utils/CanvasActionOptionsDialog.jsx';
+import { useAlertDialog } from '../../../../contexts/AlertDialogContext.jsx';
+import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 
-const fontOptions = [
-  { value: 'Arial', label: 'Arial' },
-  { value: 'Verdana', label: 'Verdana' },
-  { value: 'Helvetica', label: 'Helvetica' },
-  { value: 'Times New Roman', label: 'Times New Roman' },
-  { value: 'Georgia', label: 'Georgia' },
-  { value: 'Courier New', label: 'Courier New' },
-  { value: 'Comic Sans MS', label: 'Comic Sans MS' },
-  { value: 'Impact', label: 'Impact' },
-  { value: 'Tahoma', label: 'Tahoma' },
-  { value: 'Trebuchet MS', label: 'Trebuchet MS' },
-  { value: 'Lucida Console', label: 'Lucida Console' },
-  { value: 'Gill Sans', label: 'Gill Sans' },
-  { value: 'Palatino', label: 'Palatino' },
-  { value: 'Garamond', label: 'Garamond' },
-  { value: 'Arial Black', label: 'Arial Black' },
-  { value: 'Sans-Serif', label: 'Sans-Serif' },
-  { value: 'Serif', label: 'Serif' }
-];
+const STORAGE_KEYS = {
+  addText: 'selected_text_config_addText',
+};
+
+function TextOptionsDialogContent({
+  initialDraft,
+  editorVariant,
+  onClose,
+  onDraftChange,
+  onSubmit,
+}) {
+  const [dialogDraft, setDialogDraft] = useState(() => buildTextStyleDraft(initialDraft));
+
+  const handleDialogDraftChange = (nextDraft) => {
+    const resolvedDraft = buildTextStyleDraft(nextDraft);
+    setDialogDraft(resolvedDraft);
+    onDraftChange(resolvedDraft);
+  };
+
+  return (
+    <CanvasActionOptionsDialog
+      title="Text options"
+      subtitle="Text style preferences are saved and reused for new text layers."
+      badge="Canvas action"
+      onClose={onClose}
+      maxWidth="820px"
+    >
+      <TextStylePanel
+        value={dialogDraft}
+        onChange={handleDialogDraftChange}
+        onSubmit={() => onSubmit(dialogDraft)}
+        submitLabel="Add"
+        submitDisabled={!`${dialogDraft.text || ''}`.trim()}
+        editorVariant={editorVariant}
+        header="Text"
+        density="comfortable"
+      />
+    </CanvasActionOptionsDialog>
+  );
+}
 
 export default function AddText(props) {
-  const { setAddText, submitAddText, addText, textConfig, setTextConfig } = props;
   const {
-    fontSize = 32,
-    fontFamily = 'Arial',
-    fillColor = '#000000',
-    strokeColor = '#ffffff',
-    strokeWidth = 1,
-    bold = false,
-    italic = false,
-    underline = false,
-    textAlign = 'center',
-    lineHeight = 1.2
-  } = textConfig;
+    setAddText,
+    submitAddText,
+    addText,
+    textConfig,
+    setTextConfig,
+    editorVariant = 'videoStudio',
+    isExpandedView = false,
+  } = props;
+
   const { colorMode } = useColorMode();
+  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
+  const draft = buildTextStyleDraft({
+    text: addText || '',
+    ...(textConfig || {}),
+  });
 
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Because we manage fillColor/strokeColor in local state, we separate them out,
-  // but still rely on textConfig for final submission.
-  const [localFillColor, setLocalFillColor] = useState(fillColor);
-  const [localStrokeColor, setLocalStrokeColor] = useState(strokeColor);
-
-  // For controlling which color picker is open: "fill", "stroke" or null
-  const [colorPickerType, setColorPickerType] = useState(null);
-
-  const formElementBG =
-    colorMode === "dark" ? "bg-gray-800 text-neutral-50" : "bg-gray-100 text-neutral-800";
-  const textElementBG =
-    colorMode === "dark"
-      ? "bg-gray-800 text-neutral-50"
-      : "bg-gray-100 text-neutral-800 border-gray-600 border-2";
-
-  const buttonClasses = (active) => (active ? 'bg-blue-500 text-white' : formElementBG);
-
-  const handleFontSizeChange = (e) => {
-    let val = parseInt(e.target.value, 10);
-    if (isNaN(val)) val = 1;
-    if (val > 100) val = 100;
-    setTextConfig({ ...textConfig, fontSize: val });
-  };
-
-  const handleFontFamilyChange = (option) => {
-    setTextConfig({ ...textConfig, fontFamily: option.value });
-  };
-
-  const toggleAdvanced = () => {
-    setShowAdvanced(!showAdvanced);
-  };
-
-  const toggleStyle = (style) => {
-    const newValue = !textConfig[style];
-    setTextConfig({ ...textConfig, [style]: newValue });
-  };
-
-  const setAlignment = (alignment) => {
-    setTextConfig({ ...textConfig, textAlign: alignment });
-  };
-
-  const applyColorChange = (color) => {
-    if (colorPickerType === 'fill') {
-      setLocalFillColor(color);
-    } else if (colorPickerType === 'stroke') {
-      setLocalStrokeColor(color);
-    }
-  };
-
-  const closeColorPicker = () => {
-    if (colorPickerType === 'fill') {
-      setTextConfig({ ...textConfig, fillColor: localFillColor });
-    } else if (colorPickerType === 'stroke') {
-      setTextConfig({ ...textConfig, strokeColor: localStrokeColor });
-    }
-    setColorPickerType(null);
-  };
-
-  const submitChanges = () => {
-    // Ensure final colors are set in textConfig
-    setTextConfig({ ...textConfig, fillColor: localFillColor, strokeColor: localStrokeColor });
-    submitAddText();
-  };
-
-  const pickFillColor = () => {
-    setColorPickerType('fill');
-  };
-
-  const pickStrokeColor = () => {
-    setColorPickerType('stroke');
-  };
-
-  const updateText = (evt) => {
-    const textValue = evt.target.value;
-    setAddText(textValue);
-  };
-
-  /**
-   * Load from localStorage on mount
-   */
-  useEffect(() => {
-    const storedFontSize = localStorage.getItem('selected_text_config_fontSize');
-    const storedFontFamily = localStorage.getItem('selected_text_config_fontFamily');
-    const storedFillColor = localStorage.getItem('selected_text_config_fillColor');
-    const storedStrokeColor = localStorage.getItem('selected_text_config_strokeColor');
-    const storedStrokeWidth = localStorage.getItem('selected_text_config_strokeWidth');
-    const storedBold = localStorage.getItem('selected_text_config_bold');
-    const storedItalic = localStorage.getItem('selected_text_config_italic');
-    const storedUnderline = localStorage.getItem('selected_text_config_underline');
-    const storedTextAlign = localStorage.getItem('selected_text_config_textAlign');
-    const storedLineHeight = localStorage.getItem('selected_text_config_lineHeight');
-    const storedAddText = localStorage.getItem('selected_text_config_addText');
-
-    // Update textConfig if these values exist
+  const handleDraftChange = (nextDraft) => {
+    const resolvedDraft = buildTextStyleDraft(nextDraft);
+    setAddText(resolvedDraft.text);
     setTextConfig((prev) => ({
-      ...prev,
-      fontSize: storedFontSize ? parseInt(storedFontSize, 10) : prev.fontSize,
-      fontFamily: storedFontFamily || prev.fontFamily,
-      fillColor: storedFillColor || prev.fillColor,
-      strokeColor: storedStrokeColor || prev.strokeColor,
-      strokeWidth: storedStrokeWidth ? parseInt(storedStrokeWidth, 10) : prev.strokeWidth,
-      bold: storedBold === 'true' ? true : prev.bold,
-      italic: storedItalic === 'true' ? true : prev.italic,
-      underline: storedUnderline === 'true' ? true : prev.underline,
-      textAlign: storedTextAlign || prev.textAlign,
-      lineHeight: storedLineHeight ? parseFloat(storedLineHeight) : prev.lineHeight,
+      ...(prev || {}),
+      ...mapTextDraftToStyleConfig(resolvedDraft),
+    }));
+  };
+
+  const handleSubmit = (draftOverride = draft, options = {}) => {
+    const resolvedDraft = buildTextStyleDraft(draftOverride);
+    const normalizedText = `${resolvedDraft.text || ''}`.trim();
+    if (!normalizedText) return;
+
+    submitAddText?.({
+      text: normalizedText,
+      config: mapTextDraftToConfig(resolvedDraft),
+    });
+
+    if (options.closeDialog) {
+      closeAlertDialog();
+    }
+  };
+
+  useEffect(() => {
+    const storedStyleConfig = loadStoredTextStyleConfig();
+    const storedAddText = localStorage.getItem(STORAGE_KEYS.addText);
+
+    setTextConfig((prev) => ({
+      ...(prev || {}),
+      ...storedStyleConfig,
     }));
 
-    // Also update local color states
-    if (storedFillColor) setLocalFillColor(storedFillColor);
-    if (storedStrokeColor) setLocalStrokeColor(storedStrokeColor);
-
-    // If there's saved text, update addText
     if (storedAddText) {
       setAddText(storedAddText);
     }
-  }, [setTextConfig, setAddText]);
+  }, [setAddText, setTextConfig]);
 
-  /**
-   * Save to localStorage whenever textConfig or addText changes
-   */
   useEffect(() => {
-    localStorage.setItem('selected_text_config_fontSize', textConfig.fontSize.toString());
-    localStorage.setItem('selected_text_config_fontFamily', textConfig.fontFamily);
-    localStorage.setItem('selected_text_config_fillColor', localFillColor);
-    localStorage.setItem('selected_text_config_strokeColor', localStrokeColor);
-    localStorage.setItem('selected_text_config_strokeWidth', textConfig.strokeWidth.toString());
-    localStorage.setItem('selected_text_config_bold', textConfig.bold?.toString());
-    localStorage.setItem('selected_text_config_italic', textConfig.italic?.toString());
-    localStorage.setItem('selected_text_config_underline', textConfig.underline?.toString());
-    localStorage.setItem('selected_text_config_textAlign', textConfig.textAlign);
-    localStorage.setItem('selected_text_config_lineHeight', textConfig.lineHeight?.toString());
-    localStorage.setItem('selected_text_config_addText', addText || '');
-  }, [
-    textConfig.fontSize,
-    textConfig.fontFamily,
-    textConfig.strokeWidth,
-    textConfig.bold,
-    textConfig.italic,
-    textConfig.underline,
-    textConfig.textAlign,
-    textConfig.lineHeight,
-    localFillColor,
-    localStrokeColor,
-    addText,
-    textConfig
-  ]);
+    persistTextStyleConfig(draft);
+    localStorage.setItem(STORAGE_KEYS.addText, draft.text || '');
+  }, [draft]);
+
+  const showTextOptionsDialog = () => {
+    openAlertDialog(
+      <TextOptionsDialogContent
+        initialDraft={draft}
+        editorVariant={editorVariant}
+        onClose={closeAlertDialog}
+        onDraftChange={handleDraftChange}
+        onSubmit={(nextDraft) => handleSubmit(nextDraft, { closeDialog: true })}
+      />,
+      undefined,
+      true,
+      { hideCloseButton: true, hideBorder: true, fullBleed: true, centerContent: true }
+    );
+  };
+
+  const fieldSurface =
+    colorMode === 'dark'
+      ? 'bg-[#111a2f] border border-[#1f2a3d] text-slate-100'
+      : 'bg-white border border-slate-200 text-slate-900';
+  const compactSurface =
+    colorMode === 'dark'
+      ? 'bg-[#111a2f] border border-[#24314d] text-slate-100'
+      : 'bg-slate-50 border border-slate-200 text-slate-900';
+  const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+  const secondaryButtonClass = colorMode === 'dark'
+    ? 'border border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]'
+    : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
+
+  if (!isExpandedView) {
+    return (
+      <div className="p-2">
+        <div className={`rounded-xl p-3 ${compactSurface}`}>
+          <div className="mb-3">
+            <div className="text-sm font-semibold">Text</div>
+            <div className={`mt-1 text-[11px] ${mutedText}`}>
+              Uses saved style preferences
+            </div>
+          </div>
+
+          <TextareaAutosize
+            minRows={2}
+            value={draft.text}
+            onChange={(event) => handleDraftChange({ ...draft, text: event.target.value })}
+            placeholder="Enter text"
+            className={`mb-3 min-h-[72px] w-full resize-none rounded-xl px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400/20 ${fieldSurface}`}
+          />
+
+          <button
+            type="button"
+            onClick={showTextOptionsDialog}
+            className={`mb-2 flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition ${secondaryButtonClass}`}
+          >
+            <FaSlidersH />
+            Options
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={!`${draft.text || ''}`.trim()}
+            className="w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:bg-slate-500"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      {/* Row 1: Font Size and Font Family */}
-      <div className='grid grid-cols-2 gap-2 mb-2'>
-        <div>
-          <div className='text-xs mb-1'>Font Size </div>
-          <input
-            type="number"
-            min="1"
-            max="100"
-            value={fontSize}
-            onChange={handleFontSizeChange}
-            className={`${formElementBG} w-full p-2 rounded`}
-          />
-        </div>
-        <div>
-          <div className='text-xs mb-1'>Font Family</div>
-          <SingleSelect
-            value={fontOptions.find(option => option.value === fontFamily)}
-            onChange={handleFontFamilyChange}
-            options={fontOptions}
-            className={`w-full p-2 rounded ${formElementBG}`}
-          />
-        </div>
-      </div>
-
-      {/* Row 2: Advanced toggle */}
-      <div className='flex justify-end mb-2'>
-        <button onClick={toggleAdvanced} className='text-xs underline flex items-center'>
-          Advanced <FaChevronDown className='inline-block ml-1' />
-        </button>
-      </div>
-
-      {showAdvanced && (
-        <div className='mb-2 border p-2 rounded'>
-          {/* Advanced Row 1: Fill and Stroke */}
-          <div className='grid grid-cols-2 gap-1 mb-2'>
-            <div className='col-span-1'>
-              <button
-                onClick={pickFillColor}
-                className='text-xs mb-1 inline-flex items-center space-x-1 focus:outline-none'
-              >
-                <span>Fill</span>
-                <CgColorPicker />
-              </button>
-              <input
-                type="text"
-                value={localFillColor}
-                onChange={(e) => setLocalFillColor(e.target.value)}
-                className={`${formElementBG} w-full p-2 rounded`}
-              />
-            </div>
-
-            <div className='col-span-1'>
-              <button
-                onClick={pickStrokeColor}
-                className='text-xs mb-1 inline-flex items-center space-x-1 focus:outline-none'
-              >
-                <span>Stroke</span>
-                <CgColorPicker />
-              </button>
-              <input
-                type="text"
-                value={localStrokeColor}
-                onChange={(e) => setLocalStrokeColor(e.target.value)}
-                className={`${formElementBG} w-full p-2 rounded`}
-              />
-            </div>
-          </div>
-
-          {/* Advanced Row 2: Stroke Width, Line Height */}
-          <div className='grid grid-cols-2 gap-1 mb-2'>
-            <div>
-              <div className='text-xs mb-1'>Stroke Width</div>
-              <input
-                type="number"
-                min="0"
-                value={strokeWidth}
-                onChange={(e) => setTextConfig({
-                  ...textConfig,
-                  strokeWidth: parseInt(e.target.value, 10) || 0
-                })}
-                className={`${formElementBG} w-full p-2 rounded`}
-              />
-            </div>
-
-            <div>
-              <div className='text-xs mb-1'>Line Height</div>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={lineHeight}
-                onChange={(e) => setTextConfig({
-                  ...textConfig,
-                  lineHeight: parseFloat(e.target.value) || 0
-                })}
-                className={`${formElementBG} w-full p-2 rounded`}
-              />
-            </div>
-          </div>
-
-          {/* Advanced Row 3: Text Styles and Alignment */}
-          <div className='grid grid-cols-2 gap-1 mb-2'>
-            <div>
-              <div className='text-xs mb-1'>Text Styles</div>
-              <div className='flex space-x-1 mb-2 '>
-                <button
-                  onClick={() => toggleStyle('bold')}
-                  className={`${buttonClasses(bold)} p-1 rounded`}
-                >
-                  <FaBold />
-                </button>
-                <button
-                  onClick={() => toggleStyle('italic')}
-                  className={`${buttonClasses(italic)} p-1 rounded`}
-                >
-                  <FaItalic />
-                </button>
-                <button
-                  onClick={() => toggleStyle('underline')}
-                  className={`${buttonClasses(underline)} p-1 rounded`}
-                >
-                  <FaUnderline />
-                </button>
-              </div>
-            </div>
-            <div>
-              {/* 
-                If you need alignment, uncomment. 
-                <div className='text-xs mb-1'>Text Alignment</div>
-                <div className='flex space-x-1'>
-                  <button
-                    onClick={() => setAlignment('left')}
-                    className={`${buttonClasses(textAlign === 'left')} p-1 rounded`}
-                  >
-                    <FaAlignLeft />
-                  </button>
-                  <button
-                    onClick={() => setAlignment('center')}
-                    className={`${buttonClasses(textAlign === 'center')} p-1 rounded`}
-                  >
-                    <FaAlignCenter />
-                  </button>
-                  <button
-                    onClick={() => setAlignment('right')}
-                    className={`${buttonClasses(textAlign === 'right')} p-1 rounded`}
-                  >
-                    <FaAlignRight />
-                  </button>
-                </div>
-              */}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Row 3: Textarea */}
-      <TextareaAutosize
-        value={addText || ''}
-        onChange={updateText}
-        className={`${textElementBG} w-full p-4 rounded-lg mt-2`}
-        minRows={3}
-        placeholder='Enter text here...'
-      />
-
-      {/* Row 4: Submit Button */}
-      <div className='text-center mt-2'>
-        <CommonButton onClick={submitChanges}>
-          Submit
-        </CommonButton>
-      </div>
-
-      {/* Color Picker Dialog */}
-      {colorPickerType && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="relative bg-neutral-900 p-4 rounded">
-            <button
-              className="absolute top-2 right-2 text-white"
-              onClick={closeColorPicker}
-            >
-              <FaTimes />
-            </button>
-            <HexColorPicker
-              color={colorPickerType === 'fill' ? localFillColor : localStrokeColor}
-              onChange={applyColorChange}
-            />
-            <div className='text-center mt-2'>
-              <CommonButton onClick={closeColorPicker}>
-                Done
-              </CommonButton>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <TextStylePanel
+      value={draft}
+      onChange={handleDraftChange}
+      onSubmit={() => handleSubmit()}
+      submitLabel="Add"
+      submitDisabled={!`${draft.text || ''}`.trim()}
+      editorVariant={editorVariant}
+      header="Text"
+      density="comfortable"
+    />
   );
 }

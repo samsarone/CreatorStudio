@@ -90,6 +90,9 @@
   .loader-label { color: var(--text-dark); }
 }
 
+body.theme-light .loader-label { color: var(--text); }
+body.theme-dark .loader-label { color: var(--text-dark); }
+
 .loader-label::after {
   content: "";
   position: absolute;

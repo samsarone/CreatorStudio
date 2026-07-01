@@ -1,8 +1,6 @@
 // components/common/CombinedAudioSelect.js
 import React from 'react';
 import Select, { components } from 'react-select';
-import { FaPlay, FaPause } from 'react-icons/fa';
-import { TTS_COMBINED_SPEAKER_TYPES } from '../../constants/Types.ts'; // Adjust the path as necessary
 
 export default function CombinedAudioSelect(props) {
   const {

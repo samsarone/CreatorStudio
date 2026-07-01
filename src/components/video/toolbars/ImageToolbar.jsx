@@ -21,7 +21,9 @@ const filters = [
 export default function ImageToolbar(props) {
   const { pos, moveItem, index, applyFilter, removeItem, colorMode, flipImageVertical,
     flipImageHorizontal, itemId, applyFinalFilter, updateTargetActiveLayerConfig,
+    editorVariant = 'videoStudio',
   } = props;
+  const isImageStudio = editorVariant === 'imageStudio';
 
   const [selectedFilter, setSelectedFilter] = useState(null);
   const [filterValue, setFilterValue] = useState(0);
@@ -98,6 +100,9 @@ export default function ImageToolbar(props) {
     : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
   const accentColor = colorMode === 'dark' ? '#6366f1' : '#2563eb';
   const trackColor = colorMode === 'dark' ? '#1f2937' : '#e2e8f0';
+  const inputClassName = `${fieldShell} w-full ${isImageStudio ? 'rounded-xl px-3 py-2 text-[15px]' : 'rounded-md px-2 py-1 text-sm'}`;
+  const labelClassName = isImageStudio ? 'mt-1 text-sm text-center' : 'text-xs text-center';
+  const iconClassName = isImageStudio ? 'mt-2 text-[26px] cursor-hover' : 'mt-2 text-xl cursor-hover';
 
   const panelStyles = {
     position: 'absolute',
@@ -111,9 +116,9 @@ export default function ImageToolbar(props) {
       ? '0 20px 50px rgba(15, 23, 42, 0.55)'
       : '0 20px 45px rgba(15, 23, 42, 0.12)',
     color: colorMode === 'dark' ? '#e2e8f0' : '#0f172a',
-    width: '512px',
-    borderRadius: '14px',
-    padding: '12px',
+    width: isImageStudio ? '580px' : '512px',
+    borderRadius: isImageStudio ? '18px' : '14px',
+    padding: isImageStudio ? '16px' : '12px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -147,9 +152,9 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'x')}
                 onBlur={() => handleInputBlur('x')}
                 placeholder="X"
-                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 X
               </div>
             </div>
@@ -160,9 +165,9 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'y')}
                 onBlur={() => handleInputBlur('y')}
                 placeholder="Y"
-                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 Y
               </div>
             </div>
@@ -173,9 +178,9 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'width')}
                 onBlur={() => handleInputBlur('width')}
                 placeholder="W"
-                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 W
               </div>
             </div>
@@ -186,9 +191,9 @@ export default function ImageToolbar(props) {
                 onChange={(e) => handleInputChange(e, 'height')}
                 onBlur={() => handleInputBlur('height')}
                 placeholder="H"
-                className={`w-full rounded-md px-2 py-1 ${fieldShell} text-sm`}
+                className={inputClassName}
               />
-              <div className='text-xs text-center'>
+              <div className={labelClassName}>
                 H
               </div>
             </div>
@@ -197,10 +202,10 @@ export default function ImageToolbar(props) {
         <div className='basis-1/4'>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
             <button onClick={() => moveItem(index, -1)}>
-              <FaChevronCircleDown className={`${iconColor} mt-2 text-xl cursor-hover`} />
+              <FaChevronCircleDown className={`${iconColor} ${iconClassName}`} />
             </button>
             <button onClick={() => moveItem(index, 1)} style={{ marginLeft: '10px' }}>
-              <FaChevronCircleUp className={`${iconColor} mt-2 text-xl cursor-hover`} />
+              <FaChevronCircleUp className={`${iconColor} ${iconClassName}`} />
             </button>
           </div>
         </div>
@@ -257,9 +262,9 @@ export default function ImageToolbar(props) {
           )}
         </div>
         <div className='basis-1/4 flex'>
-          <GiVerticalFlip className={`${iconColor} mr-2 mt-2 text-xl cursor-hover inline-flex`} onClick={() => flipImageVertical(itemId)} />
-          <GiHorizontalFlip className={`${iconColor} mr-2 mt-2 text-xl cursor-hover inline-flex`} onClick={() => flipImageHorizontal(itemId)} />
-          <FaTimesCircle className={`${iconColor} ml-4 mt-2 text-xl cursor-hover`} onClick={() => removeItem(index)} />
+          <GiVerticalFlip className={`${iconColor} mr-2 ${iconClassName} inline-flex`} onClick={() => flipImageVertical(itemId)} />
+          <GiHorizontalFlip className={`${iconColor} mr-2 ${iconClassName} inline-flex`} onClick={() => flipImageHorizontal(itemId)} />
+          <FaTimesCircle className={`${iconColor} ml-4 ${iconClassName}`} onClick={() => removeItem(index)} />
         </div>
       </div>
     </div>

@@ -1,9 +1,70 @@
-import React, { useState } from 'react';
-import { FaChevronDown } from 'react-icons/fa';
+import React, { useEffect, useMemo, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import SingleSelect from '../../../common/SingleSelect.jsx';
 import CommonButton from '../../../common/CommonButton.tsx';
 import AddSpeaker from './AddSpeaker';
+import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';
+
+function normalizeProvider(provider, speakerValue = '') {
+  const rawProvider =
+    typeof provider === 'string'
+      ? provider
+      : typeof provider?.value === 'string'
+        ? provider.value
+        : '';
+  const normalizedProvider = rawProvider.trim().toUpperCase();
+
+  if (
+    normalizedProvider === 'OPENAI' ||
+    normalizedProvider === 'ELEVENLABS' ||
+    normalizedProvider === 'GOOGLE' ||
+    normalizedProvider === 'CUSTOM_TEXT_TO_SPEECH'
+  ) {
+    return normalizedProvider;
+  }
+
+  const matchedSpeaker = TTS_COMBINED_SPEAKER_TYPES.find((speaker) => speaker.value === speakerValue);
+  return matchedSpeaker?.provider || 'OPENAI';
+}
+
+function normalizeMovieGenSpeaker(speaker = {}) {
+  const speakerValue = typeof speaker?.speaker === 'string' ? speaker.speaker.trim() : '';
+  const actor =
+    typeof speaker?.actor === 'string' && speaker.actor.trim()
+      ? speaker.actor.trim()
+      : typeof speaker?.speakerCharacterName === 'string' && speaker.speakerCharacterName.trim()
+        ? speaker.speakerCharacterName.trim()
+        : speakerValue;
+
+  return {
+    ...speaker,
+    speaker: speakerValue,
+    actor,
+    speakerCharacterName:
+      typeof speaker?.speakerCharacterName === 'string' && speaker.speakerCharacterName.trim()
+        ? speaker.speakerCharacterName.trim()
+        : actor,
+    speakerVoiceId:
+      typeof speaker?.speakerVoiceId === 'string' && speaker.speakerVoiceId.trim()
+        ? speaker.speakerVoiceId.trim()
+        : speakerValue,
+    speakerLabel:
+      typeof speaker?.speakerLabel === 'string' && speaker.speakerLabel.trim()
+        ? speaker.speakerLabel.trim()
+        : speakerValue,
+    provider: normalizeProvider(speaker?.provider, speakerValue),
+    languageCode:
+      typeof speaker?.languageCode === 'string' && speaker.languageCode.trim()
+        ? speaker.languageCode.trim()
+        : undefined,
+    languageCodes: Array.isArray(speaker?.languageCodes) ? speaker.languageCodes : [],
+    speakerDetails: speaker?.speakerDetails || null,
+  };
+}
+
+function normalizeMovieGenSpeakers(speakers = []) {
+  return Array.isArray(speakers) ? speakers.map(normalizeMovieGenSpeaker) : [];
+}
 
 export default function MovieSpeechProviderSelect(props) {
   const {
@@ -11,7 +72,6 @@ export default function MovieSpeechProviderSelect(props) {
     movieGenSpeakers,
     updateMovieGenSpeakers,
     submitGenerateSpeech,
-    advancedAudioSpeechOptionsDisplay,
     speakerType,
     handleSpeakerChange,
     audioGenerationPending,
@@ -19,13 +79,32 @@ export default function MovieSpeechProviderSelect(props) {
     text2Color,
     colorMode,
     playMusicPreviewForSpeaker,
+    currentlyPlayingSpeaker,
+    sizeVariant = "default",
   } = props;
+  const isSidebarPanel =
+    sizeVariant === "sidebarCollapsed" || sizeVariant === "sidebarExpanded";
+  const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
+  const headerRowClass = isSidebarPanel
+    ? "mb-3 flex flex-col gap-2"
+    : "mb-3 flex items-center justify-between gap-3";
+  const addSpeakerButtonClass = isSidebarPanel
+    ? "!m-0 !min-h-[38px] !w-full !px-4 !py-2 text-xs"
+    : "!m-0 !min-h-[38px] !px-4 !py-2 text-xs";
+  const submitContainerClass = isSidebarPanel
+    ? "mt-3"
+    : "flex justify-center mt-3";
 
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [showAddSpeakerForm, setShowAddSpeakerForm] = useState(false);
 
   // Local copy of speakers to handle additions
-  const [localSpeakers, setLocalSpeakers] = useState(movieGenSpeakers);
+  const [localSpeakers, setLocalSpeakers] = useState(() =>
+    normalizeMovieGenSpeakers(movieGenSpeakers)
+  );
+
+  useEffect(() => {
+    setLocalSpeakers(normalizeMovieGenSpeakers(movieGenSpeakers));
+  }, [movieGenSpeakers]);
 
   // Toggle "Add Speaker" form
   const handleAddSpeakerClick = () => {
@@ -34,18 +113,62 @@ export default function MovieSpeechProviderSelect(props) {
 
   // Called when user finishes AddSpeaker form successfully
   const handleSaveNewSpeaker = (newSpeaker) => {
-    const updated = [...localSpeakers, newSpeaker];
+    const normalizedNewSpeaker = normalizeMovieGenSpeaker(newSpeaker);
+    const updated = [...localSpeakers, normalizedNewSpeaker];
     updateMovieGenSpeakers(updated);
     setLocalSpeakers(updated);
+    handleSpeakerChange({
+      value: normalizedNewSpeaker.speaker,
+      label: normalizedNewSpeaker.actor,
+      provider: normalizedNewSpeaker.provider,
+      speaker: normalizedNewSpeaker.speaker,
+      actor: normalizedNewSpeaker.actor,
+      speakerCharacterName: normalizedNewSpeaker.speakerCharacterName,
+      languageCode: normalizedNewSpeaker.languageCode,
+      languageCodes: normalizedNewSpeaker.languageCodes,
+      speakerVoiceId: normalizedNewSpeaker.speakerVoiceId,
+      speakerLabel: normalizedNewSpeaker.speakerLabel,
+      speakerDetails: normalizedNewSpeaker.speakerDetails,
+    });
     setShowAddSpeakerForm(false);
   };
 
   // Build SingleSelect options from localSpeakers
-  const speakerOptions = localSpeakers.map((item) => ({
-    value: item.speaker,       // e.g., "emma"
-    label: item.actor,         // e.g., "Emma (English)"
-    provider: item.provider,   // e.g., "OPENAI"
-  }));
+  const speakerOptions = localSpeakers.map((item, index) => {
+    const optionKey = `${item.provider}:${item.speaker}:${item.speakerCharacterName || item.actor}:${index}`;
+    return {
+      value: optionKey,
+      label: item.actor,
+      provider: item.provider,
+      speaker: item.speaker,
+      actor: item.actor,
+      speakerCharacterName: item.speakerCharacterName,
+      languageCode: item.languageCode,
+      languageCodes: item.languageCodes,
+      speakerVoiceId: item.speakerVoiceId,
+      speakerLabel: item.speakerLabel,
+      speakerDetails: item.speakerDetails,
+    };
+  });
+  const selectedSpeakerOption = useMemo(() => {
+    if (!speakerType) {
+      return null;
+    }
+
+    const speakerValue = speakerType.speaker || speakerType.value;
+    const providerValue = normalizeProvider(speakerType.provider, speakerValue);
+    const speakerName = speakerType.speakerCharacterName || speakerType.label || speakerType.actor;
+
+    return (
+      speakerOptions.find((option) => (
+        option.speaker === speakerValue
+        && option.provider === providerValue
+        && (!speakerName || option.speakerCharacterName === speakerName || option.actor === speakerName)
+      ))
+      || speakerOptions.find((option) => option.speaker === speakerValue && option.provider === providerValue)
+      || null
+    );
+  }, [speakerOptions, speakerType]);
 
   // Submit handle
   const createSubmitGenerateSpeechRequest = (evt) => {
@@ -53,51 +176,41 @@ export default function MovieSpeechProviderSelect(props) {
 
     const formData = new FormData(evt.target);
     const promptText = formData.get('promptText');
-    const speakerValue = speakerType?.value;
+    const speakerValue = speakerType?.speaker || speakerType?.value;
+    const providerValue = normalizeProvider(speakerType?.provider, speakerValue);
+    const speakerName = speakerType?.speakerCharacterName || speakerType?.label || speakerType?.actor;
 
     // Find matching speaker object
-    const speakerData = localSpeakers.find((item) => item.speaker === speakerValue);
+    const speakerData =
+      localSpeakers.find((item) => (
+        item.speaker === speakerValue
+        && item.provider === providerValue
+        && (!speakerName || item.speakerCharacterName === speakerName || item.actor === speakerName)
+      ))
+      || localSpeakers.find((item) => item.speaker === speakerValue && item.provider === providerValue);
     if (!speakerData) {
-      console.error("No matching speaker for value:", speakerValue);
+      
       return;
     }
 
-    // Base payload
     const body = {
       prompt: promptText,
       generationType: 'speech',
       speaker: speakerValue,
-      addSubtitles: true,
-      ttsProvider: speakerData.provider, // The TTS provider (OpenAI, etc.)
-      subtitleOption: 'SUBTITLE_WORD_HIGHLIGHT',
+      ttsProvider: speakerData.provider,
       speakerCharacterName: speakerData.speakerCharacterName,
+      languageCode: speakerData.languageCode,
+      languageCodes: speakerData.languageCodes,
+      speakerVoiceId: speakerData.speakerVoiceId,
+      speakerLabel: speakerData.speakerLabel,
+      speakerDetails: speakerData.speakerDetails,
+      studioSpeechGeneration: true,
+      audioBindingMode: 'unbounded',
+      bindToLayer: false,
     };
-
-    // If the chosen speaker is OpenAI, gather the advanced text fields
-    if (speakerData.provider === 'OPENAI') {
-      const identity = formData.get('identity') || '';
-      const affect = formData.get('affect') || '';
-      const tone = formData.get('tone') || '';
-      const emotion = formData.get('emotion') || '';
-      const pronunciation = formData.get('pronunciation') || '';
-      const pause = formData.get('pause') || '';
-
-      // Attach them to the body as a JSON object
-      body.generationMeta = {
-        identity,
-        affect,
-        tone,
-        emotion,
-        pronunciation,
-        pause,
-      };
-    }
 
     submitGenerateSpeech(body);
   };
-
-  // Identify if the speaker's provider is OpenAI
-  const isOpenAI = speakerType?.provider === 'OPENAI';
 
   const noSpeakersYet = localSpeakers.length === 0;
 
@@ -106,26 +219,28 @@ export default function MovieSpeechProviderSelect(props) {
   return (
     <div className="w-full">
       {/* Header row with Add Speaker button */}
-      <div className="flex justify-between items-center mb-2">
+      <div className={headerRowClass}>
         <label className={`text-sm font-bold ${text2Color}`}>Speakers</label>
-        <button
+        <CommonButton
           type="button"
           onClick={handleAddSpeakerClick}
-          className="px-2 py-1 bg-neutral-700 text-white text-xs rounded hover:bg-neutral-600"
+          extraClasses={addSpeakerButtonClass}
         >
-          {showAddSpeakerForm ? 'Close' : 'Add Speaker'}
-        </button>
+          {showAddSpeakerForm ? 'Back' : 'Add Speaker'}
+        </CommonButton>
       </div>
 
       {showAddSpeakerForm ? (
         <AddSpeaker
           onAddNewSpeaker={handleSaveNewSpeaker}
           onCancel={() => setShowAddSpeakerForm(false)}
-          existingSpeakers={localSpeakers.map((s) => s.speaker)}
+          existingSpeakers={localSpeakers.map((s) => s.speakerCharacterName || s.actor || s.speaker)}
           playMusicPreviewForSpeaker={playMusicPreviewForSpeaker}
+          currentlyPlayingSpeaker={currentlyPlayingSpeaker}
           bgColor={bgColor}
           text2Color={text2Color}
           colorMode={colorMode}
+          sizeVariant={sizeVariant}
         />
       ) : noSpeakersYet ? (
         // If no speakers are defined yet, simply show a message
@@ -139,118 +254,6 @@ export default function MovieSpeechProviderSelect(props) {
           className="w-full"
           onSubmit={createSubmitGenerateSpeechRequest}
         >
-          {/* Show "Advanced" only if provider = OpenAI */}
-          {isOpenAI && (
-            <div className="text-xs block w-full text-right mb-1">
-              <div
-                className={`cursor-pointer inline-flex items-center hover:opacity-80 ${text2Color}`}
-                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-              >
-                <span>Advanced</span>
-                <FaChevronDown className="ml-1" />
-              </div>
-            </div>
-          )}
-
-          {/* Optional existing advanced display */}
-          {showAdvancedOptions && advancedAudioSpeechOptionsDisplay}
-
-          {isOpenAI && showAdvancedOptions && (
-            <div className="mb-2 border border-gray-500 p-2 rounded">
-              <div className="text-sm font-bold mb-2">OpenAI Advanced Options</div>
-
-              {/* Identity */}
-              <div className="mb-2">
-                <label
-                  className={`block text-xs ${text2Color}`}
-                  htmlFor="identity"
-                >
-                  Identity
-                </label>
-                <input
-                  type="text"
-                  name="identity"
-                  id="identity"
-                  placeholder="E.g. old wizard, helpful assistant..."
-                  className={`w-full p-1 rounded border-2 border-gray-500 ${bgColor} ${text2Color}`}
-                />
-              </div>
-
-              {/* Affect */}
-              <div className="mb-2">
-                <label className={`block text-xs ${text2Color}`} htmlFor="affect">
-                  Affect
-                </label>
-                <input
-                  type="text"
-                  name="affect"
-                  id="affect"
-                  placeholder="Overall mood or style (e.g. excited, calm...)"
-                  className={`w-full p-1 rounded border-2 border-gray-500 ${bgColor} ${text2Color}`}
-                />
-              </div>
-
-              {/* Tone */}
-              <div className="mb-2">
-                <label className={`block text-xs ${text2Color}`} htmlFor="tone">
-                  Tone
-                </label>
-                <input
-                  type="text"
-                  name="tone"
-                  id="tone"
-                  placeholder="E.g. formal, casual, sarcastic..."
-                  className={`w-full p-1 rounded border-2 border-gray-500 ${bgColor} ${text2Color}`}
-                />
-              </div>
-
-              {/* Emotion */}
-              <div className="mb-2">
-                <label className={`block text-xs ${text2Color}`} htmlFor="emotion">
-                  Emotion
-                </label>
-                <input
-                  type="text"
-                  name="emotion"
-                  id="emotion"
-                  placeholder="E.g. happy, sad, angry..."
-                  className={`w-full p-1 rounded border-2 border-gray-500 ${bgColor} ${text2Color}`}
-                />
-              </div>
-
-              {/* Pronunciation */}
-              <div className="mb-2">
-                <label
-                  className={`block text-xs ${text2Color}`}
-                  htmlFor="pronunciation"
-                >
-                  Pronunciation
-                </label>
-                <input
-                  type="text"
-                  name="pronunciation"
-                  id="pronunciation"
-                  placeholder="Custom pronunciation tips (optional)"
-                  className={`w-full p-1 rounded border-2 border-gray-500 ${bgColor} ${text2Color}`}
-                />
-              </div>
-
-              {/* Pause */}
-              <div className="mb-2">
-                <label className={`block text-xs ${text2Color}`} htmlFor="pause">
-                  Pause
-                </label>
-                <input
-                  type="text"
-                  name="pause"
-                  id="pause"
-                  placeholder="Short pause, long pause..."
-                  className={`w-full p-1 rounded border-2 border-gray-500 ${bgColor} ${text2Color}`}
-                />
-              </div>
-            </div>
-          )}
-
           {/* Speaker dropdown */}
           <div className="mb-2">
             <SingleSelect
@@ -258,11 +261,11 @@ export default function MovieSpeechProviderSelect(props) {
               placeholder="Select speaker..."
               options={speakerOptions}
               value={
-                speakerType
-                  ? { value: speakerType.value, label: speakerType.label }
-                  : null
+                selectedSpeakerOption
               }
               onChange={handleSpeakerChange}
+              compactLayout={!isSidebarCollapsed && isSidebarPanel}
+              truncateLabels={isSidebarCollapsed}
             />
           </div>
 
@@ -275,10 +278,11 @@ export default function MovieSpeechProviderSelect(props) {
           />
 
           {/* Submit */}
-          <div className="flex justify-center mt-3">
+          <div className={submitContainerClass}>
             <CommonButton
               type="submit"
               isPending={audioGenerationPending}
+              extraClasses={isSidebarPanel ? 'w-full whitespace-normal text-center leading-tight' : ''}
             >
               Generate
             </CommonButton>

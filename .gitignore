@@ -7,11 +7,12 @@
 assets/
 node_modules/
 package-lock.json
-yarn.lock
 .DS_Store
 
 .env.production
 
-
 build/
 dist/
+dist_build/
+dist_build*/
+dist_external_verify*/

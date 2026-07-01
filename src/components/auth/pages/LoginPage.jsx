@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React from 'react';
 import { useUser } from '../../../contexts/UserContext.jsx';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { getHeaders } from '../../../utils/web.jsx';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
 import OverflowContainer from '../../common/OverflowContainer.tsx';
+import { useMediaQuery } from 'react-responsive';
+import {
+  buildGoogleLoginUrl,
+  consumeResolvedAuthRedirect,
+  getCurrentAuthRedirect,
+  persistAuthRedirectForFlow,
+  resolvePostAuthDestination,
+} from '../../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
@@ -12,93 +18,55 @@ export default function LoginPage() {
   const { setUser } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
-
-    const [currentLoginView, setCurrentLoginView] = useState('login');
+  const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
+  const requestedRedirect = getCurrentAuthRedirect(location);
 
   // In a page (vs. a modal), we can define a no-op or minimal function:
   const closeAlertDialog = () => {
     // No-op in a full page context
   };
 
-  // signInWithGoogle logic copied from your AuthContainer
-  const signInWithGoogle = () => {
-    let currentMediaFlowPath = 'video';
-    if (location.pathname.includes('/vidgenie/')) {
-      currentMediaFlowPath = 'vidgpt';
+  const handleViewChange = (view) => {
+    const targetPath = view === 'register' ? '/register' : '/login';
+    if (location.pathname !== targetPath) {
+      navigate({ pathname: targetPath, search: location.search });
     }
-    localStorage.setItem('currentMediaFlowPath', currentMediaFlowPath);
-
-    const origin = window.location.origin;
-    axios
-      .get(`${PROCESSOR_SERVER}/users/google_login?origin=${origin}`)
-      .then((dataRes) => {
-        const authPayload = dataRes.data;
-        window.location.href = authPayload.loginUrl; // Redirect to Google OAuth
-      })
-      .catch((error) => {
-        console.error('Error during Google login:', error);
-      });
   };
 
-  // Similar to AuthContainer
-  const getOrCreateUserSession = () => {
-    const headers = getHeaders();
-    axios
-      .get(`${PROCESSOR_SERVER}/video_sessions/get_session`, headers)
-      .then((res) => {
-        const sessionData = res.data;
-        if (sessionData) {
-          localStorage.setItem('videoSessionId', sessionData._id);
-          // If user wanted quick_video, navigate there; else normal /video route
-          const currentMediaFlow = localStorage.getItem('currentMediaFlowPath');
-          if (currentMediaFlow === 'quick_video') {
-            navigate(`//vidgenie/${sessionData._id}`);
-          } else {
-            navigate(`/video/${sessionData._id}`);
-          }
-        } else {
-          navigate('/my_sessions');
-        }
-      })
-      .catch((error) => {
-        console.error('Error getting or creating user session:', error);
-      });
+  const signInWithGoogle = () => {
+    const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
+    window.location.href = buildGoogleLoginUrl({
+      processorServer: PROCESSOR_SERVER,
+      redirect,
+    });
+  };
+
+  const navigateAfterAuth = async (resolvedUser = null) => {
+    const redirect = consumeResolvedAuthRedirect(requestedRedirect);
+    const destination = await resolvePostAuthDestination({
+      user: resolvedUser,
+      isMobile,
+      apiServer: PROCESSOR_SERVER,
+      redirect,
+      search: location.search,
+    });
+    navigate(destination, { replace: true });
   };
 
   return (
     <OverflowContainer>
-
-
-    <div className="w-full flex flex-col items-center justify-center pt-20">
-      {/* You can style the container as you prefer */}
-      <div className="bg-gray-800 text-white rounded-lg p-6 max-w-md w-full">
-        {/* Reuse your existing <Login> component. 
-            Pass in only the props it needs. */}
-        <Login
-          signInWithGoogle={signInWithGoogle}
-          setUser={setUser}
-          closeAlertDialog={closeAlertDialog}
-          getOrCreateUserSession={getOrCreateUserSession}
-          showSignupButton={false}
-          setCurrentLoginView={setCurrentLoginView} // This prop is optional, but if you want to keep it for consistency
-          // setCurrentLoginView is no longer needed, we do not toggle views
-        />
-        
-        {/* If you want to transform 
-            “Don’t have an account? -> Sign up” 
-            so it navigates to /register, you can remove or override in the <Login> component 
-            OR just display a link below: */}
-        <div className="text-center mt-4">
-          <p>
-            Don’t have an account?{' '}
-            <Link to="/register" className="underline">
-              Sign up
-            </Link>
-          </p>
+      <div className="flex min-h-[calc(100vh-96px)] w-full flex-col items-center justify-center px-4 py-6 sm:py-8">
+        <div className="w-full max-w-md">
+          <Login
+            signInWithGoogle={signInWithGoogle}
+            setUser={setUser}
+            closeAlertDialog={closeAlertDialog}
+            getOrCreateUserSession={navigateAfterAuth}
+            showSignupButton={false}
+            setCurrentLoginView={handleViewChange}
+          />
         </div>
       </div>
-    </div>
     </OverflowContainer>
   );
 }
-

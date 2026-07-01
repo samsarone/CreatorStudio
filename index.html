@@ -20,17 +20,19 @@
 
   <script>
     (function () {
-      // Try to read user preference from localStorage
-      let colorMode = localStorage.getItem('colorMode');
+      let colorMode = 'dark';
 
-      // If not set, fall back to system preference
-      if (!colorMode) {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        colorMode = systemPrefersDark ? 'dark' : 'light';
-        localStorage.setItem('colorMode', colorMode);
+      try {
+        colorMode = localStorage.getItem('colorMode');
+        if (!colorMode) {
+          colorMode = 'dark';
+          localStorage.setItem('colorMode', colorMode);
+        }
+      } catch (error) {
+        colorMode = 'dark';
       }
 
-      // Toggle .dark class on <html>
+      document.documentElement.style.backgroundColor = colorMode === 'dark' ? '#050814' : '#d9e2f0';
       if (colorMode === 'dark') {
         document.documentElement.classList.add('dark');
       } else {

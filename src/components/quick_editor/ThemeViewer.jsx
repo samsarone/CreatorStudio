@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AceEditor from 'react-ace';
 import axios from 'axios';
-import { FaChevronDown, FaExpand, FaCompress } from 'react-icons/fa6';
+import { FaExpand, FaCompress } from 'react-icons/fa6';
 import TextareaAutosize from 'react-textarea-autosize';
 
 import 'ace-builds/src-noconflict/mode-json';
@@ -72,7 +72,7 @@ export default function ThemeViewer(props) {
           setEditorData(parsed);
         }
       } catch (err) {
-        console.error('Could not parse JSON for wizard mode:', err);
+        
       }
     }
   }, [uiViewMode, themeType, parentJsonTheme, derivedJsonTheme]);
@@ -137,7 +137,7 @@ export default function ThemeViewer(props) {
       };
       await axios.post(`${PROCESSOR_API_URL}/quick_session/update_primary_json`, payload, headers);
     } catch (err) {
-      console.error('Error updating parent JSON theme', err);
+      
       setErrorMessage('Failed to update parent theme.');
       setErrorState(true);
     }
@@ -176,7 +176,7 @@ export default function ThemeViewer(props) {
       };
       await axios.post(`${PROCESSOR_API_URL}/quick_session/update_derived_json`, payload, headers);
     } catch (err) {
-      console.error('Error updating derived JSON theme', err);
+      
       setErrorMessage('Failed to update derived theme.');
       setErrorState(true);
     }
@@ -226,7 +226,7 @@ export default function ThemeViewer(props) {
         }
       }
     } catch (err) {
-      console.error('Error setting derived theme', err);
+      
       setErrorMessage('Failed to set derived theme.');
       setErrorState(true);
     }
@@ -378,7 +378,7 @@ export default function ThemeViewer(props) {
         }
       })
       .catch((err) => {
-        console.error('Error setting custom theme', err);
+        
         setParentJsonSubmitting(false);
       });
   };

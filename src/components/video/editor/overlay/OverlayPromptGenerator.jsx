@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import CommonButton from "../../../common/CommonButton.tsx";
 import { IMAGE_GENERAITON_MODEL_TYPES } from "../../../../constants/Types.ts";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 import { IMAGE_MODEL_PRICES } from "../../../../constants/ModelPrices.jsx";
 import TextareaAutosize from "react-textarea-autosize";
+import ImagePayloadAspectRatioSelector from "../../../image/ImagePayloadAspectRatioSelector.jsx";
+import { imageAspectRatioOptions } from "../../../../constants/ImageAspectRatios.js";
 
-import { FaQuestionCircle } from "react-icons/fa";
+import { FaCheck, FaQuestionCircle } from "react-icons/fa";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 
@@ -13,82 +15,121 @@ export default function OverlayPromptGenerator(props) {
   const {
     promptText,
     setPromptText,
-    submitGenerateRequest, // (unused in this snippet, but kept for compatibility)
+    submitGenerateRequest,
     isGenerationPending,
     selectedGenerationModel,
     setSelectedGenerationModel,
     generationError,
-    currentDefaultPrompt, // (unused in this snippet, but kept for compatibility)
+    currentDefaultPrompt,
     submitGenerateNewRequest,
     aspectRatio,
+    setAspectRatio,
+    canvasDimensions,
+    layoutMode = "square",
+    showAspectRatioSelector = false,
+    editorVariant = "videoStudio",
   } = props;
 
   const { colorMode } = useColorMode();
-
-  // Checkboxes
   const [retryOnFailure, setRetryOnFailure] = useState(false);
   const [isCharacterImage, setIsCharacterImage] = useState(false);
-
-  // Single unified "imageStyle" for any model that has an `imageStyles` array
   const [selectedImageStyle, setSelectedImageStyle] = useState(null);
 
-  // ─────────────────────────────────────────────────────────
-  //  On mount, ensure we pick a default model from localStorage
-  // ─────────────────────────────────────────────────────────
+  const isPortraitLayout = layoutMode === "portrait";
+  const isImageStudioPrompt = editorVariant === "imageStudio";
+  const selectShell =
+    colorMode === "dark"
+      ? "bg-slate-950 text-slate-100 border border-slate-700"
+      : "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
+  const textareaShell =
+    colorMode === "dark"
+      ? "bg-slate-950 text-slate-100 border border-slate-700"
+      : "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
+  const checkboxText =
+    colorMode === "dark" ? "text-slate-200" : "text-slate-600";
+  const fieldLabelClassName =
+    colorMode === "dark"
+      ? "text-xs font-semibold text-slate-200"
+      : "text-xs font-semibold text-slate-700";
+  const controlGroupClassName = isImageStudioPrompt
+    ? "flex w-full min-w-0 items-center gap-4"
+    : "flex w-full min-w-0 items-center gap-3";
+  const topControlRowClassName = isPortraitLayout
+    ? "flex w-full flex-col gap-3"
+    : isImageStudioPrompt
+    ? "flex w-full flex-wrap items-center gap-4"
+    : "flex w-full flex-wrap items-center gap-3";
+  const selectControlGroupClassName = isPortraitLayout
+    ? controlGroupClassName
+    : isImageStudioPrompt
+    ? "flex min-w-[240px] flex-1 items-center gap-4"
+    : "flex min-w-[220px] flex-1 items-center gap-3";
+  const optionRowClassName = isPortraitLayout
+    ? isImageStudioPrompt
+      ? "flex flex-wrap items-center gap-3"
+      : "flex flex-wrap items-center gap-2"
+    : isImageStudioPrompt
+    ? "flex flex-wrap items-center gap-3"
+    : "ml-auto flex flex-wrap items-center gap-2";
+  const optionChipBase =
+    colorMode === "dark"
+      ? "bg-slate-950 border border-slate-700 text-slate-300 hover:bg-slate-900"
+      : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-white";
+  const optionChipActive =
+    colorMode === "dark"
+      ? "bg-slate-900 border border-slate-500 text-white"
+      : "bg-slate-100 border border-slate-300 text-slate-900";
+  const optionIndicatorBase =
+    colorMode === "dark"
+      ? "border-slate-600 bg-slate-950 text-slate-200"
+      : "border-slate-300 bg-white text-slate-700";
+  const optionIndicatorActive =
+    colorMode === "dark"
+      ? "border-slate-400 bg-slate-100 text-slate-900"
+      : "border-slate-400 bg-slate-900 text-white";
+  const inputPaddingClass = isImageStudioPrompt ? "rounded-xl px-4 py-3 text-sm" : "rounded-md px-2.5 py-2";
+  const labelClassName = isImageStudioPrompt
+    ? colorMode === "dark"
+      ? "text-sm font-semibold text-slate-100"
+      : "text-sm font-semibold text-slate-800"
+    : fieldLabelClassName;
+  const checkboxChipClassName = isImageStudioPrompt
+    ? "inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition-colors duration-150"
+    : "inline-flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors duration-150";
+  const promptTextareaMaxRows = isImageStudioPrompt
+    ? 7
+    : isPortraitLayout
+    ? 5
+    : 4;
+
   useEffect(() => {
-    // The code below references 'defaultModel' from localStorage
-    // If you prefer 'defaultImageModel', change accordingly:
     const storedDefaultModel = localStorage.getItem("defaultModel");
     if (storedDefaultModel) {
       setSelectedGenerationModel(storedDefaultModel);
     }
-    // If there's no stored model, we stick with whichever is set by parent props
   }, [setSelectedGenerationModel]);
 
-  // ─────────────────────────────────────────────────────────
-  //  Whenever the selected model changes, check if it has imageStyles.
-  //  If so, load from localStorage or default to the first style.
-  // ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!selectedGenerationModel) return;
 
     const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
-      (m) => m.key === selectedGenerationModel
+      (model) => model.key === selectedGenerationModel
     );
     if (modelDef?.imageStyles?.length) {
       const localKey = `defaultImageStyle_${selectedGenerationModel}`;
       const storedStyle = localStorage.getItem(localKey);
-
-      // If we have a stored style that still exists in this model's array, use it
       const isValidStyle = modelDef.imageStyles.includes(storedStyle);
+
       if (storedStyle && isValidStyle) {
         setSelectedImageStyle(storedStyle);
       } else {
-        // Otherwise default to the first style in the array
         setSelectedImageStyle(modelDef.imageStyles[0]);
       }
     } else {
-      // No imageStyles for this model
       setSelectedImageStyle(null);
     }
   }, [selectedGenerationModel]);
 
-  // ─────────────────────────────────────────────────────────
-  //  Theme-based styling
-  // ─────────────────────────────────────────────────────────
-  const selectShell =
-    colorMode === "dark"
-      ? "bg-slate-900/60 text-slate-100 border border-white/10"
-      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
-  const textareaShell =
-    colorMode === "dark"
-      ? "bg-slate-900/60 text-slate-100 border border-white/10"
-      : "bg-white text-slate-900 border border-slate-200 shadow-sm";
-  const checkboxText = colorMode === "dark" ? "text-slate-200" : "text-slate-600";
-
-  // ─────────────────────────────────────────────────────────
-  //  Compute cost for the selected model + aspect ratio
-  // ─────────────────────────────────────────────────────────
   const modelPricing = IMAGE_MODEL_PRICES.find(
     (model) => model.key === selectedGenerationModel
   );
@@ -96,77 +137,62 @@ export default function OverlayPromptGenerator(props) {
     ? modelPricing.prices.find((price) => price.aspectRatio === aspectRatio)
     : null;
   const modelPrice = priceObj ? priceObj.price : 0;
+  const selectedModelDefinition = IMAGE_GENERAITON_MODEL_TYPES.find(
+    (model) => model.key === selectedGenerationModel
+  );
 
-  // ─────────────────────────────────────────────────────────
-  //  Handle changes to model
-  // ─────────────────────────────────────────────────────────
   const setSelectedModelDisplay = (evt) => {
     const newModel = evt.target.value;
     setSelectedGenerationModel(newModel);
     localStorage.setItem("defaultModel", newModel);
   };
 
-  // ─────────────────────────────────────────────────────────
-  //  Handle changes to image style
-  // ─────────────────────────────────────────────────────────
-  const handleImageStyleChange = (e) => {
-    const newStyle = e.target.value;
+  const handleImageStyleChange = (event) => {
+    const newStyle = event.target.value;
     setSelectedImageStyle(newStyle);
     const localKey = `defaultImageStyle_${selectedGenerationModel}`;
     localStorage.setItem(localKey, newStyle);
   };
 
-  // ─────────────────────────────────────────────────────────
-  //  Handle submission
-  // ─────────────────────────────────────────────────────────
   const handleSubmit = () => {
     const payload = {
       prompt: promptText,
       model: selectedGenerationModel,
       retryOnFailure,
       isCharacterImage,
+      aspectRatio,
     };
 
-    // If model has imageStyles & user selected one, attach it
-    const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
-      (m) => m.key === selectedGenerationModel
-    );
-    if (modelDef?.imageStyles?.length && selectedImageStyle) {
+    if (selectedModelDefinition?.imageStyles?.length && selectedImageStyle) {
       payload.imageStyle = selectedImageStyle;
     }
 
     submitGenerateNewRequest(payload);
   };
 
-  // ─────────────────────────────────────────────────────────
-  //  Render error, if any
-  // ─────────────────────────────────────────────────────────
-  const errorDisplay = generationError && (
-    <div className="text-red-500 text-center text-sm">{generationError}</div>
-  );
+  const errorDisplay = generationError ? (
+    <div className="shrink-0 text-center text-sm text-red-500">{generationError}</div>
+  ) : null;
 
-  // ─────────────────────────────────────────────────────────
-  //  Render
-  // ─────────────────────────────────────────────────────────
   return (
-    <div>
-      {/* ───────────────────────── Model + Style row ───────────────────────── */}
-      <div className="flex w-full mt-2 mb-4 justify-center items-center space-x-4">
-        {/* Model Selection */}
-        <div className="flex items-center space-x-2">
-          <div className="text-md font-bold flex items-center">
-            Model
+    <div className="flex min-h-0 w-full flex-col gap-3">
+      <div className={`shrink-0 ${topControlRowClassName}`}>
+        <div className={selectControlGroupClassName}>
+          <div
+            className={`${labelClassName} flex shrink-0 items-center gap-1 whitespace-nowrap`}
+          >
+            <span>Model</span>
             <a
               data-tooltip-id="modelCostTooltip"
               data-tooltip-content={`Currently selected model cost: ${modelPrice} Credits`}
             >
-              <FaQuestionCircle className="ml-1" />
+              <FaQuestionCircle className="text-[11px]" />
             </a>
             <Tooltip id="modelCostTooltip" place="right" effect="solid" />
           </div>
           <select
             onChange={setSelectedModelDisplay}
-            className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
+            className={`${selectShell} min-w-0 flex-1 ${inputPaddingClass}`}
             value={selectedGenerationModel}
           >
             {IMAGE_GENERAITON_MODEL_TYPES.map((model) => (
@@ -177,93 +203,130 @@ export default function OverlayPromptGenerator(props) {
           </select>
         </div>
 
-        {/* If the current model has an imageStyles array, show the dropdown */}
-        {(() => {
-          const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
-            (m) => m.key === selectedGenerationModel
-          );
-          if (modelDef?.imageStyles?.length) {
-            return (
-              <div className="flex items-center space-x-2">
-                <div className="text-xs font-bold">Image Style</div>
-                <select
-                  onChange={handleImageStyleChange}
-                  value={selectedImageStyle || ""}
-                  className={`${selectShell} rounded-md px-3 py-2 bg-transparent`}
-                >
-                  {modelDef.imageStyles.map((style) => (
-                    <option key={style} value={style}>
-                      {style}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            );
-          }
-          return null;
-        })()}
+        {selectedModelDefinition?.imageStyles?.length ? (
+          <div className={selectControlGroupClassName}>
+            <div className={`${labelClassName} shrink-0 whitespace-nowrap`}>
+              Style
+            </div>
+            <select
+              onChange={handleImageStyleChange}
+              value={selectedImageStyle || ""}
+              className={`${selectShell} min-w-0 flex-1 ${inputPaddingClass}`}
+            >
+              {selectedModelDefinition.imageStyles.map((style) => (
+                <option key={style} value={style}>
+                  {style}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        <div className={`${optionRowClassName} ${checkboxText}`}>
+          <label
+            className={`${checkboxChipClassName} ${
+              retryOnFailure ? optionChipActive : optionChipBase
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={retryOnFailure}
+              onChange={(event) => setRetryOnFailure(event.target.checked)}
+            />
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-[4px] border text-[9px] ${
+                retryOnFailure ? optionIndicatorActive : optionIndicatorBase
+              }`}
+            >
+              {retryOnFailure ? <FaCheck /> : null}
+            </span>
+            <span className="flex items-center gap-1">
+              Retry
+              <a
+                data-tooltip-id="retryOnFailTooltip"
+                data-tooltip-content="Retry generation if it fails up to 3 times with prompt variants"
+              >
+                <FaQuestionCircle className="text-[10px] opacity-70" />
+              </a>
+              <Tooltip id="retryOnFailTooltip" place="right" effect="solid" />
+            </span>
+          </label>
+
+          <label
+            className={`${checkboxChipClassName} ${
+              isCharacterImage ? optionChipActive : optionChipBase
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="sr-only"
+              checked={isCharacterImage}
+              onChange={(event) => setIsCharacterImage(event.target.checked)}
+            />
+            <span
+              className={`flex h-4 w-4 items-center justify-center rounded-[4px] border text-[9px] ${
+                isCharacterImage ? optionIndicatorActive : optionIndicatorBase
+              }`}
+            >
+              {isCharacterImage ? <FaCheck /> : null}
+            </span>
+            <span className="flex items-center gap-1">
+              Speaker scene
+              <a
+                data-tooltip-id="characterImageTooltip"
+                data-tooltip-content="Generate an image from the POV of the main character in the prompt."
+              >
+                <FaQuestionCircle className="text-[10px] opacity-70" />
+              </a>
+              <Tooltip id="characterImageTooltip" place="right" effect="solid" />
+            </span>
+          </label>
+        </div>
       </div>
 
-      {/* ───────────────────────── Checkboxes (Retry/Speaker) ───────────────────────── */}
-      <div className={`flex flex-wrap items-center gap-4 px-1 ${checkboxText}`}>
-        {/* Retry on fail */}
-        <label className="flex items-center text-xs font-semibold">
-          <input
-            type="checkbox"
-            className="form-checkbox h-4 w-4 text-blue-600"
-            checked={retryOnFailure}
-            onChange={(e) => setRetryOnFailure(e.target.checked)}
+      {showAspectRatioSelector ? (
+        <div className="w-full shrink-0">
+          <ImagePayloadAspectRatioSelector
+            label="Generation ratio"
+            value={aspectRatio}
+            onChange={setAspectRatio}
+            options={imageAspectRatioOptions}
+            canvasDimensions={canvasDimensions}
+            compactInline
           />
-          <span className="ml-1 flex items-center">
-            Retry on fail
-            <a
-              data-tooltip-id="retryOnFailTooltip"
-              data-tooltip-content="Retry generation if it fails up to 3 times with prompt variants"
-            >
-              <FaQuestionCircle className="ml-1" />
-            </a>
-            <Tooltip id="retryOnFailTooltip" place="right" effect="solid" />
-          </span>
-        </label>
+        </div>
+      ) : null}
 
-        {/* Speaker / Character Image */}
-        <label className="flex items-center text-xs font-semibold">
-          <input
-            type="checkbox"
-            className="form-checkbox h-4 w-4 text-blue-600"
-            checked={isCharacterImage}
-            onChange={(e) => setIsCharacterImage(e.target.checked)}
-          />
-          <span className="ml-1 flex items-center">
-            Speaker Scene
-            <a
-              data-tooltip-id="characterImageTooltip"
-              data-tooltip-content="Generate an image from the POV of the main character in the prompt."
-            >
-              <FaQuestionCircle className="ml-1" />
-            </a>
-            <Tooltip id="characterImageTooltip" place="right" effect="solid" />
-          </span>
-        </label>
-      </div>
-
-      {/* ───────────────────────── Prompt Textarea ───────────────────────── */}
       <TextareaAutosize
-        onChange={(evt) => setPromptText(evt.target.value)}
+        onChange={(event) => setPromptText(event.target.value)}
         placeholder="Describe your prompt to generate an image"
-        className={`${textareaShell} w-full m-auto px-3 py-3 rounded-xl mt-3 bg-transparent`}
-        minRows={3}
+        className={`${textareaShell} min-h-0 w-full resize-none overflow-y-auto ${isImageStudioPrompt ? "rounded-2xl px-4 py-3.5 text-sm leading-6" : "rounded-lg px-3 py-2"}`}
+        minRows={isImageStudioPrompt ? 4 : isPortraitLayout ? 3 : 2}
+        maxRows={promptTextareaMaxRows}
         value={promptText}
       />
 
-      {/* ───────────────────────── Submit Button ───────────────────────── */}
-      <div className="text-center mt-2">
-        <CommonButton onClick={handleSubmit} isPending={isGenerationPending}>
+      <div
+        className={`flex shrink-0 pt-1 ${
+          isPortraitLayout ? "justify-stretch" : "justify-end"
+        }`}
+      >
+        <CommonButton
+          onClick={handleSubmit}
+          isPending={isGenerationPending}
+          extraClasses={
+            isImageStudioPrompt
+              ? "min-h-[46px] min-w-[160px] text-sm"
+              : isPortraitLayout
+              ? "w-full"
+              : "min-w-[140px]"
+          }
+        >
           Submit
         </CommonButton>
       </div>
 
-      {/* ───────────────────────── Error Display ───────────────────────── */}
       {errorDisplay}
     </div>
   );

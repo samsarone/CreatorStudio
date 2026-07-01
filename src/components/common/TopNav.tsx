@@ -1,73 +1,120 @@
-import React, { useEffect, useState, useRef, useContext, useCallback } from 'react';
+import React, { Suspense, lazy, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
 import { useNavigate, useLocation } from 'react-router-dom';
-import QRCode from 'react-qr-code';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
-import MusicLibraryHome from '../library/audio/MusicLibraryHome.jsx';
 import { IoMdLogIn } from 'react-icons/io';
 
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-import Login from '../auth/Login.tsx';
-import UpgradePlan from '../payments/UpgradePlan.tsx';
-import AddSessionDropdown from './AddSessionDropdown.jsx';
 import './common.css';
-import { FaTwitter, FaStar, FaArrowUpRightFromSquare } from 'react-icons/fa6';
-import AuthContainer from '../auth/AuthContainer.jsx';
+import { FaStar } from 'react-icons/fa6';
 import { getHeaders } from '../../utils/web.jsx';
-import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { toast } from 'react-toastify';
+import { useLocalization } from '../../contexts/LocalizationContext.jsx';
+import { hasInsufficientGenerationCredits } from '../../utils/defaultRoutes.js';
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 
-import  AddLicense  from '../license/AddLicense.jsx';
-
-
-
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
+import BrandLogo from './BrandLogo.tsx';
+import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
+import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const AddLicense = lazy(() => import('../license/AddLicense.jsx'));
+const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
+const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
+const UpgradePlan = lazy(() => import('../payments/UpgradePlan.tsx'));
+const AUTH_DIALOG_OPTIONS = {
+  surface: 'auth',
+  fullBleed: true,
+  centerContent: true,
+  hideBorder: true,
+  hideCloseButton: true,
+};
+const dialogFallback = <div className="p-6 text-sm">Loading...</div>;
+const creditsNumberFormatter = new Intl.NumberFormat('en-US', {
+  maximumFractionDigits: 2,
+});
+
+function formatCredits(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? creditsNumberFormatter.format(numericValue) : '-';
+}
 
 export default function TopNav(props) {
-  const { resetCurrentSession, addCustodyAddress, isVideoPreviewPlaying, setIsVideoPreviewPlaying } = props;
-  const farcasterSignInButtonRef = useRef(null);
+  const {
+    resetCurrentSession,
+    isVideoPreviewPlaying,
+    setIsVideoPreviewPlaying,
+    isRenderPending,
+    submitRenderVideo,
+    cancelPendingRender,
+    renderedVideoPath,
+    downloadLink,
+    isVideoGenerating,
+    isUpdateLayerPending,
+    isCanvasDirty,
+    isSessionPublished,
+    publishVideoSession,
+    unpublishVideoSession,
+    renderCompletedThisSession,
+    sessionId: sessionIdOverride,
+    openAdvancedVideoEditDialog,
+    isReadOnlyShareView,
+    isEditableShareView,
+    isImportedSession,
+    onRequestEditSession,
+    openAuthDialog,
+  } = props;
   const { colorMode } = useColorMode();
+  const { t } = useLocalization();
   const location = useLocation();
-  const { openAlertDialog, closeAlertDialog, isAlertDialogOpen } = useAlertDialog();
+  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
   const sessionType = getSessionType();
+
+  const isImageEditor =
+    location.pathname.includes('/image/') ||
+    location.pathname.includes('/iamge/') ||
+    location.pathname.includes('/image_sessions');
+  const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/');
+  const isGenerationWorkspace =
+    isImageEditor ||
+    isVideoEditor ||
+    location.pathname === '/vidgenie' ||
+    location.pathname.startsWith('/vidgenie/');
+  const isGenerationsView = location.pathname.startsWith('/generations');
 
   const {
     downloadCurrentFrame,
     isExpressGeneration,
-    sessionId,
-    toggleStageZoom,
     requestRegenerateSubtitles,
-    displayZoomType,
-    stageZoomScale,
     requestRegenerateAnimations,
     requestRealignLayers,
     requestRealignToAiVideoAndLayers,
     canvasActualDimensions,
     totalEffectiveDuration,
-
+    sessionId: navSessionId,
   } = useContext(NavCanvasControlContext);
 
-  let bgColor = 'from-indigo-900 via-blue-950 to-blue-900 text-neutral-50';
+  const resolvedSessionId = sessionIdOverride || navSessionId;
 
-  if (colorMode === 'light') {
-    bgColor = 'from-blue-700 to-blue-400 text-neutral-900';
-  }
-
-  const textColor =
-    colorMode === "dark" ? "text-neutral-100" : "text-neutral-800";
+  const navShell =
+    colorMode === 'dark'
+      ? 'bg-gradient-to-r from-[#071223] via-[#0d1d35] to-[#0a1b2d] text-slate-100 border-b border-[#2a4e70] shadow-[0_16px_48px_rgba(0,0,0,0.45)]'
+      : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef]';
 
   const resetSession = () => {
     closeAlertDialog();
+    if (isImageEditor) {
+      createNewImageSession();
+      return;
+    }
     createNewSession();
   };
 
@@ -134,9 +181,11 @@ export default function TopNav(props) {
         setTimeout(() => {
           if (user && !user.isPremiumUser) {
             openAlertDialog(
-              <div className='relative'>
-                <UpgradePlan />
-              </div>
+              <Suspense fallback={dialogFallback}>
+                <div className='relative'>
+                  <UpgradePlan />
+                </div>
+              </Suspense>
             );
           }
 
@@ -156,14 +205,16 @@ const showLicenseDialog = () => {
   openAlertDialog(
     <div className="relative">
       <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-      <AddLicense />
+      <Suspense fallback={dialogFallback}>
+        <AddLicense />
+      </Suspense>
     </div>
   );
 };
 
   const homeAlertDialogComponent = (
     <div>
-      <div>This will reset your current session. Are you sure you want to proceed?</div>
+      <div>{t("common.resetSessionConfirm")}</div>
       <div className="mt-4 mb-4 m-auto">
         <div className="inline-flex ml-2 mr-2">
           <CommonButton
@@ -171,7 +222,7 @@ const showLicenseDialog = () => {
               resetSession();
             }}
           >
-            Yes
+            {t("common.yes")}
           </CommonButton>
         </div>
         <div className="inline-flex ml-2 mr-2">
@@ -180,17 +231,15 @@ const showLicenseDialog = () => {
               closeAlertDialog();
             }}
           >
-            No
+            {t("common.no")}
           </CommonButton>
         </div>
       </div>
     </div>
   );
 
-  const { user, setUser, getUserAPI } = useUser();
+  const { user } = useUser();
   const navigate = useNavigate();
-
-  const [userProfileData, setUserProfileData] = useState({});
 
   let userProfile = <span />;
 
@@ -198,31 +247,177 @@ const showLicenseDialog = () => {
     navigate('/account');
   };
 
+  const gotoCreditsBilling = () => {
+    navigate('/account/billing');
+  };
+
   const showLoginDialog = () => {
+    if (typeof openAuthDialog === 'function') {
+      openAuthDialog();
+      return;
+    }
+
     navigate('/login');
   };
 
   const showRegisterDialog = () => {
-    const registerComponent = <AuthContainer initView="register" />;
-    openAlertDialog(
-      <div>
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        {registerComponent}
-      </div>
+    if (typeof openAuthDialog === 'function') {
+      openAuthDialog({ initView: 'register' });
+      return;
+    }
+
+    const registerComponent = (
+      <Suspense fallback={dialogFallback}>
+        <AuthContainer initView="register" />
+      </Suspense>
     );
+    openAlertDialog(registerComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   }
+
+  const copyShareUrlToClipboard = useCallback((sharePath) => {
+    const shareUrl = new URL(sharePath, window.location.origin).toString();
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
+    }
+    toast.success('Share link copied', { position: 'bottom-center' });
+  }, []);
+
+  const createShareUrl = useCallback((mode: 'read_only' | 'editable') => {
+    if (isReadOnlyShareView || isEditableShareView) {
+      const shareUrl = window.location.href;
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(shareUrl).catch(() => {});
+      }
+      toast.success('Share link copied', { position: 'bottom-center' });
+      return;
+    }
+
+    if (!resolvedSessionId) {
+      toast.error('Session is not ready to share.', { position: 'bottom-center' });
+      return;
+    }
+
+    const headers = getHeaders();
+    if (!headers) {
+      showLoginDialog();
+      return;
+    }
+
+    axios
+      .post(`${PROCESSOR_SERVER}/video_sessions/share_session`, { sessionId: resolvedSessionId, mode }, headers)
+      .then((response) => {
+        const sharePath = response?.data?.shareUrl || response?.data?.share_url;
+        if (!sharePath) {
+          throw new Error('Missing share URL.');
+        }
+
+        copyShareUrlToClipboard(sharePath);
+      })
+      .catch((error) => {
+        toast.error(error?.response?.data?.error || 'Unable to create share link.', {
+          position: 'bottom-center',
+        });
+      });
+  }, [copyShareUrlToClipboard, isEditableShareView, isReadOnlyShareView, resolvedSessionId]);
+
+  const openShareOptionsDialog = useCallback(() => {
+    const optionButtonClassName =
+      colorMode === 'dark'
+        ? 'w-full rounded-lg border border-white/10 bg-[#111a2f] px-4 py-3 text-left transition hover:border-cyan-300/35 hover:bg-[#162744]'
+        : 'w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50';
+    const secondaryTextClassName = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+
+    openAlertDialog(
+      <div className="relative w-full">
+        <FaTimes className="absolute right-0 top-0 cursor-pointer" onClick={closeAlertDialog} />
+        <div className="pr-8">
+          <div className="text-base font-semibold">Share session</div>
+          <div className={`mt-1 text-sm ${secondaryTextClassName}`}>
+            Choose how this session link can be used.
+          </div>
+        </div>
+        <div className="mt-5 flex flex-col gap-3">
+          <button
+            type="button"
+            className={optionButtonClassName}
+            onClick={() => {
+              closeAlertDialog();
+              createShareUrl('read_only');
+            }}
+          >
+            <div className="text-sm font-semibold">Read only</div>
+            <div className={`mt-1 text-xs ${secondaryTextClassName}`}>Anyone with the link can view.</div>
+          </button>
+          <button
+            type="button"
+            className={optionButtonClassName}
+            onClick={() => {
+              closeAlertDialog();
+              createShareUrl('editable');
+            }}
+          >
+            <div className="text-sm font-semibold">Editable link</div>
+            <div className={`mt-1 text-xs ${secondaryTextClassName}`}>Authenticated users can edit this session.</div>
+          </button>
+        </div>
+      </div>,
+      undefined,
+      false,
+      {
+        centerContent: true,
+        containerClassName: 'w-full max-w-[420px]',
+        fullBleed: false,
+      }
+    );
+  }, [
+    closeAlertDialog,
+    colorMode,
+    createShareUrl,
+    isEditableShareView,
+    isReadOnlyShareView,
+    openAlertDialog,
+  ]);
 
   const upgradeToPremiumTier = () => {
 
     navigate('/create_payment');
   };
 
-  const createNewSession = (aspectRatio = '1:1') => {
+  const createNewSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          sessionDescription?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || '1:1';
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const normalizedSessionDescription = typeof normalizedSessionConfig.sessionDescription === 'string'
+      ? normalizedSessionConfig.sessionDescription.trim()
+      : '';
     const headers = getHeaders();
-    const payload = {
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      sessionName?: string;
+      sessionDescription?: string;
+    } = {
       prompts: [],
-      aspectRatio: aspectRatio,
+      aspectRatio: selectedAspectRatio,
     };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (normalizedSessionDescription) {
+      payload.sessionDescription = normalizedSessionDescription;
+    }
     axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
       const session = response.data;
       const sessionId = session._id.toString();
@@ -233,8 +428,100 @@ const showLicenseDialog = () => {
     });
   };
 
+  const createNewImageSession = (
+    sessionConfig:
+      | string
+      | {
+          aspectRatio?: string;
+          sessionName?: string;
+          canvasDimensions?: { width?: number; height?: number };
+          addBackgroundLayer?: boolean;
+          backgroundLayerColor?: string;
+        } = '1:1'
+  ) => {
+    const normalizedSessionConfig = typeof sessionConfig === 'string'
+      ? { aspectRatio: sessionConfig }
+      : (sessionConfig || {});
+    const selectedAspectRatio = normalizedSessionConfig.aspectRatio || '1:1';
+    const fallbackCanvasDimensions = getCanvasDimensionsForAspectRatio(selectedAspectRatio);
+    const rawWidth = Number(normalizedSessionConfig.canvasDimensions?.width);
+    const rawHeight = Number(normalizedSessionConfig.canvasDimensions?.height);
+    const canvasDimensions = {
+      width: Number.isFinite(rawWidth) && rawWidth > 0 ? Math.round(rawWidth) : fallbackCanvasDimensions.width,
+      height: Number.isFinite(rawHeight) && rawHeight > 0 ? Math.round(rawHeight) : fallbackCanvasDimensions.height,
+    };
+    const normalizedSessionName = typeof normalizedSessionConfig.sessionName === 'string'
+      ? normalizedSessionConfig.sessionName.trim()
+      : '';
+    const shouldAddBackgroundLayer = Boolean(normalizedSessionConfig.addBackgroundLayer);
+    const backgroundLayerColor =
+      typeof normalizedSessionConfig.backgroundLayerColor === 'string'
+        ? normalizedSessionConfig.backgroundLayerColor
+        : '#ffffff';
+
+    const headers = getHeaders();
+    const payload: {
+      prompts: string[];
+      aspectRatio: string;
+      canvasDimensions: { width: number; height: number };
+      sessionName?: string;
+      addBackgroundLayer?: boolean;
+      backgroundLayerColor?: string;
+    } = {
+      prompts: [],
+      aspectRatio: selectedAspectRatio,
+      canvasDimensions,
+    };
+    if (normalizedSessionName) {
+      payload.sessionName = normalizedSessionName;
+    }
+    if (shouldAddBackgroundLayer) {
+      payload.addBackgroundLayer = true;
+      payload.backgroundLayerColor = backgroundLayerColor;
+    }
+    axios.post(`${PROCESSOR_SERVER}/image_sessions/create_session`, payload, headers).then(function (response) {
+      const session = response.data;
+      const sessionId = session._id.toString();
+      localStorage.setItem('imageSessionId', sessionId);
+      navigate(`/image/studio/${session._id}`);
+    });
+  };
+
   const gotoViewSessionsPage = () => {
+    if (isImageEditor) {
+      navigate('/image_sessions');
+      return;
+    }
     navigate('/my_sessions');
+  };
+
+  const openImageEditor = () => {
+    const storedSessionId = localStorage.getItem('imageSessionId');
+    if (storedSessionId) {
+      navigate(`/image/studio/${storedSessionId}`);
+      return;
+    }
+    const defaultAspectRatio = localStorage.getItem('defaultImageAspectRatio') || '1:1';
+    createNewImageSession(defaultAspectRatio);
+  };
+
+  const openVideoEditor = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/video/${storedSessionId}`);
+      return;
+    }
+    const defaultAspectRatio = localStorage.getItem('defaultAspectRatio') || '1:1';
+    createNewSession(defaultAspectRatio);
+  };
+
+  const openStudioWorkspace = () => {
+    const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
+    if (storedSessionId) {
+      navigate(`/vidgenie/${storedSessionId}`);
+      return;
+    }
+    addNewVidGPTSession();
   };
 
 
@@ -286,37 +573,27 @@ const showLicenseDialog = () => {
   let userTierDisplay = <span />;
 
   let userCredits;
-  let nextUpdate;
 
-  if (user && user._id) {
+  if (user && user._id && !isReadOnlyShareView) {
     if (user.isPremiumUser) {
       let premiumUserType = 'Premium';
       if (user.premiumUserType) {
         premiumUserType = user.premiumUserType;
       }
       userTierDisplay = (
-        <div className='text-xs'>
-          <FaStar className="inline-flex text-neutral-100" /> {premiumUserType}
+        <div className='text-xs text-[#d7ffeb]'>
+          <FaStar className="inline-flex text-[#39d881]" /> {premiumUserType}
         </div>
       );
     } else {
       userTierDisplay = (
-        <div className='text-xs'>
-          <FaStar className="inline-flex text-neutral-700" /> Upgrade
+        <div className='text-xs text-slate-400'>
+          <FaStar className="inline-flex text-slate-500" /> {t("common.upgrade")}
         </div>
       );
     }
 
     userCredits = user.generationCredits;
-
-    if (user.isPremiumUser) {
-      const now = new Date();
-      const lastUpdated = new Date(user.premiumUserCreditsLastUpdated);
-      const nextUpdateDate = new Date(lastUpdated);
-      nextUpdateDate.setMonth(nextUpdateDate.getMonth() + 1);
-      const timeDiff = nextUpdateDate.getTime() - now.getTime();
-      nextUpdate = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    }
 
     userProfile = (
       <div className="flex items-center justify-end gap-3">
@@ -328,7 +605,7 @@ const showLicenseDialog = () => {
             {userTierDisplay}
           </div>
         </div>
-        <FaCog className="text-lg cursor-pointer" onClick={gotoUserAccount} />
+        <FaCog className="text-lg cursor-pointer hover:text-[#89dcff]" onClick={gotoUserAccount} />
       </div>
     );
 
@@ -337,21 +614,25 @@ const showLicenseDialog = () => {
     userProfile = (
       <button
         className={`
-          inline-flex items-center gap-2 rounded-lg border-2 px-4 py-2 text-sm font-semibold shadow-lg transition duration-200
+          inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0
           ${colorMode === 'dark'
-            ? 'text-neutral-100 bg-cyber-black border-gray-800 hover:bg-neutral-800 hover:text-blue-400'
-            : 'text-neutral-900 bg-blue-300 border-blue-200 hover:bg-blue-400 hover:text-white'}
+            ? 'text-slate-100 bg-[#111a2f] hover:bg-[#162744] hover:text-[#d7ffeb] shadow-[0_8px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_24px_rgba(70,191,255,0.2)]'
+            : 'border border-slate-200 text-slate-900 bg-white/80 hover:bg-white hover:text-slate-900'}
         `}
         type="button"
         onClick={showLoginDialog}
       >
         <IoMdLogIn className="text-base" />
-        <span>Login</span>
+        <span>{t("common.login")}</span>
       </button>
     );
   }
 
   const gotoHome = () => {
+    if (user && user._id && !isImageEditor && !isVideoEditor) {
+      navigate('/generations');
+      return;
+    }
 
     const currentPath = location.pathname;
     if (currentPath.includes('video')) {
@@ -365,77 +646,6 @@ const showLicenseDialog = () => {
       }
     }
   };
-
-  const purchaseCreditsForUser = useCallback((amountToPurchase) => {
-    const purchaseAmountRequest = parseInt(amountToPurchase, 10);
-
-    if (Number.isNaN(purchaseAmountRequest) || purchaseAmountRequest <= 0) {
-      toast.error("Select a valid amount to purchase.", { position: "bottom-center" });
-      return;
-    }
-
-    const headers = getHeaders();
-
-    const payload = {
-      amount: purchaseAmountRequest,
-    };
-
-    axios
-      .post(`${PROCESSOR_SERVER}/users/purchase_credits`, payload, headers)
-      .then(function (dataRes) {
-
-        const data = dataRes.data;
-
-        if (data.url) {
-          window.open(data.url, "_blank", "noopener,noreferrer");
-          toast.success("Redirecting to checkout…", { position: "bottom-center" });
-        } else {
-          console.error("Failed to get Stripe payment URL");
-          toast.error("Unable to open checkout. Please try again.", { position: "bottom-center" });
-        }
-      })
-      .catch(function (error) {
-        console.error("Error during payment process", error);
-        toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
-      });
-  }, []);
-
-  const requestApplyCreditsCoupon = useCallback((couponCode) => {
-    if (!couponCode) {
-      toast.error("Please enter a coupon code", { position: "bottom-center" });
-      return;
-    }
-
-    axios
-      .post(`${PROCESSOR_SERVER}/users/apply_credits_coupon`, { couponCode }, getHeaders())
-      .then(() => {
-        toast.success("Coupon applied!", { position: "bottom-center" });
-        if (typeof getUserAPI === "function") {
-          getUserAPI();
-        }
-      })
-      .catch(() => {
-        toast.error("Failed to apply coupon", { position: "bottom-center" });
-      });
-  }, [getUserAPI]);
-
-  const openPurchaseCreditsDialog = useCallback(() => {
-
-    const alertDialogContent = (
-      <div>
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        <AddCreditsDialog purchaseCreditsForUser={purchaseCreditsForUser}
-          requestApplyCreditsCoupon={requestApplyCreditsCoupon} />
-      </div>
-    );
-
-    openAlertDialog(alertDialogContent, undefined, false);
-
-  }, [closeAlertDialog, openAlertDialog, purchaseCreditsForUser, requestApplyCreditsCoupon]);
-
-  useEffect(() => {
-    // Auto-popup for zero credits removed.
-  }, []);
 
   const showAddNewMovieMakerSession = () => {
     const headers = getHeaders();
@@ -452,21 +662,6 @@ const showLicenseDialog = () => {
     });
   }
 
-  const addNewSnowMakerSession = () => {
-     const headers = getHeaders();
-    const payload = {
-      prompts: [],
-    };
-    axios.post(`${PROCESSOR_SERVER}/video_sessions/create_video_session`, payload, headers).then(function (response) {
-      const session = response.data;
-      const sessionId = session._id.toString();
-      localStorage.setItem('videoSessionId', sessionId);
-
-      navigate(`/infovidcreator/${session._id}`);
-
-    });   
-  }
-
   let addSessionButton = <span />;
 
   let betaOptionVisible = false;
@@ -477,56 +672,71 @@ const showLicenseDialog = () => {
   if (user && user._id) {
     addSessionButton = (
       <div className="inline-flex items-center">
-        <AddSessionDropdown
-          createNewSession={createNewSession}
-          gotoViewSessionsPage={gotoViewSessionsPage}
-          addNewExpressSession={addNewExpressSession}
-          addNewVidGPTSession={addNewVidGPTSession}
-          showAddNewMovieMakerSession={showAddNewMovieMakerSession}
-          betaOptionVisible={betaOptionVisible}
-          showAddNewAdVideoSession={showAddNewAdVideoSession}
-          addNewSnowMakerSession={addNewSnowMakerSession}
-        />
+        <Suspense fallback={<div className="h-11 w-[118px]" />}>
+          <AddSessionDropdown
+            createNewSession={isImageEditor ? createNewImageSession : createNewSession}
+            gotoViewSessionsPage={gotoViewSessionsPage}
+            addNewExpressSession={addNewExpressSession}
+            addNewVidGPTSession={addNewVidGPTSession}
+            showAddNewMovieMakerSession={showAddNewMovieMakerSession}
+            betaOptionVisible={betaOptionVisible}
+            showAddNewAdVideoSession={showAddNewAdVideoSession}
+            aspectRatioOptions={isImageEditor ? imageAspectRatioOptions : undefined}
+            aspectRatioStorageKey={isImageEditor ? 'defaultImageAspectRatio' : 'defaultAspectRatio'}
+            useImageProjectModal={isImageEditor}
+            switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
+            onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+            showVideoOptions={!isImageEditor}
+          />
+        </Suspense>
       </div>
     );
   }
 
-  let daysToUpdate = <span />;
   let userCreditsDisplay = <span />;
   if (user && user._id && sessionType !== 'docker') {
-    if (user.isPremiumUser) {
-      daysToUpdate = <div>{nextUpdate} days until update</div>;
-    } else {
-      daysToUpdate = <div>Free Tier</div>;
-    }
-    userCreditsDisplay = <div>{userCredits ? userCredits.toFixed(2) : '-'} credits</div>;
+    const creditsButtonClass = colorMode === 'dark'
+      ? 'border border-white/10 bg-black/15 text-slate-100 hover:border-cyan-300/35 hover:bg-[#13233d]'
+      : 'border border-slate-200 bg-white/75 text-slate-900 hover:border-slate-300 hover:bg-white';
+    const creditsLabelClass = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+    const formattedCredits = formatCredits(userCredits);
+    const showLowCreditCue = isGenerationWorkspace && hasInsufficientGenerationCredits(user);
+    const cueClasses = colorMode === 'dark'
+      ? 'border-cyan-300/20 bg-[#eef6ff] text-slate-950 shadow-[0_14px_30px_rgba(0,0,0,0.28)]'
+      : 'border-slate-200 bg-slate-950 text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)]';
+    const cuePointerClasses = colorMode === 'dark'
+      ? 'border-l-cyan-300/20 border-t-cyan-300/20 bg-[#eef6ff]'
+      : 'border-l-slate-200 border-t-slate-200 bg-slate-950';
+
+    userCreditsDisplay = (
+      <div className="relative">
+        {showLowCreditCue ? (
+          <div
+            className={`pointer-events-none absolute right-0 top-full z-[1300] mt-2 w-max rounded-lg border px-3 py-2 text-xs font-semibold leading-none animate-bounce motion-reduce:animate-none ${cueClasses}`}
+          >
+            Add credits to generate
+            <span className={`absolute right-6 top-[-5px] h-3 w-3 rotate-45 border-l border-t ${cuePointerClasses}`} />
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={gotoCreditsBilling}
+          className={`inline-flex h-10 items-center gap-2 whitespace-nowrap rounded-lg px-3 text-xs font-semibold leading-none transition-colors ${creditsButtonClass}`}
+          aria-label={`Open billing. Current balance ${formattedCredits} credits`}
+        >
+          <span className={creditsLabelClass}>Credits remaining</span>
+          <span>{formattedCredits}</span>
+        </button>
+      </div>
+    );
   }
 
   if (user && user._id && sessionType === 'docker' && !user.isLicenseValid) {
 
-    userCreditsDisplay = <div onClick={showLicenseDialog}>Activate your License.</div>
+    userCreditsDisplay = <div onClick={showLicenseDialog}>{t("common.activateLicense")}</div>
   }
 
   let errorMessageDisplay = <span />;
-  let verificationReminderDisplay = <span />;
-
-  if (user && user._id && !user.isEmailVerified) {
-    verificationReminderDisplay = (
-      <div
-        className="text-xs font-semibold text-amber-500 dark:text-amber-300 cursor-pointer"
-        onClick={gotoUserAccount}
-      >
-        Verify email to get access to all features
-      </div>
-    );
-  }
-
-  const galleryLinkClasses =
-    colorMode === 'dark'
-      ? 'text-cyan-200 hover:text-white'
-      : 'text-blue-600 hover:text-blue-800';
-
-
 
   const showRegenerateSubtitles = () => {
 
@@ -536,9 +746,9 @@ const showLicenseDialog = () => {
           <FaTimes className="cursor-pointer" onClick={closeAlertDialog} />
         </div>
         <div className="text-center">
-          <div className="text-lg font-bold">Regenerate Subtitles</div>
-          <div className="text-sm">This will regenerate the subtitles for the current video</div>
-          <CommonButton onClick={requestRegenerateSubtitles}>Regenerate</CommonButton>
+          <div className="text-lg font-bold">{t("studio.actions.regenerateSubtitlesTitle")}</div>
+          <div className="text-sm">{t("studio.actions.realignLayers")}</div>
+          <CommonButton onClick={requestRegenerateSubtitles}>{t("studio.actions.regenerateSubtitle")}</CommonButton>
         </div>
       </div>
     );
@@ -551,8 +761,7 @@ const showLicenseDialog = () => {
     const headers = getHeaders();
 
 
-    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: sessionId }, headers).then(function (response) {
-      console.log("Regenerate Subtitles Response", response);
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: resolvedSessionId }, headers).then(function (response) {
 
 
     });
@@ -561,16 +770,13 @@ const showLicenseDialog = () => {
   }
 
   let controlbarView: React.ReactNode = null;
-  if (location.pathname.includes('/video/')) {
+  if (location.pathname.includes('/video/') || isImageEditor) {
     controlbarView = (
       <CanvasControlBar
         downloadCurrentFrame={downloadCurrentFrame}
         isExpressGeneration={isExpressGeneration}
-        sessionId={sessionId}
-        toggleStageZoom={toggleStageZoom}
+        sessionId={resolvedSessionId}
         requestRegenerateSubtitles={requestRegenerateSubtitles}
-        displayZoomType={displayZoomType}
-        stageZoomScale={stageZoomScale}
         requestRegenerateAnimations={requestRegenerateAnimations}
         requestRealignLayers={requestRealignLayers}
         canvasActualDimensions={canvasActualDimensions}
@@ -580,66 +786,110 @@ const showLicenseDialog = () => {
         regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
         isVideoPreviewPlaying={isVideoPreviewPlaying}
         setIsVideoPreviewPlaying={setIsVideoPreviewPlaying}
+        isRenderPending={isRenderPending}
+        submitRenderVideo={submitRenderVideo}
+        cancelPendingRender={cancelPendingRender}
+        renderedVideoPath={renderedVideoPath}
+        downloadLink={downloadLink}
+        isVideoGenerating={isVideoGenerating}
+        isUpdateLayerPending={isUpdateLayerPending}
+        isCanvasDirty={isCanvasDirty}
+        isSessionPublished={isSessionPublished}
+        publishVideoSession={publishVideoSession}
+        unpublishVideoSession={unpublishVideoSession}
+        renderCompletedThisSession={renderCompletedThisSession}
+        editorVariant={isImageEditor ? 'imageStudio' : 'videoStudio'}
+        openAdvancedVideoEditDialog={openAdvancedVideoEditDialog}
+        isReadOnlyMode={Boolean(isReadOnlyShareView)}
+        isImportedSession={Boolean(isImportedSession)}
+        onRequestEditSession={onRequestEditSession}
+        onCreateShareUrl={openShareOptionsDialog}
       />
+    );
+  } else if (isGenerationsView) {
+    const galleryShortcutActive = colorMode === 'dark'
+      ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300';
+    const galleryShortcutGroup = colorMode === 'dark'
+      ? 'rounded-full border border-white/10 bg-black/10 px-2 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.22)]'
+      : 'rounded-full border border-white/70 bg-white/80 px-2 py-2 backdrop-blur';
+    controlbarView = (
+      <div className={`flex flex-wrap items-center justify-center gap-2 ${galleryShortcutGroup}`}>
+        <button
+          type="button"
+          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
+          onClick={openVideoEditor}
+        >
+          Video Editor
+        </button>
+        <button
+          type="button"
+          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
+          onClick={openImageEditor}
+        >
+          Image Editor
+        </button>
+        <button
+          type="button"
+          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
+          onClick={openStudioWorkspace}
+        >
+          VidGenie
+        </button>
+      </div>
     );
   } else if (location.pathname.includes('/vidgenie/')) {
     controlbarView = <div />;
   }
 
 
+  if (isGenerationsView) {
+    return (
+      <div className={`${navShell} fixed top-0 inset-x-0 z-[1200] h-[76px]`}>
+        <div className="grid h-full w-full grid-cols-[minmax(150px,0.8fr)_minmax(0,auto)_minmax(150px,0.8fr)] items-center gap-3 px-3 sm:px-4 lg:grid-cols-[minmax(190px,1fr)_auto_minmax(190px,1fr)] lg:px-6">
+          <div className="flex h-full items-center justify-start">
+            <BrandLogo onClick={gotoHome} className="w-full max-w-[210px] lg:max-w-[250px]" />
+          </div>
+          <div className="flex h-full items-center justify-center">
+            {controlbarView}
+          </div>
+          <div className="flex min-w-0 items-center justify-end gap-2 text-xs sm:text-sm">
+            {errorMessageDisplay}
+            <div className="hidden items-center lg:flex">
+              {addSessionButton}
+            </div>
+            <div className="hidden items-center justify-end xl:flex">
+              {userCreditsDisplay}
+            </div>
+            <div className="flex items-center justify-end">
+              {userProfile}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
 
   return (
-    <div className={`bg-gradient-to-r ${bgColor} fixed top-0 inset-x-0 h-[56px] shadow-lg z-20`}>
-      <div className="grid h-full w-full grid-cols-[10%_1fr_auto] items-center gap-4 px-[2px] pr-4 sm:pr-6">
-        <div className="flex h-full items-center justify-center px-[2px]">
-          <button
-            onClick={gotoHome}
-            className={`group flex w-full max-w-[220px] items-center justify-center gap-0 rounded-md border border-transparent px-3 py-[8px] text-left shadow-none transition 
-              ${colorMode === 'dark'
-                ? 'bg-gradient-to-br from-white/10 via-white/6 to-white/0 hover:from-white/14 hover:via-white/9 hover:to-white/4'
-                : 'bg-gradient-to-br from-white/30 via-sky-50/20 to-blue-50/10 text-neutral-900 hover:from-white/40 hover:via-sky-50/30 hover:to-blue-50/20'}`}
-          >
-            <span
-              className={`pl-[10px] pr-[6px] text-[12px] sm:text-[14px] font-black uppercase tracking-[0.14em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-slate-100 group-hover:text-cyan-100'
-                  : 'text-white group-hover:text-slate-100'}`}
-            >
-              Samsar
-            </span>
-            <span
-              className={`pl-[6px] pr-[10px] text-[12px] sm:text-[14px] font-black uppercase tracking-[0.14em] transition-colors 
-                ${colorMode === 'dark'
-                  ? 'text-cyan-300 group-hover:text-white'
-                  : 'text-white/90 group-hover:text-white'}`}
-            >
-              One
-            </span>
-          </button>
+    <div className={`${navShell} fixed top-0 inset-x-0 z-[1200] h-[56px]`}>
+      <div className="grid h-full w-full grid-cols-[minmax(132px,14%)_1fr_auto] items-center gap-2 px-[2px] pr-3 lg:gap-4 lg:pr-6">
+        <div className="flex h-full items-center justify-center px-2">
+          <BrandLogo onClick={gotoHome} className="w-full max-w-[220px] px-2 lg:max-w-[260px] lg:px-4" />
         </div>
         <div className="flex items-center justify-center min-w-0 h-full py-[2px]">
           <div className="flex h-full w-full items-center justify-center translate-y-[4px]">
             {controlbarView}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-3 flex-shrink-0 text-xs sm:text-sm">
-          {verificationReminderDisplay}
-          <a
-            href="https://gallery.samsar.one"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`hidden sm:inline-flex items-center gap-1 text-xs font-semibold transition-colors ${galleryLinkClasses}`}
-          >
-            Visit Gallery
-            <FaArrowUpRightFromSquare className="text-[10px]" />
-          </a>
+        <div className="flex flex-shrink-0 items-center justify-end gap-2 text-xs sm:text-sm lg:gap-3">
           {errorMessageDisplay}
           <div className="flex items-center">
             {addSessionButton}
           </div>
-          <div className="flex flex-col items-end text-xs leading-tight text-right">
-            <div>{userCreditsDisplay}</div>
-            <div>{daysToUpdate}</div>
+          <div className="hidden items-center justify-end xl:flex">
+            {userCreditsDisplay}
           </div>
           <div className="flex items-center justify-end">
             {userProfile}

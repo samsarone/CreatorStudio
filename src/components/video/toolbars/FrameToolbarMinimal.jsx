@@ -1,6 +1,6 @@
 import React from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
-import { FaChevronCircleRight , FaChevronCircleLeft} from 'react-icons/fa';
+import { FaChevronCircleRight } from 'react-icons/fa';
 export default function FrameToolbarMinimal(props) {
 
   const { onToggleDisplay } = props;
@@ -11,8 +11,8 @@ export default function FrameToolbarMinimal(props) {
     <div
       className={`h-full m-auto fixed top-0 overflow-y-auto pl-1 w-[2%] pr-0 transition-colors duration-200 ${
         colorMode === 'dark'
-          ? 'bg-slate-950/85 border-r border-white/10 text-slate-100'
-          : 'bg-white border-r border-slate-200 text-slate-700 shadow-sm'
+          ? 'bg-[#0f1629] border-r border-[#1f2a3d] text-slate-100 shadow-[0_10px_28px_rgba(0,0,0,0.35)]'
+          : 'bg-white border-r border-slate-200 text-slate-700'
       }`}
     >
       <div className='mt-[80px]'>

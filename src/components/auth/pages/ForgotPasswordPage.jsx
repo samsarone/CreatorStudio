@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
+import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../../constants/supportedLanguages.js';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import OverflowContainer from '../../common/OverflowContainer.tsx';
@@ -39,16 +40,11 @@ const translations = {
   },
 };
 
-const languageOptions = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Español' },
-  { value: 'fr', label: 'Français' },
-];
-
 const getInitialLanguage = () => {
   const saved = typeof window !== 'undefined' ? localStorage.getItem('preferredLanguage') : null;
   const browser = typeof navigator !== 'undefined' && navigator.language ? navigator.language.split('-')[0] : null;
-  return (saved || browser || 'en').toLowerCase();
+  const resolved = resolveLanguageCode(saved || browser || 'en', 'en');
+  return resolved === 'auto' ? 'en' : resolved;
 };
 
 export default function ForgotPassword(props) {
@@ -60,6 +56,10 @@ export default function ForgotPassword(props) {
 
   const formBgColor = colorMode === 'light' ? 'bg-neutral-50' : 'bg-neutral-900';
   const formTextColor = colorMode === 'light' ? 'text-neutral-900' : 'text-neutral-50';
+  const selectClasses = colorMode === 'light'
+    ? 'bg-white text-slate-900 border border-slate-200'
+    : 'bg-neutral-800 text-white';
+  const mutedText = colorMode === 'light' ? 'text-slate-500' : 'text-neutral-400';
   const copy = translations[language] || translations.en;
 
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function ForgotPassword(props) {
         setError(null);
       })
       .catch((err) => {
-        console.error('Error sending password reset email:', err);
+        
         setError(copy.error);
         setSuccess(null);
       });
@@ -92,20 +92,20 @@ export default function ForgotPassword(props) {
       {error && <div className="text-red-500 text-center mb-4">{error}</div>}
       {success && <div className="text-blue-500 text-center mb-4">{success}</div>}
       <div className="mb-4">
-        <label className="block text-sm mb-1 text-neutral-400">{copy.language}</label>
+        <label className={`block text-sm mb-1 ${mutedText}`}>{copy.language}</label>
         <select
           value={language}
           onChange={(e) => setLanguage(e.target.value)}
-          className="w-full rounded-lg p-2 bg-neutral-800 text-white"
+          className={`w-full rounded-lg p-2 ${selectClasses}`}
         >
-          {languageOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.nativeName || lang.name}
             </option>
           ))}
         </select>
       </div>
-      <p className="text-neutral-400 text-center mb-6">{copy.intro}</p>
+      <p className={`${mutedText} text-center mb-6`}>{copy.intro}</p>
       <form onSubmit={handleForgotPassword} className={`w-full ${formTextColor}` }>
         <div className="form-group">
           <div className="text-xs text-left font-bold pl-1">{copy.emailLabel}</div>
