@@ -3862,6 +3862,18 @@ export default function OneshotEditor() {
     return data;
   };
 
+  const fetchPostProcessingGenerationStatus = async (requestId, headers) => {
+    try {
+      return await fetchDetailedGenerationStatus(requestId, headers);
+    } catch (error) {
+      const statusCode = error?.response?.status;
+      if (statusCode !== 400 && statusCode !== 404) {
+        throw error;
+      }
+      return fetchBasicGenerationStatus(requestId, headers);
+    }
+  };
+
   const refreshDetailedGenerationStatus = async (requestId, headers) => {
     const data = await fetchDetailedGenerationStatus(requestId, headers);
     if (data?.expressGenerationStatus) {
@@ -3892,7 +3904,7 @@ export default function OneshotEditor() {
 
       try {
         const headers = getHeaders();
-        const data = await fetchBasicGenerationStatus(requestId, headers);
+        const data = await fetchPostProcessingGenerationStatus(requestId, headers);
 
         pollDelayRef.current = DEFAULT_POLL;
         if (data?.expressGenerationStatus) {

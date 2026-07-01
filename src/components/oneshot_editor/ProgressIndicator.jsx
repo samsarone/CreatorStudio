@@ -201,12 +201,14 @@ function buildVideoSegment({
 }) {
   const normalizedUrl = normalizeAssetUrl(asset?.url);
   if (!normalizedUrl) return null;
+  const sourceId = source?.id || source?._id || index;
+  const assetStage = asset.stage || source?.preview?.stage || 'media';
 
   return {
-    key: `${keyPrefix}-${source?.id || index}`,
+    key: `${keyPrefix}-${sourceId}-${assetStage}-${normalizedUrl}`,
     title,
     type: asset.type === 'video' ? 'video' : 'image',
-    stage: asset.stage || source?.preview?.stage || 'image_generation',
+    stage: assetStage,
     status: source?.preview?.status || source?.image?.status || source?.aiVideo?.status || source?.status || asset?.status || null,
     startTime,
     endTime,
@@ -418,6 +420,15 @@ function revokePreviewVisualObjectUrl(entry) {
     return;
   }
   URL.revokeObjectURL(entry.objectUrl);
+}
+
+function clearPreviewVisualCaches() {
+  previewVisualObjectUrlCache.forEach((entry) => revokePreviewVisualObjectUrl(entry));
+  previewVisualReadyCache.clear();
+  previewVisualPreloadPromises.clear();
+  previewVisualObjectUrlCache.clear();
+  previewVisualObjectUrlPromises.clear();
+  previewVisualObjectUrlFailures.clear();
 }
 
 function prunePreviewVisualObjectUrlCache(now = Date.now()) {
@@ -735,6 +746,7 @@ export default function ProgressIndicator(props) {
   });
   const audioRefs = useRef(new Map());
   const activeVideoRef = useRef(null);
+  const previousSessionPreviewIdentityRef = useRef(null);
   const { colorMode } = useColorMode();
   const { t } = useLocalization();
 
@@ -762,12 +774,24 @@ export default function ProgressIndicator(props) {
     [generationStatusDetails, statusMap],
   );
   const sessionPreview = generationStatusDetails?.session || null;
+  const sessionPreviewIdentity =
+    sessionPreview?.id ||
+    sessionPreview?.requestId ||
+    generationStatusDetails?.session_id ||
+    generationStatusDetails?.request_id ||
+    null;
   const shouldLimitMobileVideoPreload =
     isMobilePreviewDevice &&
     isGenerationPending &&
     !videoLink &&
     MOBILE_SINGLE_VIDEO_LOAD_STAGES.has(currentStageKey);
   const visualSegments = useMemo(() => buildVisualSegments(sessionPreview), [sessionPreview]);
+  const visualAssetSignature = useMemo(
+    () => visualSegments.map((segment) => (
+      `${segment.key}:${segment.type}:${segment.stage}:${segment.url}`
+    )).join('|'),
+    [visualSegments],
+  );
   const audioSegments = useMemo(() => buildAudioSegments(sessionPreview), [sessionPreview]);
   const timelineDuration = useMemo(
     () => resolveTimelineDuration(sessionPreview, visualSegments, audioSegments),
@@ -831,6 +855,21 @@ export default function ProgressIndicator(props) {
       : 'min(44dvh, 360px)',
   };
   const previewPlaybackButtonLabel = isPreviewPlaying ? 'Pause preview' : 'Play preview';
+
+  useEffect(() => {
+    if (!sessionPreviewIdentity) return;
+    if (previousSessionPreviewIdentityRef.current === sessionPreviewIdentity) return;
+    previousSessionPreviewIdentityRef.current = sessionPreviewIdentity;
+    clearPreviewVisualCaches();
+    setPreviewTime(0);
+    setActiveVideoReadyKey(null);
+    setVisualPreloadVersion((version) => version + 1);
+  }, [sessionPreviewIdentity]);
+
+  useEffect(() => {
+    setActiveVideoReadyKey(null);
+    setVisualPreloadVersion((version) => version + 1);
+  }, [visualAssetSignature]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
