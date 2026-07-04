@@ -337,14 +337,6 @@ const AudioTrackSlider = (props) => {
       );
     }
   };
-
-  <span />;
-  if (audioTrack.isAudioLevelsDisplaySelected) {
-    audioLevelsDisplaySlider = (
-      <AudioLevelsTrackSlider />
-    )
-  }
-
   return (
 <>
     <div

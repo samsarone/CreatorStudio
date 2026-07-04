@@ -208,7 +208,7 @@ export default function VideoEditorContainer(props) {
   const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
 
   // 1) State to store the current AI video URL and type
-  const [aiVideoLayer, setAiVideoLayer] = useState(null);
+  const [, setAiVideoLayer] = useState(null);
   const [aiVideoLayerType, setAiVideoLayerType] = useState(null);
 
   const [movieSoundList, setMovieSoundList] = useState([]);

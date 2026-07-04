@@ -1,7 +1,6 @@
 // FrameToolbar.js
 import React, { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback } from 'react';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
-import CommonButton from '../../../common/CommonButton.tsx';
 import './toolbar.css';
 import './baseToolbar.css';
 import ReactSlider from 'react-slider';
@@ -24,7 +23,6 @@ import {
 import AudioOptionsDialog from '../audio/AudioOptionsDialog.jsx';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import CommonDropdownButton from "../../../common/CommonDropdownButton.tsx";
-import PublicPrimaryButton from '../../../common/buttons/PrimaryPublicButton.tsx';
 
 import ReactDOM from 'react-dom';
 
@@ -36,7 +34,6 @@ import { FRAME_TOOLBAR_VIEW } from '../../../../constants/Types.ts';
 import AudioTrackSlider from '../../util/AudioTrackSlider.jsx';
 import DropdownButton from '../../util/DropdownButton.jsx';
 import { useAlertDialog } from '../../../../contexts/AlertDialogContext.jsx';
-import { useUser } from '../../../../contexts/UserContext.jsx';
 import BatchPrompt from '../../util/BatchPrompt.jsx';
 import TextTrackDisplay from './text_toolbar/TextTrackDisplay.jsx';
 import VisualTrackDisplay from './visual_toolbar/VisualTrackDisplay.jsx';
@@ -49,7 +46,6 @@ import { createPortal } from 'react-dom';
 import { FaChevronLeft, FaEye } from 'react-icons/fa6';
 import { FaRedo } from 'react-icons/fa';
 import SelectedTextToolbarDisplay from './text_toolbar/SelectedTextToolbarDisplay.jsx';
-import PublishOptionsDialog from './PublishOptionsDialog.jsx';
 import _ from 'lodash';
 import {
   buildAudioLayerVolumeAutomationPoints,
@@ -1023,23 +1019,17 @@ export default function FrameToolbar(props) {
     sessionSubtitlesEnabled = true,
     requestRealignLayers,
     removeAllSubtitles,
-    restartExpressRenderFromCheckpoint,
     cancelPendingRender,
-    publishVideoSession,
-    unpublishVideoSession,
     updateLayerVisualItem,
     deleteLayerVisualItem,
     duplicateAudioLayer,
     updateAllAudioLayersOneShot,
     updateGlobalAudioLayers,
     requestVideoLayerEdit,
-    isSessionPublished,
-    renderCompletedThisSession,
     isRenderPending,
     isCanvasDirty,
     isUpdateLayerPending,
     isVideoPreviewPlaying = false,
-    isExpressSession = false,
     framesPerSecond = 24,
     updateGlobalVideos,
     updateSessionHints,
@@ -1177,7 +1167,6 @@ export default function FrameToolbar(props) {
 
 
   useState(false);
-  const { user } = useUser();
 
   const selectedLayerData = selectedLayerIndex >= 0 ? layers[selectedLayerIndex] : null;
   const selectedLayerId = resolveLayerId(selectedLayerData);
@@ -6693,20 +6682,11 @@ export default function FrameToolbar(props) {
   let expandedTopRowActionDisplay = <span />;
   let expandedBottomRowActionDisplay = <span />;
 
-  const isAnonymousGuest = !user?._id;
   const resolvedDownloadLink = renderedVideoPath || downloadLink;
   const canUseDownloadLink = Boolean(resolvedDownloadLink && !isRenderPending);
   const hasExistingRender = canUseDownloadLink;
   const canCancelPendingRender = Boolean(isRenderPending && typeof cancelPendingRender === 'function');
   const hasPendingSceneChanges = Boolean(isCanvasDirty);
-  const shouldShowDropdown = !isAnonymousGuest && hasExistingRender && !canCancelPendingRender;
-  const shouldDownloadOnMain = (
-    !canCancelPendingRender
-    && !hasPendingSceneChanges
-    && renderCompletedThisSession
-    && hasExistingRender
-  );
-  const dropdownMainLabel = shouldDownloadOnMain ? "Download" : "Render";
 
   let prevDownloadLink = <span />;
 
@@ -6725,61 +6705,6 @@ export default function FrameToolbar(props) {
     );
   }
 
-  let renderButtonExtraClasss = '';
-  if (isVideoGenerating) {
-    renderButtonExtraClasss = '!pl-4 !pr-4';
-  }
-  const isRenderActionDisabled = Boolean(isUpdateLayerPending || isRenderPending);
-  const shouldShowRenderPendingSpinner = Boolean(isVideoGenerating);
-
-
-
-
-
-  const extraProps = {
-    sessionId: sessionId,
-  }
-
-  const showPublishOptionsDialog = () => {
-
-    openAlertDialog(
-      <div>
-
-        <div>
-          <FaTimes
-            className='absolute right-2 top-2 cursor-pointer'
-            onClick={closeAlertDialog}
-          />
-        </div>
-        <PublishOptionsDialog
-          onClose={closeAlertDialog}
-
-          onSubmit={(payload) => {
-            // On form submit, close the dialog
-            closeAlertDialog();
-
-            // Then call your publish logic with these values
-            publishVideoSession(payload);
-          }}
-          extraProps={extraProps}
-        />
-      </div>
-    );
-  };
-
-  <span />;
-  if (canUseDownloadLink) {
-    // additionalActionToolbar = (
-    //   <div className='mt-2'>
-    //     <div >
-    //       <SecondaryButton onClick={publishVideoSession} >
-    //         Publish
-    //       </SecondaryButton>
-    //     </div>
-    //   </div>
-    // )
-  }
-
   const submitDownloadVideo = () => {
     if (!canUseDownloadLink) {
       return;
@@ -6789,134 +6714,6 @@ export default function FrameToolbar(props) {
     a.download = `Rendition_${new Date().toISOString()}.mp4`;
     a.click();
 
-  }
-
-  const dropdownItems = [];
-  if (shouldDownloadOnMain) {
-    dropdownItems.push({
-      label: "Render again",
-      onClick: submitRenderVideo,
-    });
-  } else if (canUseDownloadLink) {
-    dropdownItems.push({
-      label: "Download",
-      onClick: submitDownloadVideo,
-    });
-  }
-
-  if (isSessionPublished) {
-    dropdownItems.push({
-      label: "Unpublish",
-      onClick: () => {
-        if (typeof unpublishVideoSession === 'function') {
-          unpublishVideoSession();
-        }
-      },
-    });
-  } else {
-    dropdownItems.push({
-      label: "Publish",
-      onClick: () => {
-        // open your Publish dialog
-        showPublishOptionsDialog();
-      },
-    });
-  }
-
-  const canRestartCompletedExpressRender = Boolean(
-    isExpressSession
-    && canUseDownloadLink
-    && !canCancelPendingRender
-    && !isCanvasDirty
-    && typeof restartExpressRenderFromCheckpoint === 'function'
-  );
-
-  if (canRestartCompletedExpressRender) {
-    dropdownItems.push(
-      {
-        label: 'Restart after images',
-        onClick: () => restartExpressRenderFromCheckpoint('after_images'),
-      },
-      {
-        label: 'Restart after AI video',
-        onClick: () => restartExpressRenderFromCheckpoint('after_ai_video'),
-      },
-      {
-        label: 'Restart after frames',
-        onClick: () => restartExpressRenderFromCheckpoint('after_frames'),
-      }
-    );
-  }
-
-  let submitRenderDisplay = (
-    <div>
-      <CommonButton
-        onClick={submitRenderVideo}
-        isPending={shouldShowRenderPendingSpinner}
-        isDisabled={isRenderActionDisabled}
-        extraClasses={renderButtonExtraClasss}
-      >
-        Render
-      </CommonButton>
-    </div>
-  );
-
-
-
-  if (canCancelPendingRender) {
-    const cancelButtonClasses = colorMode === 'light'
-      ? 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
-      : 'border border-[#31405e] bg-[#111a2f] text-slate-200 hover:bg-[#16213a]';
-    submitRenderDisplay = (
-      <div className='inline-flex items-center gap-2'>
-        <div>
-          <CommonButton
-            onClick={submitRenderVideo}
-            isPending={shouldShowRenderPendingSpinner}
-            isDisabled={true}
-            extraClasses={renderButtonExtraClasss}
-          >
-            Render
-          </CommonButton>
-        </div>
-          <button
-            type="button"
-            onClick={cancelPendingRender}
-            className={`inline-flex items-center justify-center rounded-lg px-2 py-2 ${colorMode === 'dark' ? 'shadow-[0_6px_14px_rgba(3,12,28,0.2)]' : ''} transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0 ${cancelButtonClasses}`}
-            title="Cancel render"
-          aria-label="Cancel render"
-        >
-          <FaTimes />
-        </button>
-      </div>
-    );
-  } else if (isAnonymousGuest && canUseDownloadLink) {
-    submitRenderDisplay = (
-      <div>
-        <PublicPrimaryButton
-          onClick={submitDownloadVideo}
-          isPending={shouldShowRenderPendingSpinner}
-          isDisabled={isRenderActionDisabled}
-          extraClasses={renderButtonExtraClasss}
-        >
-          Download
-        </PublicPrimaryButton>
-      </div>
-    )
-    btnLeftMargin = 'ml-0';
-  } else if (shouldShowDropdown) {
-    submitRenderDisplay = (
-      <div className="relative inline-block text-left">
-        <CommonDropdownButton
-          mainLabel={dropdownMainLabel}
-          onMainClick={shouldDownloadOnMain ? submitDownloadVideo : submitRenderVideo}
-          isPending={shouldShowRenderPendingSpinner}
-          isDisabled={isRenderActionDisabled}
-          dropdownItems={dropdownItems}
-          extraClasses="my-extra-class-names"
-        />
-      </div>
-    );
   }
 
 
@@ -7252,17 +7049,6 @@ export default function FrameToolbar(props) {
   }
 
   if (isExpandedToolbarView) {
-    submitRenderFullActionDisplay = (
-      <div className='inline-flex max-w-full flex-wrap items-center gap-2'>
-        <div className='inline-flex shrink-0'>
-          {submitRenderDisplay}
-        </div>
-        <div className={`inline-flex shrink-0 ${disabledMenuClass}`}>
-          {dropdownButtonDisplay}
-        </div>
-      </div>
-    );
-    topSubToolbar = <span />;
     if (currentLayerActionSuperView === 'SETTINGS') {
       expandedTopRowActionDisplay = (
         <div className='flex max-w-full flex-wrap items-center justify-end gap-1.5'>
@@ -7306,26 +7092,6 @@ export default function FrameToolbar(props) {
         </div>
       ) : null;
     }
-  } else {
-    submitRenderFullActionDisplay = (
-      <div className='flex w-full flex-col items-stretch gap-1'>
-        <div className='flex w-full items-stretch justify-between gap-1.5'>
-          <div
-            className='inline-flex min-w-0'
-            onClick={(event) => event.stopPropagation()}
-          >
-            {submitRenderDisplay}
-          </div>
-          {!canCancelPendingRender ? expandButtonLabel : null}
-        </div>
-        <div
-          className={`w-full ${disabledMenuClass}`}
-          onClick={(event) => event.stopPropagation()}
-        >
-          {dropdownButtonDisplay}
-        </div>
-      </div>
-    );
   }
 
   const handleSeekBarChange = (value) => {
@@ -7370,11 +7136,6 @@ export default function FrameToolbar(props) {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [openPopupLayerIndex, durationChanged]);
-
-
-  if (isExpandedToolbarView) {
-    buttonGroupMT = 'mt-0';
-  }
 
   let trackSliderML = 'ml-[12px]';
   if (isExpandedToolbarView) {
