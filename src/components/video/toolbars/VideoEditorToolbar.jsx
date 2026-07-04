@@ -1,5 +1,5 @@
 // VideoEditorToolbar.js
-import { useContext, useState, useRef, useEffect } from 'react';
+import { useContext, useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import PromptGenerator from './PromptGenerator.jsx';
 import ImageEditGenerator from '../toolbars/ImageEditGenerator.jsx';
@@ -58,6 +58,8 @@ import {
   fetchGoogleTTSPreviewBlobUrl,
   getGoogleTTSVoiceDetails,
 } from '../../../hooks/useGoogleTTSSpeakers.js';
+import { useAudioProviderAvailability } from '../../../hooks/useAudioProviderAvailability.js';
+import { filterMusicProvidersForAudioAvailability } from '../../../constants/audioProviderAvailability.js';
 
 const SOUND_EFFECT_MODEL_OPTIONS = [
   { value: 'SDAUDIO', label: 'Stable Audio' },
@@ -73,6 +75,7 @@ function resolveSpeakerProvider(speaker = {}) {
   if (
     explicitProvider === 'OPENAI' ||
     explicitProvider === 'ELEVENLABS' ||
+    explicitProvider === 'PLAYAI' ||
     explicitProvider === 'GOOGLE' ||
     explicitProvider === 'CUSTOM_TEXT_TO_SPEECH'
   ) {
@@ -240,6 +243,11 @@ export default function VideoEditorToolbar(props) {
 
 
   const [speakerType, setSpeakerType] = useState(null);
+  const { audioAvailability } = useAudioProviderAvailability();
+  const availableMusicProviders = useMemo(
+    () => filterMusicProvidersForAudioAvailability(MUSIC_PROVIDERS, audioAvailability),
+    [audioAvailability]
+  );
   const isCollapsedSidebarView = !isExpandedView;
   const sidebarSizeVariant = isExpandedView ? 'sidebarExpanded' : 'sidebarCollapsed';
   const shouldStackMusicProviderFields = isCollapsedSidebarView;
@@ -287,14 +295,21 @@ export default function VideoEditorToolbar(props) {
 
   const { colorMode } = useColorMode();
   const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
-  const currentMusicProvider = selectedMusicProvider || MUSIC_PROVIDERS[0];
+  const defaultMusicProvider = availableMusicProviders[0] || null;
+  const currentMusicProvider =
+    selectedMusicProvider && availableMusicProviders.some((provider) => provider.key === selectedMusicProvider.key)
+      ? selectedMusicProvider
+      : defaultMusicProvider;
   const musicDurationMin = currentMusicProvider?.minDurationSeconds || 1;
   const musicDurationMax = currentMusicProvider?.maxDurationSeconds || 180;
   const supportsMusicLyrics = currentMusicProvider?.supportsLyrics === true;
   const musicProviderLocksInstrumental = currentMusicProvider?.locksInstrumental === true;
 
   const handleMusicProviderChange = (selectedOption) => {
-    const selectedProvider = MUSIC_PROVIDERS.find(provider => provider.key === selectedOption.value) || MUSIC_PROVIDERS[0];
+    const selectedProvider = availableMusicProviders.find(provider => provider.key === selectedOption.value) || defaultMusicProvider;
+    if (!selectedProvider) {
+      return;
+    }
     setSelectedMusicProvider(selectedProvider);
 
     if (selectedProvider.locksInstrumental) {
@@ -303,6 +318,17 @@ export default function VideoEditorToolbar(props) {
       setIsInstrumental(false);
     }
   };
+
+  useEffect(() => {
+    if (!defaultMusicProvider) {
+      setSelectedMusicProvider(null);
+      return;
+    }
+
+    if (!selectedMusicProvider || !availableMusicProviders.some((provider) => provider.key === selectedMusicProvider.key)) {
+      setSelectedMusicProvider(defaultMusicProvider);
+    }
+  }, [availableMusicProviders, defaultMusicProvider, selectedMusicProvider]);
 
   const handleTtsProviderChange = (selectedOption) => {
     setTtsProvider(selectedOption);
@@ -1020,6 +1046,13 @@ export default function VideoEditorToolbar(props) {
 
   const submitGenerateMusic = (evt) => {
     evt.preventDefault();
+    if (!currentMusicProvider) {
+      toast.error('No music provider is configured for this deployment.', {
+        position: 'bottom-center',
+      });
+      return;
+    }
+
     const formData = new FormData(evt.target);
     const promptText = (formData.get('promptText') || '').toString().trim();
     const lyricsText = (formData.get('lyricsText') || '').toString().trim();
@@ -1046,17 +1079,17 @@ export default function VideoEditorToolbar(props) {
       prompt: promptText,
       generationType: 'music',
       isInstrumental: isInstrumental,
-      model: selectedMusicProvider.key,
+      model: currentMusicProvider.key,
       duration: normalizedMusicDuration,
     };
 
-    if (selectedMusicProvider.key === 'ELEVENLABS_MUSIC') {
+    if (currentMusicProvider.key === 'ELEVENLABS_MUSIC') {
       if (lyricsText) {
         body.lyrics = lyricsText;
       }
 
       body.generationMeta = {
-        providerKey: selectedMusicProvider.key,
+        providerKey: currentMusicProvider.key,
         musicLengthMs: Math.round(normalizedMusicDuration * 1000),
         forceInstrumental: isInstrumental,
         outputFormat: 'mp3_44100_128',
@@ -1204,14 +1237,16 @@ export default function VideoEditorToolbar(props) {
                 </label>
                 <SingleSelect
                   name="musicProvider"
-                  options={MUSIC_PROVIDERS.map(provider => ({
+                  options={availableMusicProviders.map(provider => ({
                     value: provider.key,
                     label: provider.name
                   }))}
-                  value={{
-                    value: selectedMusicProvider.key,
-                    label: selectedMusicProvider.name
-                  }}
+                  value={currentMusicProvider
+                    ? {
+                      value: currentMusicProvider.key,
+                      label: currentMusicProvider.name
+                    }
+                    : null}
                   onChange={handleMusicProviderChange}
                   truncateLabels={isCollapsedSidebarView}
                 />

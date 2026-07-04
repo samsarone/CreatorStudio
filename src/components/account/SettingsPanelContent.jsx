@@ -24,6 +24,11 @@ import {
   fetchGoogleTTSPreviewBlobUrl,
   useGoogleTTSSpeakers,
 } from "../../hooks/useGoogleTTSSpeakers.js";
+import { useAudioProviderAvailability } from "../../hooks/useAudioProviderAvailability.js";
+import {
+  filterMusicProvidersForAudioAvailability,
+  filterSpeakerGroupsForAudioAvailability,
+} from "../../constants/audioProviderAvailability.js";
 
 const BACKING_TRACK_MODEL_OPTIONS = [
   { value: "ELEVENLABS_MUSIC", label: "ElevenLabs" },
@@ -328,13 +333,30 @@ export default function SettingsPanelContent(props) {
     error: googleSpeakersError,
     source: googleSpeakersSource,
   } = useGoogleTTSSpeakers();
+  const { audioAvailability } = useAudioProviderAvailability();
+  const availableBackingTrackModelOptions = useMemo(
+    () => filterMusicProvidersForAudioAvailability(
+      BACKING_TRACK_MODEL_OPTIONS.map((option) => ({ ...option, key: option.value, name: option.label })),
+      audioAvailability
+    ).map((option) => ({ value: option.value, label: option.label })),
+    [audioAvailability]
+  );
   const speakerGroups = useMemo(() => (
-    AGENT_SPEAKER_GROUPS.map((group) => (
+    filterSpeakerGroupsForAudioAvailability(AGENT_SPEAKER_GROUPS.map((group) => (
       group.key === "GOOGLE"
         ? { ...group, speakers: googleSpeakers }
         : group
-    ))
-  ), [googleSpeakers]);
+    )), audioAvailability)
+  ), [audioAvailability, googleSpeakers]);
+
+  useEffect(() => {
+    if (
+      availableBackingTrackModelOptions.length > 0 &&
+      !availableBackingTrackModelOptions.some((option) => option.value === backingTrackModel)
+    ) {
+      setBackingTrackModel(availableBackingTrackModelOptions[0].value);
+    }
+  }, [availableBackingTrackModelOptions, backingTrackModel]);
 
   useEffect(() => {
     if (!user) return;
@@ -692,7 +714,7 @@ export default function SettingsPanelContent(props) {
                   onChange={(e) => setBackingTrackModel(e.target.value)}
                   className={formInputClasses}
                 >
-                  {BACKING_TRACK_MODEL_OPTIONS.map((option) => (
+                  {availableBackingTrackModelOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

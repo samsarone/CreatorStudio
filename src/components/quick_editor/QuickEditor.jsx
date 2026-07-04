@@ -41,6 +41,11 @@ import {
   mergeGoogleTTSSpeakers,
   useGoogleTTSSpeakers,
 } from '../../hooks/useGoogleTTSSpeakers.js';
+import { useAudioProviderAvailability } from '../../hooks/useAudioProviderAvailability.js';
+import {
+  filterMusicProvidersForAudioAvailability,
+  filterSpeakersForAudioAvailability,
+} from '../../constants/audioProviderAvailability.js';
 
 import {
   COSMOS3_SUPER_MODEL_KEY,
@@ -115,19 +120,28 @@ export default function QuickEditor() {
     () => mergeGoogleTTSSpeakers(TTS_COMBINED_SPEAKER_TYPES, googleSpeakers),
     [googleSpeakers]
   );
+  const { audioAvailability } = useAudioProviderAvailability();
+  const deploymentSpeakerTypes = useMemo(
+    () => filterSpeakersForAudioAvailability(combinedSpeakerTypes, audioAvailability),
+    [audioAvailability, combinedSpeakerTypes]
+  );
+  const availableMusicProviders = useMemo(
+    () => filterMusicProvidersForAudioAvailability(MUSIC_PROVIDERS, audioAvailability),
+    [audioAvailability]
+  );
 
   useState(() => {
     const storedValue = localStorage.getItem('advancedSettingsVisible');
     return storedValue ? JSON.parse(storedValue) : false;
   });
 
-  const defaultSpeaker = combinedSpeakerTypes.find(
+  const defaultSpeaker = deploymentSpeakerTypes.find(
     (speaker) => speaker.value === 'alloy'
-  ) || combinedSpeakerTypes[0];
+  ) || deploymentSpeakerTypes[0] || null;
 
   const [speakerType, setSpeakerType] = useState(() => {
     const storedSpeaker = localStorage.getItem('defaultSpeaker');
-    return storedSpeaker ? combinedSpeakerTypes.find((sp) => sp.value === storedSpeaker) : defaultSpeaker;
+    return storedSpeaker ? deploymentSpeakerTypes.find((sp) => sp.value === storedSpeaker) : defaultSpeaker;
   });
 
   const [promptList, setPromptList] = useState('');
@@ -172,7 +186,9 @@ export default function QuickEditor() {
   ];
 
   const [selectedMusicProvider, setSelectedMusicProvider] = useState(() => {
-    return MUSIC_PROVIDERS.length > 0 ? { value: MUSIC_PROVIDERS[0].key, label: MUSIC_PROVIDERS[0].name } : null;
+    return availableMusicProviders.length > 0
+      ? { value: availableMusicProviders[0].key, label: availableMusicProviders[0].name }
+      : null;
   });
 
   const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
@@ -496,16 +512,35 @@ export default function QuickEditor() {
   useEffect(() => {
     const storedSpeaker = localStorage.getItem('defaultSpeaker');
     const matchedSpeaker = storedSpeaker
-      ? combinedSpeakerTypes.find((sp) => sp.value === storedSpeaker)
+      ? deploymentSpeakerTypes.find((sp) => sp.value === storedSpeaker)
       : null;
-    if (
-      matchedSpeaker &&
-      (!speakerType || speakerType.value === matchedSpeaker.value) &&
-      speakerType?.provider !== matchedSpeaker.provider
-    ) {
+
+    const selectedSpeakerStillAvailable =
+      speakerType && deploymentSpeakerTypes.some((sp) => (
+        sp.value === speakerType.value && sp.provider === speakerType.provider
+      ));
+
+    if (!selectedSpeakerStillAvailable) {
+      setSpeakerType(matchedSpeaker || defaultSpeaker || null);
+      return;
+    }
+
+    if (matchedSpeaker && speakerType?.value === matchedSpeaker.value && speakerType?.provider !== matchedSpeaker.provider) {
       setSpeakerType(matchedSpeaker);
     }
-  }, [combinedSpeakerTypes, speakerType]);
+  }, [defaultSpeaker, deploymentSpeakerTypes, speakerType]);
+
+  useEffect(() => {
+    if (availableMusicProviders.length === 0) {
+      setSelectedMusicProvider(null);
+      return;
+    }
+
+    if (!selectedMusicProvider || !availableMusicProviders.some((provider) => provider.key === selectedMusicProvider.value)) {
+      const fallbackProvider = availableMusicProviders[0];
+      setSelectedMusicProvider({ value: fallbackProvider.key, label: fallbackProvider.name });
+    }
+  }, [availableMusicProviders, selectedMusicProvider]);
 
   const stopSpeakerPreview = () => {
     if (audioRef.current) {
@@ -523,13 +558,13 @@ export default function QuickEditor() {
   const speakerOptions = useMemo(() => {
     let filteredSpeakers;
     if (speechStyle.value === 'Narrative') {
-      filteredSpeakers = combinedSpeakerTypes;
+      filteredSpeakers = deploymentSpeakerTypes;
     } else if (speechStyle.value === 'Conversational') {
-      filteredSpeakers = combinedSpeakerTypes.filter(
+      filteredSpeakers = deploymentSpeakerTypes.filter(
         (sp) => sp.Style && sp.Style === 'Conversational'
       );
     } else {
-      filteredSpeakers = combinedSpeakerTypes;
+      filteredSpeakers = deploymentSpeakerTypes;
     }
 
     return filteredSpeakers.map((speaker) => {
@@ -545,7 +580,7 @@ export default function QuickEditor() {
         onClick: handleIconClick,
       };
     });
-  }, [speechStyle, currentlyPlayingSpeaker, combinedSpeakerTypes]);
+  }, [speechStyle, currentlyPlayingSpeaker, deploymentSpeakerTypes]);
 
   const playMusicPreviewForSpeaker = async (evt, speaker) => {
     evt.stopPropagation();
@@ -679,6 +714,22 @@ export default function QuickEditor() {
     const finalAddSubtitles = speechRequired && addSubtitlesRequired;
     const finalAddTranscriptions = speechRequired && addTranscriptionsRequired;
 
+    if (musicRequired && !selectedMusicProvider && !availableMusicProviders[0]) {
+      setIsGenerationPending(false);
+      setShowResultDisplay(false);
+      setErrorState(true);
+      setErrorMessage('No music provider is configured for this deployment.');
+      return;
+    }
+
+    if (speechRequired && !speakerType) {
+      setIsGenerationPending(false);
+      setShowResultDisplay(false);
+      setErrorState(true);
+      setErrorMessage('No speech provider is configured for this deployment.');
+      return;
+    }
+
     let payload = {
       sessionId: id,
       lineItems,
@@ -718,7 +769,7 @@ export default function QuickEditor() {
       bannerText,
       addBannerToComposition,
       aspectRatio: aspectRatio.value,
-      musicProvider: selectedMusicProvider ? selectedMusicProvider.value : 'AUDIOCRAFT',
+      musicProvider: selectedMusicProvider ? selectedMusicProvider.value : availableMusicProviders[0]?.key || null,
       generativeVideoRequired: generativeVideoRequired,
       subtitleFont: subtitleFont ? subtitleFont.value : null,
       subtitleWordAnimation: wordAnimation ? wordAnimation.value : null,
@@ -1655,7 +1706,7 @@ export default function QuickEditor() {
                             <SingleSelect
                               value={selectedMusicProvider}
                               onChange={handleMusicProviderChange}
-                              options={MUSIC_PROVIDERS.map((provider) => ({
+                              options={availableMusicProviders.map((provider) => ({
                                 value: provider.key,
                                 label: provider.name,
                               }))}

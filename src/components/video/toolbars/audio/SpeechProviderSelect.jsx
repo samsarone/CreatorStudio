@@ -7,6 +7,8 @@ import {
   mergeGoogleTTSSpeakers,
   useGoogleTTSSpeakers,
 } from '../../../../hooks/useGoogleTTSSpeakers.js';
+import { useAudioProviderAvailability } from '../../../../hooks/useAudioProviderAvailability.js';
+import { filterSpeakersForAudioAvailability } from '../../../../constants/audioProviderAvailability.js';
 
 export default function SpeechProviderSelect(props) {
   const {
@@ -34,12 +36,17 @@ export default function SpeechProviderSelect(props) {
     () => mergeGoogleTTSSpeakers(TTS_COMBINED_SPEAKER_TYPES, googleSpeakers),
     [googleSpeakers]
   );
+  const { audioAvailability } = useAudioProviderAvailability();
+  const deploymentFilteredSpeakerTypes = useMemo(
+    () => filterSpeakersForAudioAvailability(combinedSpeakerTypes, audioAvailability),
+    [audioAvailability, combinedSpeakerTypes]
+  );
   const normalizedProviderFilter =
     typeof providerFilter === 'string' ? providerFilter.trim().toUpperCase() : '';
   const isGoogleProviderSelected = normalizedProviderFilter === 'GOOGLE';
   const availableSpeakerTypes = normalizedProviderFilter
-    ? combinedSpeakerTypes.filter((speaker) => speaker.provider === normalizedProviderFilter)
-    : combinedSpeakerTypes;
+    ? deploymentFilteredSpeakerTypes.filter((speaker) => speaker.provider === normalizedProviderFilter)
+    : deploymentFilteredSpeakerTypes;
 
   const getOptionLabel = (speaker = {}) => {
     if (truncateLabels) {

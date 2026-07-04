@@ -31,6 +31,11 @@ import {
   mergeGoogleTTSSpeakers,
   useGoogleTTSSpeakers,
 } from '../../../../hooks/useGoogleTTSSpeakers.js';
+import { useAudioProviderAvailability } from '../../../../hooks/useAudioProviderAvailability.js';
+import {
+  filterSpeakersForAudioAvailability,
+  filterTtsProviderOptionsForAudioAvailability,
+} from '../../../../constants/audioProviderAvailability.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DISPLAY_FRAMES_PER_SECOND = 30;
@@ -673,6 +678,11 @@ export default function RecordSpeechSection({
     () => mergeGoogleTTSSpeakers(TTS_COMBINED_SPEAKER_TYPES, googleSpeakers),
     [googleSpeakers]
   );
+  const { audioAvailability } = useAudioProviderAvailability();
+  const availableTtsSpeakerTypes = useMemo(
+    () => filterSpeakersForAudioAvailability(combinedTtsSpeakerTypes, audioAvailability),
+    [audioAvailability, combinedTtsSpeakerTypes]
+  );
 
   const mediaRecorderRef = useRef(null);
   const mediaStreamRef = useRef(null);
@@ -893,10 +903,13 @@ export default function RecordSpeechSection({
     || isAvatarVideoAccepting
     || isAvatarVideoSaving
     || isAvatarRejecting;
-  const avatarSpeechProviderOptions = AVATAR_TTS_PROVIDER_OPTIONS;
+  const avatarSpeechProviderOptions = useMemo(
+    () => filterTtsProviderOptionsForAudioAvailability(AVATAR_TTS_PROVIDER_OPTIONS, audioAvailability),
+    [audioAvailability]
+  );
   const avatarSpeechSpeakerOptions = useMemo(() => {
-    return getAvatarSpeechSpeakerOptions(selectedAvatarSpeechProvider, combinedTtsSpeakerTypes);
-  }, [selectedAvatarSpeechProvider, combinedTtsSpeakerTypes]);
+    return getAvatarSpeechSpeakerOptions(selectedAvatarSpeechProvider, availableTtsSpeakerTypes);
+  }, [selectedAvatarSpeechProvider, availableTtsSpeakerTypes]);
   const selectedAvatarSpeechSpeakerOption = useMemo(() => (
     avatarSpeechSpeakerOptions.find((option) => option.value === selectedAvatarSpeechSpeaker) || null
   ), [avatarSpeechSpeakerOptions, selectedAvatarSpeechSpeaker]);
@@ -1555,19 +1568,40 @@ export default function RecordSpeechSection({
   }, []);
 
   useEffect(() => {
+    if (avatarSpeechProviderOptions.length === 0) {
+      setSelectedAvatarSpeechProvider('');
+      setSelectedAvatarSpeechSpeaker('');
+      return;
+    }
+
+    if (!avatarSpeechProviderOptions.some((provider) => provider.value === selectedAvatarSpeechProvider)) {
+      const nextProvider = avatarSpeechProviderOptions[0].value;
+      setSelectedAvatarSpeechProvider(nextProvider);
+      setSelectedAvatarSpeechSpeaker(
+        getDefaultAvatarSpeechSpeakerValue(nextProvider, availableTtsSpeakerTypes)
+      );
+      return;
+    }
+
     if (avatarSpeechSpeakerOptions.some((speaker) => speaker.value === selectedAvatarSpeechSpeaker)) {
       return;
     }
     setSelectedAvatarSpeechSpeaker(
-      getDefaultAvatarSpeechSpeakerValue(selectedAvatarSpeechProvider, combinedTtsSpeakerTypes)
+      getDefaultAvatarSpeechSpeakerValue(selectedAvatarSpeechProvider, availableTtsSpeakerTypes)
     );
-  }, [avatarSpeechSpeakerOptions, selectedAvatarSpeechProvider, selectedAvatarSpeechSpeaker, combinedTtsSpeakerTypes]);
+  }, [
+    avatarSpeechProviderOptions,
+    avatarSpeechSpeakerOptions,
+    availableTtsSpeakerTypes,
+    selectedAvatarSpeechProvider,
+    selectedAvatarSpeechSpeaker,
+  ]);
 
   const handleAvatarSpeechProviderChange = (nextProviderValue) => {
     const nextProvider = normalizeAvatarTtsProvider(nextProviderValue);
     setSelectedAvatarSpeechProvider(nextProvider);
     setSelectedAvatarSpeechSpeaker(
-      getDefaultAvatarSpeechSpeakerValue(nextProvider, combinedTtsSpeakerTypes)
+      getDefaultAvatarSpeechSpeakerValue(nextProvider, availableTtsSpeakerTypes)
     );
   };
 
@@ -2800,7 +2834,7 @@ export default function RecordSpeechSection({
                           <select
                             value={selectedAvatarSpeechProvider}
                             onChange={(event) => handleAvatarSpeechProviderChange(event.target.value)}
-                            disabled={avatarAnyActionPending || avatarTaskBusy}
+                            disabled={avatarAnyActionPending || avatarTaskBusy || avatarSpeechProviderOptions.length === 0}
                             className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
                           >
                             {avatarSpeechProviderOptions.map((providerOption) => (

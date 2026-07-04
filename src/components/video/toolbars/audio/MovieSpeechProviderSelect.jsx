@@ -4,6 +4,8 @@ import SingleSelect from '../../../common/SingleSelect.jsx';
 import CommonButton from '../../../common/CommonButton.tsx';
 import AddSpeaker from './AddSpeaker';
 import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';
+import { useAudioProviderAvailability } from '../../../../hooks/useAudioProviderAvailability.js';
+import { filterSpeakersForAudioAvailability } from '../../../../constants/audioProviderAvailability.js';
 
 function normalizeProvider(provider, speakerValue = '') {
   const rawProvider =
@@ -17,6 +19,7 @@ function normalizeProvider(provider, speakerValue = '') {
   if (
     normalizedProvider === 'OPENAI' ||
     normalizedProvider === 'ELEVENLABS' ||
+    normalizedProvider === 'PLAYAI' ||
     normalizedProvider === 'GOOGLE' ||
     normalizedProvider === 'CUSTOM_TEXT_TO_SPEECH'
   ) {
@@ -105,6 +108,12 @@ export default function MovieSpeechProviderSelect(props) {
     setLocalSpeakers(normalizeMovieGenSpeakers(movieGenSpeakers));
   }, [movieGenSpeakers]);
 
+  const { audioAvailability } = useAudioProviderAvailability();
+  const availableLocalSpeakers = useMemo(
+    () => filterSpeakersForAudioAvailability(localSpeakers, audioAvailability),
+    [audioAvailability, localSpeakers]
+  );
+
   // Toggle "Add Speaker" form
   const handleAddSpeakerClick = () => {
     setShowAddSpeakerForm(!showAddSpeakerForm);
@@ -133,7 +142,7 @@ export default function MovieSpeechProviderSelect(props) {
   };
 
   // Build SingleSelect options from localSpeakers
-  const speakerOptions = localSpeakers.map((item, index) => {
+  const speakerOptions = availableLocalSpeakers.map((item, index) => {
     const optionKey = `${item.provider}:${item.speaker}:${item.speakerCharacterName || item.actor}:${index}`;
     return {
       value: optionKey,
@@ -181,12 +190,12 @@ export default function MovieSpeechProviderSelect(props) {
 
     // Find matching speaker object
     const speakerData =
-      localSpeakers.find((item) => (
+      availableLocalSpeakers.find((item) => (
         item.speaker === speakerValue
         && item.provider === providerValue
         && (!speakerName || item.speakerCharacterName === speakerName || item.actor === speakerName)
       ))
-      || localSpeakers.find((item) => item.speaker === speakerValue && item.provider === providerValue);
+      || availableLocalSpeakers.find((item) => item.speaker === speakerValue && item.provider === providerValue);
     if (!speakerData) {
       
       return;
@@ -211,7 +220,7 @@ export default function MovieSpeechProviderSelect(props) {
     submitGenerateSpeech(body);
   };
 
-  const noSpeakersYet = localSpeakers.length === 0;
+  const noSpeakersYet = availableLocalSpeakers.length === 0;
 
 
 

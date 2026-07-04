@@ -1,12 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import CommonButton from '../../../common/CommonButton.tsx';
 import SingleSelect from '../../../common/SingleSelect.jsx';
 import SpeechProviderSelect from './SpeechProviderSelect.jsx';
 import { getGoogleTTSVoiceDetails } from '../../../../hooks/useGoogleTTSSpeakers.js';
+import { useAudioProviderAvailability } from '../../../../hooks/useAudioProviderAvailability.js';
+import { filterTtsProviderOptionsForAudioAvailability } from '../../../../constants/audioProviderAvailability.js';
 
 const TTS_PROVIDER_OPTIONS = [
   { value: 'OPENAI', label: 'OpenAI' },
   { value: 'ELEVENLABS', label: 'ElevenLabs' },
+  { value: 'PLAYAI', label: 'Play.ht' },
   { value: 'GOOGLE', label: 'Google TTS' },
   { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
 ];
@@ -32,6 +35,11 @@ export default function AddSpeaker(props) {
 
 
   const [ttsProvider, setTtsProvider] = useState(TTS_PROVIDER_OPTIONS[0]);
+  const { audioAvailability } = useAudioProviderAvailability();
+  const availableTtsProviderOptions = useMemo(
+    () => filterTtsProviderOptionsForAudioAvailability(TTS_PROVIDER_OPTIONS, audioAvailability),
+    [audioAvailability]
+  );
 
 
   const [speakerType, setSpeakerType] = useState(null);
@@ -44,8 +52,21 @@ export default function AddSpeaker(props) {
   const sidebarButtonClass = isSidebarPanel
     ? '!m-0 !min-h-[38px] !w-full !px-4 !py-2 text-xs'
     : '!m-0 !min-h-[38px] !px-4 !py-2 text-xs';
-  const providerValue = ttsProvider?.value || 'OPENAI';
+  const providerValue = ttsProvider?.value || availableTtsProviderOptions[0]?.value || '';
   const isGoogleProvider = providerValue === 'GOOGLE';
+
+  useEffect(() => {
+    if (availableTtsProviderOptions.length === 0) {
+      setTtsProvider(null);
+      setSpeakerType(null);
+      return;
+    }
+
+    if (!availableTtsProviderOptions.some((option) => option.value === ttsProvider?.value)) {
+      setTtsProvider(availableTtsProviderOptions[0]);
+      setSpeakerType(null);
+    }
+  }, [availableTtsProviderOptions, ttsProvider?.value]);
 
   const getSelectedSpeakerDisplayName = () => (
     speakerType?.speakerCharacterName
@@ -57,7 +78,7 @@ export default function AddSpeaker(props) {
   );
 
   const handleTtsProviderChange = (selectedOption) => {
-    setTtsProvider(selectedOption || TTS_PROVIDER_OPTIONS[0]);
+    setTtsProvider(selectedOption || availableTtsProviderOptions[0] || null);
     setSpeakerType(null);
     setError('');
   };
@@ -132,7 +153,7 @@ export default function AddSpeaker(props) {
         <label className={fieldLabelClass}>Provider</label>
         <SingleSelect
           name="ttsProvider"
-          options={TTS_PROVIDER_OPTIONS}
+          options={availableTtsProviderOptions}
           value={ttsProvider}
           onChange={handleTtsProviderChange}
           isSearchable={false}
