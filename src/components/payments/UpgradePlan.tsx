@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { getHeaders } from '../../utils/web.jsx';
@@ -51,7 +51,7 @@ export default function UpgradePlan() {
       if (upgradeWindow && !upgradeWindow.closed) {
         upgradeWindow.location.href = data.url;
       }
-    } catch (error) {
+    } catch  {
       
       setErrorMessage('Failed to upgrade the plan. Please try again.');
 

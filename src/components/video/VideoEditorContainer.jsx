@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
@@ -9,7 +9,6 @@ import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { getHeaders } from '../../utils/web.jsx';
 import {
   CURRENT_TOOLBAR_VIEW,
-  CANVAS_ACTION,
   TOOLBAR_ACTION_VIEW,
   IMAGE_GENERAITON_MODEL_TYPES,
   IMAGE_EDIT_MODEL_TYPES
@@ -29,8 +28,7 @@ import { getTextConfigForCanvas } from '../../constants/TextConfig.jsx';
 
 import LibraryHome from '../library/LibraryHome.jsx';
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
-import VideoEditorToolbarMinimal from './toolbars/VideoEditorToolbarMinimal.jsx';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 
 import 'react-toastify/dist/ReactToastify.css';
 import { FaCheck, FaTimes } from 'react-icons/fa';
@@ -55,6 +53,26 @@ function isAbsoluteUrl(value) {
   return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
 }
 
+function isStaticCdnHost(hostname) {
+  if (typeof hostname !== 'string') {
+    return false;
+  }
+  const normalizedHost = hostname.toLowerCase();
+  if (normalizedHost === 'static.samsar.one') {
+    return true;
+  }
+  try {
+    return Boolean(STATIC_CDN_URL) && normalizedHost === new URL(STATIC_CDN_URL).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+function isRemoteUserResourcePath(pathname) {
+  return pathname.startsWith('assets_v2/user_resources/') ||
+    pathname.startsWith('user_resources/');
+}
+
 function resolveProcessorAssetUrlFromStaticUrl(value) {
   if (typeof value !== 'string') {
     return null;
@@ -62,15 +80,17 @@ function resolveProcessorAssetUrlFromStaticUrl(value) {
 
   try {
     const parsedUrl = new URL(value.trim());
-    const normalizedHost = parsedUrl.hostname.toLowerCase();
     const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
     if (
-      normalizedHost !== 'static.samsar.one' ||
+      !isStaticCdnHost(parsedUrl.hostname) ||
       !(
         normalizedPath.startsWith('assets_v2/') ||
         normalizedPath.startsWith('assets/')
       )
     ) {
+      return null;
+    }
+    if (isRemoteUserResourcePath(normalizedPath)) {
       return null;
     }
 
@@ -176,9 +196,7 @@ export default function VideoEditorContainer(props) {
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
     onRecordSpeechRecordingChange,
-    applyAudioDucking = true,
     isRenderPending,
-    audioLayers,
     setAudioLayers,
     layers,
     onAssistantFrameCaptureChange,
@@ -395,8 +413,24 @@ export default function VideoEditorContainer(props) {
     }
   }, [currentLayer, layerHasPendingVideoTask, resolveLayerVideoState]);
 
+  const currentVideoLayerState = useMemo(() => {
+    if (!currentLayer) {
+      return { url: null, type: null };
+    }
+
+    const { url, type } = resolveLayerVideoState(currentLayer);
+    return {
+      url,
+      type: type || (isActiveUserVideoUploadTask(currentLayer?.userVideoUploadTask) ? 'user_video' : null),
+    };
+  }, [currentLayer, resolveLayerVideoState]);
+
   const nextVideoLayerState = useMemo(() => {
     if (!isVideoPreviewPlaying || !currentLayer || !Array.isArray(layers)) {
+      return { url: null, type: null };
+    }
+
+    if (!currentVideoLayerState.url) {
       return { url: null, type: null };
     }
 
@@ -415,7 +449,7 @@ export default function VideoEditorContainer(props) {
     }
 
     return resolveLayerVideoState(layers[currentLayerIndex + 1]);
-  }, [currentLayer, isVideoPreviewPlaying, layers, resolveLayerVideoState]);
+  }, [currentLayer, currentVideoLayerState.url, isVideoPreviewPlaying, layers, resolveLayerVideoState]);
 
 
   useEffect(() => {
@@ -458,7 +492,7 @@ export default function VideoEditorContainer(props) {
   const [selectedChain, setSelectedChain] = useState('');
   const [selectedAllocation, setSelectedAllocation] = useState(300);
   const [isTemplateSelectViewSelected, setIsTemplateSelectViewSelected] = useState(false);
-  const [templateOptionList, setTemplateOptionList] = useState([]);
+  useState([]);
   const [editBrushWidth, setEditBrushWidth] = useState(25);
   const [editMasklines, setEditMaskLines] = useState([]);
   const [currentView, setCurrentView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
@@ -474,8 +508,8 @@ export default function VideoEditorContainer(props) {
 
   const [isGenerationPending, setIsGenerationPending] = useState(false);
   const [isOutpaintPending, setIsOutpaintPending] = useState(false);
-  const [isPublicationPending, setIsPublicationPending] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [isPublicationPending] = useState(false);
+  useState(1);
 
   const { colorMode } = useColorMode();
   const initFillColor = colorMode === 'dark' ? '#f5f5f5' : '#030712';
@@ -488,7 +522,7 @@ export default function VideoEditorContainer(props) {
   const [pencilWidth, setPencilWidth] = useState(10);
   const [pencilColor, setPencilColor] = useState('#000000');
   const [eraserWidth, setEraserWidth] = useState(30);
-  const [eraserOptionsVisible, setEraserOptionsVisible] = useState(false);
+  const [eraserOptionsVisible] = useState(false);
   const [cursorSelectOptionVisible, setCursorSelectOptionVisible] = useState(false);
   const [generationError, setGenerationError] = useState(null);
   const [outpaintError, setOutpaintError] = useState(null);
@@ -500,7 +534,7 @@ export default function VideoEditorContainer(props) {
   const [isSelectButtonDisabled, setIsSelectButtonDisabled] = useState(false);
   const [currentLayerHasSpeechLayer, setCurrentLayerHasSpeechLayer] = useState(false);
   const { openAlertDialog, closeAlertDialog, setIsAlertActionPending } = useAlertDialog();
-  const { user, getUserAPI } = useUser();
+  const { getUserAPI } = useUser();
   const { t } = useLocalization();
 
   const [showCreateNewPromptDisplay, setShowCreateNewPromptDisplay] = useState(false);
@@ -892,9 +926,7 @@ export default function VideoEditorContainer(props) {
     }
   }, [currentCanvasAction]);
 
-  const resetCurrentView = () => {
-    setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-  };
+
 
   const prevLengthRef = useRef(activeItemList.length);
   const [isIntermediateSaving, setIsIntermediateSaving] = useState(false);
@@ -1029,7 +1061,7 @@ export default function VideoEditorContainer(props) {
       }
 
       ctx.save();
-      const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
+      const { x, y, width, height, rotation } = item;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.translate(x, y);
 
@@ -1044,8 +1076,8 @@ export default function VideoEditorContainer(props) {
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
-        } catch (error) {
-          
+        } catch  {
+
         }
       } else if (item.type === 'shape') {
         const config = item.config;
@@ -1219,23 +1251,7 @@ export default function VideoEditorContainer(props) {
       });
   };
 
-  const submitNanoBananaOutpaintRequest = () => {
-
-
-    const payload = {
-      sessionId: id,
-      layerId: currentLayer._id.toString(),
-      prompt: promptText,
-      model: selectedEditModel,
-    };
-
-
-
-
-
-
-
-  }
+  const submitNanoBananaOutpaintRequest = () => {};
 
   // Poll for generation status
   async function startGenerationPoll() {
@@ -1355,7 +1371,7 @@ export default function VideoEditorContainer(props) {
 
       const layerData = pollStatusDataResponse.layer;
       const imageSession = layerData.imageSession;
-      const newActiveItemList = imageSession.activeItemList;
+
       const generatedImageUrlName = imageSession.activeEditedImage;
       const generatedURL = `${generatedImageUrlName}`;
       const item_id = `item_${activeItemList.length}`;
@@ -1456,7 +1472,7 @@ export default function VideoEditorContainer(props) {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(blobUrl);
-      } catch (error) {
+      } catch  {
         toast.error(
           <div>
             <FaTimes /> Unable to download current video frame
@@ -1470,8 +1486,8 @@ export default function VideoEditorContainer(props) {
       return;
     }
 
-    const isPremiumUser = user.isPremiumUser;
-    const waterMarkImage = 'wm.png';
+
+
 
     const stageDimensions = getCanvasDimensionsForAspectRatio(aspectRatio);
     const canvas = document.createElement('canvas');
@@ -1479,14 +1495,7 @@ export default function VideoEditorContainer(props) {
     canvas.height = stageDimensions.height;
     const ctx = canvas.getContext('2d');
 
-    const loadLocalImage = (src) =>
-      new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = (err) => reject(err);
-        img.src = `/${src}`;
-      });
+
 
     const loadImage = (src) =>
       new Promise((resolve, reject) => {
@@ -1506,7 +1515,7 @@ export default function VideoEditorContainer(props) {
       }
 
       ctx.save();
-      const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
+      const { x, y, width, height, rotation } = item;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.translate(x, y);
       if (rotation) {
@@ -1519,8 +1528,8 @@ export default function VideoEditorContainer(props) {
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
-        } catch (error) {
-          
+        } catch  {
+
         }
       } else if (item.type === 'shape') {
         const config = item.config;
@@ -1556,7 +1565,7 @@ export default function VideoEditorContainer(props) {
     //     const y = canvas.height - watermarkImg.height - padding;
     //     ctx.drawImage(watermarkImg, x, y, watermarkImg.width, watermarkImg.height);
     //   } catch (error) {
-    //     
+    //
     //   }
     // }
 
@@ -1701,82 +1710,10 @@ export default function VideoEditorContainer(props) {
     setCurrentCanvasAction(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
     updateCurrentActiveLayer(payload);
   };
-  const getRemoteTemplateData = (page) => {
-    const headers = getHeaders();
-    if (!headers) {
-      showLoginDialog();
-      return;
-    }
-    axios
-      .get(`${PROCESSOR_API_URL}/utils/template_list?page=${page}`, headers)
-      .then((response) => {
-        setTemplateOptionList(response.data);
-        toast.success(
-          <div>
-            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.templatesLoaded")}
-          </div>,
-          {
-            position: 'bottom-center',
-            className: 'custom-toast',
-          }
-        );
-      })
-      .catch(() => {
-        toast.error(
-          <div>
-            <FaTimes /> {t("studio.notifications.templatesLoadFailed")}
-          </div>,
-          {
-            position: 'bottom-center',
-            className: 'custom-toast',
-          }
-        );
-      });
-  };
-  const submitTemplateSearch = (query) => {
-    const headers = getHeaders();
-    if (!headers) {
-      showLoginDialog();
-      return;
-    }
-    axios
-      .get(`${PROCESSOR_API_URL}/utils/search_template?query=${query}`, headers)
-      .then((response) => {
-        setTemplateOptionList(response.data);
-        toast.success(
-          <div>
-            <FaCheck className='inline-flex mr-2' /> {t("studio.notifications.templateSearchComplete")}
-          </div>,
-          {
-            position: 'bottom-center',
-            className: 'custom-toast',
-          }
-        );
-      })
-      .catch(() => {
-        toast.error(
-          <div>
-            <FaTimes /> {t("studio.notifications.templateSearchFailed")}
-          </div>,
-          {
-            position: 'bottom-center',
-            className: 'custom-toast',
-          }
-        );
-      });
-  };
 
-  const addImageToCanvas = (templateOption) => {
-    const templateURL = `${PROCESSOR_API_URL}/templates/mm_final/${templateOption}`;
-    const newId = `item_${activeItemList.length}`;
-    const nImageList = [
-      ...activeItemList,
-      createCurrentLayerImageItem({ src: templateURL, id: newId }),
-    ];
-    setActiveItemList(nImageList);
-    setCurrentView(CURRENT_TOOLBAR_VIEW.SHOW_DEFAULT_DISPLAY);
-    updateSessionLayerActiveItemList(nImageList);
-  };
+
+
+
 
   /************************************************
    *            TEXT / SHAPES
@@ -2294,7 +2231,7 @@ export default function VideoEditorContainer(props) {
         setAiVideoLayerType(type);
       }
 
-    } catch (error) {
+    } catch  {
 
     } finally {
       setCanvasActionLoading(false);
@@ -2723,8 +2660,8 @@ export default function VideoEditorContainer(props) {
           startLayeredAudioGenerationPoll();
         }, 1000);
       }
-    } catch (error) {
-      
+    } catch  {
+
       setAudioGenerationPending(false);
       toast.error(
         <div>
@@ -2860,7 +2797,7 @@ export default function VideoEditorContainer(props) {
     if (pollRes.status === 'COMPLETED') {
       const sessionData = pollRes.session;
       setIsAIVideoGenerationPending(false);
-      const layerData = sessionData.layers.find(
+      sessionData.layers.find(
         (layer) => layer._id.toString() === selectedLayerId
       );
 
@@ -2974,10 +2911,8 @@ export default function VideoEditorContainer(props) {
       });
   };
 
-  const [mimialEditorDisplay, setMinimalEditorDisplay] = useState(true);
-  const onToggleEditorMinimalDisplay = () => {
-    setMinimalEditorDisplay(!mimialEditorDisplay);
-  };
+  useState(true);
+
 
   const requestAddSyncedSoundEffect = (payload) => {
     if (layerHasAnyVideoArtefact(currentLayer)) {
@@ -3035,7 +2970,7 @@ export default function VideoEditorContainer(props) {
 
     axios
       .post(`${PROCESSOR_API_URL}/video_sessions/update_movie_gen_speakers`, payload, headers)
-      .then((resData) => {
+      .then(() => {
 
         setMovieGenSpeakers(updatedSpeakers);
 
@@ -3094,7 +3029,7 @@ export default function VideoEditorContainer(props) {
         // Show the Konva-based canvas
         let canvasInternalLoading = <span />;
         if (canvasActionLoading) {
-          const canvasWidth = getCanvasDimensionsForAspectRatio(aspectRatio).width;
+          getCanvasDimensionsForAspectRatio(aspectRatio).width;
           canvasInternalLoading = (
             <div className="absolute inset-0 z-10 flex items-center justify-center">
               <LoadingImageBase />
@@ -3152,8 +3087,8 @@ export default function VideoEditorContainer(props) {
               stageZoomScale={stageZoomScale}
               requestRegenerateSubtitles={requestRegenerateSubtitles}
               displayZoomType={displayZoomType}
-              aiVideoLayer={aiVideoLayer}
-              aiVideoLayerType={aiVideoLayerType}
+              aiVideoLayer={currentVideoLayerState.url}
+              aiVideoLayerType={currentVideoLayerState.type}
               nextAiVideoLayer={nextVideoLayerState.url}
               nextAiVideoLayerType={nextVideoLayerState.type}
               requestRegenerateAnimations={requestRegenerateAnimations}

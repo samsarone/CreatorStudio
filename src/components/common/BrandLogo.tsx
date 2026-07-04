@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 

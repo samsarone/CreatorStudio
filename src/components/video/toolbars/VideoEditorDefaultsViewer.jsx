@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ace from 'ace-builds';
 import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';

@@ -16,7 +16,7 @@ import { useColorMode } from '../../contexts/ColorMode.jsx';
 import CommonButton from './CommonButton.tsx';
 import SingleSelect from './SingleSelect.jsx';
 
-export const TEXT_FONT_OPTIONS = [
+const TEXT_FONT_OPTIONS = [
   { value: 'Arial', label: 'Arial' },
   { value: 'Verdana', label: 'Verdana' },
   { value: 'Helvetica', label: 'Helvetica' },
@@ -36,7 +36,7 @@ export const TEXT_FONT_OPTIONS = [
   { value: 'Serif', label: 'Serif' },
 ];
 
-export const TEXT_STYLE_STORAGE_KEYS = {
+const TEXT_STYLE_STORAGE_KEYS = {
   fontSize: 'selected_text_config_fontSize',
   fontFamily: 'selected_text_config_fontFamily',
   fillColor: 'selected_text_config_fillColor',
@@ -58,7 +58,7 @@ export const TEXT_STYLE_STORAGE_KEYS = {
   capitalizeLetters: 'selected_text_config_capitalizeLetters',
 };
 
-export const DEFAULT_TEXT_STYLE_DRAFT = {
+const DEFAULT_TEXT_STYLE_DRAFT = {
   text: '',
   width: 600,
   height: 200,
@@ -216,7 +216,7 @@ export function buildTextStyleDraft(value = {}) {
 
 export function mapTextDraftToConfig(value = {}) {
   const draft = buildTextStyleDraft(value);
-  const { text, ...config } = draft;
+  const { ...config } = draft;
   return config;
 }
 

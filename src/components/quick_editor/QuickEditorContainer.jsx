@@ -1,4 +1,4 @@
-import React from 'react';
+
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import QuickEditor from './QuickEditor';

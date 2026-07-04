@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { FaSlidersH } from 'react-icons/fa';
 

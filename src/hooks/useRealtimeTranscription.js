@@ -141,7 +141,7 @@ function resolveEphemeralKey(payload) {
   return { token, model, url };
 }
 
-export function useRealtimeTranscription({
+function useRealtimeTranscription({
   transcriptEndpoint,
   transcriptHeaders,
   onTranscription,
@@ -223,7 +223,7 @@ export function useRealtimeTranscription({
     let payload;
     try {
       payload = JSON.parse(rawEvent.data);
-    } catch (err) {
+    } catch  {
       // Ignore malformed realtime payloads.
       return;
     }

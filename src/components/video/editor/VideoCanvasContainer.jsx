@@ -1,5 +1,5 @@
 import VideoCanvas from "./VideoCanvas";
-import React, { forwardRef, useCallback, useContext, useEffect, useState, useRef } from "react";
+import { forwardRef, useCallback, useContext, useEffect, useState, useRef } from "react";
 import { CURRENT_TOOLBAR_VIEW, TOOLBAR_ACTION_VIEW } from '../../../constants/Types.ts';
 import { generateCursor, generatePencilCursor } from "../util/GenerateSVG.jsx";
 import Konva from 'konva';
@@ -35,7 +35,7 @@ function normalizeSessionFramesPerSecond(value) {
     : DEFAULT_SESSION_FRAMES_PER_SECOND;
 }
 
-export function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset, framesPerSecond = DEFAULT_SESSION_FRAMES_PER_SECOND) {
+function applyAnimationsToNode(node, item, elapsedTime, duration, durationOffset, framesPerSecond = DEFAULT_SESSION_FRAMES_PER_SECOND) {
   if (!item.animations) return;
 
   const sessionFramesPerSecond = normalizeSessionFramesPerSecond(framesPerSecond);
@@ -199,22 +199,19 @@ function shouldIgnoreCanvasNudgeShortcut(target) {
 const VideoCanvasContainer = forwardRef((props, ref) => {
   const { sessionDetails, activeItemList, setActiveItemList, currentView,
     setCurrentView, editBrushWidth, editMasklines, setEditMaskLines, currentCanvasAction,
-    setCurrentCanvasAction, setSelectedId, selectedId, buttonPositions,
-    setButtonPositions, selectedLayerType, setSelectedLayerType, applyFilter,
-    onChange, pencilColor, pencilWidth, eraserWidth, sessionId, selectedFrameId,
-    exportAnimationFrames, currentLayer, currentLayerSeek, updateSessionActiveItemList,
-    selectedLayerSelectShape, isLayerSeeking, applyFinalFilter, isExpressGeneration,
+    setCurrentCanvasAction, setSelectedId, selectedId, setButtonPositions, selectedLayerType, pencilColor, pencilWidth, eraserWidth, currentLayer, currentLayerSeek, updateSessionActiveItemList,
+    selectedLayerSelectShape, isExpressGeneration,
     stageZoomScale, selectedEditModelValue, createTextLayer, requestRealignToAiVideoAndLayers,
     requestLipSyncToSpeech, onPersistTextStyle
   } = props;
 
 
-  
+
   const shapeSelectTransformerCircleRef = useRef();
   const shapeSelectTransformerRectangleRef = useRef();
 
   const [eraserLayer, setEraserLayer] = useState(null);
-  const [isShapeVisible, setIsShapeVisible] = useState(false);
+  const [, setIsShapeVisible] = useState(false);
   const [showMask, setShowMask] = useState(false);
   const [showEraser, setShowEraser] = useState(false);
   const [isPainting, setIsPainting] = useState(false);
@@ -239,11 +236,11 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
   const showPencilRef = useRef(showPencil);
   const editMasklinesRef = useRef(editMasklines);
   const eraserWidthRef = useRef(eraserWidth);
-  const animationRefs = useRef({});
+  useRef({});
   const initialParamsRef = useRef({});
-  const [hoveredObject, setHoveredObject] = useState(null);
-  const [segmentation, setSegmentation] = useState(null);
-  const [overlayImage, setOverlayImage] = useState(null);
+  const [hoveredObject] = useState(null);
+  useState(null);
+  const [overlayImage] = useState(null);
   const startPosRef = useRef({ x: 0, y: 0 });
   const [isDrawing, setIsDrawing] = useState(false);
 
@@ -749,7 +746,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       }
     });
   }, [currentLayerSeek, currentLayer, activeItemList, sessionDetails?.framesPerSecond]);
-  
+
 
 
   useEffect(() => {
@@ -794,7 +791,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
     }
   }, [editBrushWidth, currentView, selectedEditModelValue]);
 
-  
+
 
   useEffect(() => {
     if (currentCanvasAction === TOOLBAR_ACTION_VIEW.SHOW_ERASER_DISPLAY) {
@@ -1085,7 +1082,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
 
-  
+
   const replaceTopLayer = () => {
     const eraserResult = getEraserResultPayload();
     if (!eraserResult) {
@@ -1388,7 +1385,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       id: `item_${newIndex}`
     }));
 
- 
+
     setActiveItemList(reorderedItems);
     updateSessionActiveItemList(reorderedItems);
   }
@@ -1406,7 +1403,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       ...item,
       id: `item_${newIndex}`
     }));
-    
+
 
     setActiveItemList(reorderedItems);
     updateSessionActiveItemList(reorderedItems);
@@ -1416,7 +1413,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
 
-    
+
     const scaledNewConfig = {
       ...newConfig,
       x: newConfig.x / stageZoomScale,
@@ -1430,7 +1427,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
     const newItem = activeItemList.find((item) => item.id === id);
 
-    
+
     if (newItem.type === 'image') {
       newItem.x = scaledNewConfig.x;
       newItem.y = scaledNewConfig.y;
@@ -1438,7 +1435,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       newItem.height = scaledNewConfig.height;
     }
 
-    
+
     const newActiveItemList = activeItemList.map((item) => {
       if (item.id === id) {
         return {
@@ -1512,7 +1509,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
 
-    const newWidth = newConfig.width / stageZoomScale;
+
 
     let scaledNewConfig = {
       ...newConfig,
@@ -1557,20 +1554,20 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       && typeof configChanges.x === 'number'
       && typeof configChanges.y === 'number';
 
-    
+
     const textNode = stage?.findOne?.(`#${id}`);
     if (!textNode && !useExplicitCenterPosition) {
-      
+
       return;
     }
-  
+
     const boundingBox = textNode?.getClientRect?.();
-  
+
     let centerX = boundingBox ? boundingBox.x + boundingBox.width / 2 : 0;
     let centerY = boundingBox ? boundingBox.y + boundingBox.height / 2 : 0;
     const useRawStyleValues = styleValueSpace === 'raw';
 
-  
+
     let scaledNewConfig = {
       ...configChanges,
       x: useExplicitCenterPosition ? configChanges.x : centerX / stageZoomScale,
@@ -1605,7 +1602,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
           : configChanges[key] / stageZoomScale;
       }
     });
-  
+
 
     let updatedItem = null;
     const newActiveItemList = activeItemList.map((item) => {
@@ -1622,7 +1619,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
       }
       return item;
     });
-  
+
     const nextActiveItemList = bringToFront && updatedItem
       ? [
         ...newActiveItemList.filter((item) => item.id !== id),
@@ -1680,7 +1677,7 @@ const VideoCanvasContainer = forwardRef((props, ref) => {
 
 
 
-  
+
   return (
     <div>
       <VideoCanvas

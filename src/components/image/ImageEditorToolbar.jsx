@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import { useContext } from 'react';
 import { FaUpload, FaChevronDown, FaPencilAlt, FaEraser, FaUndo, FaRedo } from 'react-icons/fa';
 import { LuCombine } from 'react-icons/lu';
 import { TbLibraryPhoto } from 'react-icons/tb';
@@ -72,12 +72,6 @@ export default function ImageEditorToolbar(props) {
     eraserWidth,
     setEraserWidth,
     onCombineCurrentLayerItems,
-    zoomCanvasIn,
-    zoomCanvasOut,
-    resetCanvasZoom,
-    canvasZoomPercent,
-    canZoomInCanvas,
-    canZoomOutCanvas,
   } = props;
   const {
     showCanvasNavigationGrid,

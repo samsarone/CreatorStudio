@@ -1,5 +1,4 @@
-// LayerSpeechPreview.js
-import React from 'react';
+
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import { FaArrowLeft, FaCheck } from 'react-icons/fa';
 import SpeechSelectToolbar from './SpeechSelectToolbar';

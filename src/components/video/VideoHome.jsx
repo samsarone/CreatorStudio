@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useState, useRef } from 'react';
+import { useCallback, useContext, useEffect, useState, useRef } from 'react';
 import CommonContainer from '../common/CommonContainer.tsx';
 import FrameToolbar from './toolbars/frame_toolbar/index.jsx';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -13,7 +13,6 @@ import { debounce } from './util/debounce.jsx';
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
 import { getImagePreloaderWorker } from './workers/imagePreloaderWorkerSingleton'; // Import the worker singleton
-import FrameToolbarMinimal from './toolbars/FrameToolbarMinimal.jsx';
 import { useUser } from '../../contexts/UserContext.jsx';
 import { FaCheck } from 'react-icons/fa';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
@@ -534,7 +533,7 @@ function mergePreviewAudioLayers(sessionAudioLayers, workingAudioLayers) {
   return mergedAudioLayers;
 }
 
-export default function VideoHome(props) {
+export default function VideoHome() {
   const {
     setZoomCanvasIn,
     setZoomCanvasOut,
@@ -583,7 +582,6 @@ export default function VideoHome(props) {
 
   const [sessionMetadata, setSessionMetadata] = useState(null);
 
-  const [minimalToolbarDisplay, setMinimalToolbarDisplay] = useState(true);
   const [aspectRatio, setAspectRatio] = useState(null);
 
   const [applyAudioDucking, setApplyAudioDucking] = useState(true);
@@ -593,11 +591,11 @@ export default function VideoHome(props) {
   const [isGuestSession, setIsGuestSession] = useState(false);
 
   // update current layer on update layers
-  const [toggleUpdateCurrentLayer, setToggleUpdateCurrentLayer] = useState(false);
+  const [, setToggleUpdateCurrentLayer] = useState(false);
   const [currentLayerToBeUpdated, setCurrentLayerToBeUpdated] = useState(-1);
 
   const [isVideoPreviewPlaying, setIsVideoPreviewPlaying] = useState(false);
-  const [isReorderPending, setIsReorderPending] = useState(false);
+  useState(false);
 
   const [downloadLink, setDownloadLink] = useState(null);
 
@@ -624,7 +622,7 @@ export default function VideoHome(props) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { user, getUserAPI } = useUser();
+  const { user } = useUser();
   const { t } = useLocalization();
   const { colorMode } = useColorMode();
 
@@ -790,7 +788,6 @@ export default function VideoHome(props) {
     setPolling(false); // Reset polling status
     setDisplayZoomType('fit'); // Reset zoom mode
     setStageZoomScale(getFitZoomScale()); // Reset zoom scale
-    setMinimalToolbarDisplay(true);
     setAspectRatio(null);
     setApplyAudioDucking(true);
     setRegenerateFramesBeforeRender(false);
@@ -803,7 +800,6 @@ export default function VideoHome(props) {
     const defaultModel = localStorage.getItem("defaultModel") || 'DALLE3';
     const defaultSceneDuration = parseFloat(localStorage.getItem("defaultSceneDuration")) || 2;
     const defaultApplyAudioDucking = localStorage.getItem("applyAudioDucking") !== 'false'; // defaults to true
-    const defaultMinimalToolbarDisplay = localStorage.getItem("minimalToolbarDisplay") !== 'false'; // defaults to true
     const storedZoomMode = localStorage.getItem(VIDEO_CANVAS_ZOOM_MODE_STORAGE_KEY);
     const storedZoomScaleValue = Number(localStorage.getItem(VIDEO_CANVAS_ZOOM_SCALE_STORAGE_KEY));
     const normalizedZoomMode = storedZoomMode === 'manual' ? 'manual' : 'fit';
@@ -811,7 +807,6 @@ export default function VideoHome(props) {
 
     // If you have state variables for these, set them
     setApplyAudioDucking(defaultApplyAudioDucking);
-    setMinimalToolbarDisplay(defaultMinimalToolbarDisplay);
     setDisplayZoomType(normalizedZoomMode);
     setStageZoomScale(
       normalizedZoomMode === 'manual' && Number.isFinite(storedZoomScaleValue)
@@ -1214,11 +1209,14 @@ export default function VideoHome(props) {
   }
 
   const applyInitialCanvasZoomForAspectRatio = (nextAspectRatio) => {
+    const fitZoomScale = getFitZoomScale(nextAspectRatio);
+
     if (!isPortraitAspectRatio(nextAspectRatio)) {
+      setDisplayZoomType('fit');
+      setStageZoomScale(fitZoomScale);
       return;
     }
 
-    const fitZoomScale = getFitZoomScale(nextAspectRatio);
     setDisplayZoomType('manual');
     setStageZoomScale(
       clampCanvasZoomScale(fitZoomScale * PORTRAIT_CANVAS_INITIAL_ZOOM_RATIO, fitZoomScale)
@@ -1294,7 +1292,7 @@ export default function VideoHome(props) {
     const index = layers.findIndex(l => l._id === layer._id);
     setSelectedLayerIndex(index);
     setCurrentLayer(layer);
-    const { startFrame: newLayerSeek } = getLayerDisplayFrameRange(layer);
+    getLayerDisplayFrameRange(layer);
     // setCurrentLayerSeek(newLayerSeek);
   }
 
@@ -1504,8 +1502,16 @@ export default function VideoHome(props) {
         return;
       }
       if (routeSessionId && (err?.response?.status === 400 || err?.response?.status === 404)) {
-        navigate(`/vidgenie/${routeSessionId}`, { replace: true });
-        return;
+        try {
+          if (localStorage.getItem('videoSessionId') === routeSessionId) {
+            localStorage.removeItem('videoSessionId');
+          }
+          if (localStorage.getItem('sessionId') === routeSessionId) {
+            localStorage.removeItem('sessionId');
+          }
+        } catch  {
+
+        }
       }
       toast.error(err?.response?.data?.error || 'Unable to open this session.', {
         position: 'bottom-center',
@@ -1611,8 +1617,8 @@ export default function VideoHome(props) {
     if (layers && layers.length > 0) {
       const imagePreloaderWorker = getImagePreloaderWorker();
 
-      imagePreloaderWorker.onmessage = function (e) {
-        // 
+      imagePreloaderWorker.onmessage = function () {
+        //
       };
 
       imagePreloaderWorker.postMessage({ layers });
@@ -1690,9 +1696,9 @@ export default function VideoHome(props) {
 
         setIsCanvasDirty(true); // If needed
       })
-      .catch((error) => {
+      .catch(() => {
         // Handle error
-        
+
 
         setCanvasProcessLoading(false);
       });
@@ -2213,11 +2219,6 @@ export default function VideoHome(props) {
     const newLayers = layers;
     newLayers[index].duration = parseFloat(value);
     setLayers(newLayers);
-    let totalDuration = 0;
-    newLayers.forEach(layer => {
-      totalDuration += layer.duration;
-    });
-    // setTotalDuration(totalDuration);
   }
 
 
@@ -2244,11 +2245,11 @@ export default function VideoHome(props) {
       setAudioLayers(returnedLayers);
       setIsCanvasDirty(true);
 
-      // Let FrameToolbar know the server accepted changes 
+      // Let FrameToolbar know the server accepted changes
       // so we can clear "isDirty" states on that side:
       return { success: true, serverLayers: returnedLayers };
     } catch (error) {
-      
+
       return { success: false, error };
     }
   };
@@ -2427,10 +2428,6 @@ export default function VideoHome(props) {
     };
   }, []);
 
-  const fps = 30;
-  const frameDurationMs = 1000 / fps;
-  const totalDurationInFrames = totalDuration * fps;
-
   const setNewSeek = (newSeek) => {
     setCurrentLayerSeek(newSeek);
   };
@@ -2460,8 +2457,8 @@ export default function VideoHome(props) {
           }
           closeAlertDialog();
         })
-        .catch(error => {
-          
+        .catch(() => {
+
         });
     };
     reader.readAsDataURL(file);
@@ -2594,8 +2591,8 @@ export default function VideoHome(props) {
 
           setIsCanvasDirty(true);
         })
-        .catch(function (err) {
-          
+        .catch(function () {
+
         });
     }, 5);
   }
@@ -2897,34 +2894,7 @@ export default function VideoHome(props) {
   };
 
 
-  const persistAudioLayerUpdate = () => {
 
-
-    const headers = getHeaders();
-    if (!headers) {
-      showLoginDialog();
-      return;
-    }
-
-    const reqPayload = {
-      sessionId: id,
-      audioLayers: audioLayers,
-    };
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/update_audio_layers`, reqPayload, headers).then((response) => {
-      setIsAudioLayerDirty(false);
-      setIsCanvasDirty(true);
-      toast.success(<div>{t("studio.notifications.audioLayerUpdated")}</div>, {
-        position: "bottom-center",
-        className: "custom-toast",
-      });
-
-      const resData = response.data;
-
-      const { audioLayers } = resData;
-      setAudioLayers(audioLayers);
-    });
-
-  }
 
 
 
@@ -3016,14 +2986,14 @@ export default function VideoHome(props) {
     const endTime = parseFloat(formData.get('endTime'));
 
     if (!combinedLayerId) {
-      
+
       return;
     }
 
     // Parse combinedLayerId into layerId and itemId
     const underscoreIndex = combinedLayerId.indexOf('_');
     if (underscoreIndex === -1) {
-      
+
       return;
     }
 
@@ -3033,7 +3003,7 @@ export default function VideoHome(props) {
     // Find the target layer
     const layerIndex = layers.findIndex((l) => l._id.toString() === layerId.toString());
     if (layerIndex === -1) {
-      
+
       return;
     }
 
@@ -3041,7 +3011,7 @@ export default function VideoHome(props) {
     const updatedLayer = { ...layers[layerIndex] };
 
     if (!updatedLayer.imageSession || !updatedLayer.imageSession.activeItemList) {
-      
+
       return;
     }
 
@@ -3051,7 +3021,7 @@ export default function VideoHome(props) {
     );
 
     if (itemIndex === -1) {
-      
+
       return;
     }
 
@@ -3133,8 +3103,8 @@ export default function VideoHome(props) {
       updateCurrentLayerAndLayerList(newLayers, newLayerIndex);
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
-    }).catch(function (err) {
-      
+    }).catch(function () {
+
       setCanvasProcessLoading(false);
     });
   }
@@ -3264,8 +3234,8 @@ export default function VideoHome(props) {
       setSelectedLayerIndex(newLayerIndex);
       setIsCanvasDirty(true);
       setCanvasProcessLoading(false);
-    }).catch(function (err) {
-      
+    }).catch(function () {
+
       setCanvasProcessLoading(false);
     })
   }
@@ -3348,8 +3318,8 @@ export default function VideoHome(props) {
           };
         });
       })
-      .catch((error) => {
-        
+      .catch(() => {
+
       });
   }
 
@@ -3533,8 +3503,8 @@ export default function VideoHome(props) {
           };
         });
       })
-      .catch((error) => {
-        
+      .catch(() => {
+
       });
   };
 
@@ -3596,7 +3566,7 @@ export default function VideoHome(props) {
   }
 
   const resetLayerMask = () => {
-    let layerDataNew = Object.assign({}, currentLayer, { segmentation: null })
+    Object.assign({}, currentLayer, { segmentation: null });
     // setCurrentLayer(layerDataNew);
   }
 
@@ -3691,7 +3661,6 @@ export default function VideoHome(props) {
   }, []);
 
   const focusHintsPanel = useCallback(() => {
-    setMinimalToolbarDisplay(false);
     setFrameToolbarView(FRAME_TOOLBAR_VIEW.EXPANDED);
     setFocusHintsPanelRequest((requestCount) => requestCount + 1);
   }, []);
@@ -3716,7 +3685,7 @@ export default function VideoHome(props) {
         if (assistantQueryStatus === 'COMPLETED') {
           const sessionData = assistantQueryData.sessionDetails;
           clearInterval(timer);
-          const assistantQueryResponse = assistantQueryData.response;
+
           setSessionMessages(sessionData.sessionMessages);
           setIsAssistantQueryGenerating(false);
         }
@@ -3748,7 +3717,7 @@ export default function VideoHome(props) {
         return;
       }
       startAssistantQueryPoll();
-    }).catch(function (err) {
+    }).catch(function () {
       setIsAssistantQueryGenerating(false);
     });
   }
@@ -3954,12 +3923,6 @@ export default function VideoHome(props) {
     });
   }
 
-  const onToggleMinimalFrameToolbarDisplay = () => {
-    setMinimalToolbarDisplay(!minimalToolbarDisplay);
-  }
-
-
-
   const applyAudioTrackVisualizerToProject = () => {
     toast.success(<div><FaCheck className='inline-flex mr-2' />  {t("studio.notifications.audioVisualizerRequested")}</div>, {
       position: "bottom-center",
@@ -3967,8 +3930,8 @@ export default function VideoHome(props) {
     });
 
     const headers = getHeaders();
-    axios.post(`${PROCESSOR_API_URL}/video_sessions/apply_audio_track_visualizer`, { id: id }, headers).then((response) => {
-      const resData = response.data;
+    axios.post(`${PROCESSOR_API_URL}/video_sessions/apply_audio_track_visualizer`, { id: id }, headers).then(() => {
+
       setIsCanvasDirty(true);
 
     });
@@ -4127,105 +4090,6 @@ export default function VideoHome(props) {
     </div>
   );
 
-
-  let frameToolbarDisplay = null;
-
-  if (minimalToolbarDisplay) {
-    frameToolbarDisplay = (
-      <div className='w-[2%] inline-block'>
-        <FrameToolbarMinimal
-          onToggleDisplay={onToggleMinimalFrameToolbarDisplay} />
-      </div>
-    )
-  } else {
-    frameToolbarDisplay = (
-      <div className='w-[14%] inline-block'>
-        <FrameToolbar
-          layers={layers}
-          setSelectedLayerIndex={setSelectedLayerIndex}
-          currentLayer={currentLayer}
-          setCurrentLayer={setCurrentLayer}
-          setLayerDuration={setLayerDuration}
-          selectedLayerIndex={selectedLayerIndex}
-          setCurrentLayerSeek={setNewSeek}
-          currentLayerSeek={currentLayerSeek}
-          submitRenderVideo={submitRenderVideo}
-          totalDuration={totalDuration}
-          showAddAudioToProjectDialog={showAddAudioToProjectDialog}
-          audioFileTrack={audioFileTrack}
-          setSelectedLayer={setSelectedLayer}
-          startPlayFrames={startPlayFrames}
-          renderedVideoPath={renderedVideoPath}
-          downloadVideoDisplay={downloadVideoDisplay}
-          sessionId={id}
-          sessionDetails={videoSessionDetails}
-          updateSessionLayerActiveItemList={updateSessionLayerActiveItemList}
-          updateSessionLayer={updateSessionLayer}
-          setIsLayerSeeking={setIsLayerSeeking}
-          isLayerSeeking={isLayerSeeking}
-          isVideoGenerating={isVideoGenerating}
-          showAudioTrackView={showAudioTrackView}
-          frameToolbarView={frameToolbarView}
-          audioLayers={audioLayers}
-          globalAudioLayers={videoSessionDetails?.global_audio_layers || videoSessionDetails?.globalAudioLayers || []}
-          globalVideos={videoSessionDetails?.global_videos || videoSessionDetails?.globalVideos || []}
-          updateAudioLayer={updateAudioLayer}
-          isAudioLayerDirty={isAudioLayerDirty}
-          removeAudioLayer={removeAudioLayer}
-          updateChangesToActiveAudioLayers={updateChangesToActiveAudioLayers}
-          addLayerToComposition={addLayerToComposition}
-          copyCurrentLayerBelow={copyCurrentLayerBelow}
-          removeSessionLayer={removeSessionLayer}
-          addLayersViaPromptList={addLayersViaPromptList}
-          defaultSceneDuration={videoSessionDetails.defaultSceneDuration}
-          isCanvasDirty={isCanvasDirty}
-          downloadLink={downloadLink}
-          submitRegenerateFrames={submitRegenerateFrames}
-          applySynchronizeAnimationsToBeats={applySynchronizeAnimationsToBeats}
-          applyAudioDucking={applyAudioDucking}
-          regenerateFramesBeforeRender={regenerateFramesBeforeRender}
-          sceneTransitionPreset={sceneTransitionPreset}
-          onSceneTransitionPresetChange={handleSceneTransitionPresetChange}
-          onApplyAudioDuckingChange={handleApplyAudioDuckingChange}
-          onRegenerateFramesBeforeRenderChange={handleRegenerateFramesBeforeRenderChange}
-          applySynchronizeLayersToBeats={applySynchronizeLayersToBeats}
-          applySynchronizeLayersAndAnimationsToBeats={applySynchronizeLayersAndAnimationsToBeats}
-          applyAudioTrackVisualizerToProject={applyAudioTrackVisualizerToProject}
-          onLayersOrderChange={updateSessionLayersOrder}
-          updateSessionLayersOnServer={updateSessionLayersOnServer}
-          updateChangesToActiveSessionLayers={updateChangesToActiveSessionLayers}
-          isGuestSession={isGuestSession}
-          regenerateVideoSessionSubtitles={regenerateVideoSessionSubtitles}
-          sessionSubtitlesEnabled={resolveSessionSubtitlesEnabled(videoSessionDetails)}
-          removeAllSubtitles={removeAllSubtitles}
-          updateLayerVisualItem={updateLayerVisualItem}
-          deleteLayerVisualItem={deleteLayerVisualItem}
-          duplicateAudioLayer={duplicateAudioLayer}
-          publishVideoSession={publishVideoSession}
-          unpublishVideoSession={unpublishVideoSession}
-          isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
-          generateMeta={generateMeta}
-          sessionMetadata={sessionMetadata}
-          updateAllAudioLayersOneShot={updateAllAudioLayersOneShot}
-          updateGlobalAudioLayers={updateGlobalAudioLayersOneShot}
-          updateGlobalVideos={updateGlobalVideosOneShot}
-          updateSessionHints={updateSessionHints}
-          focusHintsPanelRequest={focusHintsPanelRequest}
-          requestVideoLayerEdit={requestVideoLayerEdit}
-          onRequireEditableAction={requireEditableStudioAction}
-          renderCompletedThisSession={renderCompletedThisSession}
-          isRenderPending={isVideoRenderPending}
-          isUpdateLayerPending={isUpdateLayerPending}
-          isVideoPreviewPlaying={isVideoPreviewPlaying}
-          requestRealignLayers={requestRealignLayers}
-          restartExpressRenderFromCheckpoint={restartExpressRenderFromCheckpoint}
-          cancelPendingRender={cancelPendingRender}
-          isExpressSession={Boolean(videoSessionDetails?.isExpressGeneration)}
-          framesPerSecond={videoSessionDetails?.framesPerSecond ?? 24}
-        />
-      </div>
-    )
-  }
   const showEditableLoginPrompt = isEditableShareView && !getHeaders();
   const sharedViewPromptLabel = isReadOnlyShareView ? 'View only' : 'Editable link';
   const sharedViewPromptAction = isReadOnlyShareView ? 'Edit a copy' : 'Log in to edit';

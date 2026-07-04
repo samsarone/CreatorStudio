@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useAlertDialog } from '../../../contexts/AlertDialogContext';
 import { STAGE_DIMENSIONS } from '../../../constants/Image.jsx';
 import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.jsx';
@@ -6,7 +6,7 @@ import { getCanvasDimensionsForAspectRatio } from '../../../utils/canvas.jsx';
 export default function UploadImageDialog({ setUploadURL, aspectRatio }) {
   const [image, setImage] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
-  const { alertDialogSubmit } = useAlertDialog();
+  useAlertDialog();
 
   // Handler for file input change
   const handleFileChange = (event) => {

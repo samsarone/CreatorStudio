@@ -1,4 +1,4 @@
-import React from 'react';
+
 import './canvasLoader.css';
 
 export default function CanvasLoaderTransparent() {

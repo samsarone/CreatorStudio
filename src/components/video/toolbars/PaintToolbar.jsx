@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { FaCheck } from 'react-icons/fa6';
 

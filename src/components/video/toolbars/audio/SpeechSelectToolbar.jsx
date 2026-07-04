@@ -1,5 +1,5 @@
 // SpeechSelectToolbar.jsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import { TOOLBAR_ACTION_VIEW } from '../../../../constants/Types.ts';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';

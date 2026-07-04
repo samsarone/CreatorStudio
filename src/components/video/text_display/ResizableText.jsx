@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Rect, Text, Transformer } from 'react-konva';
 
 import { INIT_DIMENSIONS } from '../../editor/utils/ShapeUtils.jsx';

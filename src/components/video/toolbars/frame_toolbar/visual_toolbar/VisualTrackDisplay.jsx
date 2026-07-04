@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';

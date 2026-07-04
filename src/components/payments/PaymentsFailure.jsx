@@ -1,4 +1,4 @@
-import React from 'react';
+
 import CommonContainer from '../common/CommonContainer.tsx';
 
 export default function PaymentsFailure() {

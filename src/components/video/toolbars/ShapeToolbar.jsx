@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { FaChevronCircleDown, FaChevronCircleUp, FaTimesCircle } from 'react-icons/fa';
 
 export default function ShapeToolbar(props) {
-  const { pos, moveItem, index, applyFilter, removeItem, colorMode, flipImageVertical,
-    flipImageHorizontal, itemId, applyFinalFilter, updateTargetActiveLayerConfig,
+  const { pos, moveItem, index, removeItem, colorMode, itemId, updateTargetActiveLayerConfig,
     activeItemList,
     editorVariant = 'videoStudio',
   } = props;
   const isImageStudio = editorVariant === 'imageStudio';
 
 
-  const [selectedFilter, setSelectedFilter] = useState(null);
-  const [filterValue, setFilterValue] = useState(0);
+  useState(null);
+  useState(0);
   const [xValue, setXValue] = useState(0);
   const [yValue, setYValue] = useState(0);
   const [widthValue, setWidthValue] = useState(0);
@@ -28,7 +27,7 @@ export default function ShapeToolbar(props) {
       if (!currentItem) {
         return;
       }
-      
+
       const itemConfig = currentItem.config;
       if (itemConfig) {
         setXValue(itemConfig.x);
@@ -39,31 +38,16 @@ export default function ShapeToolbar(props) {
     }
   }, [itemId, activeItemList]);
 
-  const handleFilterChange = (selectedOption) => {
-    setSelectedFilter(selectedOption);
-    setFilterValue(selectedOption.min); // Reset the filter value
-    applyFilter(index, selectedOption.value, selectedOption.min); // Apply filter with initial value
-  };
 
-  const handleSliderChange = (e) => {
-    const value = parseFloat(e.target.value);
-    setFilterValue(value);
-    if (selectedFilter) {
-      applyFilter(index, selectedFilter.value, value);
-    }
-  };
 
-  const handleSliderChangeEnd = (e) => {
-    const value = parseFloat(e.target.value);
-    if (selectedFilter) {
-      applyFinalFilter(index, selectedFilter.value, value);
-    }
-  };
+
+
+
 
   const handleInputChange = (e, type) => {
     const value = parseInt(e.target.value, 10);
 
-    
+
     switch (type) {
       case 'x':
         setXValue(value);
@@ -82,7 +66,7 @@ export default function ShapeToolbar(props) {
     }
   };
 
-  const handleInputBlur = (type) => {
+  const handleInputBlur = () => {
     const newConfig = {
       x: xValue,
       y: yValue,

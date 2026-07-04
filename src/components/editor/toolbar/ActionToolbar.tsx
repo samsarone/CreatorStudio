@@ -1,11 +1,9 @@
-import React from "react";
+
 import { FaPencilAlt, FaEraser, FaUpload, FaSave, FaCrosshairs } from "react-icons/fa";
-import { CURRENT_TOOLBAR_VIEW } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 
 export default function ActionToolbar(props) {
-  const { setCurrentAction, setCurrentViewDisplay, showMoveAction, showResizeAction,
-    showSaveAction, showUploadAction,
+  const { showSaveAction, showUploadAction,
 
     pencilWidth,
     setPencilWidth,
@@ -69,12 +67,7 @@ export default function ActionToolbar(props) {
 
   };
 
-  const showTemplateAction = () => {
-    setPencilOptionsVisible(false);
-    setEraserOptionsVisible(false);
-    setCursorSelectOptionVisible(false);
-    setCurrentViewDisplay(CURRENT_TOOLBAR_VIEW.SHOW_TEMPLATES_DISPLAY)
-  }
+
 
   const toggleCursorSelectOptions = () => {
     setCursorSelectOptionVisible(!cursorSelectOptionVisible);

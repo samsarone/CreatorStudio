@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 import { FaChevronCircleDown, FaChevronCircleUp } from 'react-icons/fa';
 import ImageToolbar from '../toolbars/ImageToolbar.jsx';
@@ -19,12 +19,9 @@ export default function CanvasToolbar(props) {
     applyFilter,
     applyFinalFilter,
     colorMode,
-    removeItem,
     removeSelectedItem,
     flipImageHorizontal,
     flipImageVertical,
-    updateTargetActiveLayerConfig,
-    updateTargetShapeActiveLayerConfig,
     activeItemList,
     eraserToolbarVisible,
     eraserToolbarPosition,

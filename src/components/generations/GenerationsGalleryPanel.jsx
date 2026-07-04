@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -446,7 +446,7 @@ export default function GenerationsGalleryPanel({
       window.setTimeout(() => {
         setCopiedItemId((currentValue) => (currentValue === (item?._id || null) ? null : currentValue));
       }, 1600);
-    } catch (_) {
+    } catch  {
       setStudioErrorMessage('Unable to copy the prompt.');
     }
   }, []);

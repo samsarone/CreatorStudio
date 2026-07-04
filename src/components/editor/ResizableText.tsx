@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Text, Transformer, Group } from 'react-konva';
 
 import { INIT_DIMENSIONS } from './utils/ShapeUtils';
@@ -155,9 +155,9 @@ const ResizableText = ({
     const newX = node.x();
     const newY = node.y();
 
-    const originalWidth = node.width() ;
+    node.width();
 
-    const originalHeight = node.height() ;
+    node.height();
 
     updateToolbarButtonPosition(id, newX, newY);
 

@@ -1,9 +1,9 @@
-import React, { useState, useContext, createContext, useEffect } from 'react';
+import { useState, useContext, createContext, useEffect } from 'react';
 
 // Step 2: Define the ColorModeContext 
 const ColorModeContext = createContext({
   colorMode: 'light',
-  setColorMode: (mode) => { },
+  setColorMode: () => { },
   toggleColorMode: () => { }
 });
 

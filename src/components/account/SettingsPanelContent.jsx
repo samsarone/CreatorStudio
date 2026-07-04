@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronDown, FaChevronRight, FaPause, FaPlay } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -37,7 +37,6 @@ function normalizeBackingTrackModelValue(value) {
 
 const SETTINGS_TABS = [
   { key: "general", label: "General" },
-  { key: "custom", label: "Custom configuration" },
   { key: "fonts", label: "Fonts" },
   { key: "agent", label: "Agent" },
   { key: "security", label: "Security" },
@@ -415,7 +414,7 @@ export default function SettingsPanelContent(props) {
         setCurrentlyPlayingSpeaker(null);
       };
       await audio.play();
-    } catch (error) {
+    } catch  {
       audioPreviewRef.current = null;
       if (audioPreviewObjectUrlRef.current) {
         URL.revokeObjectURL(audioPreviewObjectUrlRef.current);
@@ -1197,7 +1196,7 @@ function DangerConfirmDialog({
       if (onCancel) {
         onCancel();
       }
-    } catch (_) {
+    } catch  {
       // Existing toast flows surface errors to the user.
     } finally {
       if (isMountedRef.current) {

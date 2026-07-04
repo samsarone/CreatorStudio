@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import CommonButton from "../../../common/CommonButton.tsx";
 import { IMAGE_GENERAITON_MODEL_TYPES } from "../../../../constants/Types.ts";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
@@ -15,12 +15,10 @@ export default function OverlayPromptGenerator(props) {
   const {
     promptText,
     setPromptText,
-    submitGenerateRequest,
     isGenerationPending,
     selectedGenerationModel,
     setSelectedGenerationModel,
     generationError,
-    currentDefaultPrompt,
     submitGenerateNewRequest,
     aspectRatio,
     setAspectRatio,

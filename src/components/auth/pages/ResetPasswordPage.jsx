@@ -1,5 +1,5 @@
 // src/components/auth/ResetPasswordPage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../../constants/supportedLanguages.js';
@@ -186,7 +186,7 @@ export default function ResetPasswordPage() {
       await axios.post(`${PROCESSOR_SERVER}/users/forgot_password`, { email, language });
       setResendStatus('success');
       setError(null);
-    } catch (err) {
+    } catch  {
       
       setResendStatus('error');
     }

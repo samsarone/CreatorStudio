@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import { TOOLBAR_ACTION_VIEW } from '../../../../constants/Types.ts';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
@@ -6,8 +6,7 @@ import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
 export default function SoundSelectToolbar(props) {
-  const { audioLayer, submitAddTrackToProject, setCurrentCanvasAction ,
-    currentSelectedLayer
+  const { audioLayer, submitAddTrackToProject, setCurrentCanvasAction
   } = props;
 
 

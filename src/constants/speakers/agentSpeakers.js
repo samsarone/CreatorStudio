@@ -43,11 +43,11 @@ function normalizeSpeakerRecord(speaker = {}, provider) {
   };
 }
 
-export const OPENAI_AGENT_SPEAKERS = OPENAI_SPEAKER_TYPES.map((speaker) =>
+const OPENAI_AGENT_SPEAKERS = OPENAI_SPEAKER_TYPES.map((speaker) =>
   normalizeSpeakerRecord(speaker, OPENAI_PROVIDER)
 );
 
-export const ELEVENLABS_AGENT_SPEAKERS = ELEVENLABS_TTS.map((speaker) =>
+const ELEVENLABS_AGENT_SPEAKERS = ELEVENLABS_TTS.map((speaker) =>
   normalizeSpeakerRecord(speaker, ELEVENLABS_PROVIDER)
 );
 
@@ -75,7 +75,7 @@ export const AGENT_SPEAKER_GROUPS = [
   },
 ];
 
-export const EMPTY_SPEAKER_OPTIONS = {
+const EMPTY_SPEAKER_OPTIONS = {
   allowOpenAI: false,
   allowElevenLabs: false,
   allowGoogle: false,

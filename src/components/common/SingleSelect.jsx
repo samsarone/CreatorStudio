@@ -1,4 +1,4 @@
-import React from 'react';
+
 import Select from 'react-select';
 import { useColorMode } from '../../contexts/ColorMode';
 

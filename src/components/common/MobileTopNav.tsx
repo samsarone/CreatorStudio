@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import axios from 'axios';
 import { useUser } from '../../contexts/UserContext';
 import CommonButton from './CommonButton.tsx';
@@ -12,6 +12,7 @@ import { getHeaders } from '../../utils/web.jsx';
 import BrandLogo from './BrandLogo.tsx';
 import { imageAspectRatioOptions } from '../../constants/ImageAspectRatios.js';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
+import { getSessionType } from '../../utils/environment.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
@@ -26,10 +27,11 @@ const AUTH_DIALOG_OPTIONS = {
 const dialogFallback = <div className="p-6 text-sm">Loading...</div>;
 
 export default function MobileTopNav(props) {
-  const { resetCurrentSession, addNewVidGPTSession } = props;
+  const { addNewVidGPTSession } = props;
   const { colorMode } = useColorMode();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const location = useLocation();
+  const sessionType = getSessionType();
 
   const isImageEditor =
     location.pathname.includes('/image/') ||
@@ -222,7 +224,7 @@ export default function MobileTopNav(props) {
   const openVideoEditor = () => {
     const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
     if (storedSessionId) {
-      navigate(`/video/${storedSessionId}`);
+      navigate('/video');
       return;
     }
     createNewSession();
@@ -266,21 +268,23 @@ export default function MobileTopNav(props) {
     );
   };
 
-  let userTierDisplay = <span />;
+  let userTierDisplay = null;
 
   if (user && user._id) {
-    if (user.isPremiumUser) {
-      userTierDisplay = (
-        <div className="text-[#d7ffeb]">
-          <FaStar className="inline-flex text-[#39d881]" /> Premium
-        </div>
-      );
-    } else {
-      userTierDisplay = (
-        <div className="text-slate-400">
-          <FaStar className="inline-flex text-slate-500" /> Upgrade
-        </div>
-      );
+    if (sessionType !== 'docker') {
+      if (user.isPremiumUser) {
+        userTierDisplay = (
+          <div className="text-[#d7ffeb]">
+            <FaStar className="inline-flex text-[#39d881]" /> Premium
+          </div>
+        );
+      } else {
+        userTierDisplay = (
+          <div className="text-slate-400">
+            <FaStar className="inline-flex text-slate-500" /> Upgrade
+          </div>
+        );
+      }
     }
     userProfile = (
       <div className="flex items-center justify-end cursor-pointer" onClick={gotoUserAccount}>
@@ -288,9 +292,11 @@ export default function MobileTopNav(props) {
           <div className="text-md max-w-[90px] whitespace-nowrap overflow-hidden text-ellipsis">
             <h1>{user.displayName ? user.displayName : user.email}</h1>
           </div>
-          <div onClick={upgradeToPremiumTier} className="cursor-pointer">
-            {userTierDisplay}
-          </div>
+          {userTierDisplay && (
+            <div onClick={upgradeToPremiumTier} className="cursor-pointer">
+              {userTierDisplay}
+            </div>
+          )}
         </div>
 
       </div>
@@ -336,6 +342,7 @@ export default function MobileTopNav(props) {
             useImageProjectModal={isImageEditor}
             switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
             onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+            showStudioOption={false}
             showVideoOptions={!isImageEditor}
             compact={isGenerationsView}
           />

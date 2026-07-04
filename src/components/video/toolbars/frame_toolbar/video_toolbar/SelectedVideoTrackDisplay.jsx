@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FaBolt, FaCheck, FaCut, FaPlus, FaTimes } from 'react-icons/fa';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
 
@@ -31,17 +31,7 @@ function formatFrameRange(rangeFrames = [], framesPerSecond = DISPLAY_FRAMES_PER
   return `${startSeconds.toFixed(1)}s to ${endSeconds.toFixed(1)}s`;
 }
 
-function getOperationSummaryLabel(operation, framesPerSecond = DISPLAY_FRAMES_PER_SECOND) {
-  const operationLabel = operation?.type === 'REMOVE'
-    ? 'Clip'
-    : `Speed ${Number(operation?.speedMultiplier || DEFAULT_SPEED_MULTIPLIER).toFixed(2).replace(/\.00$/, '')}x`;
-  const rangeLabel = formatFrameRange([
-    Math.round((Number(operation?.startTime) || 0) * framesPerSecond),
-    Math.round((Number(operation?.endTime) || 0) * framesPerSecond),
-  ], framesPerSecond);
 
-  return `${operationLabel} · ${rangeLabel}`;
-}
 
 function ActionButton({
   children,
@@ -82,10 +72,8 @@ export default function SelectedVideoTrackDisplay(props) {
     onSpeedMultiplierChange,
     selectedRangeFrames = [0, 1],
     draftOperations = [],
-    pendingOperations = [],
     onApplySelection,
     onAddDraft,
-    onRemoveDraft,
     onClearDrafts,
     onApplyDrafts,
     isBusy = false,
@@ -162,7 +150,7 @@ export default function SelectedVideoTrackDisplay(props) {
     ? 'bg-cyan-400 text-[#041420] hover:bg-cyan-300'
     : 'bg-sky-600 text-white hover:bg-sky-500';
   const showClearDrafts = draftOperations.length > 0;
-  const applyButtonLabel = showClearDrafts ? 'Apply edits' : 'Apply edit';
+
   const applyButtonTitle = showClearDrafts ? 'Apply staged edits' : 'Apply current edit';
   const canApplyCurrentSelection = Boolean(activeTool);
   const canApplyAnyEdit = showClearDrafts || canApplyCurrentSelection;

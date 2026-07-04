@@ -1,11 +1,11 @@
 // NavCanvasControlContext.js
-import React, { createContext, useEffect, useState } from 'react';
+import { createContext, useEffect, useState } from 'react';
 
 export const NavCanvasControlContext = createContext();
 
 export const NavCanvasControlProvider = ({ children }) => {
   const [isExpressGeneration, setIsExpressGeneration] = useState(false);
-  const [expressGenerativeVideoRequired, setExpressGenerativeVideoRequired] = useState(false);
+  const [expressGenerativeVideoRequired] = useState(false);
   const [sessionId, setSessionId] = useState(null);
   const [displayZoomType, setDisplayZoomType] = useState('normal');
   const [stageZoomScale, setStageZoomScale] = useState(1);

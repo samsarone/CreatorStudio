@@ -11,7 +11,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'la', name: 'Latin', nativeName: 'Latina', dir: 'ltr' },
 ];
 
-export const LANGUAGE_NAME_TO_CODE = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
+const LANGUAGE_NAME_TO_CODE = SUPPORTED_LANGUAGES.reduce((acc, lang) => {
   if (lang.name) {
     acc[lang.name.toLowerCase()] = lang.code;
   }

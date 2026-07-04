@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SecondaryButton from '../../../../common/SecondaryButton.tsx';
 import { FaPlus, FaTimes, FaEye, FaEyeSlash, FaCheck, FaPlay, FaMagic, FaChevronCircleLeft } from 'react-icons/fa';
 import { FaRegCircleStop } from "react-icons/fa6";
@@ -14,7 +14,6 @@ const TEXT_ANIMATION_OPTIONS = [
 
 export default function SelectedTextToolbarDisplay(props) {
   const {
-    updateChangesToActiveSessionLayers,
     handleStartTimeChange,
     handleEndTimeChange,
     removeTextLayer,

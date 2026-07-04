@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Login from './Login.tsx';
 import Register from './Register.tsx';
 import ForgotPassword from './ForgotPassword.jsx';
@@ -19,6 +19,7 @@ import {
 import { PURCHASE_CREDITS_PROMPT_STORAGE_KEY } from '../account/PurchaseCreditsPromptDialog.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 
 export const AUTH_DIALOG_OPTIONS = {
   surface: 'auth',
@@ -44,7 +45,7 @@ export default function AuthContainer(props) {
 
   useEffect(() => {
     if (initView) {
-      if (initView === 'register') {
+      if (initView === 'register' && !IS_DOCKER_INSTALL) {
         setCurrentLoginView('register');
       } else {
         setCurrentLoginView('login');
@@ -53,6 +54,9 @@ export default function AuthContainer(props) {
   }, [initView]);
 
   const signInWithGoogle = () => {
+    if (IS_DOCKER_INSTALL) {
+      return;
+    }
     const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
     window.location.href = buildGoogleLoginUrl({
       processorServer: PROCESSOR_SERVER,
@@ -62,6 +66,9 @@ export default function AuthContainer(props) {
   };
 
   const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
+    if (IS_DOCKER_INSTALL) {
+      return;
+    }
     const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
     localStorage.setItem("setShowSetPaymentFlow", true);
     localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');
@@ -84,7 +91,7 @@ export default function AuthContainer(props) {
         search: location.search,
       });
       navigate(destination, { replace: true });
-    } catch (error) {
+    } catch  {
       setError('Unable to open your workspace.');
     }
   };
@@ -98,7 +105,7 @@ export default function AuthContainer(props) {
         setUser(userData);
         closeAlertDialog();
       })
-      .catch((error) => {
+      .catch(() => {
         
         setError('Unable to verify user profile.');
       });
@@ -146,7 +153,8 @@ export default function AuthContainer(props) {
         setUser={setUser}
         closeAlertDialog={closeAlertDialog}
         getOrCreateUserSession={navigateAfterAuth}
-        showSignupButton={true}
+        showSignupButton={!IS_DOCKER_INSTALL}
+        showGoogleAuth={!IS_DOCKER_INSTALL}
       />
     );
   } else if (currentLoginView === 'forgotPassword') {
@@ -156,7 +164,7 @@ export default function AuthContainer(props) {
         closeAlertDialog={closeAlertDialog}
       />
     );
-  } else {
+  } else if (!IS_DOCKER_INSTALL) {
     authoComponent = (
       <Register
         setCurrentLoginView={setCurrentLoginView}
@@ -167,6 +175,19 @@ export default function AuthContainer(props) {
         closeAlertDialog={closeAlertDialog}
         registerUserWithEmail={registerUserWithEmail}
         showLoginButton={true}
+      />
+    );
+  } else {
+    authoComponent = (
+      <Login
+        setCurrentLoginView={setCurrentLoginView}
+        signInWithGoogle={signInWithGoogle}
+        verifyAndSetUserProfile={verifyAndSetUserProfile}
+        setUser={setUser}
+        closeAlertDialog={closeAlertDialog}
+        getOrCreateUserSession={navigateAfterAuth}
+        showSignupButton={false}
+        showGoogleAuth={false}
       />
     );
   }

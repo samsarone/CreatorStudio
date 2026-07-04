@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -23,7 +23,7 @@ import AssistantHome from '../assistant/AssistantHome.jsx';
 import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
-const CDN_URI = import.meta.env.VITE_STATIC_CDN_URL;
+
 const PROCESSOR_API_URL = API_SERVER;
 
 export default function AdVideoCreator() {
@@ -34,7 +34,7 @@ export default function AdVideoCreator() {
   const { openAlertDialog } = useAlertDialog();
 
   // Basic session & form state
-  const [sessionDetails, setSessionDetails] = useState(null);
+  const [, setSessionDetails] = useState(null);
   const [promptText, setPromptText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,11 +55,11 @@ export default function AdVideoCreator() {
   const assistantPollRef = useRef(null);
   const assistantErrorCountRef = useRef(0);
 
-  const [latestVideos, setLatestVideos] = useState([]);
-  const [error, setError] = useState('');
+  useState([]);
+  useState('');
 
   // State to track which video is expanded for inline playback
-  const [expandedVideoId, setExpandedVideoId] = useState(null);
+  useState(null);
 
   // Multiple image upload
   const [uploadedImageFiles, setUploadedImageFiles] = useState([]);   // File[]
@@ -76,9 +76,7 @@ export default function AdVideoCreator() {
     // ...
   };
 
-  const handleToggleVideo = (videoId) => {
-    setExpandedVideoId((prev) => (prev === videoId ? null : videoId));
-  };
+
 
   // Handle multiple file uploads; merges new selections
   const handleFileChange = async (e) => {
@@ -159,14 +157,14 @@ export default function AdVideoCreator() {
   ];
 
   // Track the selected IMAGE model
-  const [selectedImageModel, setSelectedImageModel] = useState(() => {
+  const [selectedImageModel] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
     const found = expressImageModels.find((m) => m.value === saved);
     return found || expressImageModels[0];
   });
 
   // Track the selected VIDEO model
-  const [selectedVideoModel, setSelectedVideoModel] = useState(() => {
+  const [selectedVideoModel] = useState(() => {
     const saved = localStorage.getItem('defaultVIdGPTVideoGenerationModel');
     const found = expressVideoModels.find((m) => m.value === saved);
     return found || expressVideoModels[0];
@@ -293,26 +291,7 @@ export default function AdVideoCreator() {
     openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   };
 
-  async function handleDownloadVideo() {
-    try {
-      if (!videoLink) return;
-      const headers = getHeaders();
-      const response = await axios.get(videoLink, {
-        responseType: 'blob',
-        headers,
-      });
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'video/mp4' }));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.setAttribute('download', 'generated_video.mp4');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(blobUrl);
-    } catch (error) {
-      
-    }
-  }
+
 
   const startAssistantQueryPoll = () => {
     const headers = getHeaders();
@@ -338,8 +317,8 @@ export default function AdVideoCreator() {
             setIsAssistantQueryGenerating(false);
           }
         })
-        .catch((err) => {
-          
+        .catch(() => {
+
           assistantErrorCountRef.current += 1;
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
@@ -367,8 +346,8 @@ export default function AdVideoCreator() {
       .then(() => {
         startAssistantQueryPoll();
       })
-      .catch((err) => {
-        
+      .catch(() => {
+
         setIsAssistantQueryGenerating(false);
       });
   };
@@ -406,8 +385,8 @@ export default function AdVideoCreator() {
       if (response.sessionMessages) {
         setSessionMessages(response.sessionMessages);
       }
-    } catch (err) {
-      
+    } catch  {
+
     }
   };
 
@@ -445,8 +424,8 @@ export default function AdVideoCreator() {
             error: `Video generation failed. ${errorMessage}`,
           });
         }
-      } catch (error) {
-        
+      } catch  {
+
         pollErrorCountRef.current += 1;
 
         if (pollErrorCountRef.current >= 3) {
@@ -491,8 +470,8 @@ export default function AdVideoCreator() {
       const headers = getHeaders();
       await axios.post(`${API_SERVER}/admaker/create`, payload, headers);
       pollGenerationStatus();
-    } catch (error) {
-      
+    } catch  {
+
       setErrorMessage({ error: 'An unexpected error occurred.' });
       setIsGenerationPending(false);
     } finally {
@@ -537,9 +516,9 @@ export default function AdVideoCreator() {
     resetForm();
   };
 
-  const downloadVideoHref = videoLink;
+
   const isFormDisabled = renderState !== 'idle' || isDisabled;
-  const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
+
 
   const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
 
@@ -586,7 +565,7 @@ export default function AdVideoCreator() {
 
             <span className='text-sm text-gray-400 ml-2'>
               Add all the product photos, and then enter a prompt for the ad.
-            </span>  
+            </span>
           </span>
 
           {/* Button to trigger multiple image uploads */}

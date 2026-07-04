@@ -1,4 +1,4 @@
-import React from "react";
+
 import CommonButton from "../../common/CommonButton.tsx";
 import { IMAGE_EDIT_MODEL_TYPES } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
@@ -23,7 +23,7 @@ export default function ImageEditGenerator(props) {
   const isImageStudio = sizeVariant === "imageStudio";
   const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
   const isSidebarExpanded = sizeVariant === "sidebarExpanded";
-  const isSidebarPanel = isSidebarCollapsed || isSidebarExpanded;
+
 
 
 

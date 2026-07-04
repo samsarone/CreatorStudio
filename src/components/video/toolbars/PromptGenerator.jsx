@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
-  RECRAFT_IMAGE_STYLES,
-  IDEOGRAM_IMAGE_STYLES,
 } from "../../../constants/Types.ts";
 import { IMAGE_MODEL_PRICES } from "../../../constants/ModelPrices.jsx";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
@@ -34,7 +32,7 @@ export default function PromptGenerator(props) {
   const isImageStudio = sizeVariant === "imageStudio";
   const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
   const isSidebarExpanded = sizeVariant === "sidebarExpanded";
-  const isSidebarPanel = isSidebarCollapsed || isSidebarExpanded;
+
 
   // Whether to retry if generation fails:
   const [retryOnFailure, setRetryOnFailure] = useState(false);

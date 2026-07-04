@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { getHeaders } from '../../utils/web';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
@@ -7,6 +7,49 @@ import SecondaryButton from '../common/SecondaryButton.tsx';
 
 const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
 const DEFAULT_PAGE_SIZE = 20;
+
+function getProcessorApiBaseUrl() {
+  return typeof PROCESSOR_API === 'string' ? PROCESSOR_API.trim().replace(/\/+$/, '') : '';
+}
+
+function isAbsoluteAssetUrl(value) {
+  return typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim());
+}
+
+function firstNonEmptyString(values = []) {
+  return values.find((value) => typeof value === 'string' && value.trim()) || '';
+}
+
+function resolveImageAssetUrl(image = {}) {
+  const rawPath = firstNonEmptyString([
+    image.displayUrl,
+    image.imageUrl,
+    image.assetPath,
+    image.thumbnailPath,
+    image.thumbnail,
+    image.url,
+  ]);
+
+  if (!rawPath) {
+    return null;
+  }
+
+  const trimmedPath = rawPath.trim();
+  if (isAbsoluteAssetUrl(trimmedPath)) {
+    return trimmedPath;
+  }
+  if (trimmedPath.startsWith('//')) {
+    return `https:${trimmedPath}`;
+  }
+
+  const baseUrl = getProcessorApiBaseUrl();
+  const relativePath = trimmedPath.replace(/^\/+/, '');
+  const normalizedPath = relativePath.includes('/')
+    ? `/${relativePath.replace(/^assets\/generations\//, 'generations/')}`
+    : `/generations/${relativePath}`;
+
+  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
+}
 
 export default function ImagePanelContent() {
   const [images, setImages] = useState([]);
@@ -89,11 +132,12 @@ export default function ImagePanelContent() {
   }, [fetchImages]);
 
   const handleImageClick = (image) => {
+    const imageUrl = resolveImageAssetUrl(image);
     const adComponent = (
       <div className={`space-y-4 ${textColor}`}>
         <div className="flex justify-between items-center">
           <a
-            href={`${PROCESSOR_API}/generations/${image.url}`}
+            href={imageUrl || '#'}
             download
             className="inline-flex items-center rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:opacity-90"
           >
@@ -102,7 +146,7 @@ export default function ImagePanelContent() {
         </div>
 
         <img
-          src={`${PROCESSOR_API}/generations/${image.url}`}
+          src={imageUrl || ''}
           alt={image.prompt}
           className="w-full h-full object-cover rounded-xl border shadow-sm"
         />
@@ -133,24 +177,27 @@ export default function ImagePanelContent() {
               No images found yet.
             </div>
           )}
-          {images.map((image) => (
-            <div
-              key={image._id}
-              className={`cursor-pointer rounded-lg overflow-hidden border ${borderColor} ${cardBgColor} shadow-sm transition hover:-translate-y-0.5 hover:shadow-md`}
-              onClick={() => handleImageClick(image)}
-            >
-              <img
-                src={`${PROCESSOR_API}/generations/${image.url}`}
-                alt={image.prompt}
-                className="w-full aspect-square object-cover"
-              />
-              <div className={`border-t ${borderColor} px-3 py-2`}>
-                <p className={`text-sm ${secondaryTextColor} truncate`}>
-                  {image.prompt ? `${image.prompt.split(' ').slice(0, 6).join(' ')}...` : ''}
-                </p>
+          {images.map((image) => {
+            const imageUrl = resolveImageAssetUrl(image);
+            return (
+              <div
+                key={image._id}
+                className={`cursor-pointer rounded-lg overflow-hidden border ${borderColor} ${cardBgColor} shadow-sm transition hover:-translate-y-0.5 hover:shadow-md`}
+                onClick={() => handleImageClick(image)}
+              >
+                <img
+                  src={imageUrl || ''}
+                  alt={image.prompt}
+                  className="w-full aspect-square object-cover"
+                />
+                <div className={`border-t ${borderColor} px-3 py-2`}>
+                  <p className={`text-sm ${secondaryTextColor} truncate`}>
+                    {image.prompt ? `${image.prompt.split(' ').slice(0, 6).join(' ')}...` : ''}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

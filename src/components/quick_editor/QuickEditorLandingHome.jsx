@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -32,7 +32,7 @@ export default function QuickEditorLandingHome() {
           if (sessionData) {
             navigate(`/quick_video/${sessionData._id}`, { replace: true });
           }
-        } catch (err) {
+        } catch  {
           
         }
         return;
@@ -54,7 +54,7 @@ export default function QuickEditorLandingHome() {
         } else {
           navigate('/my_sessions', { replace: true });
         }
-      } catch (err) {
+      } catch  {
         
       }
     };

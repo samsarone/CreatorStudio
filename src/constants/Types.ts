@@ -83,11 +83,6 @@ export const RECRAFT_IMAGE_STYLES = [
 ];
 
 
-export const FLITE_IMAGE_STYLES = [
-  'standard',
-  'texture',
-];
-
 export const FRAME_TOOLBAR_VIEW = {
   DEFAULT: 'DEFAULT',
   AUDIO: 'AUDIO',
@@ -400,13 +395,6 @@ export const PIXVERRSE_VIDEO_STYLES = [
 
 
 
-export const TTS_PROVIDERS = [
-  { value: 'OPENAI', label: 'OpenAI' },
-  { value: 'PLAYHT', label: 'Play.ht' },
-  { value: 'GOOGLE', label: 'Google TTS' },
-  { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
-];
-
 export const OPENAI_SPEAKER_TYPES = [
   {
     value: 'alloy',
@@ -511,7 +499,7 @@ export const MUSIC_PROVIDERS = [
 
 
 // constants/Types.ts
-export const CUSTOM_TTS_SPEAKER_TYPES = [
+const CUSTOM_TTS_SPEAKER_TYPES = [
   {
     value: 'custom',
     label: 'Custom Voice',
@@ -536,8 +524,3 @@ export const CANVAS_ACTION = {
   RESIZE: 'RESIZE',
   DEFAULT: 'DEFAULT',
 }
-
-export const SPEECH_SELECT_TYPES = {
-  SPEECH_LAYER: 'SPEECH_LAYER',
-  SPEECH_PER_SCENE: 'SPEECH_PER_SCENE',
-};

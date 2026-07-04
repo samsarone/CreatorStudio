@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import './audioLevelsTrackSlider.css';
@@ -72,7 +72,7 @@ export default function AudioLevelsTrackSlider(props) {
     setSelectedThumbIndex(null);
   };
 
-  const renderTrack = (props, state) => {
+  const renderTrack = (props) => {
     const { key, className, style, ...trackProps } = props;
     return (
       <div

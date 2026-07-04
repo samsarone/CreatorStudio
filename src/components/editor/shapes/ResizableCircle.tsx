@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Circle, Group, Transformer } from 'react-konva';
 import { INIT_DIMENSIONS } from '../utils/ShapeUtils';
 
@@ -31,10 +31,10 @@ export default function ResizableCircle(props) {
     updateTargetActiveLayerConfig(id, newAttrs);
   };
 
-  const handleTransformEnd = (e) => {
+  const handleTransformEnd = () => {
     const node = circleRef.current;
     const scaleX = node.scaleX();
-    const scaleY = node.scaleY();
+    node.scaleY();
     const newAttrs = {
       x: node.x(),
       y: node.y(),

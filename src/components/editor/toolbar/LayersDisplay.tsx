@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { FaTimes, FaEye } from 'react-icons/fa';
 import { useColorMode } from '../../../contexts/ColorMode';
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
@@ -11,7 +11,6 @@ const LayersDisplay = (props) => {
     setActiveItemList,
     updateSessionLayerActiveItemList, 
     hideItemInLayer,
-    selectedId,
     setSelectedId 
   } = props;
 

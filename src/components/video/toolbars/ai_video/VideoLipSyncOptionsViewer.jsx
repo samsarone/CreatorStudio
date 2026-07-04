@@ -1,4 +1,4 @@
-import React from 'react';
+
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 
 
@@ -6,8 +6,6 @@ export default function VideoAiVideoOptionsViewer(props) {
   const {
     currentLayer,           // you likely already pass this in from your parent
     onDeleteLayer,          // prop to handle Delete
-    onRegenerateLayer,      // prop to handle Regenerate
-    onRequestLipSync,       // prop to handle Request Lip Sync
     removeVideoLayer,
     sizeVariant = "default",
   } = props;

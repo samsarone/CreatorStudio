@@ -76,7 +76,7 @@ export const getFontOptionsForLanguage = (languageCode = '') => {
   );
 };
 
-export const buildDefaultFontPreferences = () => {
+const buildDefaultFontPreferences = () => {
   const defaults = {};
   SUPPORTED_LANGUAGES.forEach((language) => {
     const options = getFontOptionsForLanguage(language.code);

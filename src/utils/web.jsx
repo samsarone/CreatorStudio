@@ -38,7 +38,7 @@ const expireAuthCookie = (domain) => {
   document.cookie = `${AUTH_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;${domainAttr}`;
 };
 
-export function clearAuthCookies() {
+function clearAuthCookies() {
   // Clear any legacy auth cookies that may still be present.
   if (typeof document === 'undefined') return;
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
@@ -57,7 +57,7 @@ export function clearAuthCookies() {
   domainOptions.forEach(expireAuthCookie);
 }
 
-export function getCookieConsentStatus() {
+function getCookieConsentStatus() {
   if (typeof window === 'undefined') return 'accepted';
   try {
     return localStorage.getItem(COOKIE_CONSENT_KEY) || 'accepted';
@@ -68,31 +68,6 @@ export function getCookieConsentStatus() {
 
 export function hasAcceptedCookies() {
   return getCookieConsentStatus() === 'accepted';
-}
-
-export function saveCookieConsentStatus(status) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(COOKIE_CONSENT_KEY, status);
-  } catch (e) {
-    // Ignore storage errors when persisting cookie consent.
-  }
-
-  if (status === 'rejected') {
-    const cookieToken = getAuthCookie();
-    if (cookieToken) {
-      try {
-        localStorage.setItem(AUTH_TOKEN_KEY, cookieToken);
-      } catch (err) {
-        // Ignore storage write errors.
-      }
-      inMemoryAuthToken = cookieToken;
-    }
-    clearAuthCookies();
-  } else if (status === 'accepted') {
-    const token = getAuthToken();
-    if (token) setAuthCookie(token);
-  }
 }
 
 // helpers/auth.jsx
@@ -107,7 +82,7 @@ export function getAuthToken() {
       inMemoryAuthToken = legacyToken;
       return legacyToken;
     }
-  } catch (err) {
+  } catch  {
     // Ignore storage read errors to avoid breaking auth flow.
   }
 
@@ -117,12 +92,12 @@ export function getAuthToken() {
       inMemoryAuthToken = sessionToken;
       try {
         localStorage.setItem(AUTH_TOKEN_KEY, sessionToken);
-      } catch (err) {
+      } catch  {
         // Ignore storage write errors.
       }
       return sessionToken;
     }
-  } catch (err) {
+  } catch  {
     // Ignore storage read errors to avoid breaking auth flow.
   }
 
@@ -132,7 +107,7 @@ export function getAuthToken() {
       inMemoryAuthToken = cookieToken;
       try {
         localStorage.setItem(AUTH_TOKEN_KEY, cookieToken);
-      } catch (err) {
+      } catch  {
         // Ignore storage write errors.
       }
       return cookieToken;
@@ -159,10 +134,10 @@ export function persistAuthToken(token) {
 
   try {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
-  } catch (err) {
+  } catch  {
     try {
       sessionStorage.setItem(AUTH_TOKEN_KEY, token);
-    } catch (storageErr) {
+    } catch  {
       // Ignore storage write errors; token will only live in memory.
     }
   }
@@ -177,14 +152,14 @@ export function clearAuthData() {
   if (typeof window !== 'undefined') {
     try {
       sessionStorage.removeItem(AUTH_TOKEN_KEY);
-    } catch (err) {
+    } catch  {
       // Ignore storage clear errors.
     }
 
     // Clear any stored auth tokens.
     try {
       localStorage.removeItem(AUTH_TOKEN_KEY);
-    } catch (err) {
+    } catch  {
       // Ignore storage clear errors.
     }
   }
@@ -198,7 +173,7 @@ export function setPostAuthRedirect(path) {
   if (!path || typeof path !== 'string') return;
   try {
     sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, path);
-  } catch (err) {
+  } catch  {
     // Ignore storage errors to avoid blocking auth flow.
   }
 }
@@ -211,7 +186,7 @@ export function consumePostAuthRedirect() {
       sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
     }
     return target || null;
-  } catch (err) {
+  } catch  {
     return null;
   }
 }

@@ -1,4 +1,4 @@
-import React from "react";
+
 import CommonButton from "../../common/CommonButton.tsx";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import { FaAsterisk } from "react-icons/fa";
@@ -6,7 +6,7 @@ import { FaAsterisk } from "react-icons/fa";
 import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 
 export default function PublishDialog(props) {
-  const { onSubmit, selectedChain, setSelectedChain, chainList, isPublicationPending } = props;
+  const { onSubmit } = props;
   const { colorMode } = useColorMode();
   const onFormSubmit = (evt) => {
     evt.preventDefault();
@@ -14,7 +14,7 @@ export default function PublishDialog(props) {
     onSubmit(formData);
   }
   let formBG = colorMode === 'dark' ? 'bg-gray-600 text-neutral-100' : 'bg-neutral-100 text-neutral-900';
-  let textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-900';
+
 
   const { isAlertActionPending } = useAlertDialog();
 

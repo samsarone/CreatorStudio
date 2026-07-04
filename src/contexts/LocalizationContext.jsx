@@ -1,4 +1,4 @@
-import React, {
+import {
   createContext,
   useCallback,
   useContext,
@@ -13,7 +13,7 @@ import { useUser } from "./UserContext.jsx";
 const LocalizationContext = createContext({
   language: "en",
   direction: "ltr",
-  t: (key, params, fallback) => fallback || key,
+  t: (key, ...args) => args[1] || key,
   setLanguage: () => {},
 });
 

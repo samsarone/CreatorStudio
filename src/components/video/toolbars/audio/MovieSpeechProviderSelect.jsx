@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import SingleSelect from '../../../common/SingleSelect.jsx';
 import CommonButton from '../../../common/CommonButton.tsx';
@@ -68,7 +68,6 @@ function normalizeMovieGenSpeakers(speakers = []) {
 
 export default function MovieSpeechProviderSelect(props) {
   const {
-    movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
     submitGenerateSpeech,

@@ -1,13 +1,13 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { Image } from 'react-konva';
 import { useImage } from 'react-konva-utils';
 
 export default function SimpleImage({ image, isSelected, onSelect, onUnselect, updateToolbarButtonPosition, ...props }) {
-  const { isDraggable } = props;
+
   const [img] = useImage(image.src, "anonymous");
-  const shapeRef = useRef();
-  const trRef = useRef();
-  const { showMask, id } = props;
+  useRef();
+  useRef();
+
 
 
 
@@ -17,6 +17,6 @@ export default function SimpleImage({ image, isSelected, onSelect, onUnselect, u
       image={img}
       draggable={true}
     />
-    
+
   );
 }

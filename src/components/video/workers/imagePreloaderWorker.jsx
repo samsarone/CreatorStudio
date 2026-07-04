@@ -58,6 +58,12 @@ function resolveProcessorAssetUrlFromStaticUrl(value) {
     ) {
       return null;
     }
+    if (
+      normalizedPath.startsWith('assets_v2/user_resources/') ||
+      normalizedPath.startsWith('user_resources/')
+    ) {
+      return null;
+    }
 
     const normalizedApiServer = typeof API_SERVER === 'string' ? API_SERVER.trim().replace(/\/+$/, '') : '';
     return normalizedApiServer ? `${normalizedApiServer}/${normalizedPath}` : `/${normalizedPath}`;

@@ -1,6 +1,6 @@
 // src/components/account/APIKeysPanelContent.js
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FaSave, FaTrash } from 'react-icons/fa';
 import SecondaryButton from '../common/SecondaryButton.tsx';
@@ -105,7 +105,7 @@ export default function APIKeysPanelContent() {
       const apiKeyResponse = response.data.apiKeys || [];
       setApiKeys(apiKeyResponse);
       setLimitDrafts(buildLimitDrafts(apiKeyResponse));
-    } catch (error) {
+    } catch  {
       
       toast.error('Failed to fetch API keys', {
         position: 'bottom-center',
@@ -183,7 +183,7 @@ export default function APIKeysPanelContent() {
       toast.success('API key deleted successfully!', {
         position: 'bottom-center',
       });
-    } catch (error) {
+    } catch  {
       
       toast.error('Failed to delete API key', {
         position: 'bottom-center',

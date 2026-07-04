@@ -1,4 +1,4 @@
-import React from "react";
+
 import "./ScreenLoader.css";
 
 export default function Loader({ label = "Loading…" }) {

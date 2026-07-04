@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import UpgradePlan from './UpgradePlan.tsx';
 import AddCreditsDialog from '../account/AddCreditsDialog.jsx';
@@ -59,7 +59,7 @@ export default function CreatePayment() {
         toast.success("Coupon applied successfully!", { position: "bottom-center" });
         getUserAPI();
       })
-      .catch(function (error) {
+      .catch(function () {
         
         toast.error("Failed to apply coupon", { position: "bottom-center" });
       });
@@ -88,7 +88,7 @@ export default function CreatePayment() {
           toast.error("Failed to generate payment URL", { position: "bottom-center" });
         }
       })
-      .catch((error) => {
+      .catch(() => {
         
         toast.error("Payment process failed. Please try again.", { position: "bottom-center" });
       });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../../constants/supportedLanguages.js';
 import axios from 'axios';
@@ -47,8 +47,8 @@ const getInitialLanguage = () => {
   return resolved === 'auto' ? 'en' : resolved;
 };
 
-export default function ForgotPassword(props) {
-  const { setCurrentLoginView } = props;
+export default function ForgotPassword() {
+
   const { colorMode } = useColorMode();
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -78,8 +78,8 @@ export default function ForgotPassword(props) {
         setSuccess(copy.success);
         setError(null);
       })
-      .catch((err) => {
-        
+      .catch(() => {
+
         setError(copy.error);
         setSuccess(null);
       });

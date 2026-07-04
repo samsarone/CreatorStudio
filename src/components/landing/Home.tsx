@@ -1,5 +1,5 @@
-import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
 import axios from "axios";
 import 'react-tooltip/dist/react-tooltip.css';
@@ -22,7 +22,6 @@ const UserAccount = lazy(() => import("../account/UserAccount.tsx"));
 const PublicationHome = lazy(() => import("../publication/PublicationHome.tsx"));
 const VerificationHome = lazy(() => import("../verification/VerificationHome.tsx"));
 const VideoHome = lazy(() => import("../video/VideoHome.jsx"));
-const MobileVideoHome = lazy(() => import("../mobile/MobileVideoHome.jsx"));
 const VideoEditorLandingHome = lazy(() => import("../video/VideoEditorLandingHome.jsx"));
 const ListVideoSessions = lazy(() => import("../video/sessions/ListVideoSessions.jsx"));
 const QuickEditorContainer = lazy(() => import("../quick_editor/QuickEditorContainer.jsx"));
@@ -90,6 +89,11 @@ function SharedVideoDesktopOnlyMessage() {
       </p>
     </div>
   );
+}
+
+function MobileStudioSessionRedirect() {
+  const { id } = useParams();
+  return <Navigate to={id ? `/vidgenie/${id}` : '/vidgenie'} replace />;
 }
 
 function DefaultAuthenticatedRoute({ user, isMobile, search }) {
@@ -363,7 +367,7 @@ export default function Home() {
           void navigateToDefaultAuthenticatedView(resolvedUser);
           return;
         }
-      } catch (error) {
+      } catch  {
         
       }
     };
@@ -407,7 +411,7 @@ export default function Home() {
           <Route path="/video" element={isMobile ? <MobileVideoLandingHome /> : <VideoEditorLandingHome />} />
           <Route path="/video/share/:shareToken" element={isMobile ? <SharedVideoDesktopOnlyMessage /> : <VideoHome />} />
           <Route path="/video/collab/:editableShareToken" element={isMobile ? <SharedVideoDesktopOnlyMessage /> : <VideoHome />} />
-          <Route path="/video/:id" element={isMobile ? <MobileVideoHome /> : <VideoHome />} />
+          <Route path="/video/:id" element={isMobile ? <MobileStudioSessionRedirect /> : <VideoHome />} />
           <Route path="/image/studio" element={<ImageStudioLandingHome />} />
           <Route path="/image/studio/:id" element={<ImageStudioHome />} />
           <Route path="/iamge/studio" element={<ImageStudioLandingHome />} />

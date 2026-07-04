@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const VIDEO_SYNC_SEEK_TOLERANCE_SECONDS = 0.2;
 const VIDEO_END_EPSILON_SECONDS = 0.05;
@@ -104,7 +104,7 @@ export default function VideoUnderlay(props) {
   }, [activeSlotIndex, aiVideoLayerType, currentVideoSrc, slotSources]);
 
   useEffect(() => {
-    if (!nextVideoSrc || nextVideoSrc === currentVideoSrc || slotSources.includes(nextVideoSrc)) {
+    if (!currentVideoSrc || !nextVideoSrc || nextVideoSrc === currentVideoSrc || slotSources.includes(nextVideoSrc)) {
       return;
     }
 
@@ -164,7 +164,7 @@ export default function VideoUnderlay(props) {
     } else {
       try {
         activeVideo.load();
-      } catch (err) {
+      } catch  {
         // Ignore best-effort preload failures; the element will emit an error if needed.
       }
     }
@@ -193,7 +193,7 @@ export default function VideoUnderlay(props) {
     if (inactiveVideo.readyState < 2) {
       try {
         inactiveVideo.load();
-      } catch (err) {
+      } catch  {
         // Ignore best-effort preloading failures; playback still falls back to normal loading.
       }
     }
@@ -302,6 +302,7 @@ export default function VideoUnderlay(props) {
         {[0, 1].map((slotIndex) => {
           const isActiveSlot = slotIndex === activeSlotIndex;
           const source = slotSources[slotIndex];
+          const shouldShowSlot = Boolean(currentVideoSrc) && isActiveSlot && source === currentVideoSrc;
           return (
             <video
               key={slotIndex}
@@ -310,8 +311,8 @@ export default function VideoUnderlay(props) {
               muted
               preload="auto"
               playsInline
-              aria-hidden={!isActiveSlot}
-              style={isActiveSlot ? {
+              aria-hidden={!shouldShowSlot}
+              style={shouldShowSlot ? {
                 position: 'absolute',
                 width: videoLayout.width,
                 height: videoLayout.height,

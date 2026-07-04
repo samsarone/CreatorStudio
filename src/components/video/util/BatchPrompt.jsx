@@ -1,4 +1,4 @@
-import React from 'react';
+
 import CommonButton from '../../common/CommonButton.tsx';
 import { useColorMode } from '../../../contexts/ColorMode';
 

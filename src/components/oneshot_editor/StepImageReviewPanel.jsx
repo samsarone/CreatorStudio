@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FaCheck, FaImage, FaRedo, FaSpinner } from 'react-icons/fa';
 
 function normalizeString(value) {

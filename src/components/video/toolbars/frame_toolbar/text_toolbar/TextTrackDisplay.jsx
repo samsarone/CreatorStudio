@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import './textTrackDisplay.css';
@@ -26,7 +26,6 @@ const TextTrackDisplay = (props) => {
     onUpdate,
     selectedFrameRange,
     setTextTrackDisplayAsSelected,
-    newSelectedTextAnimation,
     showTextTrackAnimations,
     onAnimationSelect,
     isDisplaySelected,
@@ -36,7 +35,7 @@ const TextTrackDisplay = (props) => {
     viewportGeometry = null,
   } = props;
 
-  const [textItemInState, setTextItemInState] = useState(textItemLayer);
+  const [, setTextItemInState] = useState(textItemLayer);
   const [selectedAnimationInTextTrack, setSelectedAnimationInTextTrack] = useState(null);
   const { colorMode } = useColorMode();
 
@@ -174,7 +173,7 @@ const TextTrackDisplay = (props) => {
 
   let animationSliders = null;
   if (showTextTrackAnimations && textItemLayer && textItemLayer.animations) {
-    animationSliders = textItemLayer.animations.map((animation, index) => (
+    animationSliders = textItemLayer.animations.map((animation) => (
       <TextAnimationTrackDisplay
         key={`index_${animation.id}`}
         selectedFrameRange={selectedFrameRange}
@@ -221,7 +220,7 @@ const TextTrackDisplay = (props) => {
                 onAnimationSelect(null);
               }
             }}
-            renderThumb={(props, state) => {
+            renderThumb={(props) => {
               const { key, className, style, ...thumbProps } = props;
               return (
                 <div

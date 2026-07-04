@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Image, Transformer, Group, Text } from 'react-konva';
 import { useImage } from 'react-konva-utils';
 import { getStageDimensions} from '../../constants/Image.jsx';
@@ -100,7 +100,7 @@ export default function ResizableImage({
         trRef.current.nodes([shapeRef.current]);
         trRef.current.getLayer().batchDraw();
       }
-    } catch (e) {
+    } catch  {
       // Ignore positioning errors so the editor can continue rendering.
     }
   }, [img, status, props.height, props.width, stageDimensions.height, stageDimensions.width, x, y]);

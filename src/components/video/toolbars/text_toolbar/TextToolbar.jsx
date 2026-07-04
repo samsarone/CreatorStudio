@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { FaCheck, FaEye, FaEyeSlash, FaSlidersH, FaTrash } from 'react-icons/fa';
 

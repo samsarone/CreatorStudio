@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { getHeaders } from '../../../utils/web';
 import { useNavigate } from 'react-router-dom';
@@ -213,7 +213,7 @@ export default function ListVideoSessions() {
   const [renderType, setRenderType] = useState('All');
   const [aspectRatio, setAspectRatio] = useState('All');
 
-  const [showIntroDisplay, setShowIntroDisplay] = useState(false);
+  const [, setShowIntroDisplay] = useState(false);
 
   const navigate = useNavigate();
   const { colorMode } = useColorMode();
@@ -282,7 +282,7 @@ export default function ListVideoSessions() {
           setShowIntroDisplay(false);
         }
       })
-      .catch((error) => {
+      .catch(() => {
         if (!isCancelled) {
           
         }
@@ -429,7 +429,7 @@ export default function ListVideoSessions() {
     });
   };
 
-  const handleImportClick = (session, editorType) => {
+  const handleImportClick = () => {
     // ... your existing code ...
   };
 

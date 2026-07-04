@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const DEFAULT_TICK_COUNT = 8;
 const MIN_TICK_COUNT = 2;

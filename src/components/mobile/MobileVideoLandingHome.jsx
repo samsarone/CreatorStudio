@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -30,9 +30,9 @@ export default function MobileVideoLandingHome() {
           const res = await axios.get(`${API_SERVER}/video_sessions/fetch_guest_session`);
           const sessionData = res.data;
           if (sessionData) {
-            navigate(`/video/${sessionData._id}`, { replace: true });
+            navigate(`/vidgenie/${sessionData._id}`, { replace: true });
           }
-        } catch (err) {
+        } catch  {
           
         }
         return;
@@ -40,7 +40,7 @@ export default function MobileVideoLandingHome() {
 
       const videoSessionId = localStorage.getItem('videoSessionId');
       if (videoSessionId) {
-        navigate(`/video/${videoSessionId}`, { replace: true });
+        navigate(`/vidgenie/${videoSessionId}`, { replace: true });
         return;
       }
 
@@ -50,11 +50,11 @@ export default function MobileVideoLandingHome() {
         const sessionData = res.data;
         if (sessionData) {
           localStorage.setItem('videoSessionId', sessionData._id);
-          navigate(`/video/${sessionData._id}`, { replace: true });
+          navigate(`/vidgenie/${sessionData._id}`, { replace: true });
         } else {
-          navigate('/my_sessions', { replace: true });
+          navigate('/vidgenie', { replace: true });
         }
-      } catch (err) {
+      } catch  {
         
       }
     };

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { FaTimes } from 'react-icons/fa';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { useColorMode } from '../../contexts/ColorMode';

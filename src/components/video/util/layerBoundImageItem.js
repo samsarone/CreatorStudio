@@ -5,7 +5,7 @@ function toFiniteNumber(value) {
   return Number.isFinite(parsedValue) ? parsedValue : null;
 }
 
-export function getLayerBoundImageTiming(layer = {}) {
+function getLayerBoundImageTiming(layer = {}) {
   const startTime = Math.max(0, toFiniteNumber(layer?.durationOffset) ?? 0);
   const durationSeconds = Math.max(
     1 / VISUAL_TRACK_FRAMES_PER_SECOND,

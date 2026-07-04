@@ -21,7 +21,7 @@ Konva.Filters.CustomBloom = function(imageData) {
   }
 };
 
-export function applyBloomEffect(node, params, t) {
+export function applyBloomEffect(node) {
   if (!node.isCached()) {
     node.cache();
   }

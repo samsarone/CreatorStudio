@@ -1,12 +1,11 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { RegularPolygon, Group, Transformer } from 'react-konva';
 import { INIT_DIMENSIONS } from '../utils/ShapeUtils';
 
 export default function ResizablePolygon(props) {
   const transformerRef = useRef();
   const polygonRef = useRef();
-  const { config, isSelected, onSelect, id, updateToolbarButtonPosition, updateTargetActiveLayerConfig,
-    stageZoomScale
+  const { config, isSelected, onSelect, id, updateToolbarButtonPosition, updateTargetActiveLayerConfig
    } = props;
   const { x, y, sides, radius, fillColor, strokeColor, strokeWidth } = config;
 

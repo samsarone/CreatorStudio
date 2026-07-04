@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { fitDimensionsToCanvas, normalizeCanvasDimensions } from '../../utils/canvas.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import MinimalTaskSkeleton from '../common/MinimalTaskSkeleton.jsx';
@@ -224,7 +224,7 @@ export default function ImageUploadDialog({ setUploadURL, setUploadVideo, aspect
       if (setUploadURL) {
         setUploadURL(placements.length === 1 ? placements[0] : placements);
       }
-    } catch (error) {
+    } catch  {
       setUploadStatus('Upload failed. Please try another image.');
       setIsProcessing(false);
     }

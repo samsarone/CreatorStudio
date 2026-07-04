@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import SecondaryButton from '../../common/SecondaryButton.tsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import { IMAGE_MODEL_PRICES } from '../../../constants/ModelPrices.jsx';

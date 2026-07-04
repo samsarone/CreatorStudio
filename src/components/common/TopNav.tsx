@@ -25,6 +25,7 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 const AddLicense = lazy(() => import('../license/AddLicense.jsx'));
 const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
 const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
@@ -48,7 +49,6 @@ function formatCredits(value) {
 
 export default function TopNav(props) {
   const {
-    resetCurrentSession,
     isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
     isRenderPending,
@@ -122,13 +122,16 @@ export default function TopNav(props) {
     const queryParams = new URLSearchParams(location.search);
     const register = queryParams.get('register');
     const login = queryParams.get('login');
-    const plan = queryParams.get('plan');
+    queryParams.get('plan');
 
     if (!user || !user._id) {
 
       if (register === 'true') {
-
-        showRegisterDialog();
+        if (IS_DOCKER_INSTALL) {
+          showLoginDialog();
+        } else {
+          showRegisterDialog();
+        }
       }
 
       if (login === 'true') {
@@ -261,6 +264,11 @@ const showLicenseDialog = () => {
   };
 
   const showRegisterDialog = () => {
+    if (IS_DOCKER_INSTALL) {
+      showLoginDialog();
+      return;
+    }
+
     if (typeof openAuthDialog === 'function') {
       openAuthDialog({ initView: 'register' });
       return;
@@ -508,7 +516,7 @@ const showLicenseDialog = () => {
   const openVideoEditor = () => {
     const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
     if (storedSessionId) {
-      navigate(`/video/${storedSessionId}`);
+      navigate('/video');
       return;
     }
     const defaultAspectRatio = localStorage.getItem('defaultAspectRatio') || '1:1';
@@ -570,27 +578,29 @@ const showLicenseDialog = () => {
     });
 
   }
-  let userTierDisplay = <span />;
+  let userTierDisplay = null;
 
   let userCredits;
 
   if (user && user._id && !isReadOnlyShareView) {
-    if (user.isPremiumUser) {
-      let premiumUserType = 'Premium';
-      if (user.premiumUserType) {
-        premiumUserType = user.premiumUserType;
+    if (sessionType !== 'docker') {
+      if (user.isPremiumUser) {
+        let premiumUserType = 'Premium';
+        if (user.premiumUserType) {
+          premiumUserType = user.premiumUserType;
+        }
+        userTierDisplay = (
+          <div className='text-xs text-[#d7ffeb]'>
+            <FaStar className="inline-flex text-[#39d881]" /> {premiumUserType}
+          </div>
+        );
+      } else {
+        userTierDisplay = (
+          <div className='text-xs text-slate-400'>
+            <FaStar className="inline-flex text-slate-500" /> {t("common.upgrade")}
+          </div>
+        );
       }
-      userTierDisplay = (
-        <div className='text-xs text-[#d7ffeb]'>
-          <FaStar className="inline-flex text-[#39d881]" /> {premiumUserType}
-        </div>
-      );
-    } else {
-      userTierDisplay = (
-        <div className='text-xs text-slate-400'>
-          <FaStar className="inline-flex text-slate-500" /> {t("common.upgrade")}
-        </div>
-      );
     }
 
     userCredits = user.generationCredits;
@@ -601,9 +611,11 @@ const showLicenseDialog = () => {
           <div className="text-sm font-semibold max-w-[140px] whitespace-nowrap overflow-hidden text-ellipsis">
             {user.username ? user.username : user.email}
           </div>
-          <div onClick={upgradeToPremiumTier} className="cursor-pointer">
-            {userTierDisplay}
-          </div>
+          {userTierDisplay && (
+            <div onClick={upgradeToPremiumTier} className="cursor-pointer">
+              {userTierDisplay}
+            </div>
+          )}
         </div>
         <FaCog className="text-lg cursor-pointer hover:text-[#89dcff]" onClick={gotoUserAccount} />
       </div>
@@ -761,7 +773,7 @@ const showLicenseDialog = () => {
     const headers = getHeaders();
 
 
-    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: resolvedSessionId }, headers).then(function (response) {
+    axios.post(`${PROCESSOR_SERVER}/video_sessions/request_regenerate_subtitles`, { sessionId: resolvedSessionId }, headers).then(function () {
 
 
     });

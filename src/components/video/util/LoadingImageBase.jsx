@@ -1,4 +1,4 @@
-import React from 'react';
+
 import '../../common/Loader.css'; // Import the custom CSS styles
 
 const LoadingImageBase = () => {

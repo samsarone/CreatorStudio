@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import ReactSlider from 'react-slider';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
 
@@ -61,7 +61,7 @@ function clampSelectionRangeToWindow(range, minimumFrame, maximumFrame) {
 }
 
 const VIDEO_DIAMOND_THUMB_SIZE = 16;
-const VIDEO_DIAMOND_OVERHANG = VIDEO_DIAMOND_THUMB_SIZE / 2;
+
 
 export default function VideoTrackDisplay(props) {
   const {

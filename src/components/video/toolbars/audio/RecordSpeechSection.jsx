@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Tooltip } from 'react-tooltip';
@@ -652,7 +652,7 @@ export default function RecordSpeechSection({
   const [avatarTasks, setAvatarTasks] = useState([]);
   const [userRunwayAvatars, setUserRunwayAvatars] = useState([]);
   const [selectedAvatarTaskId, setSelectedAvatarTaskId] = useState('');
-  const [avatarVoices, setAvatarVoices] = useState([]);
+  const [, setAvatarVoices] = useState([]);
   const [selectedAvatarVoiceId, setSelectedAvatarVoiceId] = useState('victoria');
   const [avatarVideoAudioSource, setAvatarVideoAudioSource] = useState(AVATAR_VIDEO_AUDIO_SOURCE_SESSION_SPEECH);
   const [selectedAvatarSpeechProvider, setSelectedAvatarSpeechProvider] = useState('OPENAI');

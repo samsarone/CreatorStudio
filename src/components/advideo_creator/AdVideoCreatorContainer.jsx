@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import {useEffect} from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import AdVideoCreator from './AdVideoCreator';

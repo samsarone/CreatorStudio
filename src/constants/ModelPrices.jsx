@@ -6,14 +6,14 @@ import {
 } from './pricing/ExpressVideoPricingDistribution.js';
 
 export const COSMOS3_SUPER_MODEL_KEY = 'COSMOS3SUPERI2V';
-export const COSMOS3_SUPER_MAX_FRAMES = 189;
-export const COSMOS3_SUPER_SHORT_DURATION_SECONDS = 5;
-export const COSMOS3_SUPER_TARGET_MAX_DURATION_SECONDS = 8;
-export const DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND = 24;
+const COSMOS3_SUPER_MAX_FRAMES = 189;
+const COSMOS3_SUPER_SHORT_DURATION_SECONDS = 5;
+const COSMOS3_SUPER_TARGET_MAX_DURATION_SECONDS = 8;
+const DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND = 24;
 
 const DURATION_UNIT_EPSILON = 0.0001;
 
-export function getCosmos3SuperMaxDurationSeconds(framesPerSecond = DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND) {
+function getCosmos3SuperMaxDurationSeconds(framesPerSecond = DEFAULT_COSMOS3_SUPER_FRAMES_PER_SECOND) {
   const parsedFramesPerSecond = Number(framesPerSecond);
   const normalizedFramesPerSecond = Number.isFinite(parsedFramesPerSecond) && parsedFramesPerSecond > 0
     ? Math.round(parsedFramesPerSecond)
@@ -21,7 +21,7 @@ export function getCosmos3SuperMaxDurationSeconds(framesPerSecond = DEFAULT_COSM
   return Math.min(COSMOS3_SUPER_TARGET_MAX_DURATION_SECONDS, COSMOS3_SUPER_MAX_FRAMES / normalizedFramesPerSecond);
 }
 
-export function formatVideoDurationSeconds(durationSeconds) {
+function formatVideoDurationSeconds(durationSeconds) {
   const parsedDuration = Number(durationSeconds);
   if (!Number.isFinite(parsedDuration)) {
     return '';
@@ -118,26 +118,6 @@ export const IMAGE_MODEL_PRICES = [
       { aspectRatio: '1:1', price: 10 },
       { aspectRatio: '16:9', price: 10 },
       { aspectRatio: '9:16', price: 10 },
-    ],
-  },
-]
-
-
-export const IMAGE_EDIT_MODEL_PRICES = [
-  {
-    key: 'NANOBANANA2EDIT',
-    prices: [
-      { aspectRatio: '1:1', price: 45 },
-      { aspectRatio: '16:9', price: 45 },
-      { aspectRatio: '9:16', price: 45 },
-    ],
-  },
-  {
-    key: 'GPTIMAGE2EDIT',
-    prices: [
-      { aspectRatio: '1:1', price: 45 },
-      { aspectRatio: '16:9', price: 45 },
-      { aspectRatio: '9:16', price: 45 },
     ],
   },
 ]
@@ -418,50 +398,6 @@ export const VIDEO_MODEL_PRICES = [
 ]
 
 
-export const TTS_TYPES = [
-  'OPENAI',
-  'PLAYTS',
-  'ELEVENLABS',
-  'CUSTOM_TEXT_TO_SPEECH',
-]
-
-// to update all of thse
-
-export const ASSISTANT_MODEL_PRICES = [
-  {
-    key: "gpt-5.5",
-    prices: [
-      {
-        operationType: "words",
-        tokens: 1000,
-        price: 9
-      },
-    ]
-  },
-  {
-    key: "gemini-3.1-pro",
-    prices: [
-      {
-        operationType: "words",
-        tokens: 1000,
-        price: 9
-      },
-    ]
-  },
-]
-
-export const THEME_MODEL_PRICES = [
-  {
-    prices: [
-      {
-        operationType: "query",
-        tokens: 1,
-        price: 2
-      }
-    ]
-  }
-]
-
 export const TRANSLATION_MODEL_PRICES = [
   {
     prices: [
@@ -473,20 +409,6 @@ export const TRANSLATION_MODEL_PRICES = [
     ]
   }
 ];
-
-
-export const PROMPT_GENERATION_MODEL_PRICES = [
-  {
-    prices: [
-      {
-        operationType: "line",
-        tokens: 1,
-        price: 2
-      }
-    ]
-  }
-]
-
 
 
 export const SPEECH_MODEL_PRICES = [

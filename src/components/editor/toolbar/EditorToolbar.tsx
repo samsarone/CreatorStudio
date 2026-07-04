@@ -1,6 +1,6 @@
-import React from 'react';
 
-export default function EditorToolbar(props: any) {
+
+export default function EditorToolbar() {
 
 return (
   <div></div>

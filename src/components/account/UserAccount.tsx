@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FaBars, FaChevronCircleLeft } from "react-icons/fa";
@@ -20,6 +20,7 @@ import OverflowContainer from "../common/OverflowContainer.tsx";
 import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
 import UsagePanelContent from "./UsagePanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
+import { getSessionType } from "../../utils/environment.jsx";
 
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 
@@ -97,6 +98,7 @@ export default function UserAccount() {
   const cardBgColor = colorMode === "dark" ? "bg-[#0f1629] shadow-[0_16px_40px_rgba(0,0,0,0.35)]" : "bg-white shadow-sm";
   const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
   const mutedBg = colorMode === "dark" ? "bg-[#111a2f]" : "bg-slate-50";
+  const isDockerInstall = getSessionType() === "docker";
 
   const validPanels = [
     "account",
@@ -396,36 +398,40 @@ export default function UserAccount() {
                             <p className={`break-all text-sm ${secondaryTextColor}`}>{user.email}</p>
                           </div>
                         </div>
-                        <div className="text-left sm:text-right">
-                          <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
-                            Plan
-                          </p>
-                          <p className="text-lg font-semibold">{accountType}</p>
-                          {user.isPremiumUser && (
-                            <p className={`text-xs ${secondaryTextColor}`}>{nextChargeLabel}</p>
-                          )}
-                        </div>
+                        {!isDockerInstall && (
+                          <div className="text-left sm:text-right">
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Plan
+                            </p>
+                            <p className="text-lg font-semibold">{accountType}</p>
+                            {user.isPremiumUser && (
+                              <p className={`text-xs ${secondaryTextColor}`}>{nextChargeLabel}</p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div
-                      className={`md:hidden rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm`}
-                    >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
-                            Credits remaining
-                          </p>
-                          <p className="text-3xl font-bold">{user.generationCredits || 0}</p>
-                          <p className={`text-sm ${secondaryTextColor}`}>
-                            Add credits from Billing when your balance runs low.
-                          </p>
+                    {!isDockerInstall && (
+                      <div
+                        className={`md:hidden rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm`}
+                      >
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Credits remaining
+                            </p>
+                            <p className="text-3xl font-bold">{user.generationCredits || 0}</p>
+                            <p className={`text-sm ${secondaryTextColor}`}>
+                              Add credits from Billing when your balance runs low.
+                            </p>
+                          </div>
+                          <SecondaryButton onClick={() => goToPanel("billing")} className="w-full sm:w-auto">
+                            Purchase credits
+                          </SecondaryButton>
                         </div>
-                        <SecondaryButton onClick={() => goToPanel("billing")} className="w-full sm:w-auto">
-                          Purchase credits
-                        </SecondaryButton>
                       </div>
-                    </div>
+                    )}
 
                     <div
                       className={`rounded-lg border ${borderColor} ${cardBgColor} p-4 shadow-sm space-y-5 sm:p-6 sm:space-y-6`}
@@ -474,7 +480,7 @@ export default function UserAccount() {
                         </div>
                       </div>
 
-                      {emailNotificationBlock}
+                      {!isDockerInstall && emailNotificationBlock}
                     </div>
 
                     <div
@@ -484,36 +490,55 @@ export default function UserAccount() {
                         <div>
                           <h3 className="text-lg font-semibold">Usage & Billing</h3>
                           <p className={`text-sm ${secondaryTextColor}`}>
-                            Track credits and billing status.
+                            {isDockerInstall
+                              ? "Credits are charged provider side."
+                              : "Track credits and billing status."}
                           </p>
                         </div>
                         <SecondaryButton onClick={() => goToPanel("billing")} className="w-full sm:w-auto">
-                          Purchase credits
+                          {isDockerInstall ? "View billing" : "Purchase credits"}
                         </SecondaryButton>
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
-                          <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
-                            Credits remaining
-                          </p>
-                          <p className="text-2xl font-bold">{user.generationCredits || 0}</p>
+                      {isDockerInstall ? (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Credits
+                            </p>
+                            <p className="text-base font-semibold">Charged provider side</p>
+                          </div>
+                          <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Recharge
+                            </p>
+                            <p className="text-base font-semibold">Managed by providers</p>
+                          </div>
                         </div>
-                        <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
-                          <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
-                            Next charge
-                          </p>
-                          <p className="text-base font-semibold">
-                            {user.isPremiumUser ? nextChargeLabel : "Not scheduled"}
-                          </p>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Credits remaining
+                            </p>
+                            <p className="text-2xl font-bold">{user.generationCredits || 0}</p>
+                          </div>
+                          <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Next charge
+                            </p>
+                            <p className="text-base font-semibold">
+                              {user.isPremiumUser ? nextChargeLabel : "Not scheduled"}
+                            </p>
+                          </div>
+                          <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
+                            <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
+                              Auto-recharge
+                            </p>
+                            <p className="text-base font-semibold">{autoRechargeLabel}</p>
+                          </div>
                         </div>
-                        <div className={`rounded-xl border ${borderColor} p-4 ${mutedBg}`}>
-                          <p className={`text-xs uppercase tracking-wide ${secondaryTextColor}`}>
-                            Auto-recharge
-                          </p>
-                          <p className="text-base font-semibold">{autoRechargeLabel}</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </div>
 

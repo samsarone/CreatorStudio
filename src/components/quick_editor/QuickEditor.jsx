@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { FaPlay, FaPause, FaArrowRight, FaChevronDown } from 'react-icons/fa6';
 import { useUser } from '../../contexts/UserContext.jsx';
 import ace from 'ace-builds';
-import { popularLanguages, getFontFamilyForLanguage } from '../../utils/language.jsx';
+import { getFontFamilyForLanguage } from '../../utils/language.jsx';
 import { ANIMATION_OPTIONS } from '../../utils/animation.jsx';
 import MusicLibraryHome from '../library/audio/MusicLibraryHome.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -11,11 +11,8 @@ import 'ace-builds/src-noconflict/theme-monokai';
 
 import 'ace-builds/src-noconflict/ext-language_tools';
 import 'ace-builds/src-noconflict/ext-beautify';
-
-import OverflowContainer from '../common/OverflowContainer.tsx';
 import TextareaAutosize from 'react-textarea-autosize';
 import CombinedAudioSelect from './CombinedAudioSelect.jsx';
-import Select from 'react-select';
 import axios from 'axios';
 import SecondaryButton from '../common/SecondaryButton.tsx';
 import SingleSelect from '../common/SingleSelect.jsx';
@@ -27,8 +24,6 @@ import ProgressIndicator from '../oneshot_editor/ProgressIndicator.jsx';
 
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useNavigate } from 'react-router-dom';
-import { franc } from 'franc';
-import AudioSelect from '../common/AudioSelect.jsx';
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
 import { INFINITE_ZOOM_ANIMATION_OPTIONS } from '../../utils/animation.jsx';
 import './editor.css';
@@ -93,7 +88,7 @@ export default function QuickEditor() {
   const { id } = useParams();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const navigate = useNavigate();
-  const { user, userFetching } = useUser();
+  const { user } = useUser();
 
   // State variables
   const [videoType, setVideoType] = useState({ value: 'Slideshow', label: 'Narrative' });
@@ -107,12 +102,12 @@ export default function QuickEditor() {
   const [videoLink, setVideoLink] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
-  const [musicPrompt, setMusicPrompt] = useState('');
-  const [theme, setTheme] = useState('');
+  const [musicPrompt] = useState('');
+  const [theme] = useState('');
   const [sessionMessages, setSessionMessages] = useState([]);
-  const [isCanvasDirty, setIsCanvasDirty] = useState(false);
+  useState(false);
   const [isAssistantQueryGenerating, setIsAssistantQueryGenerating] = useState(false);
-  const [polling, setPolling] = useState(false);
+  useState(false);
 
   const { colorMode } = useColorMode();
   const { googleSpeakers } = useGoogleTTSSpeakers();
@@ -121,7 +116,7 @@ export default function QuickEditor() {
     [googleSpeakers]
   );
 
-  const [advancedSettingsVisible, setAdvancedSettingsVisible] = useState(() => {
+  useState(() => {
     const storedValue = localStorage.getItem('advancedSettingsVisible');
     return storedValue ? JSON.parse(storedValue) : false;
   });
@@ -136,8 +131,8 @@ export default function QuickEditor() {
   });
 
   const [promptList, setPromptList] = useState('');
-  const [speechLanguage, setSpeechLanguage] = useState({ value: 'eng', label: 'English' });
-  const [subtitlesLanguage, setSubtitlesLanguage] = useState({ value: 'eng', label: 'English' });
+  const [speechLanguage] = useState({ value: 'eng', label: 'English' });
+  const [subtitlesLanguage] = useState({ value: 'eng', label: 'English' });
   const [errorState, setErrorState] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [creditsPreview, setCreditsPreview] = useState(0);
@@ -145,7 +140,7 @@ export default function QuickEditor() {
   const [sceneCutoffType, setSceneCutoffType] = useState({ value: 'auto', label: 'Auto' });
 
   const [customThemeText, setCustomThemeText] = useState('');
-  const [updateCustomThemeText, setUpdateCustomThemeText] = useState('');
+  useState('');
 
   // -------------------------------
   // Music / Speech control states:
@@ -156,7 +151,7 @@ export default function QuickEditor() {
   const [addSubtitlesRequired, setAddSubtitlesRequired] = useState(true);
   const [addTranscriptionsRequired, setAddTranscriptionsRequired] = useState(true);
 
-  const [speechStyle, setSpeechStyle] = useState({ value: 'Narrative', label: 'Narrative' });
+  const [speechStyle] = useState({ value: 'Narrative', label: 'Narrative' });
 
   const subtitleFontOptions = [
     { value: 'Arial', label: 'Arial' },
@@ -182,12 +177,12 @@ export default function QuickEditor() {
 
   const textColor = colorMode === 'dark' ? 'text-white' : 'text-black';
 
-  const bgNeutral1Color = colorMode === 'dark' ? 'bg-neutral-900' : 'bg-neutral-100';
+
   const bgNeutral2Color = colorMode === 'dark' ? 'bg-neutral-950' : 'bg-neutral-50';
 
   const bgGray1Color = colorMode === 'dark' ? 'bg-gray-950' : 'bg-gray-50';
   const bgGray2Color = colorMode === 'dark' ? 'bg-gray-900' : 'bg-gray-100';
-  const bgGray3Color = colorMode === 'dark' ? 'bg-gray-800' : 'bg-gray-200';
+
   const bgGray4Color = colorMode === 'dark' ? 'bg-gray-700' : 'bg-gray-300';
 
   const bgStone1Color = colorMode === 'dark' ? 'bg-stone-950' : 'bg-stone-50';
@@ -221,7 +216,7 @@ export default function QuickEditor() {
             const pretty = JSON.stringify(JSON.parse(data.parentJsonTheme), null, 2);
             setParentJsonTheme(pretty);
             setThemeType('parentJson');
-          } catch (e) {
+          } catch  {
             // fallback
             setParentJsonTheme(data.parentJsonTheme);
             setThemeType('parentJson');
@@ -232,7 +227,7 @@ export default function QuickEditor() {
             const pretty = JSON.stringify(JSON.parse(data.derivedJsonTheme), null, 2);
             setDerivedJsonTheme(pretty);
             setThemeType('derivedJson');
-          } catch (e) {
+          } catch  {
             // fallback
             setDerivedJsonTheme(data.derivedJsonTheme);
             setThemeType('derivedJson');
@@ -261,8 +256,8 @@ export default function QuickEditor() {
           setCharacterCount(joined.length);
         }
       })
-      .catch((err) => {
-        
+      .catch(() => {
+
       });
   }, [id]);
 
@@ -357,23 +352,23 @@ export default function QuickEditor() {
   });
 
   const [selectedImageStyle, setSelectedImageStyle] = useState(null);
-  const [wordCount, setWordCount] = useState(0);
+  const [, setWordCount] = useState(0);
   const [characterCount, setCharacterCount] = useState(0);
-  const [showCustomCreateThemeTextBox, setShowCustomCreateThemeTextBox] = useState(false);
-  const [imageGenerationTheme, setImageGenerationTheme] = useState(null);
-  const [jsonTheme, setJsonTheme] = useState('');
+  useState(false);
+  useState(null);
+  useState('');
   const [showBannerTextDisplay, setShowBannerTextDisplay] = useState(false);
   const [addBannerToComposition, setAddBannerToComposition] = useState(false);
   const [bannerText, setBannerText] = useState('');
   const [basicTextTheme, setBasicTextTheme] = useState('');
-  const [parentTextTheme, setParentTextTheme] = useState(null);
+  useState(null);
   const [derivedTextTheme, setDerivedTextTheme] = useState(null);
   const [parentJsonTheme, setParentJsonTheme] = useState(null);
   const [derivedJsonTheme, setDerivedJsonTheme] = useState(null);
-  const [parentJsonSubmitting, setParentJsonSubmitting] = useState(false);
-  const [derivedJsonSubmitting, setDerivedJsonSubmitting] = useState(false);
-  const [sessionImageLayers, setSessionImageLayers] = useState(null);
-  const [defaultShowBannerChecked, setDefaultShowBannerChecked] = useState(false);
+  useState(false);
+  useState(false);
+  useState(null);
+  useState(false);
 
   const [themeType, setThemeType] = useState('basic');
 
@@ -576,7 +571,7 @@ export default function QuickEditor() {
         setCurrentlyPlayingSpeaker(speaker);
         audio.onended = stopSpeakerPreview;
         await audio.play();
-      } catch (error) {
+      } catch  {
         if (audioObjectUrlRef.current) {
           URL.revokeObjectURL(audioObjectUrlRef.current);
           audioObjectUrlRef.current = null;
@@ -611,7 +606,7 @@ export default function QuickEditor() {
           setShowResultDisplay(true);
         }
       })
-      .catch((err) => {
+      .catch(() => {
         // Swallow fetch errors; UI can retry or show stale data.
       });
 
@@ -643,7 +638,7 @@ export default function QuickEditor() {
             setVideoLink(quickSessionStatus.videoLink);
           }
         })
-        .catch((err) => {
+        .catch(() => {
           // Ignore transient poll errors; next interval will retry.
         });
     }, 3000);
@@ -671,8 +666,8 @@ export default function QuickEditor() {
     // (Commented out because it's optional/placeholder)
     // const detectedLanguage = franc(promptListValue) || 'und';
     // const matchedLanguage = popularLanguages.find((lang) => lang.value === detectedLanguage) || { value: 'eng' };
-    const subtitlesTranslationRequired = false; 
-    const speechTranslationRequired = false; 
+    const subtitlesTranslationRequired = false;
+    const speechTranslationRequired = false;
 
     let fontFamily = 'Times New Roman';
     if (subtitlesLanguage.value) {
@@ -801,8 +796,8 @@ export default function QuickEditor() {
           window.open(data.url, '_blank');
         }
       })
-      .catch((error) => {
-        
+      .catch(() => {
+
       });
   };
 
@@ -813,21 +808,8 @@ export default function QuickEditor() {
   const [advancedToolbarVisible, setAdvancedToolbarVisible] = useState('hidden');
 
   // Toggling smaller panels
-  const toggleAdvancedSettings = () => {
-    setAdvancedSettingsVisible((prev) => {
-      const newState = !prev;
-      localStorage.setItem('advancedSettingsVisible', JSON.stringify(newState));
-      return newState;
-    });
-  };
 
-  const toggleThemeTextBox = (type) => {
-    setThemeType(type);
-  };
-  const toggleThemeButton = (evt, type) => {
-    evt.stopPropagation();
-    toggleThemeTextBox(type);
-  };
+
 
   const toggleThemeFunc = () => setShowTheme(!showTheme);
   const toggleDetails = () => setShowDetails(!showDetails);
@@ -917,17 +899,11 @@ export default function QuickEditor() {
     setCurrentlyPlayingSpeaker(null);
   };
 
-  const handleSpeechStyleChange = (selectedOption) => {
-    setSpeechStyle(selectedOption);
-  };
 
-  const handleSpeechLanguageChange = (selectedOption) => {
-    setSpeechLanguage(selectedOption);
-  };
 
-  const handleSubtitlesLanguageChange = (selectedOption) => {
-    setSubtitlesLanguage(selectedOption);
-  };
+
+
+
 
   const handleMusicOptionChange = (selectedOption) => {
     if (selectedOption.value === 'selectLibrary') {
@@ -983,7 +959,7 @@ export default function QuickEditor() {
       } else {
         setSelectedImageStyle({ value: RECRAFT_IMAGE_STYLES[0], label: RECRAFT_IMAGE_STYLES[0] });
       }
-    } 
+    }
     // -- IDEOGRAMV2 logic added here:
     else if (selectedOption.value === 'IDEOGRAMV2') {
       const defaultIdeogramModel = localStorage.getItem('defaultIdeogramModel');
@@ -1009,7 +985,7 @@ export default function QuickEditor() {
       (selectedImageModel.value === 'RECRAFTV3' || selectedImageModel.value === 'RECRAFT20B')
     ) {
       localStorage.setItem('defaultRecraftModel', selectedOption.value);
-    } 
+    }
     else if (selectedImageModel && selectedImageModel.value === 'IDEOGRAMV2') {
       localStorage.setItem('defaultIdeogramModel', selectedOption.value);
     }
@@ -1284,7 +1260,7 @@ export default function QuickEditor() {
       .then(() => {
         startAssistantQueryPoll();
       })
-      .catch(function (err) {
+      .catch(function () {
         setIsAssistantQueryGenerating(false);
       });
   };
@@ -1387,7 +1363,7 @@ export default function QuickEditor() {
                     value={videoType}
                     onChange={handleVideoTypeChange}
                     options={[
-                      { value: 'Slideshow', label: 'Narrative' }, 
+                      { value: 'Slideshow', label: 'Narrative' },
                       { value: 'Infinitezoom', label: 'Infinite Zoom' },
                     ]}
                     className="w-24"

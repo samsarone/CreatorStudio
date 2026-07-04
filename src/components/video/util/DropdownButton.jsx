@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaChevronDown, FaPlus } from 'react-icons/fa';
 import { useColorMode } from '../../../contexts/ColorMode';
 

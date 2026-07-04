@@ -1,4 +1,4 @@
-import React, { useState, useContext, createContext, useCallback } from 'react';
+import { useState, useContext, createContext, useCallback } from 'react';
 import axios from 'axios';
 import { getHeaders, getAuthToken, clearAuthData } from '../utils/web'; // Adjust the path if needed
 
@@ -20,7 +20,7 @@ export const UserProvider = ({ children }) => {
   const [userFetching, setUserFetching] = useState(true);
   const [userInitiated, setUserInitiated] = useState(false);
 
-  const setUserApi = (profile) => {
+  const setUserApi = () => {
     // Placeholder for future use
   };
 
@@ -56,7 +56,7 @@ export const UserProvider = ({ children }) => {
       setUserState(userProfile);
       setUserInitiated(true);
       return userProfile;
-    } catch (err) {
+    } catch  {
       setUserState(null);
       setUserInitiated(true);
       return null;

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
 
@@ -23,7 +23,7 @@ function normalizeRedirectUri(value) {
     }
 
     return redirectUrl;
-  } catch (error) {
+  } catch  {
     return null;
   }
 }
@@ -43,7 +43,7 @@ function extractLoginToken(payload) {
     return typeof loginToken === 'string' && loginToken.trim()
       ? loginToken.trim()
       : null;
-  } catch (error) {
+  } catch  {
     return null;
   }
 }

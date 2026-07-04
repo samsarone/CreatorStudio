@@ -1,5 +1,5 @@
 // PublishOptionsDialog.js
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 import { getHeaders } from '../../../../utils/web';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
@@ -10,7 +10,7 @@ export default function PublishOptionsDialog(props) {
   const { onSubmit, onClose, extraProps } = props;
   const { colorMode } = useColorMode();
 
-  const [sessionMetadata, setSessionMetadata] = useState(null);
+  const [, setSessionMetadata] = useState(null);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -35,7 +35,7 @@ export default function PublishOptionsDialog(props) {
       setDescription(sessionMeta.description || '');
       // Convert tags array to a comma-separated string if present
       setTags(sessionMeta.tags ? sessionMeta.tags.join(', ') : '');
-    } catch (error) {
+    } catch  {
       
     }
   };

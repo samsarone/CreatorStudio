@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import Konva from 'konva';
@@ -11,7 +11,6 @@ import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
 import SMSCanvas from './SMSCanvas.tsx';
 import EditorToolbar from './toolbar/EditorToolbar.tsx';
 import SelectTemplate from './SelectTemplate.tsx';
-import AttestationDialog from './utils/AttestationDialog.tsx';
 import PublishDialog from './utils/PublishDialog.tsx';
 import CommonContainer from '../common/CommonContainer.tsx';
 import ActionToolbar from './toolbar/ActionToolbar.tsx';
@@ -21,7 +20,7 @@ import './editor.css';
 
 const PUBLISHER_URL = import.meta.env.VITE_PUBLISHER_URL;
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
-const IPFS_URL_BASE = import.meta.env.VITE_IPFS_URL_BASE;
+
 
 export default function EditorHome(props) {
   let { id } = useParams();
@@ -140,8 +139,8 @@ export default function EditorHome(props) {
         }
       }
       setSessionDetails(response.data);
-    }).catch((error) => {
-      
+    }).catch(() => {
+
     });
   }, []);
 
@@ -174,8 +173,8 @@ export default function EditorHome(props) {
         }
       }
       setSessionDetails(response.data);
-    }).catch((error) => {
-      
+    }).catch(() => {
+
     });
   }, [id]);
 
@@ -197,7 +196,7 @@ export default function EditorHome(props) {
         id: newId,
         type: 'image'  // Assuming the type is always 'image'
       };
-  
+
       return [...prevItems, newItem];  // Return the new array with the added item
     });
 
@@ -232,11 +231,11 @@ export default function EditorHome(props) {
       axios.post(`${PROCESSOR_API_URL}/sessions/get_session`, {
         userId: user._id.toString(),
         sessionId: id
-      }).then((response) => {
+      }).then(() => {
 
-        
-      }).catch((error) => {
-        
+
+      }).catch(() => {
+
       });
     }
   }, [user, id]);
@@ -254,7 +253,7 @@ export default function EditorHome(props) {
     }
     setGenerationError(null);
 
-    const generateStatus = await axios.post(`${PROCESSOR_API_URL}/sessions/request_generate`, payload);
+    await axios.post(`${PROCESSOR_API_URL}/sessions/request_generate`, payload);
     startGenerationPoll();
   }
 
@@ -287,7 +286,7 @@ export default function EditorHome(props) {
     }
     setOutpaintError(null);
 
-    const outpaintStatus = await axios.post(`${PROCESSOR_API_URL}/sessions/request_outpaint`, payload);
+    await axios.post(`${PROCESSOR_API_URL}/sessions/request_outpaint`, payload);
     startOutpaintPoll();
   }
 
@@ -305,7 +304,7 @@ export default function EditorHome(props) {
       });
       return dataUrl;
     } else {
-      
+
       return null;
     }
   };
@@ -344,7 +343,7 @@ export default function EditorHome(props) {
       const dataUrl = offscreenCanvas.toDataURL('image/png', 1); // Ensure full quality
       return dataUrl;
     } else {
-      
+
       return null;
     }
   };
@@ -387,7 +386,7 @@ export default function EditorHome(props) {
       const dataUrl = offscreenCanvas.toDataURL();
       return dataUrl;
     } else {
-      
+
       return null;
     }
   };
@@ -496,8 +495,8 @@ export default function EditorHome(props) {
 
         window.location.href = `${PUBLISHER_URL}/p/${publicationId}`;
 
-      }).catch(function (err) {
-        
+      }).catch(function () {
+
         setIsPublicationPending(false);
       });
     }
@@ -514,7 +513,7 @@ export default function EditorHome(props) {
 
   const getRemoteTemplateData = (page) => {
     axios.get(`${PROCESSOR_API_URL}/utils/template_list?page=${page}`).then((response) => {
-      const generatedImageUrlName = response.data.activeGeneratedImage;
+
       setTemplateOptionList(response.data);
     });
   }
@@ -542,7 +541,7 @@ export default function EditorHome(props) {
       };
 
       axios.post(`${PROCESSOR_API_URL}/sessions/save_intermediate`, sessionPayload, headers)
-        .then(function (dataResponse) {
+        .then(function () {
           setIsIntermediateSaving(false);
         });
     }
@@ -662,7 +661,7 @@ export default function EditorHome(props) {
         return { ...item, config: newAttrs };
       }
       return item;
-    });    
+    });
     setActiveItemList(updatedBubbles);
   };
 

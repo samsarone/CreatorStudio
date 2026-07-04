@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -194,7 +194,7 @@ export default function AssistantHome(props) {
       const headers = getHeaders();
       await axios.post(`${PROCESSOR_SERVER}/users/update`, { selectedAssistantModel: newModelValue }, headers);
       getUserAPI();
-    } catch (error) {
+    } catch  {
     }
   };
 
@@ -218,7 +218,7 @@ export default function AssistantHome(props) {
           return;
         }
         requestOptions = { frameImage };
-      } catch (error) {
+      } catch  {
         window.alert('Unable to capture the current frame image.');
         return;
       } finally {
@@ -320,7 +320,7 @@ export default function AssistantHome(props) {
   const copyToClipboard = async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-    } catch (error) {
+    } catch  {
     }
   };
 

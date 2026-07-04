@@ -44,7 +44,7 @@ const supportsImageToVideoFlag = (entry) =>
 const supportsTextToVideoFlag = (entry) =>
   normalizeVideoCapabilityFlags(entry).isTextToVideoModel;
 
-export const hasImageInCanvas = (activeItemList) =>
+const hasImageInCanvas = (activeItemList) =>
   Array.isArray(activeItemList) &&
   activeItemList.some((item) => item?.type === "image");
 
@@ -58,7 +58,7 @@ const getModelCapabilities = (model, pricingEntry) => ({
     Boolean(pricingEntry?.isFirstLastFrameToVideoModel),
 });
 
-export const layerHasStartingImage = (layer, fallbackActiveItemList) => {
+const layerHasStartingImage = (layer, fallbackActiveItemList) => {
   const activeItemList = Array.isArray(layer?.imageSession?.activeItemList)
     ? layer.imageSession.activeItemList
     : fallbackActiveItemList;
@@ -71,7 +71,7 @@ export const layerHasStartingImage = (layer, fallbackActiveItemList) => {
   );
 };
 
-export const layerHasAiVideoLayer = (layer) =>
+const layerHasAiVideoLayer = (layer) =>
   Boolean(
     layer?.aiVideoLayer ||
       layer?.aiVideoRemoteLink ||
@@ -88,7 +88,7 @@ const getNextLayer = (currentLayer, layers = []) => {
   return currentLayerIndex >= 0 ? layers[currentLayerIndex + 1] || null : null;
 };
 
-export const canUseFirstLastFrameToVideo = ({
+const canUseFirstLastFrameToVideo = ({
   activeItemList,
   currentLayer,
   sessionDetails,

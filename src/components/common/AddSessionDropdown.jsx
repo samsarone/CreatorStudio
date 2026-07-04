@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FaPlus, FaStar } from 'react-icons/fa';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { MdExplore, MdCreateNewFolder } from 'react-icons/md';
@@ -49,16 +49,12 @@ function AddSessionDropdown(props) {
   const {
     createNewSession,
     gotoViewSessionsPage,
-    addNewExpressSession,
     addNewVidGPTSession,
-    showAddNewAdVideoSession,
-
-    showAddNewMovieMakerSession,
-    betaOptionVisible,
     aspectRatioOptions = defaultAspectRatioOptions,
     aspectRatioStorageKey = 'defaultAspectRatio',
     switchEditorLabel,
     onSwitchEditor,
+    showStudioOption = true,
     showVideoOptions = true,
     useImageProjectModal = false,
     compact = false,
@@ -301,10 +297,7 @@ function AddSessionDropdown(props) {
     closeProjectModal();
   };
 
-  const showAddNewExpressSession = () => {
-    addNewExpressSession();
-    setIsOpen(false);
-  };
+
 
   const showAddNewVidGPTSession = () => {
     addNewVidGPTSession();
@@ -389,13 +382,15 @@ function AddSessionDropdown(props) {
 
 
             </button>
-            <button
-              onClick={openVideoProjectModal}
-              className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
-              role="menuitem"
-            >
-              <MdCreateNewFolder className='inline-flex mb-1' /> {t("common.studio")}
-            </button>
+            {showStudioOption && (
+              <button
+                onClick={openVideoProjectModal}
+                className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
+                role="menuitem"
+              >
+                <MdCreateNewFolder className='inline-flex mb-1' /> {t("common.studio")}
+              </button>
+            )}
 
             {showVideoOptions && (
               <button

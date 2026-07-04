@@ -1,11 +1,8 @@
-import React from "react";
-import SecondaryButton from "../../common/SecondaryButton.tsx";
-import SecondaryPublicButton from "../../common/buttons/SecondaryPublicButton.tsx";
+
 import RenderActionButton from "./RenderActionButton.jsx";
 import { useNavigate } from "react-router-dom";
-import { FaCog, FaDownload, FaEdit, FaLock, FaPause, FaPlay, FaSearch, FaSearchMinus, FaSearchPlus, FaTimes, FaUndo } from "react-icons/fa";
+import { FaCog, FaDownload, FaEdit, FaLock, FaPause, FaPlay, FaSearch, FaSearchMinus, FaSearchPlus, FaUndo } from "react-icons/fa";
 import { FiShare2 } from "react-icons/fi";
-import { useAlertDialog } from "../../../contexts/AlertDialogContext.jsx";
 import SingleSelect from "../../common/SingleSelect.jsx";
 import { IoMdGrid } from "react-icons/io";
 import { useLocalization } from "../../../contexts/LocalizationContext.jsx";
@@ -19,13 +16,8 @@ export default function CanvasControlBar(props) {
     downloadCurrentFrame,
     isExpressGeneration,
     sessionId,
-    requestRegenerateSubtitles,
-    requestRegenerateAnimations,
-    requestRealignLayers,
-    requestRealignToAiVideoAndLayers,
     canvasActualDimensions,
     totalEffectiveDuration,
-    regenerateVideoSessionSubtitles,
     setIsVideoPreviewPlaying,
     isVideoPreviewPlaying,
     isRenderPending,
@@ -61,8 +53,7 @@ export default function CanvasControlBar(props) {
     canZoomOutCanvas,
   } = useContext(NavCanvasControlContext);
 
-  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
-  const navigate = useNavigate();
+  useNavigate();
   const { t } = useLocalization();
   const { colorMode } = useColorMode();
   const isImageStudio = editorVariant === 'imageStudio';
@@ -77,22 +68,7 @@ export default function CanvasControlBar(props) {
 
 
 
-  const showAddSubtitlesDialog = () => {
-    openAlertDialog(
-      <div>
 
-        <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-        <AddSubtitlesDialog
-          requestRegenerateSubtitles={requestRegenerateSubtitles}
-          closeAlertDialog={closeAlertDialog}
-          requestRegenerateAnimations={requestRegenerateAnimations}
-          requestRealignLayers={requestRealignLayers}
-          requestRealignToAiVideoAndLayers={requestRealignToAiVideoAndLayers}
-          t={t}
-        />
-      </div>
-    );
-  };
   const showPlayPause = () => {
    // toggleIsVideoPreviewPlaying();
    isVideoPreviewPlaying ? setIsVideoPreviewPlaying(false) : setIsVideoPreviewPlaying(true);
@@ -324,60 +300,3 @@ export default function CanvasControlBar(props) {
     </div>
   );
 }
-
-const AddSubtitlesDialog = (props) => {
-  const { requestRegenerateSubtitles, requestRegenerateAnimations, closeAlertDialog, requestRealignLayers,
-    requestRealignToAiVideoAndLayers, t
-  } = props;
-  const requestRegenerateAndClose = () => {
-    requestRegenerateSubtitles();
-    closeAlertDialog();
-  };
-
-  const requestRegenerateAnimationsAndClose = () => {
-    requestRegenerateAnimations();
-    closeAlertDialog();
-
-  }
-
-  const requestRealignLayersAndClose = () => {
-    requestRealignLayers();
-    closeAlertDialog();
-  }
-
-  const requestRealignToAiVideoAndLayersAndClose = () => {
-    requestRealignToAiVideoAndLayers();
-    closeAlertDialog();
-  }
-
-
-  return (
-    <div>
-      <div>
-        <h1>{t("studio.actions.regenerateSubtitlesTitle")}</h1>
-      </div>
-      <div className="mt-4 mb-2">
-        <SecondaryButton onClick={requestRegenerateAndClose} >
-          {t("studio.actions.regenerateSubtitle")}
-        </SecondaryButton>
-      </div>
-      <div className="mt-4 mb-2">
-        <SecondaryButton onClick={requestRegenerateAnimationsAndClose} >
-          {t("studio.actions.regenerateAnimations")}
-        </SecondaryButton>
-      </div>
-      <div className="mt-4 mb-2">
-        <SecondaryButton onClick={requestRealignLayersAndClose} >
-          {t("studio.actions.realignLayers")}
-        </SecondaryButton>
-      </div>
-
-      <div className="mt-4 mb-2">
-        <SecondaryButton onClick={requestRealignToAiVideoAndLayersAndClose} >
-          {t("studio.actions.realignLayersToAiVideo")}
-        </SecondaryButton>
-      </div>
-
-    </div>
-  );
-};

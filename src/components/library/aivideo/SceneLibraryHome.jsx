@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { FaPlay, FaPause, FaDownload } from 'react-icons/fa';
 import { useColorMode } from '../../../contexts/ColorMode';
@@ -65,7 +65,7 @@ export default function SceneLibraryHome(props) {
       const data = response.data.items;
       setLibraryData(data);
       setTotalPages(response.data.totalPages);
-    } catch (error) {
+    } catch  {
       
     }
   };

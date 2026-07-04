@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useColorMode } from '../../contexts/ColorMode';
 
 import './toggleButton.css'; // Make sure to import the CSS file
@@ -6,7 +6,7 @@ import './toggleButton.css'; // Make sure to import the CSS file
 function ToggleButton() {
   const [colorMode, setColorMode] = useState('dark');
 
-  const { toggleColorMode,  } = useColorMode();
+  const { toggleColorMode } = useColorMode();
 
   useEffect(() => {
     const colorMode = localStorage.getItem('colorMode');
@@ -48,4 +48,3 @@ function ToggleButton() {
 }
 
 export default ToggleButton;
-

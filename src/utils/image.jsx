@@ -1,19 +1,6 @@
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
-const BASE_HEIGHT = 1024;
-const BASE_WIDTH = 1024;
-
-export function getScalingFactor(imageDimensions) {
-  let {width, height} = imageDimensions;
-  let largerDimension = Math.max(width, height);
-  let scalingFactor = 1;
-  if (largerDimension > BASE_HEIGHT) {
-    scalingFactor = BASE_HEIGHT / largerDimension;
-  }
-  return scalingFactor;
-}
-
-export function firstImageUrlValue(values = []) {
+function firstImageUrlValue(values = []) {
   for (const value of values) {
     if (typeof value === 'string' && value.trim()) {
       return value.trim();
@@ -93,8 +80,4 @@ export function getRenderableImageUrl(asset, apiServer = API_SERVER) {
   }
 
   return normalizedApiServer ? `${normalizedApiServer}${normalizedPath}` : normalizedPath;
-}
-
-export function getRemoteImageLink(imagePath) {
-  return getRenderableImageUrl(imagePath);
 }

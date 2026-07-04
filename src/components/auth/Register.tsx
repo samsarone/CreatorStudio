@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FaGoogle } from 'react-icons/fa6';
 import LoginButton from './LoginButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -19,9 +19,6 @@ export default function Register(props) {
   const {
     setCurrentLoginView,
     registerWithGoogle,
-    setUser,
-    closeAlertDialog,
-    getOrCreateUserSession,
     registerUserWithEmail,
     showLoginButton = true,
   } = props;

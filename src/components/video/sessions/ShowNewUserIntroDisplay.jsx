@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { getHeaders } from '../../../utils/web';
@@ -13,13 +13,11 @@ import { Tooltip } from 'react-tooltip';
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 export default function ShowNewUserIntroDisplay(props) {
-  const { createNewStudioSession, createNewQuickSession, createNewVidGPTSession, 
-    
-    handleImportClick, createNewAdVideoSession } = props;
+  const { createNewStudioSession, createNewVidGPTSession } = props;
 
-  const [introSessionList, setIntroSessionList] = useState([]);
-  const [selectedSessionIndex, setSelectedSessionIndex] = useState(null);
-  const navigate = useNavigate();
+  const [, setIntroSessionList] = useState([]);
+  useState(null);
+  useNavigate();
 
   useEffect(() => {
     const headers = getHeaders();
@@ -42,9 +40,7 @@ export default function ShowNewUserIntroDisplay(props) {
       : 'bg-white border border-slate-200 shadow-sm';
   const iconStyle = colorMode === 'dark' ? 'text-rose-200' : 'text-indigo-500';
 
-  const handleSessionClick = (index) => {
-    setSelectedSessionIndex(index === selectedSessionIndex ? null : index);
-  };
+
 
   let introSessionsListDisplay = <span />;
 
@@ -53,7 +49,7 @@ export default function ShowNewUserIntroDisplay(props) {
     <div>
       <div className={`${panelSurface} rounded-2xl p-6 space-y-6`}>
 
-        <div className={`${cardSurface} rounded-xl p-6`}> 
+        <div className={`${cardSurface} rounded-xl p-6`}>
           <div className='text-lg font-bold mb-4 '>
             Create New Project
           </div>

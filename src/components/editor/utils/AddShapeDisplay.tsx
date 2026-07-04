@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FaRegCircle, FaSlidersH } from "react-icons/fa";
 import { MdOutlineRectangle } from "react-icons/md";
 import { IoTriangleOutline } from "react-icons/io5";
@@ -34,7 +34,7 @@ function readStoredShapePreferences() {
   try {
     const storedPreferences = window.localStorage.getItem(SHAPE_PREFERENCES_STORAGE_KEY);
     return storedPreferences ? JSON.parse(storedPreferences) : {};
-  } catch (error) {
+  } catch  {
     return {};
   }
 }
@@ -46,7 +46,7 @@ function persistShapePreferences(preferences) {
 
   try {
     window.localStorage.setItem(SHAPE_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
-  } catch (error) {
+  } catch  {
     // Ignore storage failures so shape creation still works.
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FaGoogle } from 'react-icons/fa6';
 import LoginButton from './LoginButton.tsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -15,7 +15,8 @@ export default function Login(props) {
     setUser,
     closeAlertDialog,
     getOrCreateUserSession,
-    showSignupButton = true
+    showSignupButton = true,
+    showGoogleAuth = true,
   } = props;
 
   const { colorMode } = useColorMode();
@@ -90,17 +91,19 @@ export default function Login(props) {
         <p className={`text-xs ${subduedText}`}>Sign in to continue</p>
       </div>
 
-      <div className={`grid grid-cols-2 rounded-lg p-1 ${tabShellClasses}`}>
+      <div className={`grid ${showSignupButton ? 'grid-cols-2' : 'grid-cols-1'} rounded-lg p-1 ${tabShellClasses}`}>
         <button type="button" className={`${tabBase} ${tabActive}`}>
           Login
         </button>
-        <button
-          type="button"
-          className={`${tabBase} ${tabInactive}`}
-          onClick={() => setCurrentLoginView('register')}
-        >
-          Sign up
-        </button>
+        {showSignupButton && (
+          <button
+            type="button"
+            className={`${tabBase} ${tabInactive}`}
+            onClick={() => setCurrentLoginView('register')}
+          >
+            Sign up
+          </button>
+        )}
       </div>
 
       {error && (
@@ -109,20 +112,24 @@ export default function Login(props) {
         </p>
       )}
 
-      <button
-        type="button"
-        className={`flex items-center justify-center w-full rounded-lg py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${googleButtonClasses}`}
-        onClick={signInWithGoogle}
-      >
-        <FaGoogle className="inline-block mr-2 text-blue-600" />
-        <span className="font-semibold">Continue with Google</span>
-      </button>
+      {showGoogleAuth && (
+        <>
+          <button
+            type="button"
+            className={`flex items-center justify-center w-full rounded-lg py-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${googleButtonClasses}`}
+            onClick={signInWithGoogle}
+          >
+            <FaGoogle className="inline-block mr-2 text-blue-600" />
+            <span className="font-semibold">Continue with Google</span>
+          </button>
 
-      <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-slate-400">
-        <span className="flex-1 h-px bg-slate-300/50" />
-        <span>OR</span>
-        <span className="flex-1 h-px bg-slate-300/50" />
-      </div>
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.3em] text-slate-400">
+            <span className="flex-1 h-px bg-slate-300/50" />
+            <span>OR</span>
+            <span className="flex-1 h-px bg-slate-300/50" />
+          </div>
+        </>
+      )}
 
       <form onSubmit={submitUserLogin} className="space-y-3.5">
         <div className={fieldClasses}>

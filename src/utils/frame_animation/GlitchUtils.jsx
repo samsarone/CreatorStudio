@@ -29,7 +29,7 @@ Konva.Filters.CustomGlitch = function(imageData) {
   }
 };
 
-export function applyGlitchEffect(node, params, t) {
+export function applyGlitchEffect(node) {
   // Ensure the node is cached for filters to work
   if (!node.isCached()) {
     node.cache();

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import TextareaAutosize from 'react-textarea-autosize';
 
 export default function AutoExpandableTextarea(props) {

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import SearchBox from './utils/SearchBox.tsx';
 
 
-const IPFS_URL_BASE = import.meta.env.VITE_IPFS_URL_BASE;
+
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
@@ -14,7 +14,7 @@ export default function SelectTemplate(props) {
 
   // State for managing pagination
 
-  const [totalPages, setTotalPages] = useState(44);  // Assuming you know the total pages
+  const [totalPages] = useState(44);  // Assuming you know the total pages
 
   // Fetch data when the component mounts and when currentPage changes
   useEffect(() => {

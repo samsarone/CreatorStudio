@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -32,7 +32,7 @@ export default function ImageStudioLandingHome() {
 
   const [currentView, setCurrentView] = useState(CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY);
   const [promptText, setPromptText] = useState('');
-  const [aspectRatio, setAspectRatio] = useState(
+  const [aspectRatio] = useState(
     localStorage.getItem('defaultImageAspectRatio') || '1:1'
   );
   const [selectedGenerationModel, setSelectedGenerationModel] = useState(DEFAULT_GENERATION_MODEL);
@@ -81,7 +81,7 @@ export default function ImageStudioLandingHome() {
           );
           navigate(`/image/studio/${storedSessionId}`, { replace: true });
           return;
-        } catch (err) {
+        } catch  {
           localStorage.removeItem('imageSessionId');
         }
       }
@@ -99,7 +99,7 @@ export default function ImageStudioLandingHome() {
           navigate(`/image/studio/${sessionId}`, { replace: true });
           return;
         }
-      } catch (err) {
+      } catch  {
         // Fall through to projects list.
       }
 

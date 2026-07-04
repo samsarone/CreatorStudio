@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import axios from 'axios';
 
@@ -23,7 +23,7 @@ export default function ForgotPassword(props) {
         setSuccess('Check your email for password reset instructions.');
         setError(null);
       })
-      .catch((err) => {
+      .catch(() => {
         
         setError('Failed to send reset email. Please try again.');
         setSuccess(null);

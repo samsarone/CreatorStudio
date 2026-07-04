@@ -1,5 +1,5 @@
 // VideoEditorToolbar.js
-import React, { useContext, useState, useRef, useEffect } from 'react';
+import { useContext, useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import PromptGenerator from './PromptGenerator.jsx';
 import ImageEditGenerator from '../toolbars/ImageEditGenerator.jsx';
@@ -11,8 +11,6 @@ import {
   FaChevronRight,
   FaChevronCircleRight,
   FaTimes,
-  FaSearchPlus,
-  FaSearchMinus
 } from 'react-icons/fa';
 import AddShapeDisplay from '../../editor/utils/AddShapeDisplay.tsx';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
@@ -21,9 +19,6 @@ import Select from 'react-select';
 import {
   CURRENT_TOOLBAR_VIEW,
   TOOLBAR_ACTION_VIEW,
-  SPEECH_SELECT_TYPES,
-
-  OPENAI_SPEAKER_TYPES,
 
 
   MUSIC_PROVIDERS,
@@ -184,8 +179,6 @@ export default function VideoEditorToolbar(props) {
     aspectRatio,
     onToggleDisplay,
     showToggleCollapseToolbar,
-    subtitlesGenerationPending,
-    submitGenerateSubtitles,
     setAdvancedSessionTheme,
     submitAddBatchTrackToProject,
     currentLayer,
@@ -201,12 +194,6 @@ export default function VideoEditorToolbar(props) {
     movieSoundList,
     movieGenSpeakers,
     updateMovieGenSpeakers,
-    zoomCanvasIn,
-    zoomCanvasOut,
-    resetCanvasZoom,
-    canvasZoomPercent,
-    canZoomInCanvas,
-    canZoomOutCanvas,
     isRenderPending,
     onExpandedChange,
   } = props;
@@ -415,7 +402,7 @@ export default function VideoEditorToolbar(props) {
           audio.onended = () => {
             stopSpeakerPreview();
           };
-        } catch (error) {
+        } catch  {
           if (audioSampleObjectUrlRef.current) {
             URL.revokeObjectURL(audioSampleObjectUrlRef.current);
             audioSampleObjectUrlRef.current = null;

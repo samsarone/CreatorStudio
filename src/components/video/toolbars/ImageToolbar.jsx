@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { FaChevronCircleDown, FaChevronCircleUp, FaTimesCircle } from 'react-icons/fa';
 import Konva from 'konva';
 import Select from 'react-select';
@@ -84,7 +84,7 @@ export default function ImageToolbar(props) {
     }
   };
 
-  const handleInputBlur = (type) => {
+  const handleInputBlur = () => {
     const newConfig = {
       x: xValue,
       y: yValue,

@@ -1,6 +1,6 @@
-import React from 'react';
+
 import axios from 'axios';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { persistAuthToken } from '../../../utils/web.jsx';
 import Register from '../Register.tsx';
@@ -16,6 +16,7 @@ import {
 } from '../../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 
 export default function RegisterPage() {
   const { setUser } = useUser();
@@ -23,6 +24,10 @@ export default function RegisterPage() {
   const location = useLocation();
   const isMobile = useMediaQuery({ query: '(max-width: 767px)' });
   const requestedRedirect = getCurrentAuthRedirect(location);
+
+  if (IS_DOCKER_INSTALL) {
+    return <Navigate to={{ pathname: '/login', search: location.search }} replace />;
+  }
 
   // No-op if you don't need a dialog close
   const closeAlertDialog = () => { };

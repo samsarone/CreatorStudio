@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { FaChevronCircleRight } from 'react-icons/fa';
 export default function FrameToolbarMinimal(props) {

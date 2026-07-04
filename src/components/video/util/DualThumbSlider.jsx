@@ -1,5 +1,5 @@
 // DualThumbSlider.js
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ReactSlider from 'react-slider';
 
 const DUAL_THUMB_HANDLE_HEIGHT = 10;

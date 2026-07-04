@@ -1,5 +1,5 @@
 // src/components/util/RangeOverlaySlider.js
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import ReactSlider from 'react-slider';
 
 export default function RangeOverlaySlider({
@@ -22,7 +22,7 @@ export default function RangeOverlaySlider({
   const FPS = 30; // Frames per second
   const MIN_DISTANCE_IN_FRAMES = MIN_LAYER_DURATION * FPS; // Minimum distance between thumbs in frames
 
-  const handleSliderChange = (values, index) => {
+  const handleSliderChange = (values) => {
     // Update internal slider values
     latestSliderValuesRef.current = values;
     setSliderValues(values);

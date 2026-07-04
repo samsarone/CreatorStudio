@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { getDefaultAuthenticatedPath } from './defaultRoutes.js';
 
-export const VIDEO_SESSION_STORAGE_KEY = 'videoSessionId';
+const VIDEO_SESSION_STORAGE_KEY = 'videoSessionId';
 
 function normalizeSessionId(value) {
   if (!value) return null;
@@ -18,7 +18,7 @@ function normalizeSessionId(value) {
   return null;
 }
 
-export function getVidgenieSessionId(session) {
+function getVidgenieSessionId(session) {
   return normalizeSessionId(
     session?._id ||
       session?.id ||
@@ -47,7 +47,7 @@ function hasStartedVidgenieGeneration(session) {
   );
 }
 
-export function isPendingVidgenieSession(session) {
+function isPendingVidgenieSession(session) {
   if (!session || !getVidgenieSessionId(session)) return false;
   if (session.expressGenerationFailed || session.expressGenerationCancelled) return false;
 
@@ -68,14 +68,7 @@ export function appendRouteSearch(path, search = '') {
   return `${path}${search.startsWith('?') ? search : `?${search}`}`;
 }
 
-export function upsertRouteSearchParam(search = '', key, value) {
-  const params = new URLSearchParams(search || '');
-  params.set(key, value);
-  const paramsString = params.toString();
-  return paramsString ? `?${paramsString}` : '';
-}
-
-export function getStoredVidgenieSessionId() {
+function getStoredVidgenieSessionId() {
   if (typeof window === 'undefined') return null;
 
   try {
@@ -85,7 +78,7 @@ export function getStoredVidgenieSessionId() {
   }
 }
 
-export function storeVidgenieSessionId(sessionId) {
+function storeVidgenieSessionId(sessionId) {
   if (typeof window === 'undefined') return;
   const normalizedSessionId = normalizeSessionId(sessionId);
   if (!normalizedSessionId) return;
@@ -136,7 +129,7 @@ async function fetchPendingSessionCandidates(apiServer, headers) {
   }
 }
 
-export async function findPendingVidgenieSession(apiServer, headers) {
+async function findPendingVidgenieSession(apiServer, headers) {
   const storedSessionId = getStoredVidgenieSessionId();
   const storedSessionPromise = fetchSessionDetails(apiServer, headers, storedSessionId);
   const latestSession = await fetchLatestSession(apiServer, headers);
@@ -168,7 +161,7 @@ export async function findPendingVidgenieSession(apiServer, headers) {
   return null;
 }
 
-export async function createBlankVidgenieSession(apiServer, headers) {
+async function createBlankVidgenieSession(apiServer, headers) {
   if (!apiServer || !headers) return null;
 
   const { data } = await axios.post(`${apiServer}/vidgenie/create_blank`, {}, headers);

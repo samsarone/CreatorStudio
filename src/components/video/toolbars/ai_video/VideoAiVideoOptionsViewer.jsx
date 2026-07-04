@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';
 import SingleSelect from '../../../common/SingleSelect.jsx'; // <-- Update path as needed
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
@@ -6,7 +6,6 @@ import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 export default function VideoAiVideoOptionsViewer(props) {
   const {
     currentLayer,
-    onDeleteLayer,
     removeVideoLayer,
     currentLayerHasSpeechLayer,
     requestLipSyncToSpeech,

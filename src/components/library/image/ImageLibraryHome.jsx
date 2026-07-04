@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import SecondaryButton from '../../common/SecondaryButton.tsx';
 import { FaChevronLeft, FaDownload, FaEye, FaPlus } from 'react-icons/fa';
@@ -143,7 +143,7 @@ const resolveAssetFilename = (asset, fallbackUrl) => {
     const parsedUrl = new URL(fallbackUrl, window.location.origin);
     const urlName = decodeURIComponent(parsedUrl.pathname.split('/').filter(Boolean).pop() || '');
     return urlName || 'library-image.png';
-  } catch (_) {
+  } catch  {
     return 'library-image.png';
   }
 };
@@ -206,7 +206,7 @@ export default function ImageLibraryHome(props) {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(objectUrl);
-    } catch (_) {
+    } catch  {
       const link = document.createElement('a');
       link.href = previewLink;
       link.download = filename;
@@ -230,7 +230,7 @@ export default function ImageLibraryHome(props) {
     try {
       await selectImageFromLibrary(imagePath, selectionMeta);
       setSelectedImage(null);
-    } catch (_) {
+    } catch  {
     } finally {
       setIsSelectingImage(false);
     }

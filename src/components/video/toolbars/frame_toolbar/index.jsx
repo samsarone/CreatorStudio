@@ -372,33 +372,7 @@ function getMinorGridStepFrames(majorStepFrames) {
   ), smallerCandidates[smallerCandidates.length - 1]);
 }
 
-function buildGridLineOffsets(rangeStartFrame, rangeEndFrame, stepFrames) {
-  if (
-    !Number.isFinite(rangeStartFrame)
-    || !Number.isFinite(rangeEndFrame)
-    || !Number.isFinite(stepFrames)
-    || stepFrames <= 0
-    || rangeEndFrame <= rangeStartFrame
-  ) {
-    return [];
-  }
 
-  const visibleFrameRange = rangeEndFrame - rangeStartFrame;
-  const firstAlignedFrame = Math.ceil(rangeStartFrame / stepFrames) * stepFrames;
-  const offsets = [];
-
-  for (let frame = firstAlignedFrame; frame < rangeEndFrame; frame += stepFrames) {
-    if (frame <= rangeStartFrame || frame >= rangeEndFrame) {
-      continue;
-    }
-
-    offsets.push(
-      clampPercent(((frame - rangeStartFrame) / visibleFrameRange) * 100)
-    );
-  }
-
-  return offsets;
-}
 
 function buildGridLineFrames(rangeStartFrame, rangeEndFrame, stepFrames) {
   if (
@@ -819,7 +793,7 @@ function extractHintsFromUploadedFile(rawText = '') {
       if (normalizedHints.length > 0) {
         return normalizedHints;
       }
-    } catch (error) {
+    } catch  {
       return parseTimestampedHintsText(trimmedText);
     }
   }
@@ -1056,7 +1030,6 @@ export default function FrameToolbar(props) {
     updateLayerVisualItem,
     deleteLayerVisualItem,
     duplicateAudioLayer,
-    isGuestSession,
     updateAllAudioLayersOneShot,
     updateGlobalAudioLayers,
     requestVideoLayerEdit,
@@ -1076,7 +1049,7 @@ export default function FrameToolbar(props) {
   } = props;
 
 
-  const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+
   const DISPLAY_FRAMES_PER_SECOND = 30;
   const numericFramesPerSecond = Number(framesPerSecond);
   const sessionFramesPerSecond = [16, 24, 30].includes(numericFramesPerSecond)
@@ -1165,7 +1138,7 @@ export default function FrameToolbar(props) {
   const [isDuplicatingAudioTrack, setIsDuplicatingAudioTrack] = useState(false);
 
   const [audioLayerView, setAudioLayerView] = useState('layer');
-  const [selectedAudioTrackDisplay, setSelectedAudioTrackDisplay] = useState(null);
+  const [, setSelectedAudioTrackDisplay] = useState(null);
   const [isPromptDropdownOpen, setIsPromptDropdownOpen] = useState(false);
   const [promptDropdownPosition, setPromptDropdownPosition] = useState({
     top: 0,
@@ -1203,7 +1176,7 @@ export default function FrameToolbar(props) {
   const [pendingLayerUpdates, setPendingLayerUpdates] = useState([]);
 
 
-  const [renderDropdownOpen, setRenderDropdownOpen] = useState(false);
+  useState(false);
   const { user } = useUser();
 
   const selectedLayerData = selectedLayerIndex >= 0 ? layers[selectedLayerIndex] : null;
@@ -2097,13 +2070,13 @@ export default function FrameToolbar(props) {
 
         try {
           copied = document.execCommand('copy');
-        } catch (error) {
+        } catch  {
           copied = false;
         }
 
         document.body.removeChild(textArea);
       }
-    } catch (error) {
+    } catch  {
       copied = false;
     }
 
@@ -2970,7 +2943,7 @@ export default function FrameToolbar(props) {
     trimDragBaselineRef.current = null;
   };
 
-  const layerDurationCellUpdated = (value, index) => {
+  const layerDurationCellUpdated = (value) => {
 
     setPendingDuration(parseFloat(value));
     setDurationChanged(true);
@@ -3227,12 +3200,6 @@ export default function FrameToolbar(props) {
   const getPersistableHints = (hints = timelineHintsDraft) => (
     buildHintTrackDisplayList(hints, DISPLAY_FRAMES_PER_SECOND).map((hint) => {
       const {
-        trackKey,
-        startFrame,
-        endFrame,
-        durationFrames,
-        isDisplaySelected,
-        isDirty,
         ...persistableHint
       } = hint;
       return persistableHint;
@@ -3873,13 +3840,7 @@ export default function FrameToolbar(props) {
     setSelectedAudioVolumePointId(nextPointId);
   };
 
-  const handleSelectedAudioVolumePointCreate = (timeSeconds) => {
-    if (!selectedAudioTrackId) {
-      return;
-    }
 
-    handleAudioVolumePointCreate(selectedAudioTrackId, timeSeconds);
-  };
 
   const handleAudioVolumePointDelete = (trackId, pointId) => {
     if (!trackId || !pointId) {
@@ -5017,7 +4978,7 @@ export default function FrameToolbar(props) {
         onDragEnd={onDragEnd}
       >
         <Droppable droppableId="layersDroppable" direction="vertical">
-          {(provided, snapshot) => (
+          {(provided) => (
             <div
               className='layers-container relative h-full w-full overflow-hidden'
               style={{
@@ -6195,7 +6156,7 @@ export default function FrameToolbar(props) {
 
     let textItemLayers = [];
 
-    let visibleLayersWithTextItems = visibleLayers.filter((layer) => {
+    visibleLayers.filter((layer) => {
       let layerActiveItems = layer.imageSession.activeItemList;
 
 
@@ -6661,7 +6622,7 @@ export default function FrameToolbar(props) {
     </div>
   );
 
-  let topSubToolbar = <span />;
+  <span />;
 
   let showGridsView = <span />;
   if (isExpandedToolbarView) {
@@ -6806,7 +6767,7 @@ export default function FrameToolbar(props) {
     );
   };
 
-  let additionalActionToolbar = <span />;
+  <span />;
   if (canUseDownloadLink) {
     // additionalActionToolbar = (
     //   <div className='mt-2'>
@@ -6900,7 +6861,7 @@ export default function FrameToolbar(props) {
     </div>
   );
 
-  let btnLeftMargin = 'ml-1';
+
 
   if (canCancelPendingRender) {
     const cancelButtonClasses = colorMode === 'light'
@@ -6959,7 +6920,7 @@ export default function FrameToolbar(props) {
   }
 
 
-  let submitRenderFullActionDisplay = submitRenderDisplay;
+
 
   const showAdditionOptionsDialog = () => {
     openAlertDialog(
@@ -7410,7 +7371,7 @@ export default function FrameToolbar(props) {
     };
   }, [openPopupLayerIndex, durationChanged]);
 
-  let buttonGroupMT = 'mt-0.5';
+
   if (isExpandedToolbarView) {
     buttonGroupMT = 'mt-0';
   }
@@ -7739,7 +7700,7 @@ export default function FrameToolbar(props) {
                   onChange={(e) =>
                     layerDurationCellUpdated(e.target.value, openPopupLayerIndex)
                   }
-                className={`w-[120px] 
+                className={`w-[120px]
                     inline-block border border-neutral-100 pl-1 rounded-lg ${textColor} ${bg2Color} pr-[1px] ${durationChanged ? 'highlight' : ''
                     }`}
                 />

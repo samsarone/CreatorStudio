@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import CommonButton from "../../common/CommonButton.tsx";
 import {
   VIDEO_GENERATION_MODEL_TYPES,
@@ -129,11 +129,11 @@ export default function VideoPromptGenerator(props) {
     const storedEndFrame = localStorage.getItem("defaultVideoEndFrame");
     return storedEndFrame === null ? true : storedEndFrame === "true";
   });
-  const [combineLayers, setCombineLayers] = useState(() => {
+  const [combineLayers] = useState(() => {
     const storedCombineLayers = localStorage.getItem("combineLayers");
     return storedCombineLayers === null ? false : storedCombineLayers === "true";
   });
-  const [clipLayerToAiVideo, setClipLayerToAiVideo] = useState(() => {
+  const [clipLayerToAiVideo] = useState(() => {
     const storedClipLayer = localStorage.getItem("clipLayerToAiVideo");
     return storedClipLayer === null ? false : storedClipLayer === "true";
   });
@@ -289,17 +289,9 @@ export default function VideoPromptGenerator(props) {
     localStorage.setItem("defaultVideoStartFrame", checked.toString());
   };
 
-  const handleEndFrameChange = (e) => {
-    const checked = e.target.checked;
-    setUseEndFrame(checked);
-    localStorage.setItem("defaultVideoEndFrame", checked.toString());
-  };
 
-  const handleClipLayerChange = (e) => {
-    const checked = e.target.checked;
-    setClipLayerToAiVideo(checked);
-    localStorage.setItem("clipLayerToAiVideo", checked.toString());
-  };
+
+
 
   const submitOptimizePromptToggle = (checked) => {
     setOptimizePrompt(checked);
@@ -402,7 +394,7 @@ export default function VideoPromptGenerator(props) {
     <div className="text-red-500 text-center text-sm">{generationError}</div>
   ) : null;
 
-  
+
   return (
     <div>
       <div className={controlGridClass}>
@@ -550,7 +542,7 @@ export default function VideoPromptGenerator(props) {
       )}
 
       <div className={actionRowClass}>
-        
+
         <CommonButton
           onClick={handleSubmit}
           isPending={aiVideoGenerationPending}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { FaUpload } from "react-icons/fa";
 import { TbLibraryPhoto } from "react-icons/tb";
 import { useColorMode } from "../../../../contexts/ColorMode";

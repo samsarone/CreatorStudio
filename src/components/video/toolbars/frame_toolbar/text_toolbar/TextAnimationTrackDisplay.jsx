@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import ReactSlider from 'react-slider';
 import { FaDiamond } from 'react-icons/fa6';
 import './textAnimationTrackDisplay.css';
@@ -26,7 +26,6 @@ export default function TextAnimationTrackDisplay(props) {
     onAnimationSelect, 
     updateTrackAnimationBoundaries,
     selectedAnimationInTextTrack,
-    textItemLayer,
     viewportGeometry = null,
   } = props;
 
@@ -48,7 +47,7 @@ export default function TextAnimationTrackDisplay(props) {
       : Number(value) || 0
   ), [hasViewportGeometry, viewportGeometry]);
   const [sliderValues, setSliderValues] = useState([0, 0]);
-  const [isDragging, setIsDragging] = useState(false);
+  const [, setIsDragging] = useState(false);
 
   const isAnimationSelected = selectedAnimationInTextTrack === selectedAnimation;
 

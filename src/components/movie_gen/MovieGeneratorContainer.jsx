@@ -1,4 +1,4 @@
-import React from 'react';
+
 import OverflowContainer from '../common/OverflowContainer.tsx';
 
 import MovieGenerator from './MovieGenerator.jsx';

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import OverflowContainer from "../common/OverflowContainer.tsx";
 import { getHeaders } from "../../utils/web";
 import { useParams } from "react-router-dom";
@@ -7,10 +7,10 @@ import CommonButton from "../common/CommonButton.tsx";
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
 
-export default function PublicationHome(props) {
+export default function PublicationHome() {
 
   const { id } = useParams();
-  const [publicationData, setPublicationData] = useState({});
+  const [, setPublicationData] = useState({});
 
   useEffect(() => {
     const headers = getHeaders();
@@ -29,8 +29,8 @@ export default function PublicationHome(props) {
       tokenId: id,
       burnAmount: formValues.get("burnAmount"),
     }
-    axios.post(`${API_SERVER}/publications/burn_creator`, payload, headers).then((res) => {
-      const data = res.data;
+    axios.post(`${API_SERVER}/publications/burn_creator`, payload, headers).then(() => {
+
 
     });
   }

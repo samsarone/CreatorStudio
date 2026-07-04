@@ -1,13 +1,10 @@
-// components/common/CombinedAudioSelect.js
-import React from 'react';
+
 import Select, { components } from 'react-select';
 
 export default function CombinedAudioSelect(props) {
   const {
     speakerType,
     onSpeakerChange,
-    playMusicPreviewForSpeaker,
-    currentlyPlayingSpeaker,
     speakerOptions,
     colorMode,
   } = props;

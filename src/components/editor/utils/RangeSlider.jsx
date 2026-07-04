@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 
 function RangeSlider(props) {

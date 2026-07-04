@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import AceEditor from 'react-ace';
 import axios from 'axios';
 import { FaExpand, FaCompress } from 'react-icons/fa6';
@@ -20,7 +20,6 @@ export default function ThemeViewer(props) {
     sessionId,
     aspectRatio,
     showTheme,
-    setShowTheme,
     themeType,
     setThemeType,
     parentJsonTheme,
@@ -71,7 +70,7 @@ export default function ThemeViewer(props) {
           const parsed = JSON.parse(activeJson);
           setEditorData(parsed);
         }
-      } catch (err) {
+      } catch  {
         
       }
     }
@@ -86,7 +85,7 @@ export default function ThemeViewer(props) {
       JSON.parse(value);
       setErrorMessage(null);
       setErrorState(false);
-    } catch (e) {
+    } catch  {
       setErrorMessage('Invalid JSON format');
       setErrorState(true);
     }
@@ -98,7 +97,7 @@ export default function ThemeViewer(props) {
       JSON.parse(value);
       setErrorMessage(null);
       setErrorState(false);
-    } catch (e) {
+    } catch  {
       setErrorMessage('Invalid JSON format');
       setErrorState(true);
     }
@@ -136,7 +135,7 @@ export default function ThemeViewer(props) {
         parentJsonTheme: cleaned,
       };
       await axios.post(`${PROCESSOR_API_URL}/quick_session/update_primary_json`, payload, headers);
-    } catch (err) {
+    } catch  {
       
       setErrorMessage('Failed to update parent theme.');
       setErrorState(true);
@@ -175,7 +174,7 @@ export default function ThemeViewer(props) {
         derivedJsonTheme: cleaned,
       };
       await axios.post(`${PROCESSOR_API_URL}/quick_session/update_derived_json`, payload, headers);
-    } catch (err) {
+    } catch  {
       
       setErrorMessage('Failed to update derived theme.');
       setErrorState(true);
@@ -221,11 +220,11 @@ export default function ThemeViewer(props) {
         try {
           const parsed = JSON.parse(data.derivedJsonTheme);
           setDerivedJsonTheme(JSON.stringify(parsed, null, 2));
-        } catch (e) {
+        } catch  {
           setDerivedJsonTheme(data.derivedJsonTheme);
         }
       }
-    } catch (err) {
+    } catch  {
       
       setErrorMessage('Failed to set derived theme.');
       setErrorState(true);
@@ -372,12 +371,12 @@ export default function ThemeViewer(props) {
           try {
             const parsed = JSON.parse(data.parentJsonTheme);
             setParentJsonTheme(JSON.stringify(parsed, null, 2));
-          } catch (e) {
+          } catch  {
             setParentJsonTheme(data.parentJsonTheme);
           }
         }
       })
-      .catch((err) => {
+      .catch(() => {
         
         setParentJsonSubmitting(false);
       });

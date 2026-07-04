@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   buildResolvedPreviewAudioVolumeAutomationPoints,
   buildMusicDuckingWindows,
@@ -182,7 +182,7 @@ export default function PreviewPlaybackController(props) {
         try {
           audioEntry.hasRequestedLoad = true;
           audioEntry.audio.load();
-        } catch (err) {
+        } catch  {
           markPreviewAudioFailed(audioEntry, 'load_error');
         }
       }
@@ -373,7 +373,7 @@ export default function PreviewPlaybackController(props) {
             } else {
               baseGainNode.connect(audioContext.destination);
             }
-          } catch (err) {
+          } catch  {
             audioEl.volume = mediaElementVolume;
             audioEntry.sourceNode = null;
             audioEntry.baseGainNode = null;
@@ -414,7 +414,7 @@ export default function PreviewPlaybackController(props) {
         ].forEach((audioNode) => {
           try {
             audioNode?.disconnect();
-          } catch (err) {
+          } catch  {
             // Ignore best-effort cleanup errors.
           }
         });

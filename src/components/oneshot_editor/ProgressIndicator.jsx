@@ -1,9 +1,7 @@
 // ProgressIndicator.jsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaPause, FaPlay, FaSpinner, FaStepForward, FaVolumeMute, FaVolumeUp } from 'react-icons/fa';
 import './mobileStyles.css';
-import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
-import AddCreditsDialog from "../account/AddCreditsDialog.jsx";
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import StepImageReviewPanel from './StepImageReviewPanel.jsx';
@@ -721,7 +719,6 @@ export default function ProgressIndicator(props) {
     errorMessage,
     canProcessNextStep = false,
     canReviewStepImages = false,
-    purchaseCreditsForUser,
     viewInStudio,
     getSessionImageLayers,
     onProcessNextStep,
@@ -729,7 +726,6 @@ export default function ProgressIndicator(props) {
     onRegenerateStepImage,
   } = props;
 
-  const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const [hasCalledGetSessionImageLayers, setHasCalledGetSessionImageLayers] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
   const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
@@ -1123,24 +1119,7 @@ export default function ProgressIndicator(props) {
     }
   }, []);
 
-  const showBuyCreditsDialog = () => {
-    openAlertDialog(
-      <AddCreditsDialog
-        onClose={closeAlertDialog}
-        purchaseCreditsForUser={purchaseCreditsForUser}
-      />,
-      undefined,
-      false,
-      {
-        centerContent: true,
-        containerClassName: 'w-full max-w-[560px]',
-        fullBleed: true,
-        hideBorder: true,
-        hideCloseButton: true,
-        transparentShell: true,
-      }
-    );
-  };
+
 
   const videoActualLink = normalizeAssetUrl(videoLink);
 

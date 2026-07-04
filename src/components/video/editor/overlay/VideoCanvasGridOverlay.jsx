@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useColorMode } from '../../../../contexts/ColorMode';
 
 export default function VideoCanvasGridOverlay(props) {

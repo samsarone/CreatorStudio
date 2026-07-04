@@ -1,11 +1,6 @@
 const MUSIC_DUCK_FADE_DURATION_SECONDS = 0.5;
 const MUSIC_DUCKED_VOLUME_RATIO = 0.225;
 const MUSIC_DUCK_MERGE_GAP_SECONDS = MUSIC_DUCK_FADE_DURATION_SECONDS;
-const MUSIC_SIDECHAIN_THRESHOLD = 0.009;
-const MUSIC_SIDECHAIN_RATIO = 14;
-const MUSIC_SIDECHAIN_ATTACK_SECONDS = 0.09;
-const MUSIC_SIDECHAIN_RELEASE_SECONDS = 0.9;
-const MUSIC_SIDECHAIN_KNEE = 6;
 const AUDIO_VOLUME_PRECISION = 4;
 const AUDIO_TIME_EPSILON = 0.0001;
 
@@ -86,7 +81,7 @@ export function clampAudioVolumeValue(value, fallbackValue = 100) {
   return roundAudioNumber(Math.max(0, numericValue));
 }
 
-export function resolvePreviewVolumeGainFromVolumeValue(volumeValue, generationType) {
+function resolvePreviewVolumeGainFromVolumeValue(volumeValue) {
   const rawVolume = Number(volumeValue);
   if (!Number.isFinite(rawVolume) || rawVolume < 0) {
     return 1;
@@ -95,11 +90,11 @@ export function resolvePreviewVolumeGainFromVolumeValue(volumeValue, generationT
   return roundAudioNumber(rawVolume / 100);
 }
 
-export function isManualAudioVolumeAdjustmentEnabled(audioLayer = {}) {
+function isManualAudioVolumeAdjustmentEnabled(audioLayer = {}) {
   return Boolean(audioLayer?.manualVolumeAdjustmentEnabled);
 }
 
-export function resolveAudioLayerAutomationDuration(audioLayer = {}) {
+function resolveAudioLayerAutomationDuration(audioLayer = {}) {
   const startTime = Number.isFinite(Number(audioLayer?.startTime))
     ? Math.max(0, Number(audioLayer.startTime))
     : 0;
@@ -117,7 +112,7 @@ export function resolveAudioLayerAutomationDuration(audioLayer = {}) {
   return Math.max(0, endTime - startTime);
 }
 
-export function normalizeAudioLayerTimestampedVolumes(timestampedVolumes, duration, fallbackVolume = 100) {
+function normalizeAudioLayerTimestampedVolumes(timestampedVolumes, duration, fallbackVolume = 100) {
   const resolvedDuration = Number.isFinite(Number(duration))
     ? Math.max(0, Number(duration))
     : 0;
@@ -262,7 +257,7 @@ export function isRenderablePreviewAudioLayer(layer = {}) {
     && generationStatus !== 'PENDING';
 }
 
-export function resolveAudioLayerSourceValue(audioLayer = {}) {
+function resolveAudioLayerSourceValue(audioLayer = {}) {
   if (typeof audioLayer.selectedLocalAudioLink === 'string' && audioLayer.selectedLocalAudioLink.trim()) {
     return audioLayer.selectedLocalAudioLink.trim();
   }
@@ -301,7 +296,7 @@ export function resolveAudioLayerSourceValue(audioLayer = {}) {
   return null;
 }
 
-export function resolvePreviewMediaUrl(value, baseUrl = '') {
+function resolvePreviewMediaUrl(value, baseUrl = '') {
   if (typeof value !== 'string') {
     return null;
   }
@@ -451,77 +446,4 @@ export function getMusicDuckingVolumeAtTime(timeSeconds, duckingWindows) {
   }
 
   return 1;
-}
-
-export function measureAnalyserRms(analyser, sampleBuffer) {
-  if (!analyser || !sampleBuffer) {
-    return 0;
-  }
-
-  analyser.getByteTimeDomainData(sampleBuffer);
-  let totalPower = 0;
-
-  for (let index = 0; index < sampleBuffer.length; index += 1) {
-    const centeredValue = (sampleBuffer[index] - 128) / 128;
-    totalPower += centeredValue * centeredValue;
-  }
-
-  return Math.sqrt(totalPower / sampleBuffer.length);
-}
-
-export function computePreviewSidechainGain(sidechainLevel) {
-  const inputLevel = clampAudioValue(sidechainLevel);
-  if (inputLevel <= MUSIC_SIDECHAIN_THRESHOLD) {
-    return 1;
-  }
-
-  const compressedLevel = MUSIC_SIDECHAIN_THRESHOLD
-    + ((inputLevel - MUSIC_SIDECHAIN_THRESHOLD) / MUSIC_SIDECHAIN_RATIO);
-  const hardKneeGain = clampAudioValue(compressedLevel / inputLevel);
-
-  if (MUSIC_SIDECHAIN_KNEE <= 1) {
-    return hardKneeGain;
-  }
-
-  const kneeWidth = MUSIC_SIDECHAIN_THRESHOLD * ((MUSIC_SIDECHAIN_KNEE - 1) / 4);
-  if (kneeWidth <= 0) {
-    return hardKneeGain;
-  }
-
-  const kneeStart = Math.max(0, MUSIC_SIDECHAIN_THRESHOLD - (kneeWidth / 2));
-  const kneeEnd = MUSIC_SIDECHAIN_THRESHOLD + (kneeWidth / 2);
-  if (inputLevel <= kneeStart) {
-    return 1;
-  }
-
-  if (inputLevel >= kneeEnd) {
-    return hardKneeGain;
-  }
-
-  const blendProgress = clampAudioValue((inputLevel - kneeStart) / Math.max(kneeEnd - kneeStart, 0.0001));
-  return 1 - ((1 - hardKneeGain) * blendProgress * blendProgress);
-}
-
-export function smoothPreviewDuckGain(currentGain, targetGain, deltaSeconds) {
-  const resolvedCurrentGain = clampAudioValue(currentGain);
-  const resolvedTargetGain = clampAudioValue(targetGain);
-  const resolvedDeltaSeconds = Number.isFinite(Number(deltaSeconds))
-    ? Math.max(0, Number(deltaSeconds))
-    : 0;
-
-  if (resolvedDeltaSeconds <= 0) {
-    return resolvedTargetGain;
-  }
-
-  const isAttacking = resolvedTargetGain < resolvedCurrentGain;
-  const timeConstant = isAttacking
-    ? MUSIC_SIDECHAIN_ATTACK_SECONDS
-    : MUSIC_SIDECHAIN_RELEASE_SECONDS;
-
-  if (timeConstant <= 0) {
-    return resolvedTargetGain;
-  }
-
-  const coefficient = Math.exp(-resolvedDeltaSeconds / timeConstant);
-  return resolvedTargetGain + ((resolvedCurrentGain - resolvedTargetGain) * coefficient);
 }

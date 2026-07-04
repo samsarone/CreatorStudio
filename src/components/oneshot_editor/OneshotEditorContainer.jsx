@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -54,7 +54,7 @@ export default function OneshotEditorContainer() {
 
         setRouteError('Unable to open VidGenie.');
         routeResolutionStartedRef.current = false;
-      } catch (error) {
+      } catch  {
         setRouteError('Unable to open VidGenie.');
         routeResolutionStartedRef.current = false;
       }

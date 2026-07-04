@@ -1,8 +1,7 @@
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Ellipse, Transformer, Group, Shape } from 'react-konva';
 
 const ResizableDialogBubble = ({
-  shapeProps = {},
   isSelected,
   onSelect,
   onChange,
@@ -49,7 +48,7 @@ const ResizableDialogBubble = ({
 
   const updatePointerPosition = () => {
     const node = shapeRef.current;
-    const scaleX = node.scaleX();
+    node.scaleX();
     const scaleY = node.scaleY();
     const newPointerX = node.x();
     const newPointerY = node.y() + (node.height() * scaleY / 2);

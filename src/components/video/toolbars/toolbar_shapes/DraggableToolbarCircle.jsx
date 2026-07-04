@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Circle, Transformer } from 'react-konva';
 
 const DraggableToolbarCircle = ({ shapeProps, setShapeProps, isDrawing, id, shapeSet }) => {
@@ -24,11 +24,11 @@ const DraggableToolbarCircle = ({ shapeProps, setShapeProps, isDrawing, id, shap
     }
   };
 
-  const handleTransform = (e) => {
+  const handleTransform = () => {
     if (shapeSet) {
       const node = shapeRef.current;
       const scaleX = node.scaleX();
-      const scaleY = node.scaleY();
+      node.scaleY();
 
       // Reset scale to 1 and apply the new width and height to avoid cumulative scaling
       node.scaleX(1);

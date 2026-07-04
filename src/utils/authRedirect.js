@@ -55,7 +55,7 @@ export function buildLoginPathForRedirect(targetPath) {
   return redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
 }
 
-export function getMediaFlowPathForRedirect(redirect, { isMobile = false } = {}) {
+function getMediaFlowPathForRedirect(redirect, { isMobile = false } = {}) {
   const normalizedRedirect = sanitizeAuthRedirect(redirect) || '';
   if (
     normalizedRedirect.startsWith('/vidgenie') ||

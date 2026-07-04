@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -391,14 +391,14 @@ export default function ImageStudioHome() {
   const [selectedId, setSelectedId] = useState(null);
   const [selectedLayerType, setSelectedLayerType] = useState(null);
   const [buttonPositions, setButtonPositions] = useState([]);
-  const [selectedLayerSelectShape, setSelectedLayerSelectShape] = useState(null);
+  const [selectedLayerSelectShape] = useState(null);
 
   const [pencilWidth, setPencilWidth] = useState(10);
   const [pencilColor, setPencilColor] = useState('#000000');
   const [eraserWidth, setEraserWidth] = useState(30);
 
-  const [fillColor, setFillColor] = useState(colorMode === 'dark' ? '#e9edf7' : '#0b1226');
-  const [strokeColor, setStrokeColor] = useState(colorMode === 'dark' ? '#e9edf7' : '#0b1226');
+  const [fillColor] = useState(colorMode === 'dark' ? '#e9edf7' : '#0b1226');
+  const [strokeColor] = useState(colorMode === 'dark' ? '#e9edf7' : '#0b1226');
 
   const canvasRef = useRef(null);
   const canvasViewportRef = useRef(null);
@@ -1106,7 +1106,7 @@ export default function ImageStudioHome() {
         setUploadURL(placements.length === 1 ? placements[0] : placements, {
           closeDialog: false,
         });
-      } catch (error) {
+      } catch  {
         toast.error(
           <div>
             <FaTimes /> Upload failed. Please try another image.
@@ -1367,7 +1367,7 @@ export default function ImageStudioHome() {
     for (const item of activeItemList || []) {
       if (item.isHidden) continue;
       ctx.save();
-      const { x, y, width, height, rotation, scaleX = 1, scaleY = 1 } = item;
+      const { x, y, width, height, rotation } = item;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.translate(x, y);
 
@@ -1382,7 +1382,7 @@ export default function ImageStudioHome() {
         try {
           const img = await loadImage(imgSrc);
           ctx.drawImage(img, 0, 0, width, height);
-        } catch (_) {}
+        } catch  {}
       }
       ctx.restore();
     }

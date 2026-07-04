@@ -1,7 +1,7 @@
-import React, { useRef, useEffect, useState, useMemo } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import ReactSlider from "react-slider";
-import { FaChevronLeft, FaChevronRight, FaDownload } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 
 const SCENE_TILE_GAP = 0;
@@ -15,7 +15,6 @@ export default function FrameToolbarHorizontal({
   currentLayerSeek,
   setCurrentLayerSeek,
   onLayersOrderChange,
-  downloadLink,
   isRenderPending,
 }) {
   const fps = 30;
@@ -192,28 +191,7 @@ export default function FrameToolbarHorizontal({
     });
   }, [layers, sceneDurationSum, trackWidth]);
 
-  const renderDownload = () => {
-    if (!downloadLink) return null;
-    const onDownload = () => {
-      const a = document.createElement("a");
-      a.href = downloadLink;
-      a.download = `Rendition_${new Date().toISOString()}.mp4`;
-      a.click();
-    };
-    return (
-      <button
-        onClick={onDownload}
-        className={`px-3 py-2 rounded-lg text-xs inline-flex items-center gap-2 transition-colors duration-150 ${
-          colorMode === "dark"
-            ? "bg-[#111a2f] text-slate-100 border border-[#1f2a3d] hover:bg-[#16213a]"
-            : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
-        }`}
-      >
-        <FaDownload />
-        Download
-      </button>
-    );
-  };
+
 
   return (
     <div

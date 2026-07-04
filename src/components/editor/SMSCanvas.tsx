@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useState, useRef } from "react";
+import { forwardRef, useEffect, useState, useRef } from "react";
 import { Stage, Layer, Group, Line } from 'react-konva';
 import { CURRENT_TOOLBAR_VIEW } from '../../constants/Types.ts';
 import ResizableImage from "./ResizableImage.tsx";

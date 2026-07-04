@@ -1,17 +1,3 @@
-// Top 10 most popular languages supported by Franc
-export const popularLanguages = [
-  { value: 'eng', label: 'English' },
-  { value: 'spa', label: 'Spanish' },
-  { value: 'fre', label: 'French' },
-  { value: 'deu', label: 'German' },
-  { value: 'rus', label: 'Russian' },
-  { value: 'ita', label: 'Italian' },
-  { value: 'por', label: 'Portuguese' },
-  { value: 'zho', label: 'Chinese' },
-  { value: 'jpn', label: 'Japanese' },
-  { value: 'kor', label: 'Korean' },
-];
-
 export const getFontFamilyForLanguage = (language) => {
   switch (language) {
     case 'eng': // English

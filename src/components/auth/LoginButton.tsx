@@ -1,11 +1,11 @@
-import React from "react";
+
 import { FaSpinner } from "react-icons/fa6";
 import { useUser } from "../../contexts/UserContext";
 import { useColorMode } from "../../contexts/ColorMode";
 
 export default function LoginButton(props) {
   const { children, onClick, isPending, extraClasses, type = 'button' } = props;
-  const { user } = useUser();
+  useUser();
   const { colorMode } = useColorMode();
 
   let pendingSpinner = <span />;

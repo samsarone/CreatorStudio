@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useAlertDialog } from "../../contexts/AlertDialogContext.jsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from "../auth/AuthContainer.jsx";
+
+const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 
 export default function BillingAccessGate() {
   const { openAlertDialog } = useAlertDialog();
@@ -65,13 +67,15 @@ export default function BillingAccessGate() {
               >
                 Log in
               </button>
-              <button
-                type="button"
-                onClick={openRegisterDialog}
-                className={`px-4 py-2 rounded-lg font-semibold ${secondaryButton}`}
-              >
-                Create account
-              </button>
+              {!IS_DOCKER_INSTALL && (
+                <button
+                  type="button"
+                  onClick={openRegisterDialog}
+                  className={`px-4 py-2 rounded-lg font-semibold ${secondaryButton}`}
+                >
+                  Create account
+                </button>
+              )}
             </div>
           </div>
         </div>

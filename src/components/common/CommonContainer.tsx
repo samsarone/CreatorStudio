@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import TopNav from "./TopNav.tsx";
 import { AlertDialog } from "./AlertDialog.tsx";
 import { useColorMode } from "../../contexts/ColorMode.jsx";

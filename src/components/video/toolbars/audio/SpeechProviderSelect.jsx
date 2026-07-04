@@ -1,5 +1,5 @@
 // components/common/SpeechProviderSelect.js
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import Select, { components } from 'react-select';
 import { FaPlay, FaPause } from 'react-icons/fa';
 import { TTS_COMBINED_SPEAKER_TYPES } from '../../../../constants/Types.ts';

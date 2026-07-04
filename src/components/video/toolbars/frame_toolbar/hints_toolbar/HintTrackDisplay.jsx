@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { FaGripLines } from 'react-icons/fa6';
 import { useColorMode } from '../../../../../contexts/ColorMode.jsx';
 import { frameToViewportValue, viewportValueToFrame } from '../../../util/viewportGeometry.js';

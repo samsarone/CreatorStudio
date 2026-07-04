@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import axios from 'axios';
 import { FaSpinner } from 'react-icons/fa6';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -75,7 +75,7 @@ export default function VerificationHome() {
             await finalizeAuth(resolvedAuthToken);
             return;
           }
-        } catch (error) {
+        } catch  {
           
         }
 

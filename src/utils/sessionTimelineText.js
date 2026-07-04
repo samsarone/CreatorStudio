@@ -8,12 +8,12 @@ export function normalizeSessionId(value) {
   return value?.toString?.() || '';
 }
 
-export function toFiniteNumber(value, fallback = 0) {
+function toFiniteNumber(value, fallback = 0) {
   const parsedValue = Number(value);
   return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
 
-export function formatTimestamp(value) {
+function formatTimestamp(value) {
   const totalMilliseconds = Math.max(0, Math.round(toFiniteNumber(value) * 1000));
   const milliseconds = totalMilliseconds % 1000;
   const totalSeconds = Math.floor(totalMilliseconds / 1000);
@@ -78,7 +78,7 @@ function mergeTranscriptRows(rows = [], frameDurationSeconds = 1 / 16) {
   return mergedRows;
 }
 
-export function buildSubtitleTranscriptRows(sessionDetails = {}) {
+function buildSubtitleTranscriptRows(sessionDetails = {}) {
   const framesPerSecond = Math.max(1, toFiniteNumber(sessionDetails.framesPerSecond, 24));
   const audioLayerMap = new Map();
   const audioLayers = Array.isArray(sessionDetails.audioLayers) ? sessionDetails.audioLayers : [];
@@ -130,7 +130,7 @@ export function buildSubtitleTranscriptRows(sessionDetails = {}) {
   return mergeTranscriptRows(rows, 1 / framesPerSecond);
 }
 
-export function buildAudioPromptTranscriptRows(sessionDetails = {}) {
+function buildAudioPromptTranscriptRows(sessionDetails = {}) {
   const audioLayers = Array.isArray(sessionDetails.audioLayers) ? sessionDetails.audioLayers : [];
 
   return audioLayers
@@ -160,7 +160,7 @@ export function buildAudioPromptTranscriptRows(sessionDetails = {}) {
     .sort((left, right) => left.startTime - right.startTime);
 }
 
-export function buildTranscriptRows(sessionDetails = {}) {
+function buildTranscriptRows(sessionDetails = {}) {
   const subtitleRows = buildSubtitleTranscriptRows(sessionDetails);
   return subtitleRows.length ? subtitleRows : buildAudioPromptTranscriptRows(sessionDetails);
 }

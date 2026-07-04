@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import axios from 'axios';
 import OverflowContainer from '../common/OverflowContainer.tsx';
 import { FaSpinner } from 'react-icons/fa6';

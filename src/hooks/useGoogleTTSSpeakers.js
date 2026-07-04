@@ -131,7 +131,7 @@ function getGoogleTTSShortLabel(voice = {}, value = '') {
     .trim() || voiceName;
 }
 
-export function normalizeGoogleTTSSpeaker(voice = {}) {
+function normalizeGoogleTTSSpeaker(voice = {}) {
   const value = typeof voice.value === 'string' && voice.value.trim()
     ? voice.value.trim()
     : typeof voice.name === 'string'
@@ -167,7 +167,7 @@ export function normalizeGoogleTTSSpeaker(voice = {}) {
   };
 }
 
-export function buildGoogleTTSVoiceMap(voices = []) {
+function buildGoogleTTSVoiceMap(voices = []) {
   return voices.reduce((voiceMap, voice) => {
     const normalizedSpeaker = normalizeGoogleTTSSpeaker(voice);
     if (normalizedSpeaker.value) {
@@ -197,7 +197,7 @@ export function getGoogleTTSVoiceDetails(speaker = {}) {
   };
 }
 
-export async function fetchGoogleTTSSpeakers() {
+async function fetchGoogleTTSSpeakers() {
   if (googleVoiceCache.voices) {
     return googleVoiceCache.voices;
   }

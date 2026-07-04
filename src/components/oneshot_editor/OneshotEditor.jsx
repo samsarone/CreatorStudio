@@ -1,5 +1,5 @@
 
-import React, {
+import {
   useState,
   useEffect,
   useRef,
@@ -54,7 +54,6 @@ import { PURCHASE_CREDITS_ROUTE } from '../account/PurchaseCreditsPromptDialog.j
 
 import {
   IMAGE_GENERAITON_MODEL_TYPES,
-  IDEOGRAM_IMAGE_STYLES,
   INFERENCE_MODEL_TYPES,
   PIXVERRSE_VIDEO_STYLES,
   VIDEO_GENERATION_MODEL_TYPES,
@@ -661,6 +660,11 @@ function isDirectProcessorAssetPath(value) {
   return DIRECT_PROCESSOR_ASSET_PREFIXES.some((prefix) => value.startsWith(prefix));
 }
 
+function isRemoteUserResourcePath(value) {
+  return value.startsWith('assets_v2/user_resources/') ||
+    value.startsWith(USER_RESOURCES_PREFIX);
+}
+
 function buildProcessorAssetUrl(relativePath) {
   const normalizedPath = String(relativePath || '').replace(/^\/+/, '');
   return PROCESSOR_API_URL ? `${PROCESSOR_API_URL}/${normalizedPath}` : `/${normalizedPath}`;
@@ -677,7 +681,7 @@ function getProcessorAssetFallbackUrl(url) {
   if (!trimmed) return '';
 
   const relativePath = trimmed.replace(/^\/+/, '');
-  if (isDirectProcessorAssetPath(relativePath)) {
+  if (isDirectProcessorAssetPath(relativePath) && !isRemoteUserResourcePath(relativePath)) {
     return buildProcessorAssetUrl(relativePath);
   }
 
@@ -688,7 +692,9 @@ function getProcessorAssetFallbackUrl(url) {
   try {
     const parsedUrl = new URL(trimmed);
     const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
-    return isDirectProcessorAssetPath(pathname) ? buildProcessorAssetUrl(pathname) : '';
+    return isDirectProcessorAssetPath(pathname) && !isRemoteUserResourcePath(pathname)
+      ? buildProcessorAssetUrl(pathname)
+      : '';
   } catch {
     return '';
   }
@@ -704,17 +710,21 @@ function normalizeRerollAssetUrl(url) {
   }
 
   const relativePath = trimmed.replace(/^\/+/, '');
-  if (relativePath.startsWith(USER_RESOURCES_PREFIX)) {
+  if (isRemoteUserResourcePath(relativePath)) {
     return `${STATIC_ASSET_BASE_URL}/${relativePath}`;
   }
   if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
     try {
       const parsedUrl = new URL(trimmed);
       const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
-      if (pathname.startsWith(USER_RESOURCES_PREFIX)) {
+      if (isRemoteUserResourcePath(pathname)) {
         return `${STATIC_ASSET_BASE_URL}/${pathname}${parsedUrl.search || ''}`;
       }
-      if (isDirectProcessorAssetPath(pathname) && hasExpiredCloudFrontSignature(parsedUrl)) {
+      if (
+        isDirectProcessorAssetPath(pathname) &&
+        !isRemoteUserResourcePath(pathname) &&
+        hasExpiredCloudFrontSignature(parsedUrl)
+      ) {
         return buildProcessorAssetUrl(pathname);
       }
     } catch {
@@ -1615,7 +1625,7 @@ function getJsonParseErrorDetails(rawJson, error) {
   };
 }
 
-function normalizeJsonEndpoint(value, input, selectedMode = 'T2V') {
+function normalizeJsonEndpoint(value, selectedMode = 'T2V') {
   const rawEndpoint =
     typeof value === 'string' && value.trim().length > 0
       ? value.trim().toLowerCase()
@@ -2006,7 +2016,7 @@ function buildJsonModeRequest(rawJson, currentSessionId, selectedMode = 'T2V') {
     return sessionValidation;
   }
 
-  const endpointResult = normalizeJsonEndpoint(rawEndpoint, input, selectedMode);
+  const endpointResult = normalizeJsonEndpoint(rawEndpoint, selectedMode);
   if (endpointResult.error) {
     return endpointResult;
   }
@@ -2705,8 +2715,8 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Online / offline & polling support
   // ─────────────────────────────────────────────────────────
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [pollDelay, setPollDelay] = useState(DEFAULT_POLL);
+  const [, setIsOnline] = useState(navigator.onLine);
+  const [, setPollDelay] = useState(DEFAULT_POLL);
   const pollDelayRef = useRef(DEFAULT_POLL);
   const assistantDelayRef = useRef(DEFAULT_POLL);
 
@@ -2801,9 +2811,9 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Misc state
   // ─────────────────────────────────────────────────────────
-  const [latestVideos, setLatestVideos] = useState([]);
-  const [error, setError] = useState('');
-  const [expandedVideoId, setExpandedVideoId] = useState(null);
+  useState([]);
+  useState('');
+  const [, setExpandedVideoId] = useState(null);
   const [imageListItems, setImageListItems] = useState(() => [createEmptyImageListItem()]);
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
   const [imageUploadError, setImageUploadError] = useState('');
@@ -3078,8 +3088,8 @@ export default function OneshotEditor() {
       browserRecognitionRef.current = recognition;
       recognition.start();
       return true;
-    } catch (err) {
-      
+    } catch  {
+
       browserRecognitionRef.current = null;
       setIsBrowserRecognitionActive(false);
       setVoiceError(t("vidgenie.voiceRecognitionFailed"));
@@ -3673,7 +3683,7 @@ export default function OneshotEditor() {
       link.click();
       link.remove();
       URL.revokeObjectURL(blobUrl);
-    } catch (err) {
+    } catch  {
       if (downloadUrl) {
         const link = document.createElement('a');
         link.href = downloadUrl;
@@ -3774,8 +3784,8 @@ export default function OneshotEditor() {
       );
 
       await getSessionDetails();
-    } catch (error) {
-      
+    } catch  {
+
     } finally {
       setIsPublishing(false);
     }
@@ -3822,8 +3832,8 @@ export default function OneshotEditor() {
       );
 
       await getSessionDetails();
-    } catch (error) {
-      
+    } catch  {
+
     } finally {
       setIsUnpublishing(false);
     }
@@ -4211,7 +4221,7 @@ export default function OneshotEditor() {
           pollDelayRef.current ? pollDelayRef.current * 2 : DEFAULT_POLL,
           MAX_BACKOFF
         );
-        
+
       } finally {
         if (continuePolling && currentPollRequestIdRef.current === requestId) {
           const nextDelay = navigator.onLine ? pollDelayRef.current : OFFLINE_POLL;
@@ -4401,8 +4411,8 @@ export default function OneshotEditor() {
             setIsAssistantQueryGenerating(false);
           }
         })
-        .catch((err) => {
-          
+        .catch(() => {
+
           assistantErrorCountRef.current += 1;
           if (assistantErrorCountRef.current >= 3) {
             clearInterval(assistantPollRef.current);
@@ -4431,8 +4441,8 @@ export default function OneshotEditor() {
         headers
       )
       .then(() => startAssistantQueryPoll())
-      .catch((err) => {
-        
+      .catch(() => {
+
         setIsAssistantQueryGenerating(false);
       });
   };
@@ -4554,7 +4564,7 @@ export default function OneshotEditor() {
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
       return data;
-    } catch (err) {
+    } catch  {
       return null;
     }
   };
@@ -4578,9 +4588,7 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Toggle inline-playback
   // ─────────────────────────────────────────────────────────
-  const handleToggleVideo = (videoId) => {
-    setExpandedVideoId((prev) => (prev === videoId ? null : videoId));
-  };
+
 
   // ─────────────────────────────────────────────────────────
   //  Image-list source controls
@@ -4959,7 +4967,7 @@ export default function OneshotEditor() {
       persistRequestStepMode([requestId, id], submittedGenerationStepMode);
       pollGenerationStatus(requestId);
     } catch (err) {
-      
+
       const apiMessage = err?.response?.data?.message;
       setErrorMessage({ error: apiMessage || 'An unexpected error occurred.' });
       setIsGenerationPending(false);

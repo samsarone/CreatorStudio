@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { useUser } from '../../../contexts/UserContext.jsx';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Login from '../Login.tsx';  // <-- Reuse your existing Login component
@@ -13,6 +13,7 @@ import {
 } from '../../../utils/authRedirect.js';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 
 export default function LoginPage() {
   const { setUser } = useUser();
@@ -63,6 +64,7 @@ export default function LoginPage() {
             closeAlertDialog={closeAlertDialog}
             getOrCreateUserSession={navigateAfterAuth}
             showSignupButton={false}
+            showGoogleAuth={!IS_DOCKER_INSTALL}
             setCurrentLoginView={handleViewChange}
           />
         </div>

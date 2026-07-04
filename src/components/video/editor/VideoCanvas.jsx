@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useState, useRef, useContext } from "react";
+import { forwardRef, useEffect, useState, useRef, useContext } from "react";
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Group, Line, Image as KonvaImage, Rect } from 'react-konva';
 
@@ -32,14 +32,9 @@ const FPS = 30;
 
 
 
-const SELECTABLE_TYPES = ['SHOW_DEFAULT_DISPLAY',
-  'SHOW_CURSOR_SELECT_DISPLAY',
-  'SHOW_ANIMATE_DISPLAY',
-  'SHOW_UPLOAD_DISPLAY',
-  'SHOW_LAYERS_DISPLAY',
-  'SHOW_SELECT_DISPLAY'];
+
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
-const IMAGE_SERVER_API_URL = import.meta.env.VITE_IMAGE_SERVER_API;
+
 
 function getVideoTypeLabel(type) {
   switch (type) {
@@ -105,8 +100,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     resetEraserImage, showMask, eraserToolbarVisible,
     eraserToolbarPosition, eraserWidthRef, toolbarShapeProps, setToolbarShapeProps, paintToolbarPosition,
     paintToolbarVisible, isDrawing, shapeSet, showPencil, pencilLines, overlayImage, shapeSelectToolbarVisible,
-    shapeSelectToolbarPosition, enableSegmentationMask, segmentationData, setSegmentationData,
-    isExpressGeneration, currentLayerSeek, isVideoPreviewPlaying, removeVideoLayer, aspectRatio, isAIVideoGenerationPending,
+    shapeSelectToolbarPosition, enableSegmentationMask, segmentationData, isExpressGeneration, currentLayerSeek, isVideoPreviewPlaying, removeVideoLayer, aspectRatio, isAIVideoGenerationPending,
     canvasDimensions: canvasDimensionsProp,
     toggleStageZoom, stageZoomScale, displayZoomType, requestRegenerateSubtitles, aiVideoLayer,
     nextAiVideoLayer, nextAiVideoLayerType,
@@ -119,8 +113,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     isGenerationPending, isUpdateLayerPending,
     submitGenerateNewVideoRequest, aiVideoGenerationPending,
     selectedVideoGenerationModel, setSelectedVideoGenerationModel,
-    videoPromptText, setVideoPromptText, promptTextVideo, setPromptTextVideo,
-    updateTargetShapeActiveLayerConfigNoScale,
+    videoPromptText, setVideoPromptText, updateTargetShapeActiveLayerConfigNoScale,
     selectedEditModelValue,
     onPersistTextStyle,
     openUploadDialog,
@@ -135,7 +128,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     canUndoEraserStroke,
     canRedoEraserStroke,
     editorVariant = "videoStudio",
-  
+
 
   } = props;
 
@@ -153,7 +146,7 @@ const VideoCanvas = forwardRef((props, ref) => {
 
   const [maskBaseImageId, setMaskBaseImageId] = useState(null);
 
-  const [isOperationLoading, setIsOperationLoading] = useState(false);
+  useState(false);
 
   const [showAddRemoveMaskedItemButton, setShowAddRemoveMaskedItemButton] = useState(false);
 
@@ -171,7 +164,6 @@ const VideoCanvas = forwardRef((props, ref) => {
     setIsExpressGeneration,
     setSessionId,
     setDisplayZoomType,
-    setStageZoomScale,
     setDownloadCurrentFrame,
     setToggleStageZoom,
     setRequestRegenerateSubtitles,
@@ -180,8 +172,6 @@ const VideoCanvas = forwardRef((props, ref) => {
     setCanvasActualDimensions,
     setTotalEffectiveDuration,
     setRequestRealignToAiVideoAndLayers,
-    expressGenerativeVideoRequired,
-
     showGridOverlay,
     showCanvasNavigationGrid,
     canvasNavigationGridGranularity,
@@ -301,7 +291,7 @@ const VideoCanvas = forwardRef((props, ref) => {
   }, [currentCanvasAction]);
 
   const { colorMode } = useColorMode();
-  const bgColor = colorMode === 'dark' ? `bg-[#0f1629]` : `bg-neutral-300`;
+
   const textColor = colorMode === 'dark' ? `text-slate-100` : `text-black`;
 
   const selectLayer = (item) => {
@@ -462,10 +452,10 @@ const VideoCanvas = forwardRef((props, ref) => {
     //  setSelectedLayerType(newItem.type); // Ensure the new item is set to the correct layer type
   };
 
-  const handleMouseOver = (e) => {
+  const handleMouseOver = () => {
     if (ref && ref.current) {
       const stage = ref.current.getStage();
-      const pointerPosition = stage.getPointerPosition();
+      stage.getPointerPosition();
       if (!currentLayer || !maskData) return;
       setShadedArea(null);
     }
@@ -504,8 +494,8 @@ const VideoCanvas = forwardRef((props, ref) => {
         };
         imageObj.src = base64Image;
       }
-    } catch (error) {
-      
+    } catch  {
+
     }
   };
 
@@ -539,7 +529,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     if (containingBoxes.length > 0) {
       // Existing logic for handling bounding box click
       const smallestBox = containingBoxes.reduce((smallest, item) => {
-        const [x, y, width, height] = item.bbox;
+        const [, , width, height] = item.bbox;
         const area = width * height;
         if (!smallest || area < smallest.area) {
           return { ...item, area };
@@ -565,7 +555,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     const stage = ref.current.getStage();
     const imageNode = stage.findOne(`#${maskBaseImageId}`);
     if (!imageNode || !imageNode.image()) {
-      
+
       return;
     }
 
@@ -581,7 +571,7 @@ const VideoCanvas = forwardRef((props, ref) => {
       maskCtx.drawImage(maskImageElement, 0, 0);
 
       const maskData = maskCtx.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
-      createMaskImage(imageData, maskData, selectedBbox.bbox, (newItem) => {
+      createMaskImage(imageData, maskData, selectedBbox.bbox, () => {
         // setSelectedId(newItem.id);
         // setSelectedLayer(newItem);
         /// setSelectedBbox(null); // Hide the toolbar
@@ -593,7 +583,7 @@ const VideoCanvas = forwardRef((props, ref) => {
     const stage = ref.current.getStage();
     const imageNode = stage.findOne(`#${maskBaseImageId}`);
     if (!imageNode || !imageNode.image()) {
-      
+
       return;
     }
 
@@ -955,7 +945,7 @@ const VideoCanvas = forwardRef((props, ref) => {
         </div>
       );
     }
- 
+
   let bgCanvasColor = '#111827';
     if (colorMode === 'light') {
       bgCanvasColor = '#F3F4F6';

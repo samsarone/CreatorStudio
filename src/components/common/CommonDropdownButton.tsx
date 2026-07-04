@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import { Fragment } from "react";
 import { Menu, Transition } from "@headlessui/react";
 import { FaSpinner } from "react-icons/fa6";
 import { useUser } from "../../contexts/UserContext";

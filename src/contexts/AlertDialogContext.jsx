@@ -1,16 +1,16 @@
 // UserContext.js
-import React, { useState, useContext, createContext } from 'react';
+import { useState, useContext, createContext } from 'react';
 
 
 const AlertDialogContext = createContext({
   isAlertDialogOpen: false,
   alertDialogContent: null,
-  openAlertDialog: (data, fn) => {},
+  openAlertDialog: () => {},
   closeAlertDialog: () => {},
   alertDialogSubmit: null,
-  setAlertComponentHTML: (data) => {},
+  setAlertComponentHTML: () => {},
   isAlertActionPending: false,
-  setIsAlertActionPending: (data) => {},
+  setIsAlertActionPending: () => {},
 
   dialogOptions: {},
 
@@ -22,9 +22,9 @@ const AlertDialogContext = createContext({
 export const AlertDialogProvider = ({ children }) => {
   const [isAlertDialogOpen, setIsAlertDialogOpen] = useState(false);
   const [alertDialogContent, setDialogContent] = useState(null);
-  const [alertDialogSubmit, setAlertDialogSubmit] = useState(null);
+  const [, setAlertDialogSubmit] = useState(null);
   const [isAlertActionPending, setIsAlertActionPending] = useState(false);
-  const [alertComponentData, setAlertComponentData] = useState(<span />);
+  const [, setAlertComponentData] = useState(<span />);
 
   const [dialogOptions, setDialogOptions] = useState({});
 
@@ -52,7 +52,7 @@ export const AlertDialogProvider = ({ children }) => {
   return (
     <AlertDialogContext.Provider value={{ isAlertDialogOpen, alertDialogContent, openAlertDialog,
      closeAlertDialog,  setAlertComponentHTML , isAlertActionPending, setIsAlertActionPending,   useXL,
-     dialogOptions, }}>
+     dialogOptions }}>
       {children}
     </AlertDialogContext.Provider>
   );

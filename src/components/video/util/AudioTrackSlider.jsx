@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactSlider from 'react-slider';
 import { FaGripLines } from 'react-icons/fa6';
 import './audioTrack/audioTrackSlider.css';
@@ -52,7 +52,6 @@ function resolveAudioTrackUrl(audioTrack = {}) {
 const AudioTrackSlider = (props) => {
   const { audioTrack, onUpdate, selectedFrameRange, isStartVisible, isEndVisible,
     setAudioRangeSliderDisplayAsSelected, 
-    totalDuration,
     viewportGeometry = null,
     showWaveformOverlay = false,
     visualizationMode = 'waveform',
@@ -82,7 +81,7 @@ const AudioTrackSlider = (props) => {
       : Number(value) || 0
   ), [hasViewportGeometry, viewportGeometry]);
 
-  const [audioDuration, setAudioDuration] = useState(0);
+  const [, setAudioDuration] = useState(0);
   const [sliderValues, setSliderValues] = useState([0, 0]);
   const [isDraggingRange, setIsDraggingRange] = useState(false);
   const [dragStartY, setDragStartY] = useState(0);
@@ -277,7 +276,7 @@ const AudioTrackSlider = (props) => {
     audioTrack.id,
   ]);
 
-  const audioRangeSliderClicked = (e) => {
+  const audioRangeSliderClicked = () => {
     setAudioRangeSliderDisplayAsSelected(audioTrackId);
   }
 
@@ -339,7 +338,7 @@ const AudioTrackSlider = (props) => {
     }
   };
 
-  let audioLevelsDisplaySlider = <span />;
+  <span />;
   if (audioTrack.isAudioLevelsDisplaySelected) {
     audioLevelsDisplaySlider = (
       <AudioLevelsTrackSlider />

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -30,7 +30,7 @@ export default function VideoEditorLandingHome() {
 
       const createNewSession = async () => {
         const headers = getHeaders();
-        const res = await axios.get(`${API_SERVER}/video_sessions/create_video_session`, headers);
+        const res = await axios.post(`${API_SERVER}/video_sessions/create_video_session`, { prompts: [] }, headers);
         const sessionData = res.data;
         localStorage.setItem('videoSessionId', sessionData._id);
         navigate(`/video/${sessionData._id}`, { replace: true });
@@ -46,7 +46,7 @@ export default function VideoEditorLandingHome() {
               setUser(userData);
               navigate('/my_sessions', { replace: true });
             }
-          } catch (err) {
+          } catch  {
             
           }
           return;
@@ -58,7 +58,7 @@ export default function VideoEditorLandingHome() {
           if (sessionData && sessionData._id) {
             navigate(`/video/${sessionData._id}`, { replace: true });
           }
-        } catch (err) {
+        } catch  {
           
         }
         return;
@@ -74,10 +74,10 @@ export default function VideoEditorLandingHome() {
           );
           const sessionData = res.data;
           if (sessionData) {
-            navigate(`/vidgenie/${videoSessionId}`, { replace: true });
+            navigate(`/video/${videoSessionId}`, { replace: true });
             return;
           }
-        } catch (err) {
+        } catch  {
           
         }
 
@@ -96,7 +96,7 @@ export default function VideoEditorLandingHome() {
         } else {
           navigate('/my_sessions', { replace: true });
         }
-      } catch (err) {
+      } catch  {
         
       }
     };

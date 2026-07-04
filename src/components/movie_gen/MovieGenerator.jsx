@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import CommonButton from '../common/CommonButton.tsx';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -7,8 +7,6 @@ import { FaChevronCircleDown, FaCog } from 'react-icons/fa';
 
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
-
-import SingleSelect from '../common/SingleSelect.jsx';
 
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 
@@ -30,8 +28,8 @@ const sampleLinks = [
   },
   {
     url: 'https://static.samsar.one/videogpt_samples/video-6758bd428b56913df7f8a914_piyp+(1).mp4',
-    prompt: "Give me a short 6 line story about a space cowboy Mario and his adventures in the orion's belt. Make it animated and pixelated" 
-    
+    prompt: "Give me a short 6 line story about a space cowboy Mario and his adventures in the orion's belt. Make it animated and pixelated"
+
   },
   {
     url: 'https://static.samsar.one/videogpt_samples/video-67599bcb54d9dc1491db62af_srxz.mp4',
@@ -144,7 +142,7 @@ export default function MovieGenerator() {
       setIsDisabled(true);
     } else {
       if (isValidUser) {
-        setIsDisabled(false); 
+        setIsDisabled(false);
       }
     }
   }, [id, user]);
@@ -154,8 +152,8 @@ export default function MovieGenerator() {
   const getSessionDetails = async () => {
     const headers = getHeaders();
     // Implement fetching session details
-    const resData = await axios.get(`${API_SERVER}/quick_session/details?sessionId=${id}`, headers);
-    const response = resData.data;
+    await axios.get(`${API_SERVER}/quick_session/details?sessionId=${id}`, headers);
+
 
   };
 
@@ -193,9 +191,9 @@ export default function MovieGenerator() {
     }
 
     try {
-      const response = await axios.post(`${API_SERVER}/moviegen/create`, payload, headers);
+      await axios.post(`${API_SERVER}/moviegen/create`, payload, headers);
       pollGenerationStatus();
-    } catch (error) {
+    } catch  {
       setIsGenerationPending(false);
     } finally {
       setIsSubmitting(false);
@@ -221,8 +219,8 @@ export default function MovieGenerator() {
           setIsGenerationPending(false);
           setErrorMessage({ error: 'Video generation failed.' });
         }
-      } catch (error) {
-        
+      } catch  {
+
         clearInterval(interval);
         setIsGenerationPending(false);
         setErrorMessage({ error: 'An unexpected error occurred while fetching status.' });
@@ -386,7 +384,7 @@ export default function MovieGenerator() {
           className={`text-2xl block transform transition-transform duration-500 ease-out ${animateHeading ? '-translate-y-4' : ''
             }`}
         >
-          Movie Generator By SamsarOne <span className='text-xs'>Alpha</span> 
+          Movie Generator By SamsarOne <span className='text-xs'>Alpha</span>
         </div>
         {showSubheading && (
           <div className="text-sm block mt-[-10px]">
@@ -424,12 +422,12 @@ export default function MovieGenerator() {
               {/* Updated Flex Container */}
               <div className="flex justify-end font-bold text-sm text-neutral-100 cursor-pointer" onClick={togglePricingDetailsDisplay} >
                 Pricing will be shown at completion
-                <FaChevronCircleDown 
-                  className='inline-flex ml-2  mt-1' 
-                  
+                <FaChevronCircleDown
+                  className='inline-flex ml-2  mt-1'
+
                 />
               </div>
-              
+
               {/* Pricing Details Message */}
               <div className="mt-1 text-sm w-full text-right">
                 {pricingDetailsMessage}
@@ -449,17 +447,17 @@ export default function MovieGenerator() {
   </div>
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     {sampleLinks.map((item, index) => (
-      <div 
-        key={index} 
+      <div
+        key={index}
         className="bg-gray-950 p-4 rounded shadow-md border border-neutral-800"
       >
         <div className="mb-2 font-semibold text-sm text-neutral-200">
           {item.prompt}
         </div>
-        <video 
-          className="w-full rounded-md border border-neutral-700" 
-          controls 
-          src={item.url} 
+        <video
+          className="w-full rounded-md border border-neutral-700"
+          controls
+          src={item.url}
         >
           Your browser does not support the video tag.
         </video>

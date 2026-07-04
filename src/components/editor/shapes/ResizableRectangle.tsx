@@ -1,10 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { Rect, Group, Transformer } from 'react-konva';
 import { INIT_DIMENSIONS } from '../utils/ShapeUtils';
 
 export default function ResizableRectangle(props) {
-  const { shape, config, isSelected, onSelect, id, updateToolbarButtonPosition, updateTargetActiveLayerConfig, 
-    stageZoomScale
+  const { config, isSelected, onSelect, id, updateToolbarButtonPosition, updateTargetActiveLayerConfig
    } = props;
   const rectangleTransformerRef = useRef();
   const rectangleRef = useRef();
@@ -37,7 +36,7 @@ export default function ResizableRectangle(props) {
     updateTargetActiveLayerConfig(id, newAttrs);
   };
 
-  const handleTransformEnd = (e) => {
+  const handleTransformEnd = () => {
     const node = rectangleRef.current;
     const newAttrs = {
       x: node.x(),

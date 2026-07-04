@@ -57,7 +57,7 @@ function getFrameConfigSourceRate(item, framesPerSecond) {
   return normalizeSessionFramesPerSecond(framesPerSecond);
 }
 
-export function getItemDisplayFrameRange(item, framesPerSecond) {
+function getItemDisplayFrameRange(item, framesPerSecond) {
   const frameOffset = Number(item?.config?.frameOffset);
   const frameDuration = Number(item?.config?.frameDuration);
 

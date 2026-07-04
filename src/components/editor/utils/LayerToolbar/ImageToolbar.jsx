@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FaChevronCircleDown, FaChevronCircleUp , FaTimesCircle } from 'react-icons/fa';
 import Konva from 'konva';
 import Select from 'react-select';

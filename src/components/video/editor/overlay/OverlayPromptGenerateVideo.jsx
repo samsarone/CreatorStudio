@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import CommonButton from "../../../common/CommonButton.tsx";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
@@ -38,7 +38,6 @@ export default function OverlayPromptGenerateVideo(props) {
     setSelectedVideoGenerationModel,
     generationError,
     aspectRatio,
-    onCloseOverlay,
     activeItemList,
     currentLayer,
     sessionDetails,

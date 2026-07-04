@@ -1,4 +1,4 @@
-export const EXPRESS_VIDEO_FIXED_PRICING_COMPONENTS_PER_SECOND = Object.freeze({
+const EXPRESS_VIDEO_FIXED_PRICING_COMPONENTS_PER_SECOND = Object.freeze({
   pipeline: 4,
   inference: 4,
   image_gen_edit: 2,
@@ -7,7 +7,7 @@ export const EXPRESS_VIDEO_FIXED_PRICING_COMPONENTS_PER_SECOND = Object.freeze({
   effects_and_lipsync: 2,
 });
 
-export const EXPRESS_VIDEO_FIXED_COMPONENTS_TOTAL_PER_SECOND =
+const EXPRESS_VIDEO_FIXED_COMPONENTS_TOTAL_PER_SECOND =
   Object.values(EXPRESS_VIDEO_FIXED_PRICING_COMPONENTS_PER_SECOND)
     .reduce((total, value) => total + value, 0);
 
@@ -22,7 +22,7 @@ export const EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL = Object.freeze({
   RUNWAYML: 30,
 });
 
-export const EXPRESS_VIDEO_PRICING_DISTRIBUTION_PER_SECOND_BY_MODEL = Object.freeze(
+const EXPRESS_VIDEO_PRICING_DISTRIBUTION_PER_SECOND_BY_MODEL = Object.freeze(
   Object.fromEntries(
     Object.entries(EXPRESS_VIDEO_CREDITS_PER_SECOND_BY_MODEL)
       .map(([model, total]) => [

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 import { TOOLBAR_ACTION_VIEW } from '../../../../constants/Types.ts';
 import SecondaryButton from '../../../common/SecondaryButton.tsx';

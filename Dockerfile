@@ -23,7 +23,19 @@ RUN yarn install --ignore-scripts && yarn add esbuild && yarn esbuild --version
 # Copy rest of the app
 COPY . .
 
-COPY .env.staging .env
+ARG VITE_PROCESSOR_API=http://localhost:3002
+ARG VITE_CLIENT_URL=http://localhost:3000
+ARG VITE_STATIC_CDN_URL=https://static.samsar.one
+ARG VITE_CURRENT_ENV=docker
+ARG VITE_DOCKER_INSTALL=true
+ARG VITE_SETUP_WIZARD_API=http://localhost:8089
+
+ENV VITE_PROCESSOR_API=${VITE_PROCESSOR_API} \
+    VITE_CLIENT_URL=${VITE_CLIENT_URL} \
+    VITE_STATIC_CDN_URL=${VITE_STATIC_CDN_URL} \
+    VITE_CURRENT_ENV=${VITE_CURRENT_ENV} \
+    VITE_DOCKER_INSTALL=${VITE_DOCKER_INSTALL} \
+    VITE_SETUP_WIZARD_API=${VITE_SETUP_WIZARD_API}
 
 # Build app
 RUN yarn build --mode staging
