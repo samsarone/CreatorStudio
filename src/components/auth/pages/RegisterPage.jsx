@@ -40,6 +40,10 @@ export default function RegisterPage() {
   };
 
   const registerWithGoogle = ({ subscribeToWeeklyNewsletter = true } = {}) => {
+    if (IS_DOCKER_INSTALL) {
+      return;
+    }
+
     const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
     localStorage.setItem('setShowSetPaymentFlow', true);
     localStorage.setItem(PURCHASE_CREDITS_PROMPT_STORAGE_KEY, 'true');

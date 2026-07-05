@@ -35,6 +35,10 @@ export default function LoginPage() {
   };
 
   const signInWithGoogle = () => {
+    if (IS_DOCKER_INSTALL) {
+      return;
+    }
+
     const redirect = persistAuthRedirectForFlow(requestedRedirect, { isMobile });
     window.location.href = buildGoogleLoginUrl({
       processorServer: PROCESSOR_SERVER,
