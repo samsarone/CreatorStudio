@@ -229,6 +229,10 @@ async function getAssistantFallbackFrameImageData(layer, baseUrl) {
   return await imageUrlToAssistantFrameImageData(fallbackImageUrl);
 }
 
+function isGuestMediaUrl(candidate) {
+  return typeof candidate === 'string' && candidate.includes('/video_sessions/guest_media/');
+}
+
 function resolveLatestSessionVideoUrl(sessionDetails) {
   const candidates = [
     sessionDetails?.renderedVideoURL,
@@ -247,7 +251,9 @@ function resolveLatestSessionVideoUrl(sessionDetails) {
     sessionDetails?.result?.videoLink,
     sessionDetails?.result?.video_link,
   ];
-  const videoUrl = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+  const guestMediaUrl = sessionDetails?.isGuestSession ? candidates.find(isGuestMediaUrl) : null;
+  const videoUrl = guestMediaUrl ||
+    candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
   return normalizeVideoDownloadUrl(videoUrl);
 }
 
@@ -300,6 +306,238 @@ function hasRenderableImageItemUrl(item) {
   return /^(https?:|data:|blob:)/i.test(trimmedCandidate)
     || trimmedCandidate.startsWith('/')
     || trimmedCandidate.includes('/');
+}
+
+function getGuestSessionId(sessionDetails) {
+  return (
+    sessionDetails?._id?.toString?.() ||
+    sessionDetails?._id ||
+    sessionDetails?.id?.toString?.() ||
+    sessionDetails?.id ||
+    sessionDetails?.sessionId?.toString?.() ||
+    sessionDetails?.sessionId ||
+    ''
+  );
+}
+
+function encodeGuestMediaPath(mediaPath) {
+  return String(mediaPath || '')
+    .replace(/^\/+/, '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+function getMediaAssetPath(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  const trimmedValue = value.trim();
+  if (/^(data:|blob:)/i.test(trimmedValue)) {
+    return '';
+  }
+  if (trimmedValue.startsWith('/video_sessions/guest_media/')) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(trimmedValue)) {
+    try {
+      const parsedUrl = new URL(trimmedValue);
+      const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+      return pathname.startsWith('assets_v2/') ? pathname : '';
+    } catch {
+      return '';
+    }
+  }
+
+  return trimmedValue.replace(/^\/+/, '').split('?')[0].split('#')[0];
+}
+
+function buildGuestSessionMediaUrl(sessionDetails, value) {
+  const sessionId = getGuestSessionId(sessionDetails);
+  const mediaPath = getMediaAssetPath(value);
+  if (!sessionId || !mediaPath.startsWith('assets_v2/') || !mediaPath.split('/').includes(sessionId)) {
+    return value;
+  }
+
+  const apiBaseUrl = typeof PROCESSOR_API_URL === 'string'
+    ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
+    : '';
+  const routePath = `/video_sessions/guest_media/${encodeURIComponent(sessionId)}/${encodeGuestMediaPath(mediaPath)}`;
+  return apiBaseUrl ? `${apiBaseUrl}${routePath}` : routePath;
+}
+
+function normalizeGuestImageItemForStudio(item, sessionDetails) {
+  if (!item || typeof item !== 'object' || item.type !== 'image') {
+    return item;
+  }
+
+  const source = getImageItemUrlCandidate(item);
+  const displayUrl = buildGuestSessionMediaUrl(sessionDetails, source);
+  if (!displayUrl || displayUrl === source) {
+    return item;
+  }
+
+  return {
+    ...item,
+    src: displayUrl,
+    image: displayUrl,
+    url: displayUrl,
+    previewUrl: displayUrl,
+    imageUrl: displayUrl,
+    image_url: displayUrl,
+    signedUrl: displayUrl,
+    signed_url: displayUrl,
+    displayUrl,
+    display_url: displayUrl,
+    rawSrc: item.rawSrc || item.src || source,
+    rawUrl: item.rawUrl || item.url || source,
+  };
+}
+
+function getGuestLayerBaseImageSource(layer = {}) {
+  const imageSession = layer?.imageSession || {};
+  return [
+    imageSession.activeGeneratedImage,
+    imageSession.activeSelectedImage,
+    imageSession.activeEditedImage,
+    imageSession.videoRenderStartFrameImage,
+    imageSession.activeImageRemoteLink,
+    layer?.aiLayerStartFrame,
+    layer?.baseLayerStartFrame,
+    layer?.aiVideoThumbnailPath,
+    layer?.thumbnailPath,
+  ].find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+}
+
+function layerHasRenderableImageItem(activeItemList = []) {
+  return Array.isArray(activeItemList) && activeItemList.some((item) => (
+    item?.type === 'image' &&
+    item?.isHidden !== true &&
+    hasRenderableImageItemUrl(item)
+  ));
+}
+
+function normalizeGuestLayerForStudio(layer, sessionDetails) {
+  if (!layer || typeof layer !== 'object') {
+    return layer;
+  }
+
+  const imageSession = layer.imageSession && typeof layer.imageSession === 'object'
+    ? layer.imageSession
+    : {};
+  const nextImageSession = { ...imageSession };
+  [
+    'activeSelectedImage',
+    'activeGeneratedImage',
+    'activeEditedImage',
+    'videoRenderStartFrameImage',
+    'videoRenderEndFrameImage',
+    'activeImageRemoteLink',
+  ].forEach((field) => {
+    if (typeof nextImageSession[field] === 'string' && nextImageSession[field].trim()) {
+      nextImageSession[field] = buildGuestSessionMediaUrl(sessionDetails, nextImageSession[field]);
+    }
+  });
+
+  const rawActiveItemList = Array.isArray(nextImageSession.activeItemList)
+    ? nextImageSession.activeItemList
+    : [];
+  let activeItemList = rawActiveItemList.map((item) => normalizeGuestImageItemForStudio(item, sessionDetails));
+
+  if (!layerHasRenderableImageItem(activeItemList)) {
+    const baseImageSource = getGuestLayerBaseImageSource({ ...layer, imageSession: nextImageSession });
+    const baseImageUrl = buildGuestSessionMediaUrl(sessionDetails, baseImageSource);
+    if (baseImageUrl) {
+      const canvasDimensions = getCanvasDimensionsForAspectRatio(
+        layer.aspectRatio || sessionDetails?.aspectRatio || '1:1'
+      );
+      const nonImageItems = activeItemList.filter((item) => item?.type !== 'image');
+      activeItemList = [
+        {
+          id: 'studio_base_image',
+          type: 'image',
+          x: 0,
+          y: 0,
+          width: canvasDimensions.width,
+          height: canvasDimensions.height,
+          src: baseImageUrl,
+          image: baseImageUrl,
+          url: baseImageUrl,
+          previewUrl: baseImageUrl,
+          imageUrl: baseImageUrl,
+          image_url: baseImageUrl,
+          displayUrl: baseImageUrl,
+          display_url: baseImageUrl,
+          rawSrc: baseImageSource,
+          rawUrl: baseImageSource,
+          is_base_image: true,
+          animations: [],
+        },
+        ...nonImageItems,
+      ];
+    }
+  }
+
+  nextImageSession.activeItemList = activeItemList;
+
+  const nextLayer = {
+    ...layer,
+    imageSession: nextImageSession,
+  };
+
+  [
+    ['aiVideoLayer', 'aiVideoRemoteLink'],
+    ['lipSyncVideoLayer', 'lipSyncRemoteLink'],
+    ['soundEffectVideoLayer', 'soundEffectRemoteLink'],
+    ['userVideoLayer', 'userVideoRemoteLink'],
+  ].forEach(([assetField, remoteField]) => {
+    const source = nextLayer[assetField] || nextLayer[remoteField];
+    const displayUrl = buildGuestSessionMediaUrl(sessionDetails, source);
+    if (displayUrl && displayUrl !== source) {
+      nextLayer[assetField] = displayUrl;
+      nextLayer[remoteField] = displayUrl;
+    }
+  });
+
+  return nextLayer;
+}
+
+function normalizeGuestSessionForStudio(sessionDetails) {
+  if (!sessionDetails || typeof sessionDetails !== 'object' || !sessionDetails.isGuestSession) {
+    return sessionDetails;
+  }
+
+  const normalizedSessionDetails = {
+    ...sessionDetails,
+    layers: Array.isArray(sessionDetails.layers)
+      ? sessionDetails.layers.map((layer) => normalizeGuestLayerForStudio(layer, sessionDetails))
+      : sessionDetails.layers,
+  };
+
+  [
+    'videoLink',
+    'video_link',
+    'renderedVideoURL',
+    'renderedVideoUrl',
+    'rendered_video_url',
+    'remoteURL',
+    'remoteUrl',
+    'remote_url',
+    'publishedVideoURL',
+    'publishedVideoUrl',
+    'published_video_url',
+    'audio',
+  ].forEach((field) => {
+    if (typeof normalizedSessionDetails[field] === 'string' && normalizedSessionDetails[field].trim()) {
+      normalizedSessionDetails[field] = buildGuestSessionMediaUrl(
+        normalizedSessionDetails,
+        normalizedSessionDetails[field]
+      );
+    }
+  });
+
+  return normalizedSessionDetails;
 }
 
 function hasHydratedStudioLayers(sessionDetails) {
@@ -1428,7 +1666,7 @@ export default function VideoHome() {
         : axios.get(`${PROCESSOR_API_URL}/video_sessions/session_details?id=${routeSessionId}`, headers);
 
     sessionDetailsRequest.then((dataRes) => {
-      const sessionDetails = dataRes.data;
+      const sessionDetails = normalizeGuestSessionForStudio(dataRes.data);
       const resolvedSessionId = sessionDetails?._id?.toString?.() || sessionDetails?._id || routeSessionId;
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(resolvedSessionId);
 

@@ -147,6 +147,13 @@ function resolveMediaUrl(value, baseUrl = '') {
   }
 
   const normalizedPath = trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`;
+  if (normalizedPath.startsWith('/video_sessions/guest_media/')) {
+    const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
+      ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
+      : '';
+    return processorBaseUrl ? `${processorBaseUrl}${normalizedPath}` : normalizedPath;
+  }
+
   const trimmedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : '';
   if (!trimmedBaseUrl) {
     return normalizedPath;
