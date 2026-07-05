@@ -84,7 +84,7 @@ export default function VideoEditorLandingHome() {
     };
 
     run();
-  }, [userInitiated, userFetching, user, navigate, setUser]);
+  }, [userInitiated, userFetching, user, navigate]);
 
 
 
