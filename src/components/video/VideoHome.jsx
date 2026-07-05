@@ -231,18 +231,21 @@ async function getAssistantFallbackFrameImageData(layer, baseUrl) {
 
 function resolveLatestSessionVideoUrl(sessionDetails) {
   const candidates = [
-    sessionDetails?.videoLink,
-    sessionDetails?.video_link,
-    sessionDetails?.result?.videoLink,
-    sessionDetails?.result?.video_link,
     sessionDetails?.renderedVideoURL,
-    sessionDetails?.result_url,
-    Array.isArray(sessionDetails?.result_urls) ? sessionDetails.result_urls[0] : null,
+    sessionDetails?.renderedVideoUrl,
+    sessionDetails?.rendered_video_url,
     sessionDetails?.remoteURL,
     sessionDetails?.remoteUrl,
     sessionDetails?.remote_url,
     sessionDetails?.publishedVideoURL,
+    sessionDetails?.publishedVideoUrl,
     sessionDetails?.published_video_url,
+    sessionDetails?.result_url,
+    Array.isArray(sessionDetails?.result_urls) ? sessionDetails.result_urls[0] : null,
+    sessionDetails?.videoLink,
+    sessionDetails?.video_link,
+    sessionDetails?.result?.videoLink,
+    sessionDetails?.result?.video_link,
   ];
   const videoUrl = candidates.find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
   return normalizeVideoDownloadUrl(videoUrl);
