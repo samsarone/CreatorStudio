@@ -39,6 +39,18 @@ import { getRenderableImageUrl } from '../../utils/image.jsx';
 
 
 
+const DEFAULT_IMAGE_GENERATION_MODEL = IMAGE_GENERAITON_MODEL_TYPES[0].key;
+const ACTIVE_IMAGE_GENERATION_MODEL_KEYS = new Set(
+  IMAGE_GENERAITON_MODEL_TYPES.map((model) => model.key)
+);
+
+function getStoredImageGenerationModel() {
+  const defaultModel = localStorage.getItem('defaultModel');
+  return ACTIVE_IMAGE_GENERATION_MODEL_KEYS.has(defaultModel)
+    ? defaultModel
+    : DEFAULT_IMAGE_GENERATION_MODEL;
+}
+
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
 const VIDEO_TASK_POLL_INTERVAL_MS = 1500;
@@ -508,10 +520,7 @@ export default function VideoEditorContainer(props) {
   const [isRightPanelExpanded, setIsRightPanelExpanded] = useState(false);
   const [currentCanvasAction, setCurrentCanvasAction] = useState(TOOLBAR_ACTION_VIEW.SHOW_DEFAULT_DISPLAY);
 
-  const [selectedGenerationModel, setSelectedGenerationModel] = useState(() => {
-    const defaultModel = localStorage.getItem('defaultModel');
-    return defaultModel && defaultModel !== undefined ? defaultModel : IMAGE_GENERAITON_MODEL_TYPES[0].key;
-  });
+  const [selectedGenerationModel, setSelectedGenerationModel] = useState(getStoredImageGenerationModel);
   const [selectedEditModel, setSelectedEditModel] = useState(IMAGE_EDIT_MODEL_TYPES[0].key);
 
   const [isGenerationPending, setIsGenerationPending] = useState(false);

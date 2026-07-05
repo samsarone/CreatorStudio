@@ -102,7 +102,10 @@ export default function OverlayPromptGenerator(props) {
 
   useEffect(() => {
     const storedDefaultModel = localStorage.getItem("defaultModel");
-    if (storedDefaultModel) {
+    if (
+      storedDefaultModel &&
+      IMAGE_GENERAITON_MODEL_TYPES.some((model) => model.key === storedDefaultModel)
+    ) {
       setSelectedGenerationModel(storedDefaultModel);
     }
   }, [setSelectedGenerationModel]);
@@ -113,6 +116,15 @@ export default function OverlayPromptGenerator(props) {
     const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find(
       (model) => model.key === selectedGenerationModel
     );
+    if (!modelDef) {
+      const fallbackModel = IMAGE_GENERAITON_MODEL_TYPES[0]?.key;
+      if (fallbackModel) {
+        setSelectedGenerationModel(fallbackModel);
+        localStorage.setItem("defaultModel", fallbackModel);
+        localStorage.setItem("defaultImageModel", fallbackModel);
+      }
+      return;
+    }
     if (modelDef?.imageStyles?.length) {
       const localKey = `defaultImageStyle_${selectedGenerationModel}`;
       const storedStyle = localStorage.getItem(localKey);
@@ -126,7 +138,7 @@ export default function OverlayPromptGenerator(props) {
     } else {
       setSelectedImageStyle(null);
     }
-  }, [selectedGenerationModel]);
+  }, [selectedGenerationModel, setSelectedGenerationModel]);
 
   const modelPricing = IMAGE_MODEL_PRICES.find(
     (model) => model.key === selectedGenerationModel

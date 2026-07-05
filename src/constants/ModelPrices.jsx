@@ -76,15 +76,6 @@ export const IMAGE_MODEL_PRICES = [
     ],
   },
   {
-    key: 'IMAGEN4',
-    isExpressModel: true,
-    prices: [
-      { aspectRatio: '1:1', price: 8 },
-      { aspectRatio: '16:9', price: 8 },
-      { aspectRatio: '9:16', price: 8 },
-    ],
-  },
-  {
     key: 'SEEDREAM',
     isExpressModel: true,
     prices: [
@@ -109,15 +100,6 @@ export const IMAGE_MODEL_PRICES = [
       { aspectRatio: '1:1', price: 15 },
       { aspectRatio: '16:9', price: 15 },
       { aspectRatio: '9:16', price: 15 },
-    ],
-  },
-  {
-    key: 'CUSTOM_TEXT_TO_IMAGE',
-    isExpressModel: true,
-    prices: [
-      { aspectRatio: '1:1', price: 10 },
-      { aspectRatio: '16:9', price: 10 },
-      { aspectRatio: '9:16', price: 10 },
     ],
   },
 ]

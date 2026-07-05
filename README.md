@@ -345,10 +345,9 @@ The client-side model inventory lives primarily in `src/constants/Types.ts` and 
 | Model | Key | Express |
 | --- | --- | --- |
 | GPT Image 2 | `GPTIMAGE2` | Yes |
-| Google Imagen4 | `IMAGEN4` | Yes |
 | Seedream | `SEEDREAM` | Yes |
 | NanoBanana 2 | `NANOBANANA2` | Yes |
-| Custom Text to Image | `CUSTOM_TEXT_TO_IMAGE` | Yes |
+| NanoBanana Pro | `NANOBANANAPRO` | Yes |
 
 ### Image Editing
 
@@ -382,9 +381,9 @@ The client-side model inventory lives primarily in `src/constants/Types.ts` and 
 
 VidGenie intentionally exposes a smaller express-first subset:
 
-- Image models: `GPTIMAGE2`, `NANOBANANA2`, `SEEDREAM`.
+- Image models: `GPTIMAGE2`, `NANOBANANA2`, `NANOBANANAPRO`, `SEEDREAM`.
 - Text/video and image/video models: `RUNWAYML`, `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`.
-- JSON mode also validates custom model keys such as `CUSTOM_TEXT_TO_IMAGE` and `CUSTOM_IMAGE_TO_VIDEO` where allowed.
+- JSON mode validates the supported image/video model keys for the selected workflow.
 - Aspect ratios: `16:9` and `9:16`.
 - Wizard durations: `10`, `30`, `60`, `90`, `120`, and `180` seconds.
 - JSON `duration` validation: `10` to `240` seconds for text-to-video.

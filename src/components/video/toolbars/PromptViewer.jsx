@@ -29,7 +29,7 @@ export default function PromptViewer(props) {
   // ─────────────────────────────────────────────────────────
   useEffect(() => {
     const storageModel = localStorage.getItem('defaultImageModel');
-    if (storageModel) {
+    if (storageModel && IMAGE_GENERAITON_MODEL_TYPES.some((model) => model.key === storageModel)) {
       setSelectedModel(storageModel);
     }
   }, []);
@@ -40,6 +40,14 @@ export default function PromptViewer(props) {
   // ─────────────────────────────────────────────────────────
   useEffect(() => {
     const modelDef = IMAGE_GENERAITON_MODEL_TYPES.find((m) => m.key === selectedModel);
+    if (!modelDef) {
+      const fallbackModel = IMAGE_GENERAITON_MODEL_TYPES[0]?.key;
+      if (fallbackModel) {
+        setSelectedModel(fallbackModel);
+        localStorage.setItem('defaultImageModel', fallbackModel);
+      }
+      return;
+    }
     if (modelDef?.imageStyles?.length) {
       const localKey = `defaultImageStyle_${selectedModel}`;
       const storedStyle = localStorage.getItem(localKey);

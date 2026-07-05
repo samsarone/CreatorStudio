@@ -108,11 +108,6 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
     isExpressModel: true,
   },
   {
-    name: 'Google Imagen4',
-    key: 'IMAGEN4',
-    isExpressModel: true,
-  },
-  {
     name: 'Seedream',
     key: 'SEEDREAM',
     isExpressModel: true,
@@ -125,11 +120,6 @@ export const IMAGE_GENERAITON_MODEL_TYPES = [
   {
     name: 'NanoBanana Pro',
     key: 'NANOBANANAPRO',
-    isExpressModel: true,
-  },
-  {
-    name: 'Custom Text to Image',
-    key: 'CUSTOM_TEXT_TO_IMAGE',
     isExpressModel: true,
   },
 ];

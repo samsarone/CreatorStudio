@@ -458,8 +458,7 @@ export default function AdVideoCreator() {
       prompt: promptText,
       sessionID: id,
       aspectRatio: selectedAspectRatioOption?.value,
-      // example: hard-coded
-      imageModel: 'IMAGEN4',
+      imageModel: 'GPTIMAGE2',
       videoGenerationModel: 'SEEDANCEI2V',
       duration: selectedDurationOption?.value,
       // <-- Pass all Base64 images here

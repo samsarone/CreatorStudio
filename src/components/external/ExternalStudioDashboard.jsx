@@ -22,7 +22,6 @@ const IMAGE_MODELS = [
   { label: 'Nano Banana 2', value: 'NANOBANANA2' },
   { label: 'NanoBanana Pro', value: 'NANOBANANAPRO' },
   { label: 'Seedream', value: 'SEEDREAM' },
-  { label: 'Custom Text to Image', value: 'CUSTOM_TEXT_TO_IMAGE' },
 ];
 
 const DURATION_OPTIONS = [10, 30, 60, 90, 120];

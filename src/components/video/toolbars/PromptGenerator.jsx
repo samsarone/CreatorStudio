@@ -53,6 +53,15 @@ export default function PromptGenerator(props) {
     const modelDefinition = IMAGE_GENERAITON_MODEL_TYPES.find(
       (m) => m.key === selectedGenerationModel
     );
+    if (!modelDefinition) {
+      const fallbackModel = IMAGE_GENERAITON_MODEL_TYPES[0]?.key;
+      if (fallbackModel) {
+        setSelectedGenerationModel(fallbackModel);
+        localStorage.setItem("defaultImageModel", fallbackModel);
+        localStorage.setItem("defaultModel", fallbackModel);
+      }
+      return;
+    }
 
     if (modelDefinition?.imageStyles?.length) {
       // We’ll store/retrieve the style in localStorage using a key that’s unique to this model:
@@ -71,7 +80,7 @@ export default function PromptGenerator(props) {
       // This model doesn’t have imageStyles
       setSelectedImageStyle(null);
     }
-  }, [selectedGenerationModel]);
+  }, [selectedGenerationModel, setSelectedGenerationModel]);
 
   // ------------------------------------------------------------------
   // UI style helpers
