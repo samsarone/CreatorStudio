@@ -162,6 +162,99 @@ function resolveMediaUrl(value, baseUrl = '') {
   return `${trimmedBaseUrl}${normalizedPath}`;
 }
 
+function getSessionIdFromDetails(sessionDetails = {}) {
+  return (
+    sessionDetails?._id?.toString?.() ||
+    sessionDetails?._id ||
+    sessionDetails?.id?.toString?.() ||
+    sessionDetails?.id ||
+    sessionDetails?.sessionId?.toString?.() ||
+    sessionDetails?.sessionId ||
+    ''
+  );
+}
+
+function encodeGuestMediaPath(mediaPath) {
+  return String(mediaPath || '')
+    .replace(/^\/+/, '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+}
+
+function getMediaAssetPath(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '';
+  }
+
+  const trimmedValue = value.trim();
+  if (/^(data:|blob:)/i.test(trimmedValue) || trimmedValue.startsWith('/video_sessions/guest_media/')) {
+    return '';
+  }
+  if (/^https?:\/\//i.test(trimmedValue)) {
+    try {
+      const parsedUrl = new URL(trimmedValue);
+      const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+      return pathname.startsWith('assets_v2/') ? pathname : '';
+    } catch {
+      return '';
+    }
+  }
+
+  return trimmedValue.replace(/^\/+/, '').split('?')[0].split('#')[0];
+}
+
+function buildGuestSessionMediaUrl(sessionDetails, value) {
+  if (!sessionDetails?.isGuestSession) {
+    return null;
+  }
+
+  const sessionId = getSessionIdFromDetails(sessionDetails);
+  const mediaPath = getMediaAssetPath(value);
+  if (!sessionId || !mediaPath.startsWith('assets_v2/') || !mediaPath.split('/').includes(sessionId)) {
+    return null;
+  }
+
+  const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
+    ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
+    : '';
+  const routePath = `/video_sessions/guest_media/${encodeURIComponent(sessionId)}/${encodeGuestMediaPath(mediaPath)}`;
+  return processorBaseUrl ? `${processorBaseUrl}${routePath}` : routePath;
+}
+
+function isGuestMediaUrl(value) {
+  return typeof value === 'string' && value.includes('/video_sessions/guest_media/');
+}
+
+function resolveLayerVideoUrl(layer, assetField, remoteField, sessionDetails) {
+  if (!layer) {
+    return null;
+  }
+
+  const rawAssetSource = layer[assetField];
+  const rawRemoteSource = layer[remoteField];
+  if (isGuestMediaUrl(rawAssetSource)) {
+    return resolveMediaUrl(rawAssetSource, PROCESSOR_API_URL);
+  }
+  if (isGuestMediaUrl(rawRemoteSource)) {
+    return resolveMediaUrl(rawRemoteSource, PROCESSOR_API_URL);
+  }
+
+  const guestAssetUrl = buildGuestSessionMediaUrl(sessionDetails, rawAssetSource);
+  if (guestAssetUrl) {
+    return resolveMediaUrl(guestAssetUrl, PROCESSOR_API_URL);
+  }
+
+  const guestRemoteUrl = buildGuestSessionMediaUrl(sessionDetails, rawRemoteSource);
+  if (guestRemoteUrl) {
+    return resolveMediaUrl(guestRemoteUrl, PROCESSOR_API_URL);
+  }
+
+  return rawRemoteSource
+    ? resolveMediaUrl(rawRemoteSource, STATIC_CDN_URL)
+    : resolveMediaUrl(rawAssetSource, PROCESSOR_API_URL);
+}
+
 function getLayerId(layer) {
   return layer?._id?.toString?.() || layer?._id || null;
 }
@@ -303,41 +396,33 @@ export default function VideoEditorContainer(props) {
     if (hasLipSyncVideo) {
       return {
         type: 'lip_sync',
-        url: layer.lipSyncRemoteLink
-          ? resolveMediaUrl(layer.lipSyncRemoteLink, STATIC_CDN_URL)
-          : resolveMediaUrl(layer.lipSyncVideoLayer, PROCESSOR_API_URL),
+        url: resolveLayerVideoUrl(layer, 'lipSyncVideoLayer', 'lipSyncRemoteLink', videoSessionDetails),
       };
     }
 
     if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
       return {
         type: 'sound_effect',
-        url: layer.soundEffectRemoteLink
-          ? resolveMediaUrl(layer.soundEffectRemoteLink, STATIC_CDN_URL)
-          : resolveMediaUrl(layer.soundEffectVideoLayer, PROCESSOR_API_URL),
+        url: resolveLayerVideoUrl(layer, 'soundEffectVideoLayer', 'soundEffectRemoteLink', videoSessionDetails),
       };
     }
 
     if (layer.hasUserVideoLayer && layer.userVideoLayer) {
       return {
         type: 'user_video',
-        url: layer.userVideoRemoteLink
-          ? resolveMediaUrl(layer.userVideoRemoteLink, STATIC_CDN_URL)
-          : resolveMediaUrl(layer.userVideoLayer, PROCESSOR_API_URL),
+        url: resolveLayerVideoUrl(layer, 'userVideoLayer', 'userVideoRemoteLink', videoSessionDetails),
       };
     }
 
     if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
       return {
         type: 'ai_video',
-        url: layer.aiVideoRemoteLink
-          ? resolveMediaUrl(layer.aiVideoRemoteLink, STATIC_CDN_URL)
-          : resolveMediaUrl(layer.aiVideoLayer, PROCESSOR_API_URL),
+        url: resolveLayerVideoUrl(layer, 'aiVideoLayer', 'aiVideoRemoteLink', videoSessionDetails),
       };
     }
 
     return { url: null, type: null };
-  }, []);
+  }, [videoSessionDetails]);
 
   const layerHasPendingVideoTask = useCallback((layer) => {
     if (!layer) {
