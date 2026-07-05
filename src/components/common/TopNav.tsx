@@ -26,7 +26,6 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
-const AddLicense = lazy(() => import('../license/AddLicense.jsx'));
 const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
 const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
 const UpgradePlan = lazy(() => import('../payments/UpgradePlan.tsx'));
@@ -203,17 +202,6 @@ export default function TopNav(props) {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
-
-const showLicenseDialog = () => {
-  openAlertDialog(
-    <div className="relative">
-      <FaTimes className="absolute top-2 right-2 cursor-pointer" onClick={closeAlertDialog} />
-      <Suspense fallback={dialogFallback}>
-        <AddLicense />
-      </Suspense>
-    </div>
-  );
-};
 
   const homeAlertDialogComponent = (
     <div>
@@ -742,12 +730,6 @@ const showLicenseDialog = () => {
       </div>
     );
   }
-
-  if (user && user._id && sessionType === 'docker' && !user.isLicenseValid) {
-
-    userCreditsDisplay = <div onClick={showLicenseDialog}>{t("common.activateLicense")}</div>
-  }
-
   let errorMessageDisplay = <span />;
 
   const showRegenerateSubtitles = () => {
