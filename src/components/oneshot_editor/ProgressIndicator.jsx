@@ -13,6 +13,7 @@ import {
 } from '../video/util/audioPreviewDucking.js';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
+const IS_DOCKER_INSTALL = String(import.meta.env.VITE_DOCKER_INSTALL || '').trim().toLowerCase() === 'true';
 const STATIC_ASSET_BASE_URL = (
   import.meta.env.VITE_STATIC_CDN_URL ||
   'https://static.samsar.one'
@@ -29,6 +30,7 @@ const PREVIEW_VIDEO_METADATA_READY_STATE = 1;
 const PREVIEW_VIDEO_FRAME_READY_STATE = 2;
 const MOBILE_PREVIEW_MEDIA_QUERY = '(hover: none), (pointer: coarse), (max-width: 767px)';
 const USER_RESOURCES_PREFIX = 'user_resources/';
+const LAYER_ID_FIELDS = ['id', '_id', 'layerId', 'layer_id'];
 const MOBILE_SINGLE_VIDEO_LOAD_STAGES = new Set(['ai_video_generation', 'lip_sync_generation']);
 const previewVisualReadyCache = new Set();
 const previewVisualPreloadPromises = new Map();
@@ -70,6 +72,14 @@ function normalizeNumber(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function buildProcessorAssetUrl(path) {
+  const normalizedPath = String(path || '').replace(/^\/+/, '');
+  const baseUrl = typeof PROCESSOR_API_URL === 'string'
+    ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
+    : '';
+  return baseUrl ? `${baseUrl}/${normalizedPath}` : `/${normalizedPath}`;
+}
+
 function normalizeAssetUrl(url) {
   if (typeof url !== 'string') return null;
   const trimmed = url.trim();
@@ -90,7 +100,7 @@ function normalizeAssetUrl(url) {
     }
     return trimmed;
   }
-  return `${PROCESSOR_API_URL}/${trimmed.replace(/^\/+/, '')}`;
+  return buildProcessorAssetUrl(relativePath);
 }
 
 function normalizeStatus(value) {
@@ -215,29 +225,174 @@ function buildVideoSegment({
   };
 }
 
-function resolveLayerPreviewAsset(layer = {}) {
-  const editedImageUrl = layer.image?.editedImage ||
-    layer.editedImage?.url ||
-    (typeof layer.editedImage === 'string' ? layer.editedImage : '');
-  const candidates = [
-    { type: 'video', stage: 'lip_sync_generation', url: layer.lipSyncVideo?.url },
-    { type: 'video', stage: 'sound_effect_generation', url: layer.soundEffectVideo?.url },
-    { type: 'video', stage: 'ai_video_generation', url: layer.aiVideo?.url },
-    { type: 'video', stage: 'user_video', url: layer.userVideo?.url },
-    { type: 'image', stage: 'image_generation', url: editedImageUrl },
-    { type: layer.preview?.type || 'image', stage: layer.preview?.stage, url: layer.preview?.url },
-    { type: 'image', stage: 'image_generation', url: layer.image?.url },
-  ];
+function normalizeLayerIdentifier(value) {
+  if (value === undefined || value === null || value === '') return '';
+  return String(value).trim();
+}
+
+function getLayerIdentifierSet(layer = {}) {
+  const identifiers = new Set();
+  LAYER_ID_FIELDS.forEach((field) => {
+    const identifier = normalizeLayerIdentifier(layer?.[field]);
+    if (identifier) {
+      identifiers.add(identifier);
+    }
+  });
+  return identifiers;
+}
+
+function findRawLayerForPreview(rawLayers, layer, index) {
+  if (!Array.isArray(rawLayers) || rawLayers.length === 0) {
+    return {};
+  }
+
+  const identifiers = getLayerIdentifierSet(layer);
+  if (identifiers.size > 0) {
+    const matchingLayer = rawLayers.find((candidate) => {
+      const candidateIdentifiers = getLayerIdentifierSet(candidate);
+      return [...candidateIdentifiers].some((identifier) => identifiers.has(identifier));
+    });
+    if (matchingLayer) {
+      return matchingLayer;
+    }
+  }
+
+  return rawLayers[index] || {};
+}
+
+function firstAssetCandidate(candidates = []) {
   return candidates.find((candidate) => normalizeAssetUrl(candidate.url)) || null;
 }
 
-function buildVisualSegments(sessionPreview) {
-  const layers = Array.isArray(sessionPreview?.layers) ? sessionPreview.layers : [];
+function getRawItemAssetUrl(item) {
+  if (!item || typeof item !== 'object') return '';
+  return (
+    item.url ||
+    item.previewUrl ||
+    item.preview_url ||
+    item.signedUrl ||
+    item.signed_url ||
+    item.displayUrl ||
+    item.display_url ||
+    item.src ||
+    item.imageUrl ||
+    item.image_url ||
+    item.rawUrl ||
+    item.raw_url ||
+    item.enhancedUrl ||
+    item.enhanced_url ||
+    item.assetPath ||
+    item.path ||
+    (typeof item.image === 'string' && item.image.includes('/') ? item.image : '')
+  );
+}
+
+function buildVideoAssetCandidates({ stage, status, localUrls = [], remoteUrls = [] }) {
+  const orderedUrls = IS_DOCKER_INSTALL
+    ? [...localUrls, ...remoteUrls]
+    : [...remoteUrls, ...localUrls];
+  return orderedUrls
+    .filter((url, index, urls) => typeof url === 'string' && url.trim() && urls.indexOf(url) === index)
+    .map((url) => ({
+      type: 'video',
+      stage,
+      status,
+      url,
+    }));
+}
+
+function resolveLayerPreviewAsset(layer = {}, rawLayer = {}) {
+  const rawImageSession = rawLayer.imageSession || layer.imageSession || {};
+  const rawActiveItems = Array.isArray(rawImageSession.activeItemList)
+    ? rawImageSession.activeItemList
+    : [];
+  const rawBaseItem = rawActiveItems.find((item) => item?.is_base_image === true) ||
+    rawActiveItems.find((item) => item?.type === 'image') ||
+    rawActiveItems[0] ||
+    null;
+  const detailedItemUrl = Array.isArray(layer.image?.items)
+    ? layer.image.items.find((item) => item?.isPrimary)?.url || layer.image.items[0]?.url
+    : '';
+  const frameImages = layer.frameImages || rawLayer.frameImages || {};
+  const editedImageUrl = layer.image?.editedImage ||
+    layer.editedImage?.url ||
+    (typeof layer.editedImage === 'string' ? layer.editedImage : '') ||
+    rawImageSession.activeEditedImage;
+  const previewVideoCandidate = layer.preview?.type === 'video'
+    ? {
+        type: 'video',
+        stage: layer.preview?.stage || 'media',
+        status: layer.preview?.status,
+        url: layer.preview?.url,
+      }
+    : null;
+  const videoCandidates = [
+    ...buildVideoAssetCandidates({
+      stage: 'lip_sync_generation',
+      status: layer.lipSyncVideo?.status || rawLayer.lipSyncVideoGenerationStatus,
+      localUrls: [rawLayer.lipSyncVideoLayer],
+      remoteUrls: [layer.lipSyncVideo?.url, rawLayer.lipSyncRemoteLink],
+    }),
+    ...buildVideoAssetCandidates({
+      stage: 'sound_effect_generation',
+      status: layer.soundEffectVideo?.status || rawLayer.soundEffectVideoGenerationStatus,
+      localUrls: [rawLayer.soundEffectVideoLayer],
+      remoteUrls: [layer.soundEffectVideo?.url, rawLayer.soundEffectRemoteLink],
+    }),
+    ...buildVideoAssetCandidates({
+      stage: 'ai_video_generation',
+      status: layer.aiVideo?.status || rawLayer.aiVideoGenerationStatus,
+      localUrls: [rawLayer.aiVideoLayer],
+      remoteUrls: [layer.aiVideo?.url, rawLayer.aiVideoRemoteLink],
+    }),
+    ...buildVideoAssetCandidates({
+      stage: 'user_video',
+      status: layer.userVideo?.status || rawLayer.userVideoGenerationStatus,
+      localUrls: [rawLayer.userVideoLayer],
+      remoteUrls: [layer.userVideo?.url, rawLayer.userVideoRemoteLink],
+    }),
+    ...(previewVideoCandidate ? [previewVideoCandidate] : []),
+  ];
+  const imageCandidates = [
+    { type: 'image', stage: 'image_generation', url: frameImages.startFrameUrl },
+    { type: 'image', stage: 'image_generation', url: frameImages.startFrame },
+    { type: 'image', stage: 'image_generation', url: frameImages.aiLayerStartFrame },
+    { type: 'image', stage: 'image_generation', url: frameImages.baseLayerStartFrame },
+    { type: 'image', stage: 'image_generation', url: frameImages.aiVideoThumbnailPath },
+    { type: 'image', stage: 'image_generation', url: frameImages.thumbnailPath },
+    { type: 'image', stage: 'image_generation', url: layer.aiLayerStartFrame || rawLayer.aiLayerStartFrame },
+    { type: 'image', stage: 'image_generation', url: layer.baseLayerStartFrame || rawLayer.baseLayerStartFrame },
+    { type: 'image', stage: 'image_generation', url: layer.aiVideoThumbnailPath || rawLayer.aiVideoThumbnailPath },
+    { type: 'image', stage: 'image_generation', url: layer.thumbnailPath || rawLayer.thumbnailPath },
+    { type: 'image', stage: 'image_generation', url: editedImageUrl },
+    {
+      type: layer.preview?.type || 'image',
+      stage: layer.preview?.stage || 'image_generation',
+      url: layer.preview?.type !== 'video' ? layer.preview?.url : '',
+    },
+    { type: 'image', stage: 'image_generation', url: layer.image?.url },
+    { type: 'image', stage: 'image_generation', url: detailedItemUrl },
+    { type: 'image', stage: 'image_generation', url: getRawItemAssetUrl(rawBaseItem) },
+    { type: 'image', stage: 'image_generation', url: rawImageSession.activeImageRemoteLink },
+    { type: 'image', stage: 'image_generation', url: rawImageSession.videoRenderStartFrameImage },
+    { type: 'image', stage: 'image_generation', url: rawImageSession.activeGeneratedImage },
+    { type: 'image', stage: 'image_generation', url: rawImageSession.activeEditedImage },
+    { type: 'image', stage: 'image_generation', url: rawImageSession.activeSelectedImage },
+  ];
+  return firstAssetCandidate(videoCandidates) || firstAssetCandidate(imageCandidates);
+}
+
+function buildVisualSegments(sessionPreview, rawSessionDetails) {
+  const normalizedLayers = Array.isArray(sessionPreview?.layers) ? sessionPreview.layers : [];
+  const rawLayers = Array.isArray(rawSessionDetails?.layers) ? rawSessionDetails.layers : [];
+  const shouldUseRawLayers = normalizedLayers.length === 0 && rawLayers.length > 0;
+  const layers = shouldUseRawLayers ? rawLayers : normalizedLayers;
   const globalVideos = Array.isArray(sessionPreview?.globalVideos) ? sessionPreview.globalVideos : [];
   const layerSegments = layers
     .map((layer, index) => {
-      const asset = resolveLayerPreviewAsset(layer);
-      const startTime = Math.max(0, normalizeNumber(layer.startTime, 0));
+      const rawLayer = shouldUseRawLayers ? layer : findRawLayerForPreview(rawLayers, layer, index);
+      const asset = resolveLayerPreviewAsset(layer, rawLayer);
+      const startTime = Math.max(0, normalizeNumber(layer.startTime ?? layer.durationOffset, 0));
       const duration = normalizeNumber(layer.duration, null);
       const endTime = resolveSegmentEnd(startTime, duration, normalizeNumber(layer.endTime, null), 4);
       return buildVideoSegment({
@@ -245,7 +400,7 @@ function buildVisualSegments(sessionPreview) {
         asset,
         index,
         keyPrefix: 'layer',
-        title: layer.prompt || `Scene ${index + 1}`,
+        title: layer.prompt || layer.videoGenerationPrompt || layer.image?.prompt || layer.imageSession?.prompt || `Scene ${index + 1}`,
         startTime,
         endTime,
       });
@@ -717,6 +872,7 @@ export default function ProgressIndicator(props) {
     generationStatusDetails,
     videoLink,
     errorMessage,
+    rawSessionDetails,
     canProcessNextStep = false,
     canReviewStepImages = false,
     viewInStudio,
@@ -781,7 +937,10 @@ export default function ProgressIndicator(props) {
     isGenerationPending &&
     !videoLink &&
     MOBILE_SINGLE_VIDEO_LOAD_STAGES.has(currentStageKey);
-  const visualSegments = useMemo(() => buildVisualSegments(sessionPreview), [sessionPreview]);
+  const visualSegments = useMemo(
+    () => buildVisualSegments(sessionPreview, rawSessionDetails),
+    [rawSessionDetails, sessionPreview],
+  );
   const visualAssetSignature = useMemo(
     () => visualSegments.map((segment) => (
       `${segment.key}:${segment.type}:${segment.stage}:${segment.url}`

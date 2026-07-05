@@ -1,9 +1,11 @@
 /* eslint-disable no-restricted-globals */
 let API_SERVER = '';
+let STATIC_CDN_URL = 'https://static.samsar.one';
 
 self.onmessage = async function (e) {
   if (e?.data?.type === 'CONFIG') {
     API_SERVER = e.data.apiServer || '';
+    STATIC_CDN_URL = e.data.staticCdnUrl || STATIC_CDN_URL;
     return;
   }
 
@@ -48,9 +50,15 @@ function resolveProcessorAssetUrlFromStaticUrl(value) {
   try {
     const parsedUrl = new URL(value.trim());
     const normalizedHost = parsedUrl.hostname.toLowerCase();
+    const configuredStaticHost = new URL(STATIC_CDN_URL).hostname.toLowerCase();
     const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    const hasCloudFrontSignature = (
+      (parsedUrl.searchParams.has('Expires') || parsedUrl.searchParams.has('Policy')) &&
+      parsedUrl.searchParams.has('Signature') &&
+      parsedUrl.searchParams.has('Key-Pair-Id')
+    );
     if (
-      normalizedHost !== 'static.samsar.one' ||
+      (normalizedHost !== 'static.samsar.one' && normalizedHost !== configuredStaticHost) ||
       !(
         normalizedPath.startsWith('assets_v2/') ||
         normalizedPath.startsWith('assets/')
@@ -62,6 +70,9 @@ function resolveProcessorAssetUrlFromStaticUrl(value) {
       normalizedPath.startsWith('assets_v2/user_resources/') ||
       normalizedPath.startsWith('user_resources/')
     ) {
+      return null;
+    }
+    if (hasCloudFrontSignature) {
       return null;
     }
 

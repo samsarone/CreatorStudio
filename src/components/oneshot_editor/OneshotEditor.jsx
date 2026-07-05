@@ -110,6 +110,7 @@ const VIDGENIE_REQUEST_STEP_MODE_STORAGE_PREFIX = 'vidgenieRequestStepMode';
 const DEFAULT_POLL = 5_000;    // 5 s while online & healthy
 const OFFLINE_POLL = 30_000;   // 30 s while offline
 const MAX_BACKOFF = 60_000;    // 1 min cap
+const TIMELINE_PREVIEW_SESSION_REFRESH_MS = 10_000;
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
 const VIDGENIE_PROMPT_MAX_LENGTH = 4000;
@@ -2449,24 +2450,89 @@ function hasExpressGenerationStatusProgress(status) {
   });
 }
 
+function hasMeaningfulGenerationArrayValue(value) {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+
+  return value.some((item) => {
+    if (hasTextValue(item)) {
+      return true;
+    }
+    if (!isPlainObject(item)) {
+      return false;
+    }
+
+    return [
+      item.text,
+      item.prompt,
+      item.image_url,
+      item.imageUrl,
+      item.url,
+      item.src,
+    ].some(hasTextValue);
+  });
+}
+
+function hasStartedGenerationLayer(layer) {
+  if (!isPlainObject(layer)) {
+    return false;
+  }
+
+  const imageSession = isPlainObject(layer.imageSession) ? layer.imageSession : {};
+  const frameImages = isPlainObject(layer.frameImages) ? layer.frameImages : {};
+  const preview = isPlainObject(layer.preview) ? layer.preview : {};
+  const stringCandidates = [
+    layer.prompt,
+    layer.videoGenerationPrompt,
+    layer.aiVideoRemoteLink,
+    layer.aiVideoLayer,
+    layer.lipSyncRemoteLink,
+    layer.lipSyncVideoLayer,
+    layer.soundEffectRemoteLink,
+    layer.soundEffectVideoLayer,
+    layer.userVideoRemoteLink,
+    layer.userVideoLayer,
+    layer.aiLayerStartFrame,
+    layer.baseLayerStartFrame,
+    layer.aiVideoThumbnailPath,
+    layer.thumbnailPath,
+    frameImages.startFrameUrl,
+    frameImages.startFrame,
+    frameImages.aiLayerStartFrame,
+    frameImages.baseLayerStartFrame,
+    frameImages.aiVideoThumbnailPath,
+    frameImages.thumbnailPath,
+    preview.url,
+    imageSession.prompt,
+    imageSession.activeSelectedImage,
+    imageSession.activeGeneratedImage,
+    imageSession.activeEditedImage,
+    imageSession.activeImageRemoteLink,
+    imageSession.activeImageDescription,
+  ];
+
+  return stringCandidates.some(hasTextValue) ||
+    hasMeaningfulGenerationArrayValue(imageSession.activeItemList);
+}
+
 function hasStartedGenerationSession(data) {
   if (!isPlainObject(data)) {
     return false;
   }
 
   if (
-    data.isExpressGeneration === true ||
-    Boolean(data.videoGenerationPending) ||
     Boolean(data.expressGenerationPaused) ||
     Boolean(data.expressGenerationCreated) ||
     Boolean(data.quickSessionCreatedAt) ||
+    Boolean(data.isStepVideoGeneration) ||
     hasTextValue(data.inputPrompt) ||
     hasTextValue(data.expressInputPrompt) ||
     hasTextValue(data.expressGenerationType) ||
-    (Array.isArray(data.textList) && data.textList.length > 0) ||
-    (Array.isArray(data.layers) && data.layers.length > 0) ||
-    (Array.isArray(data.image_urls) && data.image_urls.length > 0) ||
-    (Array.isArray(data.imageUrls) && data.imageUrls.length > 0)
+    hasMeaningfulGenerationArrayValue(data.textList) ||
+    hasMeaningfulGenerationArrayValue(data.image_urls) ||
+    hasMeaningfulGenerationArrayValue(data.imageUrls) ||
+    (Array.isArray(data.layers) && data.layers.some(hasStartedGenerationLayer))
   ) {
     return true;
   }
@@ -2483,9 +2549,10 @@ function isSessionGenerationPending(data, forcePending = false) {
     return false;
   }
 
+  const hasStartedGeneration = hasStartedGenerationSession(data);
   const backendPending = Boolean(
-    data.videoGenerationPending ||
-    (data.expressGenerationPending && hasStartedGenerationSession(data))
+    hasStartedGeneration &&
+    (data.videoGenerationPending || data.expressGenerationPending)
   );
 
   if (!backendPending && extractVideoResultUrl(data)) {
@@ -2493,6 +2560,40 @@ function isSessionGenerationPending(data, forcePending = false) {
   }
 
   return Boolean(forcePending || backendPending);
+}
+
+function buildDockerAnonymousSessionDetailsFromStatus(data) {
+  if (!isPlainObject(data)) {
+    return data;
+  }
+
+  const sessionPreview = isPlainObject(data.session) ? data.session : {};
+  const normalizedStatus = normalizeGenerationStatus(data.status);
+  const statusIndicatesPending = ['PENDING', 'IN_PROGRESS', 'RUNNING', 'PROCESSING'].includes(normalizedStatus);
+  const mergedSessionDetails = {
+    ...sessionPreview,
+    ...data,
+    session: data.session,
+    layers: Array.isArray(sessionPreview.layers) ? sessionPreview.layers : data.layers,
+  };
+  const hasStartedGeneration = hasStartedGenerationSession(mergedSessionDetails);
+
+  return {
+    ...mergedSessionDetails,
+    expressGenerationStatus: data.expressGenerationStatus || sessionPreview.expressGenerationStatus,
+    expressGenerationPending:
+      data.expressGenerationPending ??
+      sessionPreview.expressGenerationPending ??
+      (hasStartedGeneration && statusIndicatesPending),
+    videoGenerationPending:
+      data.videoGenerationPending ??
+      sessionPreview.videoGenerationPending ??
+      (hasStartedGeneration && statusIndicatesPending),
+    isExpressGeneration:
+      data.isExpressGeneration ??
+      sessionPreview.isExpressGeneration ??
+      hasStartedGeneration,
+  };
 }
 
 function extractErrorText(value) {
@@ -2719,6 +2820,7 @@ export default function OneshotEditor() {
   const [, setPollDelay] = useState(DEFAULT_POLL);
   const pollDelayRef = useRef(DEFAULT_POLL);
   const assistantDelayRef = useRef(DEFAULT_POLL);
+  const lastTimelinePreviewSessionRefreshRef = useRef(0);
 
   useEffect(() => {
     const onLine = () => {
@@ -3872,6 +3974,37 @@ export default function OneshotEditor() {
     return data;
   };
 
+  const statusDetailsHasTimelineVideo = (data) => {
+    const sessionPreview = data?.session || {};
+    const layers = Array.isArray(sessionPreview.layers) ? sessionPreview.layers : [];
+    const globalVideos = Array.isArray(sessionPreview.globalVideos) ? sessionPreview.globalVideos : [];
+
+    return (
+      globalVideos.some((video) => Boolean(video?.url)) ||
+      layers.some((layer) => Boolean(
+        layer?.aiVideo?.url ||
+        layer?.lipSyncVideo?.url ||
+        layer?.soundEffectVideo?.url ||
+        layer?.userVideo?.url ||
+        (layer?.preview?.type === 'video' && layer?.preview?.url)
+      ))
+    );
+  };
+
+  const maybeRefreshSessionDetailsForTimelinePreview = (data) => {
+    if (!statusDetailsHasTimelineVideo(data)) {
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastTimelinePreviewSessionRefreshRef.current < TIMELINE_PREVIEW_SESSION_REFRESH_MS) {
+      return;
+    }
+
+    lastTimelinePreviewSessionRefreshRef.current = now;
+    getSessionDetails().catch(() => undefined);
+  };
+
   const fetchPostProcessingGenerationStatus = async (requestId, headers) => {
     try {
       return await fetchDetailedGenerationStatus(requestId, headers);
@@ -3890,6 +4023,7 @@ export default function OneshotEditor() {
       setExpressGenerationStatus(data.expressGenerationStatus);
     }
     setGenerationStatusDetails(data);
+    maybeRefreshSessionDetailsForTimelinePreview(data);
     return data;
   };
 
@@ -3921,6 +4055,7 @@ export default function OneshotEditor() {
           setExpressGenerationStatus(data.expressGenerationStatus);
         }
         setGenerationStatusDetails(data);
+        maybeRefreshSessionDetailsForTimelinePreview(data);
 
         const normalizedStatus = normalizeGenerationStatus(data?.status);
         const isPausedStatus =
@@ -4142,6 +4277,7 @@ export default function OneshotEditor() {
           setExpressGenerationStatus(data.expressGenerationStatus);
         }
         setGenerationStatusDetails(data);
+        maybeRefreshSessionDetailsForTimelinePreview(data);
 
         const isPausedStatus =
           normalizeGenerationStatus(data?.status) === 'PAUSED' ||
@@ -4458,37 +4594,48 @@ export default function OneshotEditor() {
   const getSessionDetails = async () => {
 
     try {
+      const canUseAnonymousDockerStatus = currentEnv === 'docker';
       let headers = getHeaders();
-      if (!headers) {
+      if (!headers && !canUseAnonymousDockerStatus) {
         await getUserAPI();
         headers = getHeaders();
       }
-      if (!headers) return null;
+      if (!headers && !canUseAnonymousDockerStatus) return null;
 
-      let sessionResponse;
-      try {
-        sessionResponse = await axios.get(
-          `${API_SERVER}/quick_session/details?sessionId=${id}`,
-          headers
-        );
-      } catch (error) {
-        if (error?.response?.status !== 401) {
-          throw error;
+      let data;
+      if (headers) {
+        let sessionResponse;
+        try {
+          sessionResponse = await axios.get(
+            `${API_SERVER}/quick_session/details?sessionId=${id}`,
+            headers
+          );
+        } catch (error) {
+          if (error?.response?.status !== 401) {
+            throw error;
+          }
+
+          await getUserAPI();
+          headers = getHeaders();
+          if (!headers) {
+            throw error;
+          }
+
+          sessionResponse = await axios.get(
+            `${API_SERVER}/quick_session/details?sessionId=${id}`,
+            headers
+          );
         }
-
-        await getUserAPI();
-        headers = getHeaders();
-        if (!headers) {
-          throw error;
+        data = sessionResponse.data;
+      } else {
+        const statusData = await fetchDetailedGenerationStatus(id);
+        if (statusData?.expressGenerationStatus) {
+          setExpressGenerationStatus(statusData.expressGenerationStatus);
         }
-
-        sessionResponse = await axios.get(
-          `${API_SERVER}/quick_session/details?sessionId=${id}`,
-          headers
-        );
+        setGenerationStatusDetails(statusData);
+        data = buildDockerAnonymousSessionDetailsFromStatus(statusData);
       }
 
-      const { data } = sessionResponse;
       setSessionDetails(data);
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
       const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);
@@ -4498,6 +4645,9 @@ export default function OneshotEditor() {
         data,
         forceAdvancedEditPoll || usePostProcessingPoll
       );
+      const isCurrentSessionRequest =
+        !activeRequestIdRef.current ||
+        activeRequestIdRef.current === id;
       const resolvedGenerationMode = resolveVidgenieGenerationModeFromSession(data);
       if (resolvedGenerationMode) {
         setGenerationMode(resolvedGenerationMode);
@@ -4524,9 +4674,14 @@ export default function OneshotEditor() {
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
           if (usePostProcessingPoll) {
-            pollPostProcessingStatus(id);
+            if (isCurrentSessionRequest) {
+              pollPostProcessingStatus(id);
+            }
           } else {
-            pollGenerationStatus(id);
+            refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+            if (isCurrentSessionRequest) {
+              pollGenerationStatus(id);
+            }
           }
         } else if (latestVideoUrl) {
           setVideoLink(latestVideoUrl);
@@ -4539,6 +4694,17 @@ export default function OneshotEditor() {
           }
           clearAdvancedVideoEditPendingSession(id);
           clearPostProcessingPendingSession(id);
+        }
+      } else if (hasPendingGeneration && activeRequestIdRef.current === id) {
+        setIsPaused(false);
+        setIsGenerationPending(true);
+        setShowResultDisplay(true);
+        setExpressGenerationStatus(data.expressGenerationStatus);
+        if (usePostProcessingPoll) {
+          pollPostProcessingStatus(id);
+        } else {
+          refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+          pollGenerationStatus(id);
         }
       } else if (hasPausedGeneration) {
         setIsPaused(true);
@@ -4568,6 +4734,69 @@ export default function OneshotEditor() {
       return null;
     }
   };
+
+  useEffect(() => {
+    if (currentEnv !== 'docker' || !id) {
+      return undefined;
+    }
+
+    let didCancel = false;
+
+    const hydrateDockerAnonymousPreview = async () => {
+      try {
+        const statusData = await fetchDetailedGenerationStatus(id);
+        if (didCancel) {
+          return;
+        }
+
+        if (statusData?.expressGenerationStatus) {
+          setExpressGenerationStatus(statusData.expressGenerationStatus);
+        }
+        setGenerationStatusDetails(statusData);
+
+        const data = buildDockerAnonymousSessionDetailsFromStatus(statusData);
+        setSessionDetails(data);
+
+        const latestVideoUrl = getNormalizedLatestVideoUrl(data);
+        const hasPausedGeneration = Boolean(data?.expressGenerationPaused);
+        const hasPendingGeneration = isSessionGenerationPending(data);
+
+        if (hasPausedGeneration) {
+          setIsPaused(true);
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setShowResultDisplay(true);
+          return;
+        }
+
+        if (hasPendingGeneration) {
+          setIsPaused(false);
+          setIsGenerationPending(true);
+          setIsGenerationWaitingForApproval(false);
+          setShowResultDisplay(true);
+          if (!activeRequestIdRef.current) {
+            pollGenerationStatus(id, true);
+          }
+          return;
+        }
+
+        if (latestVideoUrl) {
+          setVideoLink(latestVideoUrl);
+          setIsPaused(false);
+          setIsGenerationPending(false);
+          setShowResultDisplay(true);
+        }
+      } catch {
+        // Docker anonymous preview is best-effort; the basic status poll still drives progress text.
+      }
+    };
+
+    hydrateDockerAnonymousPreview();
+
+    return () => {
+      didCancel = true;
+    };
+  }, [currentEnv, id]);
 
   async function refreshLatestVideoLink() {
     const latestSessionDetails = await getSessionDetails();
@@ -6947,6 +7176,7 @@ export default function OneshotEditor() {
                 generationStatusDetails={generationStatusDetails}
                 videoLink={null}
                 errorMessage={errorMessage}
+                rawSessionDetails={sessionDetails}
                 canProcessNextStep={false}
                 canReviewStepImages={false}
                 purchaseCreditsForUser={purchaseCreditsForUser}
@@ -6968,6 +7198,7 @@ export default function OneshotEditor() {
                 generationStatusDetails={generationStatusDetails}
                 videoLink={videoLink}
                 errorMessage={errorMessage}
+                rawSessionDetails={sessionDetails}
                 canProcessNextStep={activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP}
                 canReviewStepImages={
                   activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP &&

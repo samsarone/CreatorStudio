@@ -81,6 +81,11 @@ function resolveProcessorAssetUrlFromStaticUrl(value) {
   try {
     const parsedUrl = new URL(value.trim());
     const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    const hasCloudFrontSignature = (
+      (parsedUrl.searchParams.has('Expires') || parsedUrl.searchParams.has('Policy')) &&
+      parsedUrl.searchParams.has('Signature') &&
+      parsedUrl.searchParams.has('Key-Pair-Id')
+    );
     if (
       !isStaticCdnHost(parsedUrl.hostname) ||
       !(
@@ -91,6 +96,9 @@ function resolveProcessorAssetUrlFromStaticUrl(value) {
       return null;
     }
     if (isRemoteUserResourcePath(normalizedPath)) {
+      return null;
+    }
+    if (hasCloudFrontSignature) {
       return null;
     }
 

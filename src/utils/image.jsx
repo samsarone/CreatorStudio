@@ -1,4 +1,5 @@
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
+const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL || 'https://static.samsar.one';
 
 function firstImageUrlValue(values = []) {
   for (const value of values) {
@@ -17,14 +18,23 @@ function resolveProcessorAssetUrlFromStaticUrl(value, apiServer = API_SERVER) {
   try {
     const parsedUrl = new URL(value.trim());
     const normalizedHost = parsedUrl.hostname.toLowerCase();
+    const configuredStaticHost = new URL(STATIC_CDN_URL).hostname.toLowerCase();
     const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
+    const hasCloudFrontSignature = (
+      (parsedUrl.searchParams.has('Expires') || parsedUrl.searchParams.has('Policy')) &&
+      parsedUrl.searchParams.has('Signature') &&
+      parsedUrl.searchParams.has('Key-Pair-Id')
+    );
     if (
-      normalizedHost !== 'static.samsar.one' ||
+      (normalizedHost !== 'static.samsar.one' && normalizedHost !== configuredStaticHost) ||
       !(
         normalizedPath.startsWith('assets_v2/') ||
         normalizedPath.startsWith('assets/')
       )
     ) {
+      return null;
+    }
+    if (hasCloudFrontSignature) {
       return null;
     }
 
