@@ -147,7 +147,7 @@ function resolveMediaUrl(value, baseUrl = '') {
   }
 
   const normalizedPath = trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`;
-  if (normalizedPath.startsWith('/video_sessions/guest_media/')) {
+  if (normalizedPath.startsWith('/video_sessions/guest_media')) {
     const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
       ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
       : '';
@@ -174,21 +174,13 @@ function getSessionIdFromDetails(sessionDetails = {}) {
   );
 }
 
-function encodeGuestMediaPath(mediaPath) {
-  return String(mediaPath || '')
-    .replace(/^\/+/, '')
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-}
-
 function getMediaAssetPath(value) {
   if (typeof value !== 'string' || !value.trim()) {
     return '';
   }
 
   const trimmedValue = value.trim();
-  if (/^(data:|blob:)/i.test(trimmedValue) || trimmedValue.startsWith('/video_sessions/guest_media/')) {
+  if (/^(data:|blob:)/i.test(trimmedValue) || trimmedValue.startsWith('/video_sessions/guest_media')) {
     return '';
   }
   if (/^https?:\/\//i.test(trimmedValue)) {
@@ -218,12 +210,12 @@ function buildGuestSessionMediaUrl(sessionDetails, value) {
   const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
     ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
     : '';
-  const routePath = `/video_sessions/guest_media/${encodeURIComponent(sessionId)}/${encodeGuestMediaPath(mediaPath)}`;
+  const routePath = `/video_sessions/guest_media?sessionId=${encodeURIComponent(sessionId)}&assetKey=${encodeURIComponent(mediaPath)}`;
   return processorBaseUrl ? `${processorBaseUrl}${routePath}` : routePath;
 }
 
 function isGuestMediaUrl(value) {
-  return typeof value === 'string' && value.includes('/video_sessions/guest_media/');
+  return typeof value === 'string' && value.includes('/video_sessions/guest_media');
 }
 
 function resolveLayerVideoUrl(layer, assetField, remoteField, sessionDetails) {

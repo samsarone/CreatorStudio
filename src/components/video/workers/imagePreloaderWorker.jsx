@@ -111,7 +111,7 @@ function getRemoteImageLink(asset) {
   const normalizedApiServer = typeof API_SERVER === 'string' ? API_SERVER.trim().replace(/\/+$/, '') : '';
   const normalizedPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
 
-  if (normalizedPath.startsWith('/video_sessions/guest_media/')) {
+  if (normalizedPath.startsWith('/video_sessions/guest_media')) {
     return normalizedApiServer ? `${normalizedApiServer}${normalizedPath}` : normalizedPath;
   }
 

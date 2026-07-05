@@ -230,7 +230,7 @@ async function getAssistantFallbackFrameImageData(layer, baseUrl) {
 }
 
 function isGuestMediaUrl(candidate) {
-  return typeof candidate === 'string' && candidate.includes('/video_sessions/guest_media/');
+  return typeof candidate === 'string' && candidate.includes('/video_sessions/guest_media');
 }
 
 function resolveLatestSessionVideoUrl(sessionDetails) {
@@ -320,14 +320,6 @@ function getGuestSessionId(sessionDetails) {
   );
 }
 
-function encodeGuestMediaPath(mediaPath) {
-  return String(mediaPath || '')
-    .replace(/^\/+/, '')
-    .split('/')
-    .map((segment) => encodeURIComponent(segment))
-    .join('/');
-}
-
 function getMediaAssetPath(value) {
   if (typeof value !== 'string' || !value.trim()) {
     return '';
@@ -337,7 +329,7 @@ function getMediaAssetPath(value) {
   if (/^(data:|blob:)/i.test(trimmedValue)) {
     return '';
   }
-  if (trimmedValue.startsWith('/video_sessions/guest_media/')) {
+  if (trimmedValue.startsWith('/video_sessions/guest_media')) {
     return '';
   }
   if (/^https?:\/\//i.test(trimmedValue)) {
@@ -363,7 +355,7 @@ function buildGuestSessionMediaUrl(sessionDetails, value) {
   const apiBaseUrl = typeof PROCESSOR_API_URL === 'string'
     ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
     : '';
-  const routePath = `/video_sessions/guest_media/${encodeURIComponent(sessionId)}/${encodeGuestMediaPath(mediaPath)}`;
+  const routePath = `/video_sessions/guest_media?sessionId=${encodeURIComponent(sessionId)}&assetKey=${encodeURIComponent(mediaPath)}`;
   return apiBaseUrl ? `${apiBaseUrl}${routePath}` : routePath;
 }
 
