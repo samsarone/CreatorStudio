@@ -18,6 +18,7 @@ import CommonButton from '../common/CommonButton.tsx';
 import SingleSelect from "../common/SingleSelect.jsx";
 import { ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 import { getHeaders } from "../../utils/web.jsx";
+import { useInferenceModelAvailability } from "../../hooks/useInferenceModelAvailability.js";
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 const DEFAULT_TEXT_MODEL = 'gpt-5.5';
@@ -142,6 +143,12 @@ export default function AssistantHome(props) {
 
   const { colorMode } = useColorMode();
   const { user, getUserAPI } = useUser();
+  const {
+    isDockerInstall,
+    isLoading: isInferenceModelAvailabilityLoading,
+    assistantModelOptions,
+    hasConfiguredInferenceModels,
+  } = useInferenceModelAvailability();
   const messagesEndRef = useRef(null);
   const launcherRef = useRef(null);
   const panelRef = useRef(null);
@@ -158,17 +165,34 @@ export default function AssistantHome(props) {
   const [includeFrameImage, setIncludeFrameImage] = useState(false);
   const [isPreparingFrameImage, setIsPreparingFrameImage] = useState(false);
   const [applyingSceneActionId, setApplyingSceneActionId] = useState(null);
+  const isAssistantModelUnavailable =
+    isDockerInstall &&
+    (isInferenceModelAvailabilityLoading || !hasConfiguredInferenceModels);
+
+  async function updateUserAssistantModel(newModelValue) {
+    try {
+      const headers = getHeaders();
+      await axios.post(`${PROCESSOR_SERVER}/users/update`, { selectedAssistantModel: newModelValue }, headers);
+      getUserAPI();
+    } catch  {
+    }
+  }
 
   useEffect(() => {
     if (!user) return;
     const userAssistantModel = user.selectedAssistantModel || DEFAULT_TEXT_MODEL;
-    const userAssistantModelOption = ASSISTANT_MODEL_TYPES.find(
+    const userAssistantModelOption = assistantModelOptions.find(
       (model) => model.value === userAssistantModel
-    );
-    if (userAssistantModelOption) {
-      setAssistantModel(userAssistantModelOption);
+    ) || assistantModelOptions.find((model) => model.value === DEFAULT_TEXT_MODEL) || assistantModelOptions[0] || null;
+    setAssistantModel(userAssistantModelOption);
+    if (
+      isDockerInstall &&
+      userAssistantModelOption?.value &&
+      userAssistantModelOption.value !== userAssistantModel
+    ) {
+      updateUserAssistantModel(userAssistantModelOption.value);
     }
-  }, [user]);
+  }, [assistantModelOptions, user]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -189,16 +213,8 @@ export default function AssistantHome(props) {
     };
   }, []);
 
-  const updateUserAssistantModel = async (newModelValue) => {
-    try {
-      const headers = getHeaders();
-      await axios.post(`${PROCESSOR_SERVER}/users/update`, { selectedAssistantModel: newModelValue }, headers);
-      getUserAPI();
-    } catch  {
-    }
-  };
-
   const handleAssistantModelChange = (newValue) => {
+    if (!newValue?.value) return;
     setAssistantModel(newValue);
     updateUserAssistantModel(newValue.value);
   };
@@ -206,7 +222,7 @@ export default function AssistantHome(props) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     const normalizedInput = userInput.trim();
-    if (!normalizedInput || isAssistantQueryGenerating || isPreparingFrameImage) return;
+    if (!normalizedInput || isAssistantQueryGenerating || isPreparingFrameImage || isAssistantModelUnavailable) return;
 
     let requestOptions;
     if (includeFrameImage && typeof getFrameImageData === 'function') {
@@ -522,9 +538,11 @@ export default function AssistantHome(props) {
               <div className="flex shrink-0 items-center gap-2">
                 <div className="hidden w-40 md:block">
                   <SingleSelect
-                    options={ASSISTANT_MODEL_TYPES}
+                    options={assistantModelOptions}
                     value={assistantModel}
                     onChange={handleAssistantModelChange}
+                    isDisabled={isAssistantModelUnavailable}
+                    placeholder={isAssistantModelUnavailable ? "No model configured" : undefined}
                   />
                 </div>
                 <button
@@ -561,9 +579,11 @@ export default function AssistantHome(props) {
 
             <div className="px-4 pt-3 md:hidden">
               <SingleSelect
-                options={ASSISTANT_MODEL_TYPES}
+                options={assistantModelOptions}
                 value={assistantModel}
                 onChange={handleAssistantModelChange}
+                isDisabled={isAssistantModelUnavailable}
+                placeholder={isAssistantModelUnavailable ? "No model configured" : undefined}
               />
             </div>
 
@@ -776,6 +796,11 @@ export default function AssistantHome(props) {
                   </div>
                 </div>
               ) : null}
+              {isDockerInstall && !isInferenceModelAvailabilityLoading && !hasConfiguredInferenceModels ? (
+                <div className="mb-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-200">
+                  Configure OpenAI, Google Cloud, or a Samsar API key in setup to use the assistant.
+                </div>
+              ) : null}
               <TextareaAutosize
                 value={userInput}
                 onChange={(event) => setUserInput(event.target.value)}
@@ -814,6 +839,7 @@ export default function AssistantHome(props) {
                 <CommonButton
                   type="submit"
                   isPending={isAssistantQueryGenerating || isPreparingFrameImage}
+                  isDisabled={isAssistantModelUnavailable}
                   extraClasses="min-w-[120px]"
                 >
                   Send

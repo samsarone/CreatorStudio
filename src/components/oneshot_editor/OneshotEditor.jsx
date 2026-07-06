@@ -67,6 +67,7 @@ import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/suppor
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
+import { useInferenceModelAvailability } from '../../hooks/useInferenceModelAvailability.js';
 
 import 'ace-builds/src-noconflict/mode-json';
 import 'ace-builds/src-noconflict/theme-monokai';
@@ -366,18 +367,21 @@ function normalizeInferenceModelKey(value) {
   return DEFAULT_INFERENCE_MODEL;
 }
 
-function getInferenceModelOption(value, fallbackValue = DEFAULT_INFERENCE_MODEL) {
+function getInferenceModelOption(value, fallbackValue = DEFAULT_INFERENCE_MODEL, options = INFERENCE_MODEL_TYPES) {
+  const modelOptions = Array.isArray(options) ? options : INFERENCE_MODEL_TYPES;
+  if (modelOptions.length === 0) return null;
   const normalizedValue = normalizeInferenceModelKey(value || fallbackValue);
   return (
-    INFERENCE_MODEL_TYPES.find((option) => option.value === normalizedValue) ||
-    INFERENCE_MODEL_TYPES.find((option) => option.value === DEFAULT_INFERENCE_MODEL) ||
-    INFERENCE_MODEL_TYPES[0]
+    modelOptions.find((option) => option.value === normalizedValue) ||
+    modelOptions.find((option) => option.value === DEFAULT_INFERENCE_MODEL) ||
+    modelOptions[0]
   );
 }
 
-function isSupportedInferenceModelKey(value) {
+function isSupportedInferenceModelKey(value, options = INFERENCE_MODEL_TYPES) {
+  const modelOptions = Array.isArray(options) ? options : INFERENCE_MODEL_TYPES;
   const supportedKey = coerceSupportedInferenceModelKey(value);
-  return INFERENCE_MODEL_TYPES.some((option) => option.value === supportedKey);
+  return modelOptions.some((option) => option.value === supportedKey);
 }
 
 function getInferenceModelDisplayLabel(value) {
@@ -1701,7 +1705,7 @@ function hasJsonImageUrlValue(item) {
   ].some((value) => typeof value === 'string' && value.trim().length > 0);
 }
 
-function validateCommonJsonInput(input) {
+function validateCommonJsonInput(input, inferenceModelOptions = INFERENCE_MODEL_TYPES) {
   if (!isPlainObject(input)) {
     return 'JSON input must be an object.';
   }
@@ -1829,8 +1833,9 @@ function validateCommonJsonInput(input) {
     if (typeof input.inference_model !== 'string') {
       return 'JSON input.inference_model must be a string when provided.';
     }
-    if (!isSupportedInferenceModelKey(input.inference_model)) {
-      return 'JSON input.inference_model must be one of: gpt-5.5, gemini-3.1-pro.';
+    if (!isSupportedInferenceModelKey(input.inference_model, inferenceModelOptions)) {
+      const allowedModels = inferenceModelOptions.map((option) => option.value).join(', ');
+      return `JSON input.inference_model must be one of: ${allowedModels || 'no configured models'}.`;
     }
     input.inference_model = normalizeInferenceModelKey(input.inference_model);
     input.inferenceModel = input.inference_model;
@@ -1858,8 +1863,8 @@ function validateCommonJsonInput(input) {
   return null;
 }
 
-function validateTextToVideoJsonInput(input) {
-  const commonError = validateCommonJsonInput(input);
+function validateTextToVideoJsonInput(input, inferenceModelOptions = INFERENCE_MODEL_TYPES) {
+  const commonError = validateCommonJsonInput(input, inferenceModelOptions);
   if (commonError) return commonError;
 
   if (typeof input.prompt !== 'string' || input.prompt.trim().length === 0) {
@@ -1921,8 +1926,8 @@ function validateTextToVideoJsonInput(input) {
   return null;
 }
 
-function validateImageListToVideoJsonInput(input) {
-  const commonError = validateCommonJsonInput(input);
+function validateImageListToVideoJsonInput(input, inferenceModelOptions = INFERENCE_MODEL_TYPES) {
+  const commonError = validateCommonJsonInput(input, inferenceModelOptions);
   if (commonError) return commonError;
 
   if (!Array.isArray(input.image_urls) || input.image_urls.length === 0) {
@@ -1981,7 +1986,12 @@ function validateImageListToVideoJsonInput(input) {
   return null;
 }
 
-function buildJsonModeRequest(rawJson, currentSessionId, selectedMode = 'T2V') {
+function buildJsonModeRequest(
+  rawJson,
+  currentSessionId,
+  selectedMode = 'T2V',
+  inferenceModelOptions = INFERENCE_MODEL_TYPES
+) {
   if (!hasTextValue(rawJson)) {
     return { error: 'JSON input is required.' };
   }
@@ -2023,8 +2033,8 @@ function buildJsonModeRequest(rawJson, currentSessionId, selectedMode = 'T2V') {
 
   const inputValidationError =
     endpointResult.endpoint === 'image_list_to_video'
-      ? validateImageListToVideoJsonInput(input)
-      : validateTextToVideoJsonInput(input);
+      ? validateImageListToVideoJsonInput(input, inferenceModelOptions)
+      : validateTextToVideoJsonInput(input, inferenceModelOptions);
   if (inputValidationError) {
     return { error: inputValidationError };
   }
@@ -2179,13 +2189,15 @@ function buildAdvancedRequestConfiguration({
   customAdapters,
   selectedCustomAdapterEndpointId,
   selectedInferenceModel,
+  inferenceModelOptions = INFERENCE_MODEL_TYPES,
 }) {
   const input = {};
   const root = {};
 
   const inferenceModelValue = selectedInferenceModel?.value || selectedInferenceModel;
-  if (!isSupportedInferenceModelKey(inferenceModelValue)) {
-    return { error: 'Inference model must be one of: GPT 5.5, Gemini 3.1 Pro.' };
+  if (!isSupportedInferenceModelKey(inferenceModelValue, inferenceModelOptions)) {
+    const allowedLabels = inferenceModelOptions.map((option) => option.label).join(', ');
+    return { error: `Inference model must be one of: ${allowedLabels || 'no configured models'}.` };
   }
   input.inference_model = normalizeInferenceModelKey(inferenceModelValue);
   input.inferenceModel = input.inference_model;
@@ -3376,6 +3388,15 @@ export default function OneshotEditor() {
   const [selectedInferenceModel, setSelectedInferenceModel] = useState(() =>
     getInferenceModelOption(user?.selectedInferenceModel)
   );
+  const {
+    isDockerInstall: isDockerInferenceModelFilteringEnabled,
+    isLoading: isInferenceModelAvailabilityLoading,
+    inferenceModelOptions,
+    hasConfiguredInferenceModels,
+  } = useInferenceModelAvailability();
+  const isDockerInferenceUnavailable =
+    isDockerInferenceModelFilteringEnabled &&
+    (isInferenceModelAvailabilityLoading || !hasConfiguredInferenceModels);
   const [selectedCustomAdapterEndpointId, setSelectedCustomAdapterEndpointId] = useState('');
 
   const updateAdvancedOption = useCallback((key, value) => {
@@ -3405,9 +3426,9 @@ export default function OneshotEditor() {
         user?.selectedInferenceModel ||
         current?.value ||
         DEFAULT_INFERENCE_MODEL;
-      return getInferenceModelOption(targetModel, user?.selectedInferenceModel);
+      return getInferenceModelOption(targetModel, user?.selectedInferenceModel, inferenceModelOptions);
     });
-  }, [sessionDetails, user?.selectedInferenceModel]);
+  }, [inferenceModelOptions, sessionDetails, user?.selectedInferenceModel]);
 
   const availableCustomAdapterEndpoints = useMemo(
     () => getAvailableCustomAdapterEndpoints(user?.custom_adapters),
@@ -5014,7 +5035,7 @@ export default function OneshotEditor() {
     }
 
     if (isJsonMode) {
-      const jsonRequest = buildJsonModeRequest(jsonInputText, id, generationMode);
+      const jsonRequest = buildJsonModeRequest(jsonInputText, id, generationMode, inferenceModelOptions);
       if (jsonRequest.error) {
         setJsonValidationMessage(jsonRequest.error);
         setErrorMessage(null);
@@ -5109,6 +5130,7 @@ export default function OneshotEditor() {
       customAdapters: user?.custom_adapters,
       selectedCustomAdapterEndpointId,
       selectedInferenceModel,
+      inferenceModelOptions,
     });
     if (advancedRequestConfiguration.error) {
       setErrorMessage({ error: advancedRequestConfiguration.error });
@@ -5243,7 +5265,7 @@ export default function OneshotEditor() {
     setSelectedImageStyle(null);
     setIsAdvancedOpen(false);
     setAdvancedOptions({ ...DEFAULT_ADVANCED_OPTIONS });
-    setSelectedInferenceModel(getInferenceModelOption(user?.selectedInferenceModel));
+    setSelectedInferenceModel(getInferenceModelOption(user?.selectedInferenceModel, DEFAULT_INFERENCE_MODEL, inferenceModelOptions));
     setSelectedCustomAdapterEndpointId('');
     setPricingDetailsDisplay(false);        // ⬅️ NEW
     setSelectedVideoModelSubType(null);     // ⬅️ NEW
@@ -5655,7 +5677,7 @@ export default function OneshotEditor() {
       aspectRatio: selectedAspectRatioOption?.value || '16:9',
       language: resolveLanguageCode(jsonModeLanguageValue, 'en'),
       enableSubtitles,
-      inferenceModel: selectedInferenceModel?.value || user?.selectedInferenceModel || DEFAULT_INFERENCE_MODEL,
+      inferenceModel: selectedInferenceModel?.value || inferenceModelOptions[0]?.value || user?.selectedInferenceModel || DEFAULT_INFERENCE_MODEL,
     })
   ), [
     enableSubtitles,
@@ -5665,6 +5687,7 @@ export default function OneshotEditor() {
     selectedDurationOption?.value,
     selectedImageModel?.value,
     selectedInferenceModel?.value,
+    inferenceModelOptions,
     selectedVideoModel?.value,
     user?.selectedInferenceModel,
   ]);
@@ -5781,7 +5804,18 @@ export default function OneshotEditor() {
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
   const isModeToggleDisabled = renderState === 'pending' || renderState === 'paused' || isSubmitting;
-  const isGenerationActionDisabled = isFormDisabled || isSubmitting || Boolean(jsonEditorErrorMessage);
+  const isGenerationActionDisabled =
+    isFormDisabled ||
+    isSubmitting ||
+    Boolean(jsonEditorErrorMessage) ||
+    isDockerInferenceUnavailable;
+  const dockerInferenceUnavailableMessage = isDockerInferenceModelFilteringEnabled
+    ? isInferenceModelAvailabilityLoading
+      ? 'Loading configured inference models...'
+      : hasConfiguredInferenceModels
+        ? ''
+        : 'Configure OpenAI, Google Cloud, or a Samsar API key in setup to enable VidGenie inference.'
+    : '';
   const isCompletedSessionPublished = Boolean(sessionDetails?.ispublishedVideo);
   const rerollEstimateImageModel =
     rerollCandidateSourceSession?.expressGenerationImageModel ||
@@ -6399,15 +6433,26 @@ export default function OneshotEditor() {
     }
 
     return (
-      <div className="mt-4 flex w-full justify-end">
-        <PrimaryPublicButton
-          onClick={handleSubmit}
-          isDisabled={isGenerationActionDisabled}
-          extraClasses="!m-0 w-full sm:w-auto !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
-        >
-          {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
-        </PrimaryPublicButton>
-      </div>
+      <>
+        <div className="mt-4 flex w-full justify-end">
+          <PrimaryPublicButton
+            onClick={handleSubmit}
+            isDisabled={isGenerationActionDisabled}
+            extraClasses="!m-0 w-full sm:w-auto !min-h-9 !rounded-xl !px-5 !py-2 text-sm shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          >
+            {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
+          </PrimaryPublicButton>
+        </div>
+        {dockerInferenceUnavailableMessage ? (
+          <div className={`mt-3 rounded-lg border px-3 py-2 text-sm font-medium ${
+            colorMode === 'dark'
+              ? 'border-amber-300/20 bg-amber-300/10 text-amber-100'
+              : 'border-amber-300 bg-amber-50 text-amber-800'
+          }`}>
+            {dockerInferenceUnavailableMessage}
+          </div>
+        ) : null}
+      </>
     );
   };
   const renderGenerationControlsRow = ({ showAdvancedToggle = true, className = '' } = {}) => (
@@ -6872,19 +6917,28 @@ export default function OneshotEditor() {
               <div>
                 <label className={advancedLabelClasses}>Inference model</label>
                 <select
-                  value={selectedInferenceModel?.value || DEFAULT_INFERENCE_MODEL}
+                  value={selectedInferenceModel?.value || inferenceModelOptions[0]?.value || ''}
                   onChange={(event) =>
-                    setSelectedInferenceModel(getInferenceModelOption(event.target.value))
+                    setSelectedInferenceModel(getInferenceModelOption(event.target.value, DEFAULT_INFERENCE_MODEL, inferenceModelOptions))
                   }
-                  disabled={isFormDisabled}
+                  disabled={isFormDisabled || isDockerInferenceUnavailable}
                   className={advancedInputClasses}
                 >
-                  {INFERENCE_MODEL_TYPES.map((option) => (
+                  {inferenceModelOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
+                {isDockerInferenceModelFilteringEnabled ? (
+                  <p className={`mt-1 text-[11px] ${mutedText}`}>
+                    {isInferenceModelAvailabilityLoading
+                      ? 'Loading configured model options...'
+                      : hasConfiguredInferenceModels
+                        ? 'Only models supported by your configured Docker providers are shown.'
+                        : 'No inference model is configured for this Docker installation.'}
+                  </p>
+                ) : null}
               </div>
 
               {generationMode === 'T2V' && (

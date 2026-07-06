@@ -289,7 +289,7 @@ export default function ListImageSessions() {
                 ? thumbnail
                 : thumbnail
                   ? `${PROCESSOR_API}/${thumbnail}`
-                  : '/q2.png';
+                  : '';
 
               return (
                 <div
@@ -301,12 +301,16 @@ export default function ListImageSessions() {
                     {session.name}
                   </div>
                   <div className="aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
-                    <img
-                      src={sessionPreviewImage}
-                      onError={(e) => (e.target.src = '/q2.png')}
-                      className="h-full w-full object-cover"
-                      alt={`Session ${index + 1}`}
-                    />
+                    {sessionPreviewImage && (
+                      <img
+                        src={sessionPreviewImage}
+                        onError={(event) => {
+                          event.currentTarget.style.display = 'none';
+                        }}
+                        className="h-full w-full object-cover"
+                        alt={`Session ${index + 1}`}
+                      />
+                    )}
                   </div>
                   <div className="px-4 py-3 text-xs text-slate-500">
                     Tap to open in Image Studio

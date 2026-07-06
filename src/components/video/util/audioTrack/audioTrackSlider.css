@@ -1,5 +1,13 @@
 .rail-track {
-  background-image: url('railTrack.svg');
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 8px,
+    rgba(148, 163, 184, 0.35) 8px,
+    rgba(148, 163, 184, 0.35) 12px,
+    transparent 12px,
+    transparent 20px
+  );
   background-repeat: repeat-y;
   background-size: contain;
   overflow-y: hidden;

@@ -15,6 +15,7 @@ export default function SingleSelect(props) {
     name,
     compactLayout = false,
     truncateLabels = false,
+    isDisabled = false,
     styles: customStyles,
   } = props;
 
@@ -142,6 +143,7 @@ export default function SingleSelect(props) {
       options={options}
       value={value}
       onChange={onChange}
+      isDisabled={isDisabled}
       classNamePrefix={classNamePrefix}
     />
   );

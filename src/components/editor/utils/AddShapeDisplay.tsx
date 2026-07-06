@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react';
 import { FaRegCircle, FaSlidersH } from "react-icons/fa";
 import { MdOutlineRectangle } from "react-icons/md";
 import { IoTriangleOutline } from "react-icons/io5";
-import BubbleIcon from '../resources/bubble.svg';
-import BubbleDarkIcon from '../resources/bubble_dark.svg';
 import SingleSelect from '../../common/SingleSelect.jsx';
 import CanvasActionOptionsDialog from './CanvasActionOptionsDialog.jsx';
 import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
@@ -498,7 +496,6 @@ export default function AddShapeDisplay(props: any) {
     (shapeDefinition) => shapeDefinition.key === selectedShapeKey
   );
 
-  const dialogImage = colorMode === 'light' ? BubbleDarkIcon : BubbleIcon;
   const textColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
   const subtleTextColor = colorMode === 'dark' ? 'text-slate-300' : 'text-slate-600';
   const panelSurface = colorMode === 'dark'
@@ -649,7 +646,14 @@ export default function AddShapeDisplay(props: any) {
     if (shapeKey === 'polygon') {
       return <IoTriangleOutline className={iconClassName} />;
     }
-    return <img src={dialogImage} className="h-5 w-5" alt="" />;
+    return (
+      <span
+        className={`relative inline-block h-5 w-6 shrink-0 rounded-md border-2 border-current ${iconClassName}`}
+        aria-hidden="true"
+      >
+        <span className="absolute -bottom-[5px] left-2 h-2 w-2 rotate-45 border-b-2 border-r-2 border-current bg-inherit" />
+      </span>
+    );
   };
 
   return (

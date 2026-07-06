@@ -21,6 +21,7 @@ import APIKeysPanelContent from "./APIKeysPanelContent.jsx";
 import UsagePanelContent from "./UsagePanelContent.jsx";
 import SingleSelect from "../common/SingleSelect.jsx";
 import { getSessionType } from "../../utils/environment.jsx";
+import { useInferenceModelAvailability } from "../../hooks/useInferenceModelAvailability.js";
 
 import { INFERENCE_MODEL_TYPES, ASSISTANT_MODEL_TYPES } from "../../constants/Types.ts";
 
@@ -68,21 +69,25 @@ function normalizeInferenceModelValue(value) {
   return DEFAULT_TEXT_MODEL;
 }
 
-function getInferenceModelOption(value) {
+function getInferenceModelOption(value, options = INFERENCE_MODEL_TYPES) {
+  const modelOptions = Array.isArray(options) ? options : INFERENCE_MODEL_TYPES;
+  if (modelOptions.length === 0) return null;
   const normalizedValue = normalizeInferenceModelValue(value);
   return (
-    INFERENCE_MODEL_TYPES.find((m) => m.value === normalizedValue) ||
-    INFERENCE_MODEL_TYPES.find((m) => m.value === DEFAULT_TEXT_MODEL) ||
-    INFERENCE_MODEL_TYPES[0]
+    modelOptions.find((m) => m.value === normalizedValue) ||
+    modelOptions.find((m) => m.value === DEFAULT_TEXT_MODEL) ||
+    modelOptions[0]
   );
 }
 
-function getAssistantModelOption(value) {
+function getAssistantModelOption(value, options = ASSISTANT_MODEL_TYPES) {
+  const modelOptions = Array.isArray(options) ? options : ASSISTANT_MODEL_TYPES;
+  if (modelOptions.length === 0) return null;
   const normalizedValue = normalizeInferenceModelValue(value);
   return (
-    ASSISTANT_MODEL_TYPES.find((m) => m.value === normalizedValue) ||
-    ASSISTANT_MODEL_TYPES.find((m) => m.value === DEFAULT_TEXT_MODEL) ||
-    ASSISTANT_MODEL_TYPES[0]
+    modelOptions.find((m) => m.value === normalizedValue) ||
+    modelOptions.find((m) => m.value === DEFAULT_TEXT_MODEL) ||
+    modelOptions[0]
   );
 }
 
@@ -99,6 +104,23 @@ export default function UserAccount() {
   const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
   const mutedBg = colorMode === "dark" ? "bg-[#111a2f]" : "bg-slate-50";
   const isDockerInstall = getSessionType() === "docker";
+  const {
+    isDockerInstall: isDockerModelFilteringEnabled,
+    isLoading: isInferenceModelAvailabilityLoading,
+    inferenceModelOptions,
+    assistantModelOptions,
+    hasConfiguredInferenceModels,
+  } = useInferenceModelAvailability();
+  const areDockerModelSelectsDisabled =
+    isDockerModelFilteringEnabled &&
+    (isInferenceModelAvailabilityLoading || !hasConfiguredInferenceModels);
+  const dockerModelAvailabilityMessage = isDockerModelFilteringEnabled
+    ? isInferenceModelAvailabilityLoading
+      ? "Loading configured inference models..."
+      : hasConfiguredInferenceModels
+        ? "Only models supported by your configured Docker providers are shown."
+        : "Configure OpenAI, Google Cloud, or a Samsar API key in setup to enable inference and assistant models."
+    : "";
 
   const validPanels = [
     "account",
@@ -130,14 +152,49 @@ export default function UserAccount() {
   );
   const [videoFps, setVideoFps] = useState(VIDEO_FPS_OPTIONS[0]);
 
+  const syncUserDetailsSilently = (payload) => {
+    if (!payload || Object.keys(payload).length === 0) return;
+    axios
+      .post(`${PROCESSOR_SERVER}/users/update`, payload, getHeaders())
+      .then((res) => {
+        if (res.data) {
+          setUser(res.data);
+        }
+        getUserAPI();
+      })
+      .catch(() => undefined);
+  };
+
   useEffect(() => {
     if (!user) return;
 
-    setInferenceModel(getInferenceModelOption(user.selectedInferenceModel));
-    setAssistantModel(getAssistantModelOption(user.selectedAssistantModel));
+    const nextInferenceModel = getInferenceModelOption(user.selectedInferenceModel, inferenceModelOptions);
+    const nextAssistantModel = getAssistantModelOption(user.selectedAssistantModel, assistantModelOptions);
+    setInferenceModel(nextInferenceModel);
+    setAssistantModel(nextAssistantModel);
     setNotifyOnCompletion(!!user.selectedNotifyOnCompletion);
     setVideoFps(getVideoFpsOption(user.videoFramesPerSecond));
-  }, [user]);
+    if (
+      isDockerModelFilteringEnabled &&
+      !isInferenceModelAvailabilityLoading &&
+      hasConfiguredInferenceModels
+    ) {
+      const modelPreferencePayload: Record<string, string> = {};
+      if (
+        nextInferenceModel?.value &&
+        normalizeInferenceModelValue(user.selectedInferenceModel) !== nextInferenceModel.value
+      ) {
+        modelPreferencePayload.selectedInferenceModel = nextInferenceModel.value;
+      }
+      if (
+        nextAssistantModel?.value &&
+        normalizeInferenceModelValue(user.selectedAssistantModel) !== nextAssistantModel.value
+      ) {
+        modelPreferencePayload.selectedAssistantModel = nextAssistantModel.value;
+      }
+      syncUserDetailsSilently(modelPreferencePayload);
+    }
+  }, [assistantModelOptions, inferenceModelOptions, user]);
 
   useEffect(() => {
     setDisplayPanel(resolvePanelFromPath());
@@ -181,13 +238,15 @@ export default function UserAccount() {
   };
 
   const handleInferenceModelChange = (newVal) => {
-    const nextOption = getInferenceModelOption(newVal?.value);
+    const nextOption = getInferenceModelOption(newVal?.value, inferenceModelOptions);
+    if (!nextOption) return;
     setInferenceModel(nextOption);
     updateUserDetails({ selectedInferenceModel: nextOption.value });
   };
 
   const handleAssistantModelChange = (newVal) => {
-    const nextOption = getAssistantModelOption(newVal?.value);
+    const nextOption = getAssistantModelOption(newVal?.value, assistantModelOptions);
+    if (!nextOption) return;
     setAssistantModel(nextOption);
     updateUserDetails({ selectedAssistantModel: nextOption.value });
   };
@@ -453,17 +512,21 @@ export default function UserAccount() {
                         <div className="space-y-2">
                           <p className="text-sm font-semibold">Assistant model</p>
                           <SingleSelect
-                            options={ASSISTANT_MODEL_TYPES}
+                            options={assistantModelOptions}
                             value={assistantModel}
                             onChange={handleAssistantModelChange}
+                            isDisabled={areDockerModelSelectsDisabled}
+                            placeholder={areDockerModelSelectsDisabled ? "No model configured" : undefined}
                           />
                         </div>
                         <div className="space-y-2">
                           <p className="text-sm font-semibold">Inference model</p>
                           <SingleSelect
-                            options={INFERENCE_MODEL_TYPES}
+                            options={inferenceModelOptions}
                             value={inferenceModel}
                             onChange={handleInferenceModelChange}
+                            isDisabled={areDockerModelSelectsDisabled}
+                            placeholder={areDockerModelSelectsDisabled ? "No model configured" : undefined}
                           />
                         </div>
                         <div className="space-y-2">
@@ -479,6 +542,11 @@ export default function UserAccount() {
                           </p>
                         </div>
                       </div>
+                      {dockerModelAvailabilityMessage ? (
+                        <p className={`text-xs ${secondaryTextColor}`}>
+                          {dockerModelAvailabilityMessage}
+                        </p>
+                      ) : null}
 
                       {!isDockerInstall && emailNotificationBlock}
                     </div>

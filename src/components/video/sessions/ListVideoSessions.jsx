@@ -11,10 +11,6 @@ import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
 import SingleSelect from '../../common/SingleSelect'; // adjust path as needed
 
 const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
-const SESSION_PREVIEW_PLACEHOLDER_IMAGES = {
-  dark: '/session-thumbnail-placeholder-dark.png',
-  light: '/session-thumbnail-placeholder-light.png',
-};
 
 // Options for the filters
 const renderTypeOptions = [
@@ -50,12 +46,6 @@ const isAbsolutePreviewUrl = (value) => (
   typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim())
 );
 
-const getSessionPreviewPlaceholderImage = (colorMode = 'dark') => (
-  colorMode === 'light'
-    ? SESSION_PREVIEW_PLACEHOLDER_IMAGES.light
-    : SESSION_PREVIEW_PLACEHOLDER_IMAGES.dark
-);
-
 const getRawSessionPreviewImage = (session = {}) => (
   firstNonEmptyString([
     session.thumbnailUrl,
@@ -68,12 +58,11 @@ const getRawSessionPreviewImage = (session = {}) => (
 );
 
 const resolveSessionPreviewImage = (session = {}, colorMode = 'dark', forcePlaceholder = false) => {
-  const placeholderImage = getSessionPreviewPlaceholderImage(colorMode);
   const previewImage = getRawSessionPreviewImage(session);
 
   if (forcePlaceholder || !previewImage) {
     return {
-      src: placeholderImage,
+      src: '',
       isPlaceholder: true,
     };
   }
@@ -627,12 +616,14 @@ export default function ListVideoSessions() {
                   </div>
                 </div>
                 <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
-                  <img
-                    src={sessionPreview.src}
-                    onError={() => handleSessionPreviewImageError(sessionPreviewKey)}
-                    className="h-full w-full object-cover"
-                    alt={sessionPreview.isPlaceholder ? 'Missing thumbnail' : `Session ${index + 1}`}
-                  />
+                  {!sessionPreview.isPlaceholder && sessionPreview.src && (
+                    <img
+                      src={sessionPreview.src}
+                      onError={() => handleSessionPreviewImageError(sessionPreviewKey)}
+                      className="h-full w-full object-cover"
+                      alt={`Session ${index + 1}`}
+                    />
+                  )}
                   {sessionPreview.isPlaceholder && (
                     <div className="pointer-events-none absolute inset-x-0 top-[calc(50%+1.25rem)] z-[1] flex justify-center px-4">
                       <span

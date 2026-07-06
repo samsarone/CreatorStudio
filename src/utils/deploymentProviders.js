@@ -8,6 +8,17 @@ const PROVIDER_LABELS = {
   runway: "RunwayML",
 };
 
+const DEPLOYMENT_INFERENCE_MODEL_VALUES = Object.freeze([
+  "gpt-5.5",
+  "gemini-3.1-pro",
+]);
+
+const DEPLOYMENT_INFERENCE_MODELS_BY_PROVIDER = Object.freeze({
+  openai: ["gpt-5.5"],
+  googleCloud: ["gemini-3.1-pro"],
+  samsar: DEPLOYMENT_INFERENCE_MODEL_VALUES,
+});
+
 export function normalizeDeploymentProviderKey(value) {
   if (typeof value !== "string") return "";
 
@@ -66,6 +77,81 @@ export function extractDeploymentProviders(payload = {}) {
       seen.add(key);
       return true;
     });
+}
+
+export function normalizeDeploymentInferenceModelValue(value) {
+  if (typeof value !== "string") return "";
+
+  const normalized = value.trim().toLowerCase();
+  if (
+    normalized === "gemini-3.1-pro" ||
+    normalized === "gemini-3.1-pro-preview" ||
+    normalized === "gemini-3-pro" ||
+    normalized === "gemini-3-pro-preview" ||
+    normalized === "gemini 3.1 pro" ||
+    normalized === "gemini 3.1 pro preview" ||
+    normalized === "gemini 3 pro" ||
+    normalized === "gemini 3 pro preview" ||
+    normalized === "gemini31pro" ||
+    normalized === "gemini31propreview" ||
+    normalized === "gemini3pro" ||
+    normalized === "gemini3propreview"
+  ) {
+    return "gemini-3.1-pro";
+  }
+  if (
+    normalized === "gpt-5.5" ||
+    normalized.startsWith("gpt-5.5-") ||
+    normalized === "gpt 5.5" ||
+    normalized === "gpt55"
+  ) {
+    return "gpt-5.5";
+  }
+  return "";
+}
+
+export function extractDeploymentInferenceModelValues(payload = {}) {
+  const candidates = [
+    payload?.deployment?.models,
+    payload?.available?.models,
+    payload?.availableModels,
+    payload?.available_models,
+    payload?.models,
+  ];
+  const modelList = candidates.find((candidate) => Array.isArray(candidate));
+  const seen = new Set();
+  const modelValues = (modelList || [])
+    .map(normalizeDeploymentInferenceModelValue)
+    .filter((modelValue) => {
+      if (!modelValue || seen.has(modelValue)) return false;
+      seen.add(modelValue);
+      return true;
+    });
+
+  if (modelValues.length > 0) {
+    return modelValues;
+  }
+
+  const providerModels = extractDeploymentProviders(payload).flatMap((provider) => {
+    const providerKey = normalizeDeploymentProviderKey(provider);
+    return DEPLOYMENT_INFERENCE_MODELS_BY_PROVIDER[providerKey] || [];
+  });
+  const providerSeen = new Set();
+
+  return providerModels.filter((modelValue) => {
+    if (providerSeen.has(modelValue)) return false;
+    providerSeen.add(modelValue);
+    return true;
+  });
+}
+
+export function filterOptionsForDeploymentInferenceModels(options = [], modelValues = []) {
+  const allowedModels = new Set(modelValues.map(normalizeDeploymentInferenceModelValue).filter(Boolean));
+  if (allowedModels.size === 0) {
+    return [];
+  }
+
+  return options.filter((option) => allowedModels.has(normalizeDeploymentInferenceModelValue(option?.value)));
 }
 
 export async function fetchDeploymentProviderConfig(processorServer, requestConfig) {
