@@ -38,59 +38,25 @@ const truncateSessionDescription = (value, maxLength = 110) => {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 };
 
-const firstNonEmptyString = (values = []) => (
-  values.find((value) => typeof value === 'string' && value.trim()) || ''
-);
+const getSessionIdentifier = (session = {}) => session.id ?? session._id;
 
-const isAbsolutePreviewUrl = (value) => (
-  typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim())
-);
+const resolveSessionPreviewImage = (session = {}, forcePlaceholder = false) => {
+  const sessionIdentifier = getSessionIdentifier(session);
 
-const getRawSessionPreviewImage = (session = {}) => (
-  firstNonEmptyString([
-    session.thumbnailUrl,
-    session.thumbnailURL,
-    session.previewImageUrl,
-    session.previewImageURL,
-    session.previewImage,
-    session.thumbnail,
-  ])
-);
-
-const resolveSessionPreviewImage = (session = {}, colorMode = 'dark', forcePlaceholder = false) => {
-  const previewImage = getRawSessionPreviewImage(session);
-
-  if (forcePlaceholder || !previewImage) {
+  if (forcePlaceholder || !sessionIdentifier) {
     return {
       src: '',
       isPlaceholder: true,
     };
   }
 
-  const trimmedPreviewImage = previewImage.trim();
-  if (isAbsolutePreviewUrl(trimmedPreviewImage)) {
-    return {
-      src: trimmedPreviewImage,
-      isPlaceholder: false,
-    };
-  }
-
-  if (trimmedPreviewImage.startsWith('//')) {
-    return {
-      src: `https:${trimmedPreviewImage}`,
-      isPlaceholder: false,
-    };
-  }
-
-  const normalizedPath = trimmedPreviewImage.startsWith('/')
-    ? trimmedPreviewImage
-    : `/${trimmedPreviewImage}`;
   const processorBaseUrl = typeof PROCESSOR_API === 'string'
     ? PROCESSOR_API.trim().replace(/\/+$/, '')
     : '';
+  const sessionSplashPath = `/video/splash/${encodeURIComponent(sessionIdentifier.toString())}/splash.png`;
 
   return {
-    src: processorBaseUrl ? `${processorBaseUrl}${normalizedPath}` : normalizedPath,
+    src: processorBaseUrl ? `${processorBaseUrl}${sessionSplashPath}` : sessionSplashPath,
     isPlaceholder: false,
   };
 };
@@ -436,7 +402,7 @@ export default function ListVideoSessions() {
   };
 
   const getSessionKey = (session, index) => (
-    (session?.id ?? session?._id ?? `session-${index}`).toString()
+    (getSessionIdentifier(session) ?? `session-${index}`).toString()
   );
 
   const handleSessionPreviewImageError = (sessionKey) => {
@@ -541,17 +507,18 @@ export default function ListVideoSessions() {
           {sessionList.map((session, index) => {
             if (!session) return null;
             const sessionKey = getSessionKey(session, index);
-            const rawPreviewImage = getRawSessionPreviewImage(session);
-            const sessionPreviewKey = `${sessionKey}:${rawPreviewImage || 'missing'}`;
+            const sessionPreviewKey = `${sessionKey}:session-splash`;
             const sessionName = normalizeSessionText(session.sessionName);
             const sessionDescription = normalizeSessionText(session.sessionDescription);
             const sessionDisplayName = sessionName || session.name;
             const sessionDisplayDescription = truncateSessionDescription(sessionDescription);
             const sessionPreview = resolveSessionPreviewImage(
               session,
-              colorMode,
               failedPreviewKeys.has(sessionPreviewKey)
             );
+            const sessionAspectRatio = normalizeSessionText(
+              session.aspectRatio ?? session.aspect_ratio
+            ) || '1:1';
             const isExpressSession = Boolean(session.isExpressGeneration);
             const isImportedSession = Boolean(session.isImportedSession);
 
@@ -591,6 +558,16 @@ export default function ListVideoSessions() {
                     )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      title={`Aspect ratio ${sessionAspectRatio}`}
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums tracking-wide ${
+                        colorMode === 'dark'
+                          ? 'bg-slate-700/70 text-slate-200 ring-1 ring-slate-500/40'
+                          : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
+                      }`}
+                    >
+                      {sessionAspectRatio}
+                    </span>
                     {isImportedSession && (
                       <span
                         className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${

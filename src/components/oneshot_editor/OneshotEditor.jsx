@@ -183,7 +183,7 @@ const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'HAPPYHORSEI2V',
   'CUSTOM_IMAGE_TO_VIDEO',
 ];
-const DEFAULT_INFERENCE_MODEL = 'gpt-5.5';
+const DEFAULT_INFERENCE_MODEL = 'gpt-5.6-sol';
 const INFERENCE_MODEL_LABEL_BY_VALUE = INFERENCE_MODEL_TYPES.reduce((result, option) => {
   result[option.value] = option.label;
   return result;
@@ -358,7 +358,12 @@ function coerceSupportedInferenceModelKey(value) {
   if (normalized === DEFAULT_INFERENCE_MODEL || normalized.startsWith(`${DEFAULT_INFERENCE_MODEL}-`)) {
     return DEFAULT_INFERENCE_MODEL;
   }
-  if (normalized === 'gpt 5.5' || normalized === 'gpt55') {
+  if (
+    normalized === 'gpt-5.6' ||
+    normalized === 'gpt 5.6 sol' ||
+    normalized === 'gpt56' ||
+    normalized === 'gpt56sol'
+  ) {
     return DEFAULT_INFERENCE_MODEL;
   }
   return '';
