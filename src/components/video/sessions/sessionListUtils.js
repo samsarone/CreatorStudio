@@ -53,6 +53,8 @@ const hasSessionMetadata = (record = {}) => [
 
 export const isLayerListRecord = (record = {}) => (
   Boolean(
+    record.recordType === 'scene' ||
+    record.recordType === 'layer' ||
     getParentSessionIdentifier(record) ||
     record.layerId ||
     record.layer_id ||
@@ -77,6 +79,7 @@ export const isSessionListRecord = (record = {}) => (
     record &&
     typeof record === 'object' &&
     getIdentifierString(getRecordIdentifier(record)) &&
+    (record.recordType === undefined || record.recordType === 'session') &&
     !isLayerListRecord(record) &&
     (
       typeof record.name === 'string' ||
