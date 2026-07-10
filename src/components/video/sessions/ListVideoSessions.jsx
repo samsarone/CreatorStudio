@@ -64,23 +64,73 @@ const truncateSessionDescription = (value, maxLength = 110) => {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 };
 
+const getRawSessionPreviewImage = (session = {}) => (
+  [
+    session.thumbnailUrl,
+    session.thumbnailURL,
+    session.previewImageUrl,
+    session.previewImageURL,
+    session.previewImage,
+    session.thumbnail,
+  ].find((value) => typeof value === 'string' && value.trim()) || ''
+);
+
+const resolveSessionPreviewSource = (previewImage) => {
+  const normalizedPreviewImage = typeof previewImage === 'string'
+    ? previewImage.trim()
+    : '';
+
+  if (!normalizedPreviewImage) {
+    return '';
+  }
+
+  if (/^(https?:|data:|blob:)/i.test(normalizedPreviewImage)) {
+    return normalizedPreviewImage;
+  }
+
+  if (normalizedPreviewImage.startsWith('//')) {
+    return `https:${normalizedPreviewImage}`;
+  }
+
+  const normalizedPath = normalizedPreviewImage.startsWith('/')
+    ? normalizedPreviewImage
+    : `/${normalizedPreviewImage}`;
+  const processorBaseUrl = typeof PROCESSOR_API === 'string'
+    ? PROCESSOR_API.trim().replace(/\/+$/, '')
+    : '';
+
+  return processorBaseUrl ? `${processorBaseUrl}${normalizedPath}` : normalizedPath;
+};
+
 const resolveSessionPreviewImage = (session = {}, forcePlaceholder = false) => {
   const sessionIdentifier = getSessionIdentifier(session);
+  const providedPreviewImage = getRawSessionPreviewImage(session);
 
-  if (forcePlaceholder || !sessionIdentifier) {
+  if (forcePlaceholder) {
     return {
       src: '',
       isPlaceholder: true,
     };
   }
 
-  const processorBaseUrl = typeof PROCESSOR_API === 'string'
-    ? PROCESSOR_API.trim().replace(/\/+$/, '')
-    : '';
-  const sessionSplashPath = `/video/splash/${encodeURIComponent(sessionIdentifier.toString())}/splash.png`;
+  if (providedPreviewImage) {
+    return {
+      src: resolveSessionPreviewSource(providedPreviewImage),
+      isPlaceholder: false,
+    };
+  }
+
+  if (!sessionIdentifier) {
+    return {
+      src: '',
+      isPlaceholder: true,
+    };
+  }
+
+  const sessionSplashPath = `/video/splash/${encodeURIComponent(sessionIdentifier)}/splash.png`;
 
   return {
-    src: processorBaseUrl ? `${processorBaseUrl}${sessionSplashPath}` : sessionSplashPath,
+    src: resolveSessionPreviewSource(sessionSplashPath),
     isPlaceholder: false,
   };
 };

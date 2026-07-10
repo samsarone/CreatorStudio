@@ -31,7 +31,6 @@ const getParentSessionIdentifier = (record = {}) => (
 );
 
 export const getSessionIdentifier = (record = {}) => (
-  getIdentifierString(getParentSessionIdentifier(record)) ||
   getIdentifierString(getRecordIdentifier(record))
 );
 
@@ -43,18 +42,29 @@ const hasDistinctParentSession = (record = {}) => {
 };
 
 const hasSessionMetadata = (record = {}) => [
+  'name',
   'layers',
   'sessionType',
   'sessionName',
   'sessionDescription',
+  'thumbnail',
+  'thumbnailUrl',
+  'thumbnailURL',
+  'previewImageUrl',
+  'previewImageURL',
   'aspectRatio',
   'aspect_ratio',
   'videoLink',
   'remoteURL',
   'publishedVideoURL',
   'isExpressGeneration',
+  'expressGenerationType',
   'ispublishedVideo',
   'isPublished',
+  'isCompleted',
+  'sessionOwnerId',
+  'isSessionOwner',
+  'isImportedSession',
 ].some((field) => record[field] !== undefined);
 
 export const isLayerListRecord = (record = {}) => (
@@ -75,6 +85,15 @@ export const isLayerListRecord = (record = {}) => (
   )
 );
 
+export const isSessionListRecord = (record = {}) => (
+  Boolean(
+    record &&
+    typeof record === 'object' &&
+    !isLayerListRecord(record) &&
+    hasSessionMetadata(record)
+  )
+);
+
 const getEmbeddedSessionRecord = (record = {}) => {
   const embeddedRecord = [record.session, record.videoSession, record.project]
     .find((candidate) => (
@@ -85,23 +104,6 @@ const getEmbeddedSessionRecord = (record = {}) => {
     ));
 
   return embeddedRecord || null;
-};
-
-const withSessionIdentifier = (record, sessionIdentifier) => {
-  if (!sessionIdentifier) {
-    return record;
-  }
-
-  const recordIdentifier = getIdentifierString(getRecordIdentifier(record));
-  if (recordIdentifier === sessionIdentifier) {
-    return record;
-  }
-
-  return {
-    ...record,
-    id: sessionIdentifier,
-    _id: record._id ?? sessionIdentifier,
-  };
 };
 
 export const normalizeSessionListData = (records) => {
@@ -117,28 +119,22 @@ export const normalizeSessionListData = (records) => {
     }
 
     const embeddedSession = getEmbeddedSessionRecord(record);
-    const isLayerRecord = !embeddedSession && isLayerListRecord(record);
-    const parentSessionIdentifier = getIdentifierString(getParentSessionIdentifier(record));
-    if (isLayerRecord && !parentSessionIdentifier) {
+    const sessionRecord = embeddedSession || record;
+    if (!embeddedSession && !isSessionListRecord(record)) {
       return;
     }
 
-    const sessionRecord = embeddedSession || record;
-    const sessionIdentifier = getSessionIdentifier(sessionRecord) || getSessionIdentifier(record);
+    const sessionIdentifier = getSessionIdentifier(sessionRecord);
     if (!sessionIdentifier) {
       return;
     }
 
-    const existingRecord = sessionsById.get(sessionIdentifier);
-    if (existingRecord && (!existingRecord.isLayerRecord || isLayerRecord)) {
+    if (sessionsById.has(sessionIdentifier)) {
       return;
     }
 
-    sessionsById.set(sessionIdentifier, {
-      isLayerRecord,
-      record: withSessionIdentifier(sessionRecord, sessionIdentifier),
-    });
+    sessionsById.set(sessionIdentifier, sessionRecord);
   });
 
-  return Array.from(sessionsById.values()).map(({ record }) => record);
+  return Array.from(sessionsById.values());
 };
