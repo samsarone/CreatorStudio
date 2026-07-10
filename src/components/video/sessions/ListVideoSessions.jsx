@@ -7,6 +7,10 @@ import OverflowContainer from '../../common/OverflowContainer.tsx';
 import ShowNewUserIntroDisplay from './ShowNewUserIntroDisplay';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
 import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
+import {
+  getSessionIdentifier,
+  normalizeSessionListData,
+} from './sessionListUtils.js';
 
 import SingleSelect from '../../common/SingleSelect'; // adjust path as needed
 
@@ -46,39 +50,6 @@ const getStoredFilterValue = (storageKey, options) => {
 
   const storedValue = window.localStorage.getItem(storageKey);
   return options.some((option) => option.value === storedValue) ? storedValue : 'All';
-};
-
-const getSessionIdentifier = (session = {}) => session.id ?? session._id;
-
-const isLayerListRecord = (record = {}) => (
-  Boolean(
-    record.layerId ||
-    record.layer_id ||
-    record.imageSession ||
-    record.durationOffset !== undefined ||
-    record.layerAiVideoType
-  )
-);
-
-const normalizeSessionListData = (records) => {
-  if (!Array.isArray(records)) {
-    return [];
-  }
-
-  const seenSessionIds = new Set();
-  return records.filter((record) => {
-    if (!record || typeof record !== 'object' || isLayerListRecord(record)) {
-      return false;
-    }
-
-    const sessionIdentifier = getSessionIdentifier(record)?.toString?.();
-    if (!sessionIdentifier || seenSessionIds.has(sessionIdentifier)) {
-      return false;
-    }
-
-    seenSessionIds.add(sessionIdentifier);
-    return true;
-  });
 };
 
 const normalizeSessionText = (value) => (
