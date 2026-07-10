@@ -557,10 +557,10 @@ export default function ListVideoSessions() {
                       </div>
                     )}
                   </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
+                  <div className="flex shrink-0 flex-row flex-nowrap items-center gap-1">
                     <span
                       title={`Aspect ratio ${sessionAspectRatio}`}
-                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums tracking-wide ${
+                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums tracking-wide ${
                         colorMode === 'dark'
                           ? 'bg-slate-700/70 text-slate-200 ring-1 ring-slate-500/40'
                           : 'bg-slate-100 text-slate-700 ring-1 ring-slate-200'
@@ -570,7 +570,7 @@ export default function ListVideoSessions() {
                     </span>
                     {isImportedSession && (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                           colorMode === 'dark'
                             ? 'bg-emerald-400/12 text-emerald-200 ring-1 ring-emerald-300/25'
                             : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
@@ -581,7 +581,7 @@ export default function ListVideoSessions() {
                     )}
                     {isExpressSession && (
                       <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                           colorMode === 'dark'
                             ? 'bg-cyan-400/12 text-cyan-200 ring-1 ring-cyan-300/25'
                             : 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200'
