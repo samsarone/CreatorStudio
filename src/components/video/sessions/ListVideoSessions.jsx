@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { getHeaders } from '../../../utils/web';
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +39,48 @@ const aspectRatioOptions = [
   { value: '1:1', label: '1:1' },
 ];
 
+const getStoredFilterValue = (storageKey, options) => {
+  if (typeof window === 'undefined') {
+    return 'All';
+  }
+
+  const storedValue = window.localStorage.getItem(storageKey);
+  return options.some((option) => option.value === storedValue) ? storedValue : 'All';
+};
+
+const getSessionIdentifier = (session = {}) => session.id ?? session._id;
+
+const isLayerListRecord = (record = {}) => (
+  Boolean(
+    record.layerId ||
+    record.layer_id ||
+    record.imageSession ||
+    record.durationOffset !== undefined ||
+    record.layerAiVideoType
+  )
+);
+
+const normalizeSessionListData = (records) => {
+  if (!Array.isArray(records)) {
+    return [];
+  }
+
+  const seenSessionIds = new Set();
+  return records.filter((record) => {
+    if (!record || typeof record !== 'object' || isLayerListRecord(record)) {
+      return false;
+    }
+
+    const sessionIdentifier = getSessionIdentifier(record)?.toString?.();
+    if (!sessionIdentifier || seenSessionIds.has(sessionIdentifier)) {
+      return false;
+    }
+
+    seenSessionIds.add(sessionIdentifier);
+    return true;
+  });
+};
+
 const normalizeSessionText = (value) => (
   typeof value === 'string' ? value.trim() : ''
 );
@@ -50,8 +92,6 @@ const truncateSessionDescription = (value, maxLength = 110) => {
   }
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 };
-
-const getSessionIdentifier = (session = {}) => session.id ?? session._id;
 
 const resolveSessionPreviewImage = (session = {}, forcePlaceholder = false) => {
   const sessionIdentifier = getSessionIdentifier(session);
@@ -178,11 +218,20 @@ export default function ListVideoSessions() {
   const [totalSessions, setTotalSessions] = useState(0);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [failedPreviewKeys, setFailedPreviewKeys] = useState(() => new Set());
+  const listRequestIdRef = useRef(0);
 
-  const [renderType, setRenderType] = useState('All');
-  const [aspectRatio, setAspectRatio] = useState('All');
-  const [publishedStatus, setPublishedStatus] = useState('All');
-  const [completionStatus, setCompletionStatus] = useState('All');
+  const [renderType, setRenderType] = useState(() => (
+    getStoredFilterValue('defaultSessionSelectRenderType', renderTypeOptions)
+  ));
+  const [aspectRatio, setAspectRatio] = useState(() => (
+    getStoredFilterValue('defaultSessionSelectAspectRatio', aspectRatioOptions)
+  ));
+  const [publishedStatus, setPublishedStatus] = useState(() => (
+    getStoredFilterValue('defaultSessionSelectPublishedStatus', publishedStatusOptions)
+  ));
+  const [completionStatus, setCompletionStatus] = useState(() => (
+    getStoredFilterValue('defaultSessionSelectCompletionStatus', completionStatusOptions)
+  ));
 
   const [, setShowIntroDisplay] = useState(false);
 
@@ -206,37 +255,15 @@ export default function ListVideoSessions() {
       ? 'bg-[#111a2f] hover:bg-[#16213a] text-slate-100 border border-[#1f2a3d]'
       : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 shadow-sm';
 
-  // On mount, load defaults from localStorage if present
+  // Fetch sessions whenever pagination or a filter changes. Filters are read
+  // during initial state creation so the first request is the same request
+  // the user expects after returning from the editor.
   useEffect(() => {
-    const storedRenderType = localStorage.getItem('defaultSessionSelectRenderType');
-    const storedAspectRatio = localStorage.getItem('defaultSessionSelectAspectRatio');
-    const storedPublishedStatus = localStorage.getItem('defaultSessionSelectPublishedStatus');
-    const storedCompletionStatus = localStorage.getItem('defaultSessionSelectCompletionStatus');
-    const storedPage = localStorage.getItem('currentSessionsPage');
-
-    if (storedRenderType) {
-      setRenderType(storedRenderType);
-    }
-    if (storedAspectRatio) {
-      setAspectRatio(storedAspectRatio);
-    }
-    if (storedPublishedStatus) {
-      setPublishedStatus(storedPublishedStatus);
-    }
-    if (storedCompletionStatus) {
-      setCompletionStatus(storedCompletionStatus);
-    }
-    if (storedPage) {
-      setPage(parseInt(storedPage, 10));
-    }
-  }, []);
-
-  // Fetch sessions whenever pagination or a filter changes.
-  useEffect(() => {
-    // Save current page to localStorage
     localStorage.setItem('currentSessionsPage', page.toString());
 
     const headers = getHeaders();
+    const requestId = listRequestIdRef.current + 1;
+    listRequestIdRef.current = requestId;
     let isCancelled = false;
     const queryParams = new URLSearchParams({
       page: page.toString(),
@@ -250,23 +277,32 @@ export default function ListVideoSessions() {
     axios
       .get(`${PROCESSOR_API}/video_sessions/list?${queryParams.toString()}`, headers)
       .then(function (response) {
-        if (isCancelled) {
+        if (isCancelled || requestId !== listRequestIdRef.current) {
           return;
         }
 
         // Expecting { data, total, totalPages, currentPage, pageSize } from the server
-        const { data, total, totalPages } = response.data || {};
-        const normalizedTotalPages = Math.max(1, Number(totalPages) || 1);
-        const normalizedData = Array.isArray(data) ? data : [];
-        setSessionList(normalizedData);
-        setTotalSessions(Number(total) || 0);
-        setTotalPages(normalizedTotalPages);
+        const responsePayload = response.data || {};
+        const total = Number(responsePayload.total) || 0;
+        const normalizedTotalPages = total > 0
+          ? Math.max(1, Math.ceil(total / limit))
+          : 1;
 
-        // A stored page can become invalid after deleting projects or
-        // narrowing filters. Move back to the last available page.
-        if (page > normalizedTotalPages) {
-          setPage(normalizedTotalPages);
+        // A page persisted before a filter change can be outside the new
+        // result set. Re-request the first valid page instead of leaving the
+        // projects grid empty.
+        const validPage = total > 0
+          ? Math.min(Math.max(1, page), normalizedTotalPages)
+          : 1;
+        if (validPage !== page) {
+          setPage(validPage);
+          return;
         }
+
+        const normalizedData = normalizeSessionListData(responsePayload.data);
+        setSessionList(normalizedData);
+        setTotalSessions(total);
+        setTotalPages(normalizedTotalPages);
 
         // If no sessions, show your intro display
         if (normalizedData.length === 0) {
@@ -276,7 +312,7 @@ export default function ListVideoSessions() {
         }
       })
       .catch(() => {
-        if (!isCancelled) {
+        if (!isCancelled && requestId === listRequestIdRef.current) {
           
         }
       });
