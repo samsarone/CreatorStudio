@@ -25,43 +25,27 @@ const getParentSessionIdentifier = (record = {}) => (
   record.videoSessionId ??
   record.video_session_id ??
   record.parentSessionId ??
-  record.parent_session_id ??
-  record.projectId ??
-  record.project_id
+  record.parent_session_id
 );
 
 export const getSessionIdentifier = (record = {}) => (
   getIdentifierString(getRecordIdentifier(record))
 );
 
-const hasDistinctParentSession = (record = {}) => {
-  const parentSessionId = getIdentifierString(getParentSessionIdentifier(record));
-  const recordId = getIdentifierString(getRecordIdentifier(record));
-
-  return Boolean(parentSessionId && recordId && parentSessionId !== recordId);
-};
-
 const hasSessionMetadata = (record = {}) => [
   'name',
   'layers',
   'sessionType',
   'sessionName',
-  'sessionDescription',
   'thumbnail',
   'thumbnailUrl',
   'thumbnailURL',
   'previewImageUrl',
   'previewImageURL',
-  'aspectRatio',
-  'aspect_ratio',
   'videoLink',
   'remoteURL',
   'publishedVideoURL',
   'isExpressGeneration',
-  'expressGenerationType',
-  'ispublishedVideo',
-  'isPublished',
-  'isCompleted',
   'sessionOwnerId',
   'isSessionOwner',
   'isImportedSession',
@@ -69,7 +53,7 @@ const hasSessionMetadata = (record = {}) => [
 
 export const isLayerListRecord = (record = {}) => (
   Boolean(
-    hasDistinctParentSession(record) ||
+    getParentSessionIdentifier(record) ||
     record.layerId ||
     record.layer_id ||
     record.sceneId ||
@@ -78,10 +62,13 @@ export const isLayerListRecord = (record = {}) => (
     record.layer ||
     record.scene ||
     record.durationOffset !== undefined ||
+    record.duration !== undefined ||
+    record.prompt !== undefined ||
+    record.status !== undefined ||
+    record.frames !== undefined ||
     record.layerAiVideoType ||
     record.layerBaseAiImageType ||
-    record.connectedLayerId ||
-    (record.prompt !== undefined && record.duration !== undefined && !hasSessionMetadata(record))
+    record.connectedLayerId
   )
 );
 
@@ -89,7 +76,14 @@ export const isSessionListRecord = (record = {}) => (
   Boolean(
     record &&
     typeof record === 'object' &&
+    getIdentifierString(getRecordIdentifier(record)) &&
     !isLayerListRecord(record) &&
+    (
+      typeof record.name === 'string' ||
+      typeof record.sessionName === 'string' ||
+      Array.isArray(record.layers) ||
+      record.sessionType === 'video'
+    ) &&
     hasSessionMetadata(record)
   )
 );
@@ -120,6 +114,8 @@ export const normalizeSessionListData = (records) => {
 
     const embeddedSession = getEmbeddedSessionRecord(record);
     const sessionRecord = embeddedSession || record;
+    // A scene/layer row is never promoted into a project tile. Only a
+    // session-shaped record from the list endpoint may reach the grid.
     if (!embeddedSession && !isSessionListRecord(record)) {
       return;
     }
