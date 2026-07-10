@@ -34,6 +34,7 @@ export const getSessionIdentifier = (record = {}) => (
 
 const hasSessionMetadata = (record = {}) => [
   'name',
+  'layerCount',
   'layers',
   'sessionType',
   'sessionName',
@@ -50,6 +51,15 @@ const hasSessionMetadata = (record = {}) => [
   'isSessionOwner',
   'isImportedSession',
 ].some((field) => record[field] !== undefined);
+
+const hasMultipleLayers = (record = {}) => {
+  if (Array.isArray(record.layers)) {
+    return record.layers.length > 1;
+  }
+
+  const layerCount = Number(record.layerCount);
+  return Number.isInteger(layerCount) && layerCount > 1;
+};
 
 export const isLayerListRecord = (record = {}) => (
   Boolean(
@@ -79,29 +89,13 @@ export const isSessionListRecord = (record = {}) => (
     record &&
     typeof record === 'object' &&
     getIdentifierString(getRecordIdentifier(record)) &&
-    (record.recordType === undefined || record.recordType === 'session') &&
+    record.recordType === 'session' &&
+    record.sessionType === 'video' &&
     !isLayerListRecord(record) &&
-    (
-      typeof record.name === 'string' ||
-      typeof record.sessionName === 'string' ||
-      Array.isArray(record.layers) ||
-      record.sessionType === 'video'
-    ) &&
+    hasMultipleLayers(record) &&
     hasSessionMetadata(record)
   )
 );
-
-const getEmbeddedSessionRecord = (record = {}) => {
-  const embeddedRecord = [record.session, record.videoSession, record.project]
-    .find((candidate) => (
-      candidate &&
-      typeof candidate === 'object' &&
-      !Array.isArray(candidate) &&
-      getSessionIdentifier(candidate)
-    ));
-
-  return embeddedRecord || null;
-};
 
 export const normalizeSessionListData = (records) => {
   if (!Array.isArray(records)) {
@@ -115,15 +109,13 @@ export const normalizeSessionListData = (records) => {
       return;
     }
 
-    const embeddedSession = getEmbeddedSessionRecord(record);
-    const sessionRecord = embeddedSession || record;
     // A scene/layer row is never promoted into a project tile. Only a
-    // session-shaped record from the list endpoint may reach the grid.
-    if (!embeddedSession && !isSessionListRecord(record)) {
+    // tagged top-level session with at least two layers may reach the grid.
+    if (!isSessionListRecord(record)) {
       return;
     }
 
-    const sessionIdentifier = getSessionIdentifier(sessionRecord);
+    const sessionIdentifier = getSessionIdentifier(record);
     if (!sessionIdentifier) {
       return;
     }
@@ -132,7 +124,7 @@ export const normalizeSessionListData = (records) => {
       return;
     }
 
-    sessionsById.set(sessionIdentifier, sessionRecord);
+    sessionsById.set(sessionIdentifier, record);
   });
 
   return Array.from(sessionsById.values());
