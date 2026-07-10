@@ -3530,6 +3530,7 @@ export default function VideoHome() {
       .post(`${PROCESSOR_API_URL}/video_sessions/publish_session`, publishPayload, headers)
       .then((response) => {
         const publicationData = response.data;
+        const updatedPublication = publicationData?.publication || publicationData || {};
         setVideoSessionDetails((prevDetails) => {
           if (!prevDetails) {
             return prevDetails;
@@ -3538,16 +3539,37 @@ export default function VideoHome() {
           return {
             ...prevDetails,
             ispublishedVideo: true,
-            publishedTitle: publishPayload.title,
-            publishedDescription: publishPayload.description,
-            publishedTags: normalizedTags,
+            publishedTitle: updatedPublication.title || publishPayload.title || prevDetails.publishedTitle,
+            publishedDescription:
+              typeof updatedPublication.description === 'string'
+                ? updatedPublication.description
+                : publishPayload.description,
+            publishedTags: Array.isArray(updatedPublication.tags)
+              ? updatedPublication.tags
+              : normalizedTags,
             publishedAspectRatio: publishPayload.aspectRatio,
             publishedVideoURL:
               resolveLatestSessionVideoUrl(prevDetails) ||
               publicationData?.videoURL ||
+              publicationData?.video_url ||
+              publicationData?.publication?.videoURL ||
+              publicationData?.publication?.video_url ||
               prevDetails.publishedVideoURL ||
               prevDetails.remoteURL,
-            publishedAt: publicationData?.updatedAt || prevDetails.publishedAt || new Date().toISOString(),
+            publishedAt:
+              publicationData?.updatedAt ||
+              publicationData?.publication?.updatedAt ||
+              prevDetails.publishedAt ||
+              new Date().toISOString(),
+            publishedPublicationId:
+              publicationData?.publicationId ||
+              publicationData?.publication_id ||
+              publicationData?._id ||
+              publicationData?.id ||
+              publicationData?.publication?.publication_id ||
+              publicationData?.publication?.id ||
+              prevDetails.publishedPublicationId ||
+              null,
           };
         });
       })
@@ -4346,6 +4368,9 @@ export default function VideoHome() {
       isUpdateLayerPending={isUpdateLayerPending}
       isCanvasDirty={isCanvasDirty}
       isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
+      publishedTitle={videoSessionDetails?.publishedTitle}
+      publishedDescription={videoSessionDetails?.publishedDescription}
+      publishedTags={videoSessionDetails?.publishedTags}
       publishVideoSession={publishVideoSession}
       unpublishVideoSession={unpublishVideoSession}
       renderCompletedThisSession={renderCompletedThisSession}

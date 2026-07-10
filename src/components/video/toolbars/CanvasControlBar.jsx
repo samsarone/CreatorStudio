@@ -29,6 +29,9 @@ export default function CanvasControlBar(props) {
     isUpdateLayerPending,
     isCanvasDirty,
     isSessionPublished,
+    publishedTitle,
+    publishedDescription,
+    publishedTags,
     publishVideoSession,
     unpublishVideoSession,
     renderCompletedThisSession,
@@ -290,6 +293,9 @@ export default function CanvasControlBar(props) {
               isUpdateLayerPending={isUpdateLayerPending}
               isCanvasDirty={isCanvasDirty}
               isSessionPublished={isSessionPublished}
+              publishedTitle={publishedTitle}
+              publishedDescription={publishedDescription}
+              publishedTags={publishedTags}
               publishVideoSession={publishVideoSession}
               unpublishVideoSession={unpublishVideoSession}
               renderCompletedThisSession={renderCompletedThisSession}

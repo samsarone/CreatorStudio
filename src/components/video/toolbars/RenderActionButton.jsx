@@ -20,6 +20,9 @@ export default function RenderActionButton(props) {
     isUpdateLayerPending,
     isCanvasDirty,
     isSessionPublished,
+    publishedTitle,
+    publishedDescription,
+    publishedTags,
     publishVideoSession,
     unpublishVideoSession,
     renderCompletedThisSession,
@@ -80,12 +83,18 @@ export default function RenderActionButton(props) {
           />
         </div>
         <PublishOptionsDialog
+          isRepublish={Boolean(isSessionPublished)}
           onClose={closeAlertDialog}
           onSubmit={(payload) => {
             closeAlertDialog();
             publishVideoSession?.(payload);
           }}
-          extraProps={{ sessionId }}
+          extraProps={{
+            sessionId,
+            publishedTitle,
+            publishedDescription,
+            publishedTags,
+          }}
         />
       </div>
     );
@@ -105,6 +114,10 @@ export default function RenderActionButton(props) {
   }
 
   if (isSessionPublished) {
+    dropdownItems.push({
+      label: 'Republish',
+      onClick: showPublishOptionsDialog,
+    });
     dropdownItems.push({
       label: 'Unpublish',
       onClick: () => {

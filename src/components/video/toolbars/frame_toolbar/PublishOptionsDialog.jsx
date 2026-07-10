@@ -7,14 +7,19 @@ import { useColorMode } from '../../../../contexts/ColorMode.jsx';
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
 export default function PublishOptionsDialog(props) {
-  const { onSubmit, onClose, extraProps } = props;
+  const { onSubmit, onClose, extraProps, isRepublish = false } = props;
   const { colorMode } = useColorMode();
 
   const [, setSessionMetadata] = useState(null);
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [tags, setTags] = useState('');
+  const initialTags = Array.isArray(extraProps?.publishedTags)
+    ? extraProps.publishedTags.join(', ')
+    : typeof extraProps?.publishedTags === 'string'
+      ? extraProps.publishedTags
+      : '';
+  const [title, setTitle] = useState(extraProps?.publishedTitle || '');
+  const [description, setDescription] = useState(extraProps?.publishedDescription || '');
+  const [tags, setTags] = useState(initialTags);
 
   const generateMeta = async () => {
     try {
@@ -59,7 +64,7 @@ export default function PublishOptionsDialog(props) {
   return (
     <div className={`p-4 w-full max-w-sm rounded-xl ${dialogClassName}`}>
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-bold">Publish Options</h2>
+        <h2 className="text-lg font-bold">{isRepublish ? 'Republish Options' : 'Publish Options'}</h2>
         {/* Button in the top-right corner */}
         <button
           type="button"
@@ -116,7 +121,7 @@ export default function PublishOptionsDialog(props) {
             type="submit"
             className="px-3 py-1 rounded text-sm bg-rose-500 text-white hover:bg-rose-400"
           >
-            Publish
+            {isRepublish ? 'Republish' : 'Publish'}
           </button>
         </div>
       </form>
