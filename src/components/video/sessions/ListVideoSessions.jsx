@@ -19,9 +19,22 @@ const renderTypeOptions = [
   { value: 'Pending', label: 'Pending' },
 ];
 
+const publishedStatusOptions = [
+  { value: 'All', label: 'All' },
+  { value: 'Published', label: 'Published' },
+  { value: 'Unpublished', label: 'Unpublished' },
+];
+
+const completionStatusOptions = [
+  { value: 'All', label: 'All' },
+  { value: 'Completed', label: 'Completed' },
+  { value: 'NotCompleted', label: 'Not completed' },
+];
+
 const aspectRatioOptions = [
   { value: 'All', label: 'All' },
   { value: '16:9', label: '16:9' },
+  { value: '19:6', label: '19:6' },
   { value: '9:16', label: '9:16' },
   { value: '1:1', label: '1:1' },
 ];
@@ -162,11 +175,14 @@ export default function ListVideoSessions() {
   const [page, setPage] = useState(1);
   const [limit] = useState(30); // Show 30 items per page by default
   const [totalPages, setTotalPages] = useState(1);
+  const [totalSessions, setTotalSessions] = useState(0);
   const [refreshCounter, setRefreshCounter] = useState(0);
   const [failedPreviewKeys, setFailedPreviewKeys] = useState(() => new Set());
 
   const [renderType, setRenderType] = useState('All');
   const [aspectRatio, setAspectRatio] = useState('All');
+  const [publishedStatus, setPublishedStatus] = useState('All');
+  const [completionStatus, setCompletionStatus] = useState('All');
 
   const [, setShowIntroDisplay] = useState(false);
 
@@ -194,6 +210,8 @@ export default function ListVideoSessions() {
   useEffect(() => {
     const storedRenderType = localStorage.getItem('defaultSessionSelectRenderType');
     const storedAspectRatio = localStorage.getItem('defaultSessionSelectAspectRatio');
+    const storedPublishedStatus = localStorage.getItem('defaultSessionSelectPublishedStatus');
+    const storedCompletionStatus = localStorage.getItem('defaultSessionSelectCompletionStatus');
     const storedPage = localStorage.getItem('currentSessionsPage');
 
     if (storedRenderType) {
@@ -202,36 +220,56 @@ export default function ListVideoSessions() {
     if (storedAspectRatio) {
       setAspectRatio(storedAspectRatio);
     }
+    if (storedPublishedStatus) {
+      setPublishedStatus(storedPublishedStatus);
+    }
+    if (storedCompletionStatus) {
+      setCompletionStatus(storedCompletionStatus);
+    }
     if (storedPage) {
       setPage(parseInt(storedPage, 10));
     }
   }, []);
 
-  // Fetch sessions whenever page, limit, renderType, aspectRatio change
+  // Fetch sessions whenever pagination or a filter changes.
   useEffect(() => {
     // Save current page to localStorage
     localStorage.setItem('currentSessionsPage', page.toString());
 
     const headers = getHeaders();
     let isCancelled = false;
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      renderType,
+      aspectRatio,
+      publishedStatus,
+      completionStatus,
+    });
 
     axios
-      .get(
-        `${PROCESSOR_API}/video_sessions/list?page=${page}&limit=${limit}&renderType=${renderType}&aspectRatio=${aspectRatio}`,
-        headers
-      )
+      .get(`${PROCESSOR_API}/video_sessions/list?${queryParams.toString()}`, headers)
       .then(function (response) {
         if (isCancelled) {
           return;
         }
 
         // Expecting { data, total, totalPages, currentPage, pageSize } from the server
-        const { data, totalPages } = response.data;
-        setSessionList(data);
-        setTotalPages(totalPages);
+        const { data, total, totalPages } = response.data || {};
+        const normalizedTotalPages = Math.max(1, Number(totalPages) || 1);
+        const normalizedData = Array.isArray(data) ? data : [];
+        setSessionList(normalizedData);
+        setTotalSessions(Number(total) || 0);
+        setTotalPages(normalizedTotalPages);
+
+        // A stored page can become invalid after deleting projects or
+        // narrowing filters. Move back to the last available page.
+        if (page > normalizedTotalPages) {
+          setPage(normalizedTotalPages);
+        }
 
         // If no sessions, show your intro display
-        if (!data || data.length === 0) {
+        if (normalizedData.length === 0) {
           setShowIntroDisplay(true);
         } else {
           setShowIntroDisplay(false);
@@ -246,7 +284,7 @@ export default function ListVideoSessions() {
     return () => {
       isCancelled = true;
     };
-  }, [page, limit, renderType, aspectRatio, refreshCounter]);
+  }, [page, limit, renderType, aspectRatio, publishedStatus, completionStatus, refreshCounter]);
 
   // Handle filter changes
   const handleChangeRenderType = (selectedOption) => {
@@ -265,15 +303,33 @@ export default function ListVideoSessions() {
     setPage(1);
   };
 
+  const handleChangePublishedStatus = (selectedOption) => {
+    const val = selectedOption.value;
+    setPublishedStatus(val);
+    localStorage.setItem('defaultSessionSelectPublishedStatus', val);
+    setPage(1);
+  };
+
+  const handleChangeCompletionStatus = (selectedOption) => {
+    const val = selectedOption.value;
+    setCompletionStatus(val);
+    localStorage.setItem('defaultSessionSelectCompletionStatus', val);
+    setPage(1);
+  };
+
   // Reset everything
   const handleResetFilters = () => {
     setPage(1);
     setRenderType('All');
     setAspectRatio('All');
+    setPublishedStatus('All');
+    setCompletionStatus('All');
 
     localStorage.setItem('currentSessionsPage', '1');
     localStorage.setItem('defaultSessionSelectRenderType', 'All');
     localStorage.setItem('defaultSessionSelectAspectRatio', 'All');
+    localStorage.setItem('defaultSessionSelectPublishedStatus', 'All');
+    localStorage.setItem('defaultSessionSelectCompletionStatus', 'All');
   };
 
   // Navigation
@@ -443,27 +499,65 @@ export default function ListVideoSessions() {
     <OverflowContainer>
       <div className={`min-h-screen w-full px-4 pb-12 pt-20 sm:px-6 lg:px-8 ${containerSurface}`}>
         {/* Top Section: Filters + Reset + Pagination controls */}
-        <div className="mx-auto mb-6 flex w-full max-w-[1600px] flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto mb-6 flex w-full max-w-[1600px] flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           {/* Filters */}
-          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto] lg:w-auto">
+          <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 lg:w-auto lg:grid-cols-[repeat(4,minmax(0,180px))_auto]">
             {/* Render Type Filter */}
             <div className="min-w-0">
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="project-render-filter">
+                Render status
+              </label>
               <SingleSelect
                 options={renderTypeOptions}
                 value={renderTypeOptions.find((o) => o.value === renderType)}
                 onChange={handleChangeRenderType}
                 classNamePrefix="renderTypeSelect"
+                name="project-render-filter"
                 isSearchable={false}
               />
             </div>
 
             {/* Aspect Ratio Filter */}
             <div className="min-w-0">
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="project-aspect-ratio-filter">
+                Aspect ratio
+              </label>
               <SingleSelect
                 options={aspectRatioOptions}
                 value={aspectRatioOptions.find((o) => o.value === aspectRatio)}
                 onChange={handleChangeAspectRatio}
                 classNamePrefix="aspectRatioSelect"
+                name="project-aspect-ratio-filter"
+                isSearchable={false}
+              />
+            </div>
+
+            {/* Published Status Filter */}
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="project-published-filter">
+                Publication
+              </label>
+              <SingleSelect
+                options={publishedStatusOptions}
+                value={publishedStatusOptions.find((o) => o.value === publishedStatus)}
+                onChange={handleChangePublishedStatus}
+                classNamePrefix="publishedStatusSelect"
+                name="project-published-filter"
+                isSearchable={false}
+              />
+            </div>
+
+            {/* Completion Status Filter */}
+            <div className="min-w-0">
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="project-completion-filter">
+                Completion
+              </label>
+              <SingleSelect
+                options={completionStatusOptions}
+                value={completionStatusOptions.find((o) => o.value === completionStatus)}
+                onChange={handleChangeCompletionStatus}
+                classNamePrefix="completionStatusSelect"
+                name="project-completion-filter"
                 isSearchable={false}
               />
             </div>
@@ -479,6 +573,9 @@ export default function ListVideoSessions() {
 
           {/* Pagination controls */}
           <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
+            <span className="text-xs text-slate-500">
+              Showing {sessionList.length} of {totalSessions} projects
+            </span>
             <button
               onClick={handlePrevPage}
               disabled={page <= 1}
@@ -521,7 +618,7 @@ export default function ListVideoSessions() {
             ) || '1:1';
             const isExpressSession = Boolean(session.isExpressGeneration);
             const isImportedSession = Boolean(session.isImportedSession);
-            const isPublishedSession = Boolean(session.ispublishedVideo);
+            const isPublishedSession = Boolean(session.isPublished || session.ispublishedVideo);
 
             return (
               <div
