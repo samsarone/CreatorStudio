@@ -3516,6 +3516,11 @@ export default function VideoHome() {
       ispublishedVideo: true,
     };
     const latestVideoUrl = resolveLatestSessionVideoUrl(videoSessionDetails);
+    const latestThumbnailUrl = [
+      publishPayload.splashImage,
+      videoSessionDetails?.splashImage,
+      videoSessionDetails?.publishedSplashImage,
+    ].find((value) => typeof value === 'string' && value.trim());
     if (sessionLanguage) {
       publishPayload.sessionLanguage = sessionLanguage;
     }
@@ -3524,6 +3529,9 @@ export default function VideoHome() {
     }
     if (latestVideoUrl) {
       publishPayload.renderedVideoURL = latestVideoUrl;
+    }
+    if (latestThumbnailUrl) {
+      publishPayload.splashImage = latestThumbnailUrl;
     }
 
     axios
@@ -3549,11 +3557,11 @@ export default function VideoHome() {
               : normalizedTags,
             publishedAspectRatio: publishPayload.aspectRatio,
             publishedVideoURL:
-              resolveLatestSessionVideoUrl(prevDetails) ||
               publicationData?.videoURL ||
               publicationData?.video_url ||
               publicationData?.publication?.videoURL ||
               publicationData?.publication?.video_url ||
+              resolveLatestSessionVideoUrl(prevDetails) ||
               prevDetails.publishedVideoURL ||
               prevDetails.remoteURL,
             publishedAt:
@@ -3572,9 +3580,20 @@ export default function VideoHome() {
               null,
           };
         });
+        toast.success('Video published successfully.', {
+          position: 'bottom-center',
+          autoClose: 3000,
+          hideProgressBar: true,
+          className: 'custom-toast',
+        });
       })
-      .catch(() => {
-
+      .catch((error) => {
+        toast.error(error?.response?.data?.error || 'Unable to publish video.', {
+          position: 'bottom-center',
+          autoClose: 5000,
+          hideProgressBar: true,
+          className: 'custom-toast',
+        });
       });
   }
 

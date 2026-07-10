@@ -36,6 +36,7 @@ import {
   FaClone,
 } from 'react-icons/fa';
 import axios from 'axios';
+import { ToastContainer, toast } from 'react-toastify';
 
 import { useUser } from '../../contexts/UserContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
@@ -78,6 +79,7 @@ import 'ace-builds/src-noconflict/mode-json';
 import 'ace-builds/src-noconflict/theme-monokai';
 import 'ace-builds/src-noconflict/ext-language_tools';
 import 'react-tooltip/dist/react-tooltip.css';
+import 'react-toastify/dist/ReactToastify.css';
 import './mobileStyles.css';
 
 ace.config.set('useWorker', false);
@@ -3997,6 +3999,14 @@ export default function OneshotEditor() {
       if (latestVideoUrl) {
         publishPayload.renderedVideoURL = latestVideoUrl;
       }
+      const latestThumbnailUrl = [
+        formPayload.splashImage,
+        latestSessionDetails?.splashImage,
+        latestSessionDetails?.publishedSplashImage,
+      ].find((value) => typeof value === 'string' && value.trim());
+      if (latestThumbnailUrl) {
+        publishPayload.splashImage = latestThumbnailUrl;
+      }
 
       await axios.post(
         `${PROCESSOR_API_URL}/video_sessions/publish_session`,
@@ -4004,9 +4014,24 @@ export default function OneshotEditor() {
         headers
       );
 
-      await getSessionDetails();
-    } catch  {
-
+      toast.success('Video published successfully.', {
+        position: 'bottom-center',
+        autoClose: 3000,
+        hideProgressBar: true,
+        className: 'custom-toast',
+      });
+      try {
+        await getSessionDetails();
+      } catch (refreshError) {
+        console.error('Video published but session refresh failed:', refreshError);
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Unable to publish video.', {
+        position: 'bottom-center',
+        autoClose: 5000,
+        hideProgressBar: true,
+        className: 'custom-toast',
+      });
     } finally {
       setIsPublishing(false);
     }
@@ -7891,6 +7916,15 @@ export default function OneshotEditor() {
         />
       </div>
       )}
+      <ToastContainer
+        position="bottom-center"
+        autoClose={5000}
+        hideProgressBar
+        newestOnTop={false}
+        closeOnClick
+        pauseOnFocusLoss
+        draggable
+      />
     </div>
   );
 }
