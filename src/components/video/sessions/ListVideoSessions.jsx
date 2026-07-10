@@ -521,6 +521,7 @@ export default function ListVideoSessions() {
             ) || '1:1';
             const isExpressSession = Boolean(session.isExpressGeneration);
             const isImportedSession = Boolean(session.isImportedSession);
+            const isPublishedSession = Boolean(session.ispublishedVideo);
 
             return (
               <div
@@ -588,6 +589,18 @@ export default function ListVideoSessions() {
                         }`}
                       >
                         Express
+                      </span>
+                    )}
+                    {isPublishedSession && (
+                      <span
+                        title="Published to gallery"
+                        className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          colorMode === 'dark'
+                            ? 'bg-violet-400/12 text-violet-200 ring-1 ring-violet-300/25'
+                            : 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                        }`}
+                      >
+                        Published
                       </span>
                     )}
                   </div>

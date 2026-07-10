@@ -107,6 +107,9 @@ export default function CanvasControlBar(props) {
   const importedBadgeClassName = colorMode === 'dark'
     ? 'inline-flex items-center rounded-xl bg-emerald-300/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-100 ring-1 ring-emerald-200/25'
     : 'inline-flex items-center rounded-xl bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 ring-1 ring-emerald-200';
+  const publishedBadgeClassName = colorMode === 'dark'
+    ? 'inline-flex items-center rounded-xl bg-violet-300/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-100 ring-1 ring-violet-200/25'
+    : 'inline-flex items-center rounded-xl bg-violet-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700 ring-1 ring-violet-200';
 
   const IconActionButton = ({
     title,
@@ -204,6 +207,11 @@ export default function CanvasControlBar(props) {
       <span className={importedBadgeClassName}>Imported</span>
     </div>
   );
+  const publishedControlDisplay = !isImageStudio && isSessionPublished && (
+    <div className={sectionSurfaceClassName}>
+      <span className={publishedBadgeClassName} title="Published to gallery">Published</span>
+    </div>
+  );
   const disabledShellClass = isRenderPending ? "pending-disabled-shell" : "";
 
   return (
@@ -217,6 +225,7 @@ export default function CanvasControlBar(props) {
         {expressGenerationLink}
         {readOnlyControlDisplay}
         {importedControlDisplay}
+        {publishedControlDisplay}
 
         {!isImageStudio && (
           <div className={sectionSurfaceClassName}>
