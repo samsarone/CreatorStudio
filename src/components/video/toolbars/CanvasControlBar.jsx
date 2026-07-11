@@ -31,7 +31,6 @@ export default function CanvasControlBar(props) {
     isSessionPublished,
     publishedTitle,
     publishedDescription,
-    publishedTags,
     publishVideoSession,
     unpublishVideoSession,
     renderCompletedThisSession,
@@ -304,7 +303,6 @@ export default function CanvasControlBar(props) {
               isSessionPublished={isSessionPublished}
               publishedTitle={publishedTitle}
               publishedDescription={publishedDescription}
-              publishedTags={publishedTags}
               publishVideoSession={publishVideoSession}
               unpublishVideoSession={unpublishVideoSession}
               renderCompletedThisSession={renderCompletedThisSession}

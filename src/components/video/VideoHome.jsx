@@ -3487,12 +3487,6 @@ export default function VideoHome() {
       return;
     }
 
-    const normalizedTags = typeof payload.tags === 'string'
-      ? payload.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
-      : Array.isArray(payload.tags)
-        ? payload.tags.map((tag) => tag.trim()).filter(Boolean)
-        : [];
-
     const sessionLanguage =
       typeof payload.sessionLanguage === 'string' && payload.sessionLanguage.trim().length > 0
         ? payload.sessionLanguage.trim()
@@ -3514,7 +3508,6 @@ export default function VideoHome() {
 
     const publishPayload = {
       ...payload,
-      tags: normalizedTags,
       aspectRatio: aspectRatio,
       ispublishedVideo: true,
     };
@@ -3555,9 +3548,6 @@ export default function VideoHome() {
               typeof updatedPublication.description === 'string'
                 ? updatedPublication.description
                 : publishPayload.description,
-            publishedTags: Array.isArray(updatedPublication.tags)
-              ? updatedPublication.tags
-              : normalizedTags,
             publishedAspectRatio: publishPayload.aspectRatio,
             publishedVideoURL:
               publicationData?.videoURL ||
@@ -4392,7 +4382,6 @@ export default function VideoHome() {
       isSessionPublished={Boolean(videoSessionDetails?.ispublishedVideo)}
       publishedTitle={videoSessionDetails?.publishedTitle}
       publishedDescription={videoSessionDetails?.publishedDescription}
-      publishedTags={videoSessionDetails?.publishedTags}
       publishVideoSession={publishVideoSession}
       unpublishVideoSession={unpublishVideoSession}
       renderCompletedThisSession={renderCompletedThisSession}

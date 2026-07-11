@@ -17,19 +17,12 @@ export default function PublishOptionsDialog(props) {
   } = props;
   const { colorMode } = useColorMode();
 
-  const initialTags = Array.isArray(extraProps?.publishedTags)
-    ? extraProps.publishedTags.join(', ')
-    : typeof extraProps?.publishedTags === 'string'
-      ? extraProps.publishedTags
-      : '';
   const initialDraft = {
     title: publishDraft?.title ?? extraProps?.publishedTitle ?? '',
     description: publishDraft?.description ?? extraProps?.publishedDescription ?? '',
-    tags: publishDraft?.tags ?? initialTags,
   };
   const [title, setTitle] = useState(initialDraft.title);
   const [description, setDescription] = useState(initialDraft.description);
-  const [tags, setTags] = useState(initialDraft.tags);
 
   const generateMeta = async () => {
     try {
@@ -46,16 +39,10 @@ export default function PublishOptionsDialog(props) {
       const generatedDraft = {
         title: sessionMeta.title || '',
         description: sessionMeta.description || '',
-        tags: Array.isArray(sessionMeta.tags)
-          ? sessionMeta.tags.join(', ')
-          : typeof sessionMeta.tags === 'string'
-            ? sessionMeta.tags
-            : '',
       };
 
       setTitle(generatedDraft.title);
       setDescription(generatedDraft.description);
-      setTags(generatedDraft.tags);
       onDraftChange?.(generatedDraft);
     } catch  {
       // Keep the current draft when metadata generation fails.
@@ -69,7 +56,7 @@ export default function PublishOptionsDialog(props) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ title, description, tags, id: extraProps.sessionId });
+    onSubmit({ title, description, id: extraProps.sessionId });
   };
 
   const labelClassName = colorMode === 'dark' ? 'text-slate-200' : 'text-slate-700';
@@ -127,19 +114,6 @@ export default function PublishOptionsDialog(props) {
             onChange={(e) => updateDraftField('description', e.target.value, setDescription)}
             className={`w-full resize-y rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${fieldClassName}`}
             rows={4}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label htmlFor="publish-tags" className={`block text-sm font-medium ${labelClassName}`}>
-            Tags (comma-separated)
-          </label>
-          <input
-            id="publish-tags"
-            type="text"
-            value={tags}
-            onChange={(e) => updateDraftField('tags', e.target.value, setTags)}
-            className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none transition focus:ring-2 ${fieldClassName}`}
           />
         </div>
 

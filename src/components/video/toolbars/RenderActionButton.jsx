@@ -23,7 +23,6 @@ export default function RenderActionButton(props) {
     isSessionPublished,
     publishedTitle,
     publishedDescription,
-    publishedTags,
     publishVideoSession,
     unpublishVideoSession,
     renderCompletedThisSession,
@@ -88,11 +87,6 @@ export default function RenderActionButton(props) {
       description: currentDraft?.sessionId === sessionId
         ? currentDraft.description
         : publishedDescription || '',
-      tags: currentDraft?.sessionId === sessionId
-        ? currentDraft.tags
-        : Array.isArray(publishedTags)
-          ? publishedTags.join(', ')
-          : publishedTags || '',
       ...updates,
     }));
   };
@@ -112,7 +106,6 @@ export default function RenderActionButton(props) {
           sessionId,
           publishedTitle,
           publishedDescription,
-          publishedTags,
         }}
       />,
       undefined,
