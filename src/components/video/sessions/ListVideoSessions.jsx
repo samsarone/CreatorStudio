@@ -64,15 +64,19 @@ const truncateSessionDescription = (value, maxLength = 110) => {
   return `${normalized.slice(0, maxLength).trimEnd()}...`;
 };
 
-const getRawSessionPreviewImage = (session = {}) => (
+const getRawSessionPreviewImages = (session = {}) => (
   [
+    ...(Array.isArray(session.thumbnailUrls) ? session.thumbnailUrls : []),
     session.thumbnailUrl,
     session.thumbnailURL,
     session.previewImageUrl,
     session.previewImageURL,
     session.previewImage,
     session.thumbnail,
-  ].find((value) => typeof value === 'string' && value.trim()) || ''
+  ]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => value.trim())
+    .filter((value, index, values) => values.indexOf(value) === index)
 );
 
 const resolveSessionPreviewSource = (previewImage) => {
@@ -102,20 +106,18 @@ const resolveSessionPreviewSource = (previewImage) => {
   return processorBaseUrl ? `${processorBaseUrl}${normalizedPath}` : normalizedPath;
 };
 
-const resolveSessionPreviewImage = (session = {}, forcePlaceholder = false) => {
+const resolveSessionPreviewImage = (session = {}, failedPreviewSources = new Set()) => {
   const sessionIdentifier = getSessionIdentifier(session);
-  const providedPreviewImage = getRawSessionPreviewImage(session);
+  const providedPreviewImages = getRawSessionPreviewImages(session)
+    .map(resolveSessionPreviewSource)
+    .filter(Boolean);
+  const availablePreviewImage = providedPreviewImages.find(
+    (previewImage) => !failedPreviewSources.has(previewImage)
+  );
 
-  if (forcePlaceholder) {
+  if (availablePreviewImage) {
     return {
-      src: '',
-      isPlaceholder: true,
-    };
-  }
-
-  if (providedPreviewImage) {
-    return {
-      src: resolveSessionPreviewSource(providedPreviewImage),
+      src: availablePreviewImage,
       isPlaceholder: false,
     };
   }
@@ -128,9 +130,16 @@ const resolveSessionPreviewImage = (session = {}, forcePlaceholder = false) => {
   }
 
   const sessionSplashPath = `/video/splash/${encodeURIComponent(sessionIdentifier)}/splash.png`;
+  const sessionSplashUrl = resolveSessionPreviewSource(sessionSplashPath);
+  if (failedPreviewSources.has(sessionSplashUrl)) {
+    return {
+      src: '',
+      isPlaceholder: true,
+    };
+  }
 
   return {
-    src: resolveSessionPreviewSource(sessionSplashPath),
+    src: sessionSplashUrl,
     isPlaceholder: false,
   };
 };
@@ -238,7 +247,7 @@ export default function ListVideoSessions() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalSessions, setTotalSessions] = useState(0);
   const [refreshCounter, setRefreshCounter] = useState(0);
-  const [failedPreviewKeys, setFailedPreviewKeys] = useState(() => new Set());
+  const [failedPreviewSources, setFailedPreviewSources] = useState(() => new Set());
   const listRequestIdRef = useRef(0);
 
   const [renderType, setRenderType] = useState(() => (
@@ -322,6 +331,7 @@ export default function ListVideoSessions() {
 
         const normalizedData = normalizeSessionListData(responsePayload.data);
         setSessionList(normalizedData);
+        setFailedPreviewSources(new Set());
         setTotalSessions(total);
         setTotalPages(normalizedTotalPages);
 
@@ -518,18 +528,18 @@ export default function ListVideoSessions() {
     (getSessionIdentifier(session) ?? `session-${index}`).toString()
   );
 
-  const handleSessionPreviewImageError = (sessionKey) => {
-    if (!sessionKey) {
+  const handleSessionPreviewImageError = (previewSource) => {
+    if (!previewSource) {
       return;
     }
 
-    setFailedPreviewKeys((currentKeys) => {
-      if (currentKeys.has(sessionKey)) {
-        return currentKeys;
+    setFailedPreviewSources((currentSources) => {
+      if (currentSources.has(previewSource)) {
+        return currentSources;
       }
-      const nextKeys = new Set(currentKeys);
-      nextKeys.add(sessionKey);
-      return nextKeys;
+      const nextSources = new Set(currentSources);
+      nextSources.add(previewSource);
+      return nextSources;
     });
   };
 
@@ -661,14 +671,13 @@ export default function ListVideoSessions() {
           {sessionList.map((session, index) => {
             if (!session) return null;
             const sessionKey = getSessionKey(session, index);
-            const sessionPreviewKey = `${sessionKey}:session-splash`;
             const sessionName = normalizeSessionText(session.sessionName);
             const sessionDescription = normalizeSessionText(session.sessionDescription);
             const sessionDisplayName = sessionName || session.name;
             const sessionDisplayDescription = truncateSessionDescription(sessionDescription);
             const sessionPreview = resolveSessionPreviewImage(
               session,
-              failedPreviewKeys.has(sessionPreviewKey)
+              failedPreviewSources
             );
             const sessionAspectRatio = normalizeSessionText(
               session.aspectRatio ?? session.aspect_ratio
@@ -763,7 +772,7 @@ export default function ListVideoSessions() {
                   {!sessionPreview.isPlaceholder && sessionPreview.src && (
                     <img
                       src={sessionPreview.src}
-                      onError={() => handleSessionPreviewImageError(sessionPreviewKey)}
+                      onError={() => handleSessionPreviewImageError(sessionPreview.src)}
                       className="h-full w-full object-cover"
                       alt={`Session ${index + 1}`}
                     />

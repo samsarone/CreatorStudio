@@ -1655,7 +1655,10 @@ export default function VideoHome() {
           `${PROCESSOR_API_URL}/video_sessions/editable_share/${encodeURIComponent(editableShareToken)}`,
           headers || undefined
         )
-        : axios.get(`${PROCESSOR_API_URL}/video_sessions/session_details?id=${routeSessionId}`, headers);
+        : axios.get(
+          `${PROCESSOR_API_URL}/video_sessions/session_details?id=${encodeURIComponent(routeSessionId)}&cacheBust=${Date.now()}`,
+          headers
+        );
 
     sessionDetailsRequest.then((dataRes) => {
       const sessionDetails = normalizeGuestSessionForStudio(dataRes.data);

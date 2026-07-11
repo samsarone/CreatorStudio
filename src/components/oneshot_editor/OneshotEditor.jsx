@@ -4755,7 +4755,7 @@ export default function OneshotEditor() {
         let sessionResponse;
         try {
           sessionResponse = await axios.get(
-            `${API_SERVER}/quick_session/details?sessionId=${id}`,
+            `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`,
             headers
           );
         } catch (error) {
@@ -4770,7 +4770,7 @@ export default function OneshotEditor() {
           }
 
           sessionResponse = await axios.get(
-            `${API_SERVER}/quick_session/details?sessionId=${id}`,
+            `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`,
             headers
           );
         }
