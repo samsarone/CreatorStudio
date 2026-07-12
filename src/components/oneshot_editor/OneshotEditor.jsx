@@ -4008,11 +4008,57 @@ export default function OneshotEditor() {
         publishPayload.splashImage = latestThumbnailUrl;
       }
 
-      await axios.post(
+      const publishResponse = await axios.post(
         `${PROCESSOR_API_URL}/video_sessions/publish_session`,
         publishPayload,
         headers
       );
+
+      const responseData = publishResponse.data || {};
+      const publishedSession = responseData.session;
+      const publishedPublication = responseData.publication || responseData;
+      setSessionDetails((currentSessionDetails) => ({
+        ...(currentSessionDetails || latestSessionDetails || {}),
+        ...(publishedSession && typeof publishedSession === 'object' ? publishedSession : {}),
+        ispublishedVideo: true,
+        publishedTitle:
+          publishedSession?.publishedTitle ||
+          publishedPublication?.title ||
+          publishPayload.title ||
+          currentSessionDetails?.publishedTitle ||
+          null,
+        publishedDescription:
+          typeof publishedSession?.publishedDescription === 'string'
+            ? publishedSession.publishedDescription
+            : typeof publishedPublication?.description === 'string'
+              ? publishedPublication.description
+              : publishPayload.description || '',
+        publishedTags:
+          publishedSession?.publishedTags ||
+          publishedPublication?.tags ||
+          normalizedTags,
+        publishedAspectRatio:
+          publishedSession?.publishedAspectRatio ||
+          publishPayload.aspectRatio ||
+          null,
+        publishedVideoURL:
+          publishedSession?.publishedVideoURL ||
+          publishedPublication?.videoURL ||
+          latestVideoUrl ||
+          currentSessionDetails?.publishedVideoURL ||
+          null,
+        publishedAt:
+          publishedSession?.publishedAt ||
+          publishedPublication?.updatedAt ||
+          currentSessionDetails?.publishedAt ||
+          new Date().toISOString(),
+        publishedPublicationId:
+          publishedSession?.publishedPublicationId ||
+          publishedPublication?._id ||
+          publishedPublication?.id ||
+          currentSessionDetails?.publishedPublicationId ||
+          null,
+      }));
 
       toast.success('Video published successfully.', {
         position: 'bottom-center',
@@ -4020,11 +4066,6 @@ export default function OneshotEditor() {
         hideProgressBar: true,
         className: 'custom-toast',
       });
-      try {
-        await getSessionDetails();
-      } catch (refreshError) {
-        console.error('Video published but session refresh failed:', refreshError);
-      }
     } catch (error) {
       toast.error(error?.response?.data?.error || 'Unable to publish video.', {
         position: 'bottom-center',

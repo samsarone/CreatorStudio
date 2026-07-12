@@ -3535,6 +3535,7 @@ export default function VideoHome() {
       .then((response) => {
         const publicationData = response.data;
         const updatedPublication = publicationData?.publication || publicationData || {};
+        const updatedSession = publicationData?.session || {};
         setVideoSessionDetails((prevDetails) => {
           if (!prevDetails) {
             return prevDetails;
@@ -3542,14 +3543,23 @@ export default function VideoHome() {
 
           return {
             ...prevDetails,
+            ...updatedSession,
             ispublishedVideo: true,
-            publishedTitle: updatedPublication.title || publishPayload.title || prevDetails.publishedTitle,
+            publishedTitle:
+              updatedSession.publishedTitle ||
+              updatedPublication.title ||
+              publishPayload.title ||
+              prevDetails.publishedTitle,
             publishedDescription:
-              typeof updatedPublication.description === 'string'
+              typeof updatedSession.publishedDescription === 'string'
+                ? updatedSession.publishedDescription
+                : typeof updatedPublication.description === 'string'
                 ? updatedPublication.description
                 : publishPayload.description,
-            publishedAspectRatio: publishPayload.aspectRatio,
+            publishedAspectRatio:
+              updatedSession.publishedAspectRatio || publishPayload.aspectRatio,
             publishedVideoURL:
+              updatedSession.publishedVideoURL ||
               publicationData?.videoURL ||
               publicationData?.video_url ||
               publicationData?.publication?.videoURL ||
@@ -3558,11 +3568,13 @@ export default function VideoHome() {
               prevDetails.publishedVideoURL ||
               prevDetails.remoteURL,
             publishedAt:
+              updatedSession.publishedAt ||
               publicationData?.updatedAt ||
               publicationData?.publication?.updatedAt ||
               prevDetails.publishedAt ||
               new Date().toISOString(),
             publishedPublicationId:
+              updatedSession.publishedPublicationId ||
               publicationData?.publicationId ||
               publicationData?.publication_id ||
               publicationData?._id ||
