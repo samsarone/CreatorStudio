@@ -6918,9 +6918,10 @@ export default function OneshotEditor() {
               </div>
             )}
 
-            {renderCompletedVideoActions('w-full sm:w-auto')}
           </div>
         </div>
+
+        {renderCompletedVideoActions('mt-3 w-full sm:w-auto sm:self-end')}
 
         {shouldCollapseOriginalRequest && (
           <div className={`mt-4 rounded-xl p-3 ring-1 ${
