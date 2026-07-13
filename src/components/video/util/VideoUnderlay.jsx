@@ -73,9 +73,11 @@ export default function VideoUnderlay(props) {
 
   useEffect(() => {
     if (!currentVideoSrc) {
-      setSlotSources((previousSources) => (
-        previousSources[0] || previousSources[1] ? ['', ''] : previousSources
-      ));
+      if (!nextVideoSrc) {
+        setSlotSources((previousSources) => (
+          previousSources[0] || previousSources[1] ? ['', ''] : previousSources
+        ));
+      }
       setIsVideoReady(false);
       setVideoLayout(getDefaultVideoLayout(aiVideoLayerType));
       return;
@@ -101,10 +103,10 @@ export default function VideoUnderlay(props) {
     setActiveSlotIndex(targetSlotIndex);
     setIsVideoReady(false);
     setVideoLayout(getDefaultVideoLayout(aiVideoLayerType));
-  }, [activeSlotIndex, aiVideoLayerType, currentVideoSrc, slotSources]);
+  }, [activeSlotIndex, aiVideoLayerType, currentVideoSrc, nextVideoSrc, slotSources]);
 
   useEffect(() => {
-    if (!currentVideoSrc || !nextVideoSrc || nextVideoSrc === currentVideoSrc || slotSources.includes(nextVideoSrc)) {
+    if (!nextVideoSrc || nextVideoSrc === currentVideoSrc || slotSources.includes(nextVideoSrc)) {
       return;
     }
 

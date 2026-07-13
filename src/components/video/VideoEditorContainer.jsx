@@ -56,6 +56,7 @@ const STATIC_CDN_URL = import.meta.env.VITE_STATIC_CDN_URL;
 const VIDEO_TASK_POLL_INTERVAL_MS = 1500;
 const USER_VIDEO_UPLOAD_CHUNK_SIZE_BYTES = 8 * 1024 * 1024;
 const DISPLAY_FRAMES_PER_SECOND = 30;
+const VIDEO_SCENE_PRELOAD_LOOKAHEAD = 2;
 
 function isActiveUserVideoUploadTask(task) {
   return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
@@ -223,28 +224,48 @@ function resolveLayerVideoUrl(layer, assetField, remoteField, sessionDetails) {
     return null;
   }
 
+  const structuredFieldByAssetField = {
+    aiVideoLayer: 'aiVideo',
+    lipSyncVideoLayer: 'lipSyncVideo',
+    soundEffectVideoLayer: 'soundEffectVideo',
+    userVideoLayer: 'userVideo',
+  };
+  const structuredVideo = layer[structuredFieldByAssetField[assetField]];
   const rawAssetSource = layer[assetField];
   const rawRemoteSource = layer[remoteField];
-  if (isGuestMediaUrl(rawAssetSource)) {
-    return resolveMediaUrl(rawAssetSource, PROCESSOR_API_URL);
-  }
-  if (isGuestMediaUrl(rawRemoteSource)) {
-    return resolveMediaUrl(rawRemoteSource, PROCESSOR_API_URL);
+  const structuredSource = typeof structuredVideo === 'string'
+    ? structuredVideo
+    : [
+      structuredVideo?.url,
+      structuredVideo?.remoteURL,
+      structuredVideo?.remoteUrl,
+      structuredVideo?.remote_url,
+      structuredVideo?.assetPath,
+      structuredVideo?.src,
+    ].find((value) => typeof value === 'string' && value.trim());
+  const sources = [rawRemoteSource, structuredSource, rawAssetSource]
+    .filter((value) => typeof value === 'string' && value.trim());
+
+  for (const source of sources) {
+    if (isGuestMediaUrl(source)) {
+      return resolveMediaUrl(source, PROCESSOR_API_URL);
+    }
+
+    const guestMediaUrl = buildGuestSessionMediaUrl(sessionDetails, source);
+    if (guestMediaUrl) {
+      return resolveMediaUrl(guestMediaUrl, PROCESSOR_API_URL);
+    }
   }
 
-  const guestAssetUrl = buildGuestSessionMediaUrl(sessionDetails, rawAssetSource);
-  if (guestAssetUrl) {
-    return resolveMediaUrl(guestAssetUrl, PROCESSOR_API_URL);
+  const source = sources[0];
+  if (!source) {
+    return null;
   }
 
-  const guestRemoteUrl = buildGuestSessionMediaUrl(sessionDetails, rawRemoteSource);
-  if (guestRemoteUrl) {
-    return resolveMediaUrl(guestRemoteUrl, PROCESSOR_API_URL);
-  }
-
-  return rawRemoteSource
-    ? resolveMediaUrl(rawRemoteSource, STATIC_CDN_URL)
-    : resolveMediaUrl(rawAssetSource, PROCESSOR_API_URL);
+  return resolveMediaUrl(
+    source,
+    source === rawAssetSource ? PROCESSOR_API_URL : STATIC_CDN_URL
+  );
 }
 
 function getLayerId(layer) {
@@ -306,6 +327,7 @@ export default function VideoEditorContainer(props) {
     totalDuration,
     isUpdateLayerPending,
     isVideoPreviewPlaying,
+    isPreviewPlaybackActive = isVideoPreviewPlaying,
     setIsVideoPreviewPlaying,
     onRecordSpeechRecordingChange,
     isRenderPending,
@@ -380,40 +402,34 @@ export default function VideoEditorContainer(props) {
       return { url: null, type: null };
     }
 
-    const hasLipSyncVideo = Boolean(
-      (layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync') &&
-      layer.lipSyncVideoLayer
-    );
-
-    if (hasLipSyncVideo) {
-      return {
+    const videoCandidates = [
+      {
         type: 'lip_sync',
+        isPreferred: layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync',
         url: resolveLayerVideoUrl(layer, 'lipSyncVideoLayer', 'lipSyncRemoteLink', videoSessionDetails),
-      };
-    }
-
-    if (layer.hasSoundEffectVideoLayer && layer.soundEffectVideoLayer) {
-      return {
+      },
+      {
         type: 'sound_effect',
+        isPreferred: layer.hasSoundEffectVideoLayer || layer.layerAiVideoType === 'sound_effect',
         url: resolveLayerVideoUrl(layer, 'soundEffectVideoLayer', 'soundEffectRemoteLink', videoSessionDetails),
-      };
-    }
-
-    if (layer.hasUserVideoLayer && layer.userVideoLayer) {
-      return {
+      },
+      {
         type: 'user_video',
+        isPreferred: layer.hasUserVideoLayer || layer.layerAiVideoType === 'user_video',
         url: resolveLayerVideoUrl(layer, 'userVideoLayer', 'userVideoRemoteLink', videoSessionDetails),
-      };
-    }
-
-    if (layer.hasAiVideoLayer && layer.aiVideoLayer) {
-      return {
+      },
+      {
         type: 'ai_video',
+        isPreferred: layer.hasAiVideoLayer || layer.layerAiVideoType === 'ai_video',
         url: resolveLayerVideoUrl(layer, 'aiVideoLayer', 'aiVideoRemoteLink', videoSessionDetails),
-      };
-    }
+      },
+    ];
+    const resolvedVideo = videoCandidates.find((candidate) => candidate.isPreferred && candidate.url)
+      || videoCandidates.find((candidate) => candidate.url);
 
-    return { url: null, type: null };
+    return resolvedVideo
+      ? { url: resolvedVideo.url, type: resolvedVideo.type }
+      : { url: null, type: null };
   }, [videoSessionDetails]);
 
   const layerHasPendingVideoTask = useCallback((layer) => {
@@ -530,11 +546,7 @@ export default function VideoEditorContainer(props) {
   }, [currentLayer, resolveLayerVideoState]);
 
   const nextVideoLayerState = useMemo(() => {
-    if (!isVideoPreviewPlaying || !currentLayer || !Array.isArray(layers)) {
-      return { url: null, type: null };
-    }
-
-    if (!currentVideoLayerState.url) {
+    if (!currentLayer || !Array.isArray(layers)) {
       return { url: null, type: null };
     }
 
@@ -552,8 +564,19 @@ export default function VideoEditorContainer(props) {
       return { url: null, type: null };
     }
 
-    return resolveLayerVideoState(layers[currentLayerIndex + 1]);
-  }, [currentLayer, currentVideoLayerState.url, isVideoPreviewPlaying, layers, resolveLayerVideoState]);
+    const preloadEndIndex = Math.min(
+      layers.length,
+      currentLayerIndex + VIDEO_SCENE_PRELOAD_LOOKAHEAD + 1
+    );
+    for (let index = currentLayerIndex + 1; index < preloadEndIndex; index += 1) {
+      const nextVideoState = resolveLayerVideoState(layers[index]);
+      if (nextVideoState.url) {
+        return nextVideoState;
+      }
+    }
+
+    return { url: null, type: null };
+  }, [currentLayer, layers, resolveLayerVideoState]);
 
 
   useEffect(() => {
@@ -3170,7 +3193,7 @@ export default function VideoEditorContainer(props) {
               selectedLayerId={selectedLayerId}
               exportAnimationFrames={() => { }}
               currentLayerSeek={currentLayerSeek}
-              isVideoPreviewPlaying={isVideoPreviewPlaying}
+              isVideoPreviewPlaying={isPreviewPlaybackActive}
               currentLayer={currentLayer}
               updateSessionActiveItemList={updateSessionLayerActiveItemList}
               selectedLayerSelectShape={selectedLayerSelectShape}

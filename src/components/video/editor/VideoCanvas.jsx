@@ -178,27 +178,50 @@ const VideoCanvas = forwardRef((props, ref) => {
 
   } = useContext(NavCanvasControlContext);
 
+  const requestRealignToAiVideoAndLayersRef = useRef(requestRealignToAiVideoAndLayers);
+  const requestRealignLayersRef = useRef(requestRealignLayers);
+  const downloadCurrentFrameRef = useRef(downloadCurrentFrame);
+  const toggleStageZoomRef = useRef(toggleStageZoom);
+  const requestRegenerateSubtitlesRef = useRef(requestRegenerateSubtitles);
+  const requestRegenerateAnimationsRef = useRef(requestRegenerateAnimations);
+
+  requestRealignToAiVideoAndLayersRef.current = requestRealignToAiVideoAndLayers;
+  requestRealignLayersRef.current = requestRealignLayers;
+  downloadCurrentFrameRef.current = downloadCurrentFrame;
+  toggleStageZoomRef.current = toggleStageZoom;
+  requestRegenerateSubtitlesRef.current = requestRegenerateSubtitles;
+  requestRegenerateAnimationsRef.current = requestRegenerateAnimations;
+
   useEffect(() => {
     setTotalEffectiveDuration(totalDuration);
   }, [totalDuration]);
 
   useEffect(() => {
     const baseCanvasDimensions = canvasDimensionsProp || getCanvasDimensionsForAspectRatio(aspectRatio);
-    setCanvasActualDimensions(baseCanvasDimensions);
+    setCanvasActualDimensions((previousDimensions) => (
+      previousDimensions?.width === baseCanvasDimensions.width
+      && previousDimensions?.height === baseCanvasDimensions.height
+        ? previousDimensions
+        : baseCanvasDimensions
+    ));
   }, [aspectRatio, canvasDimensionsProp, setCanvasActualDimensions]);
 
 
   useEffect(() => {
-    setRequestRealignToAiVideoAndLayers(() => requestRealignToAiVideoAndLayers);
-  }, [requestRealignToAiVideoAndLayers]);
+    setRequestRealignToAiVideoAndLayers(() => (...args) => (
+      requestRealignToAiVideoAndLayersRef.current?.(...args)
+    ));
+    return () => setRequestRealignToAiVideoAndLayers(null);
+  }, [setRequestRealignToAiVideoAndLayers]);
 
   useEffect(() => {
     setIsExpressGeneration(isExpressGeneration);
   }, [isExpressGeneration]);
 
   useEffect(() => {
-    setRequestRealignLayers(() => requestRealignLayers);
-  }, [requestRealignLayers]);
+    setRequestRealignLayers(() => (...args) => requestRealignLayersRef.current?.(...args));
+    return () => setRequestRealignLayers(null);
+  }, [setRequestRealignLayers]);
 
 
   useEffect(() => {
@@ -211,30 +234,40 @@ const VideoCanvas = forwardRef((props, ref) => {
 
 
   useEffect(() => {
-    setDownloadCurrentFrame(() => downloadCurrentFrame);
-  }, [downloadCurrentFrame]);
+    setDownloadCurrentFrame(() => (...args) => downloadCurrentFrameRef.current?.(...args));
+    return () => setDownloadCurrentFrame(null);
+  }, [setDownloadCurrentFrame]);
 
   useEffect(() => {
-    setToggleStageZoom(() => toggleStageZoom);
-  }, [toggleStageZoom]);
+    setToggleStageZoom(() => (...args) => toggleStageZoomRef.current?.(...args));
+    return () => setToggleStageZoom(null);
+  }, [setToggleStageZoom]);
 
   useEffect(() => {
-    setRequestRegenerateSubtitles(() => requestRegenerateSubtitles);
-  }, [requestRegenerateSubtitles]);
+    setRequestRegenerateSubtitles(() => (...args) => requestRegenerateSubtitlesRef.current?.(...args));
+    return () => setRequestRegenerateSubtitles(null);
+  }, [setRequestRegenerateSubtitles]);
 
   useEffect(() => {
-    setRequestRegenerateAnimations(() => requestRegenerateAnimations);
-  }, [requestRegenerateAnimations]);
+    setRequestRegenerateAnimations(() => (...args) => requestRegenerateAnimationsRef.current?.(...args));
+    return () => setRequestRegenerateAnimations(null);
+  }, [setRequestRegenerateAnimations]);
 
 
 
 
   useEffect(() => {
     const baseDimensions = canvasDimensionsProp || getCanvasDimensionsForAspectRatio(aspectRatio);
-    setCanvasDimensions({
+    const nextDimensions = {
       width: baseDimensions.width * stageZoomScale,
       height: baseDimensions.height * stageZoomScale,
-    });
+    };
+    setCanvasDimensions((previousDimensions) => (
+      previousDimensions.width === nextDimensions.width
+      && previousDimensions.height === nextDimensions.height
+        ? previousDimensions
+        : nextDimensions
+    ));
   }, [aspectRatio, canvasDimensionsProp, displayZoomType, stageZoomScale]);
   useEffect(() => {
     if (currentCanvasAction === 'SHOW_SMART_SELECT_DISPLAY' && enableSegmentationMask && selectedBbox) {
@@ -755,11 +788,18 @@ const VideoCanvas = forwardRef((props, ref) => {
 
     const updateVideoLayerControlPosition = () => {
       const rect = canvasFrame.getBoundingClientRect();
-      setVideoLayerControlPosition({
+      const nextPosition = {
         right: Math.max(window.innerWidth - rect.right + 12, 12),
         top: Math.max(rect.top + 12, 72),
         maxWidth: Math.max(220, Math.min(rect.width - 24, window.innerWidth - 24)),
-      });
+      };
+      setVideoLayerControlPosition((previousPosition) => (
+        previousPosition?.right === nextPosition.right
+        && previousPosition?.top === nextPosition.top
+        && previousPosition?.maxWidth === nextPosition.maxWidth
+          ? previousPosition
+          : nextPosition
+      ));
     };
 
     updateVideoLayerControlPosition();
