@@ -77,6 +77,10 @@ import {
   resolveSubtitleRegenerationDefault,
 } from '../../utils/subtitleRegenerationLanguage.mjs';
 import {
+  getVideoPostProcessingRequestUrls,
+  isMissingVideoPostProcessingRoute,
+} from '../../utils/videoPostProcessingApi.mjs';
+import {
   filterOptionsForDeploymentModelValues,
   normalizeDeploymentModelValue,
 } from '../../utils/deploymentProviders.js';
@@ -5859,11 +5863,26 @@ export default function OneshotEditor() {
       setErrorMessage(null);
       setPlayingRerollLayerId(null);
 
-      const { data } = await axios.post(
-        `${VIDEO_API_BASE}/${endpoint}`,
-        { input: payload },
-        headers
+      const requestBody = { input: payload };
+      const { primaryUrl, legacyUrl } = getVideoPostProcessingRequestUrls(
+        API_SERVER,
+        endpoint
       );
+      let response;
+      try {
+        response = await axios.post(primaryUrl, requestBody, headers);
+      } catch (requestError) {
+        const supportsLegacyVideoRoute =
+          endpoint === 'add_subtitles' || endpoint === 'remove_subtitles';
+        if (
+          !supportsLegacyVideoRoute ||
+          !isMissingVideoPostProcessingRoute(requestError, primaryUrl)
+        ) {
+          throw requestError;
+        }
+        response = await axios.post(legacyUrl, requestBody, headers);
+      }
+      const { data } = response;
 
       const nextSessionId = data?.sessionID || data?.session_id || data?.sessionId || data?.request_id;
       const nextRequestId = data?.request_id || data?.session_id || data?.sessionID || nextSessionId;
