@@ -71,6 +71,12 @@ import {
   buildVidgenieLanguageFields,
 } from './vidgenieSubtitleLanguage.mjs';
 import {
+  buildSubtitleRegenerationLanguageFields,
+  isTranslatedSubtitleRegeneration,
+  resolveSessionAudioLanguage,
+  resolveSubtitleRegenerationDefault,
+} from '../../utils/subtitleRegenerationLanguage.mjs';
+import {
   filterOptionsForDeploymentModelValues,
   normalizeDeploymentModelValue,
 } from '../../utils/deploymentProviders.js';
@@ -233,6 +239,7 @@ const DEFAULT_POST_PROCESSING_FORM = Object.freeze({
   translationEnableSubtitles: true,
   translationTranslateOutro: true,
   translationTranslateFooter: true,
+  subtitleLanguage: '',
   rerollLayerIndexes: [],
 });
 const POST_PROCESSING_ACTIONS = Object.freeze([
@@ -2900,6 +2907,30 @@ export default function OneshotEditor() {
   const [currentRenderGeneratedOutro, setCurrentRenderGeneratedOutro] = useState(false);
   const [isCompletedRequestExpanded, setIsCompletedRequestExpanded] = useState(false);
   const completedRequestCollapseKeyRef = useRef('');
+
+  const postProcessingAudioLanguage = useMemo(
+    () => resolveSessionAudioLanguage(sessionDetails),
+    [sessionDetails]
+  );
+  const postProcessingDefaultSubtitleLanguage = useMemo(
+    () => resolveSubtitleRegenerationDefault(sessionDetails),
+    [sessionDetails]
+  );
+
+  useEffect(() => {
+    if (!postProcessingDefaultSubtitleLanguage) {
+      return;
+    }
+
+    setPostProcessingForm((current) => (
+      current.subtitleLanguage
+        ? current
+        : {
+            ...current,
+            subtitleLanguage: postProcessingDefaultSubtitleLanguage,
+          }
+    ));
+  }, [postProcessingDefaultSubtitleLanguage]);
 
   useEffect(() => {
     activeRequestIdRef.current = activeRequestId;
@@ -5705,8 +5736,15 @@ export default function OneshotEditor() {
         endpoint = 'retranslate_video';
         successLabel = 'Retranslation';
       } else if (actionKey === 'add_subtitles') {
+        payload = {
+          ...payload,
+          ...buildSubtitleRegenerationLanguageFields({
+            selectedLanguage: postProcessingForm.subtitleLanguage,
+            audioLanguage: postProcessingAudioLanguage,
+          }),
+        };
         endpoint = 'add_subtitles';
-        successLabel = 'Subtitle add';
+        successLabel = 'Subtitle regeneration';
       } else if (actionKey === 'remove_subtitles') {
         const shouldRemove = window.confirm('Remove subtitles and render a new version?');
         if (!shouldRemove) {
@@ -5855,6 +5893,7 @@ export default function OneshotEditor() {
     getUserAPI,
     handleAdvancedVideoEditAccepted,
     id,
+    postProcessingAudioLanguage,
     postProcessingForm,
     postProcessingPendingAction,
     rerollLayerIndexes,
@@ -6232,6 +6271,10 @@ export default function OneshotEditor() {
       isAnyPostProcessingPending ||
       isRerollPreviewRefreshing ||
       !rerollLayerIndexes.length;
+    const useTranslatedSubtitleRegeneration = isTranslatedSubtitleRegeneration({
+      selectedLanguage: postProcessingForm.subtitleLanguage,
+      audioLanguage: postProcessingAudioLanguage,
+    });
 
     const panelWidthClass =
       postProcessingAction === 'reroll_layers' || postProcessingAction === 'retranslate'
@@ -6355,25 +6398,53 @@ export default function OneshotEditor() {
           )}
 
           {postProcessingAction === 'subtitles' && (
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => submitPostProcessingOperation('add_subtitles')}
-                disabled={isAnyPostProcessingPending}
-                className={primarySubmitClass}
-              >
-                {isAddSubtitlesPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaClosedCaptioning className="h-3.5 w-3.5" aria-hidden="true" />}
-                Add subtitles
-              </button>
-              <button
-                type="button"
-                onClick={() => submitPostProcessingOperation('remove_subtitles')}
-                disabled={isAnyPostProcessingPending}
-                className={dangerSubmitClass}
-              >
-                {isRemoveSubtitlesPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaTrash className="h-3.5 w-3.5" aria-hidden="true" />}
-                Remove subtitles
-              </button>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="min-w-[190px] flex-1 sm:max-w-xs">
+                  <span className={`mb-1 block text-[11px] font-medium ${mutedText}`}>
+                    Subtitle language <span className="font-normal opacity-75">(optional)</span>
+                  </span>
+                  <select
+                    value={postProcessingForm.subtitleLanguage}
+                    onChange={(event) =>
+                      updatePostProcessingFormField('subtitleLanguage', event.target.value)
+                    }
+                    disabled={isAnyPostProcessingPending}
+                    aria-label="Subtitle regeneration language"
+                    className={`${fieldClass} !min-h-[36px] !py-1.5`}
+                  >
+                    <option value="">Same as audio</option>
+                    {SUPPORTED_LANGUAGES.map((languageOption) => (
+                      <option key={languageOption.code} value={languageOption.code}>
+                        {languageOption.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => submitPostProcessingOperation('add_subtitles')}
+                  disabled={isAnyPostProcessingPending}
+                  className={primarySubmitClass}
+                >
+                  {isAddSubtitlesPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaClosedCaptioning className="h-3.5 w-3.5" aria-hidden="true" />}
+                  Generate / regenerate subtitles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => submitPostProcessingOperation('remove_subtitles')}
+                  disabled={isAnyPostProcessingPending}
+                  className={dangerSubmitClass}
+                >
+                  {isRemoveSubtitlesPending ? <FaSpinner className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FaTrash className="h-3.5 w-3.5" aria-hidden="true" />}
+                  Remove subtitles
+                </button>
+              </div>
+              {useTranslatedSubtitleRegeneration ? (
+                <p className={`text-xs ${mutedText}`}>
+                  Audio stays unchanged; subtitle text will be translated and aligned to the original speech.
+                </p>
+              ) : null}
             </div>
           )}
 
