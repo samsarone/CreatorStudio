@@ -68,6 +68,7 @@ import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/suppor
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
 import {
+  DEFAULT_VIDGENIE_SUBTITLES_ENABLED,
   buildVidgenieLanguageFields,
 } from './vidgenieSubtitleLanguage.mjs';
 import {
@@ -3529,7 +3530,7 @@ export default function OneshotEditor() {
   const [selectedLanguageOption, setSelectedLanguageOption] = useState(
     () => defaultLanguageOption
   );
-  const [enableSubtitles, setEnableSubtitles] = useState(false);
+  const [enableSubtitles, setEnableSubtitles] = useState(DEFAULT_VIDGENIE_SUBTITLES_ENABLED);
   const [selectedSubtitleLanguageOption, setSelectedSubtitleLanguageOption] = useState(
     () => subtitleLanguageOptions[0]
   );
@@ -5570,7 +5571,7 @@ export default function OneshotEditor() {
     setImageUploadError('');
     setUploadingOutroCtaImage(false);
     setOutroCtaImageUploadError('');
-    setEnableSubtitles(false);
+    setEnableSubtitles(DEFAULT_VIDGENIE_SUBTITLES_ENABLED);
     setSelectedSubtitleLanguageOption(subtitleLanguageOptions[0]);
     setGenerationStepMode(GENERATION_STEP_MODE_ONE_STEP);
     setSelectedImageStyle(null);
