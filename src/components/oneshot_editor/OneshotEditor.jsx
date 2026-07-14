@@ -67,7 +67,9 @@ import {
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
 import { getSessionType } from '../../utils/environment.jsx';
-import { resolveSubtitleLanguageOverride } from './vidgenieSubtitleLanguage.mjs';
+import {
+  buildVidgenieLanguageFields,
+} from './vidgenieSubtitleLanguage.mjs';
 import {
   filterOptionsForDeploymentModelValues,
   normalizeDeploymentModelValue,
@@ -1200,9 +1202,9 @@ function buildDefaultJsonModeInput({
   const normalizedAspectRatio = aspectRatio === '9:16' ? '9:16' : '16:9';
   const normalizedLanguage = language || 'en';
   const normalizedVideoModel = videoModel || '';
-  const subtitleLanguageOverride = resolveSubtitleLanguageOverride({
-    enableSubtitles,
+  const languageFields = buildVidgenieLanguageFields({
     audioLanguage: normalizedLanguage,
+    enableSubtitles,
     subtitleLanguage,
   });
 
@@ -1227,12 +1229,8 @@ function buildDefaultJsonModeInput({
         prompt: 'Create a polished short video from these images.',
         video_model: normalizedVideoModel,
         aspect_ratio: normalizedAspectRatio,
-        language: normalizedLanguage,
+        ...languageFields,
         font_key: 'Poppins',
-        enable_subtitles: enableSubtitles,
-        ...(subtitleLanguageOverride
-          ? { subtitle_language: subtitleLanguageOverride }
-          : {}),
         inference_model: normalizeInferenceModelKey(inferenceModel),
         limit_single_narrator: false,
         add_narrator_avatar: false,
@@ -1265,12 +1263,8 @@ function buildDefaultJsonModeInput({
       duration: duration || 30,
       tone: 'grounded',
       aspect_ratio: normalizedAspectRatio,
-      language: normalizedLanguage,
+      ...languageFields,
       font_key: 'Poppins',
-      enable_subtitles: enableSubtitles,
-      ...(subtitleLanguageOverride
-        ? { subtitle_language: subtitleLanguageOverride }
-        : {}),
       inference_model: normalizeInferenceModelKey(inferenceModel),
     },
     null,
@@ -1768,6 +1762,7 @@ function validateCommonJsonInput(input, inferenceModelOptions = INFERENCE_MODEL_
       const languageValues = ['auto', ...SUPPORTED_LANGUAGES.map((lang) => lang.code)];
       return `JSON input.language must be one of: ${formatAllowedJsonValues(languageValues)}.`;
     }
+    input.language = normalizedLanguage;
   }
 
   if (input.font_key !== undefined && typeof input.font_key !== 'string') {
@@ -5423,21 +5418,16 @@ export default function OneshotEditor() {
         ? selectedLanguageOption
         : selectedLanguageOption?.value ?? selectedLanguageOption?.label;
     const resolvedAudioLanguage = resolveLanguageCode(selectedLanguageValue);
-    requestInput.language = resolvedAudioLanguage;
-    requestInput.enable_subtitles = enableSubtitles;
     const selectedSubtitleLanguageValue =
       typeof selectedSubtitleLanguageOption === 'string'
         ? selectedSubtitleLanguageOption
         : selectedSubtitleLanguageOption?.value ?? selectedSubtitleLanguageOption?.label;
     const resolvedSubtitleLanguage = resolveLanguageCode(selectedSubtitleLanguageValue, '');
-    const subtitleLanguageOverride = resolveSubtitleLanguageOverride({
-      enableSubtitles,
+    Object.assign(requestInput, buildVidgenieLanguageFields({
       audioLanguage: resolvedAudioLanguage,
+      enableSubtitles,
       subtitleLanguage: resolvedSubtitleLanguage,
-    });
-    if (subtitleLanguageOverride) {
-      requestInput.subtitle_language = subtitleLanguageOverride;
-    }
+    }));
     Object.assign(requestInput, advancedRequestConfiguration.input);
     const stepGenerationInput = buildStepGenerationInput(submittedGenerationStepMode);
     Object.assign(requestInput, stepGenerationInput);
@@ -7161,17 +7151,33 @@ export default function OneshotEditor() {
               </div>
             )}
 
-            {/* Language */}
+            {/* Audio language */}
             <div className="group w-full">
               <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
                 <SingleSelect
                   value={selectedLanguageOption}
                   onChange={setSelectedLanguageOption}
                   options={languageOptions}
+                  isDisabled={isFormDisabled}
                   className="w-full"
                 />
               </div>
-              <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.languageLabel", {}, "Language")}</p>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>
+                {t("vidgenie.audioLanguage", {}, "Audio language")}
+              </p>
+              <p className={`text-[11px] mt-0.5 ${mutedText}`}>
+                {generationMode === 'I2V'
+                  ? t(
+                    "vidgenie.audioLanguageHelpI2V",
+                    {},
+                    "Sets narration and character speech language for this image-to-video render."
+                  )
+                  : t(
+                    "vidgenie.audioLanguageHelpT2V",
+                    {},
+                    "Sets narration and character speech language for this text-to-video render."
+                  )}
+              </p>
             </div>
 
             <div className="group w-full">
