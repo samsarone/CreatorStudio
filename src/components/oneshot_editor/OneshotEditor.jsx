@@ -2994,6 +2994,7 @@ export default function OneshotEditor() {
   const [expressGenerationStatus, setExpressGenerationStatus] = useState(null);
   const [generationStatusDetails, setGenerationStatusDetails] = useState(null);
   const [videoLink, setVideoLink] = useState(null);
+  const [postProcessingPreviewVideoLink, setPostProcessingPreviewVideoLink] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const [showResultDisplay, setShowResultDisplay] = useState(false);
   const currentRenderHasOutro = useMemo(() => (
@@ -3069,12 +3070,31 @@ export default function OneshotEditor() {
     );
   };
 
-  const setPostProcessingPendingSession = (nextSessionId) => {
+  const setPostProcessingPendingSession = (nextSessionId, previewVideoUrl = null) => {
     if (!nextSessionId || typeof window === 'undefined') return;
     sessionStorage.setItem(
       POST_PROCESSING_PENDING_SESSION_KEY,
-      JSON.stringify({ sessionId: nextSessionId, startedAt: Date.now() })
+      JSON.stringify({
+        sessionId: nextSessionId,
+        startedAt: Date.now(),
+        ...(previewVideoUrl ? { previewVideoUrl } : {}),
+      })
     );
+  };
+
+  const getPostProcessingPreviewVideoLink = (candidateSessionId) => {
+    if (!candidateSessionId || typeof window === 'undefined') return null;
+    try {
+      const rawValue = sessionStorage.getItem(POST_PROCESSING_PENDING_SESSION_KEY);
+      if (!rawValue) return null;
+      const parsedValue = JSON.parse(rawValue);
+      if (parsedValue?.sessionId !== candidateSessionId) return null;
+      return typeof parsedValue?.previewVideoUrl === 'string' && parsedValue.previewVideoUrl.trim()
+        ? parsedValue.previewVideoUrl.trim()
+        : null;
+    } catch {
+      return null;
+    }
   };
 
   const shouldForceAdvancedVideoEditPolling = (candidateSessionId) => {
@@ -3127,9 +3147,11 @@ export default function OneshotEditor() {
       const parsedValue = JSON.parse(rawValue);
       if (parsedValue?.sessionId === candidateSessionId) {
         sessionStorage.removeItem(POST_PROCESSING_PENDING_SESSION_KEY);
+        setPostProcessingPreviewVideoLink(null);
       }
     } catch {
       sessionStorage.removeItem(POST_PROCESSING_PENDING_SESSION_KEY);
+      setPostProcessingPreviewVideoLink(null);
     }
   };
 
@@ -3944,6 +3966,7 @@ export default function OneshotEditor() {
     assistantDelayRef.current = DEFAULT_POLL;
 
     resetForm();
+    setPostProcessingPreviewVideoLink(getPostProcessingPreviewVideoLink(id));
 
     if (currentPollRequestIdRef.current === id) return;
 
@@ -5598,6 +5621,9 @@ export default function OneshotEditor() {
     const nextSessionId = requestInfo?.sessionId || requestInfo?.requestId;
     const nextRequestId = requestInfo?.requestId || nextSessionId;
     const useBasicStatusPoll = requestInfo?.pollMode === 'status';
+    const currentPreviewVideoUrl = useBasicStatusPoll
+      ? (normalizeVideoUrl(videoLink) || getNormalizedLatestVideoUrl(sessionDetails))
+      : null;
     closeAlertDialog();
 
     if (!nextRequestId) {
@@ -5616,7 +5642,8 @@ export default function OneshotEditor() {
 
     if (nextSessionId && nextSessionId !== id) {
       if (useBasicStatusPoll) {
-        setPostProcessingPendingSession(nextSessionId);
+        setPostProcessingPreviewVideoLink(currentPreviewVideoUrl);
+        setPostProcessingPendingSession(nextSessionId, currentPreviewVideoUrl);
       } else {
         setAdvancedVideoEditPendingSession(nextSessionId);
       }
@@ -5625,12 +5652,13 @@ export default function OneshotEditor() {
     }
 
     if (useBasicStatusPoll) {
-      setPostProcessingPendingSession(nextRequestId);
+      setPostProcessingPreviewVideoLink(currentPreviewVideoUrl);
+      setPostProcessingPendingSession(nextRequestId, currentPreviewVideoUrl);
       pollPostProcessingStatus(nextRequestId, true);
     } else {
       pollGenerationStatus(nextRequestId, true);
     }
-  }, [closeAlertDialog, id, navigate]);
+  }, [closeAlertDialog, id, navigate, sessionDetails, videoLink]);
 
   const openAdvancedVideoEditDialog = useCallback(() => {
     openAlertDialog(
@@ -7669,6 +7697,7 @@ export default function OneshotEditor() {
                 expressGenerationStatus={expressGenerationStatus}
                 generationStatusDetails={generationStatusDetails}
                 videoLink={videoLink}
+                pendingPreviewVideoLink={postProcessingPreviewVideoLink}
                 errorMessage={errorMessage}
                 rawSessionDetails={sessionDetails}
                 canProcessNextStep={activeRequestStepModeRef.current === GENERATION_STEP_MODE_TWO_STEP}
