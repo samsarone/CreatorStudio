@@ -6680,6 +6680,13 @@ export default function OneshotEditor() {
       : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50 placeholder:text-slate-400'
     }
   `;
+  const advancedCompactSelectClasses = `
+    h-8 w-36 shrink-0 rounded-lg px-2 text-xs outline-none ring-1 transition sm:w-48
+    ${colorMode === 'dark'
+      ? 'bg-[#0b1224] text-slate-100 ring-white/10 focus:ring-indigo-400/60'
+      : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
+    }
+  `;
   const advancedLabelClasses = `block text-[11px] font-medium mb-1 ${mutedText}`;
   const advancedSectionBorder = colorMode === 'dark' ? 'border-white/10' : 'border-slate-200';
   const advancedRowBg = colorMode === 'dark' ? 'bg-white/[0.03]' : 'bg-slate-50';
@@ -7165,19 +7172,6 @@ export default function OneshotEditor() {
               <p className={`text-[11px] mt-1 ${mutedText}`}>
                 {t("vidgenie.audioLanguage", {}, "Audio language")}
               </p>
-              <p className={`text-[11px] mt-0.5 ${mutedText}`}>
-                {generationMode === 'I2V'
-                  ? t(
-                    "vidgenie.audioLanguageHelpI2V",
-                    {},
-                    "Sets narration and character speech language for this image-to-video render."
-                  )
-                  : t(
-                    "vidgenie.audioLanguageHelpT2V",
-                    {},
-                    "Sets narration and character speech language for this text-to-video render."
-                  )}
-              </p>
             </div>
 
             <div className="group w-full">
@@ -7202,30 +7196,6 @@ export default function OneshotEditor() {
               </label>
             </div>
 
-            {enableSubtitles && (
-              <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                  <SingleSelect
-                    value={selectedSubtitleLanguageOption}
-                    onChange={setSelectedSubtitleLanguageOption}
-                    options={subtitleLanguageOptions}
-                    isDisabled={isFormDisabled}
-                    className="w-full"
-                  />
-                </div>
-                <p className={`text-[11px] mt-1 ${mutedText}`}>
-                  {t("vidgenie.subtitleLanguage", {}, "Subtitle language")}
-                </p>
-                <p className={`text-[11px] mt-0.5 ${mutedText}`}>
-                  {t(
-                    "vidgenie.subtitleLanguageHelp",
-                    {},
-                    "Choose a different language to translate subtitle text."
-                  )}
-                </p>
-              </div>
-            )}
-
           </div>
         </div>
 
@@ -7234,6 +7204,44 @@ export default function OneshotEditor() {
 
           {isAdvancedOpen && (
             <div className="mt-3 space-y-5">
+              {enableSubtitles && (
+                <div className={`flex items-center justify-between gap-3 rounded-lg px-2.5 py-2 ${advancedRowBg}`}>
+                  <label
+                    htmlFor="vidgenie-subtitle-language"
+                    className={`min-w-0 text-xs font-medium ${mutedText}`}
+                  >
+                    {t("vidgenie.subtitleLanguage", {}, "Subtitle language")}
+                  </label>
+                  <select
+                    id="vidgenie-subtitle-language"
+                    value={
+                      typeof selectedSubtitleLanguageOption === 'string'
+                        ? selectedSubtitleLanguageOption
+                        : selectedSubtitleLanguageOption?.value || ''
+                    }
+                    onChange={(event) => {
+                      const nextOption = subtitleLanguageOptions.find(
+                        (option) => option.value === event.target.value
+                      );
+                      setSelectedSubtitleLanguageOption(nextOption || subtitleLanguageOptions[0]);
+                    }}
+                    disabled={isFormDisabled}
+                    title={t(
+                      "vidgenie.subtitleLanguageHelp",
+                      {},
+                      "Choose a different language to translate subtitle text."
+                    )}
+                    className={advancedCompactSelectClasses}
+                  >
+                    {subtitleLanguageOptions.map((option) => (
+                      <option key={option.value || 'same-as-audio'} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className={advancedLabelClasses}>Inference model</label>
                 <select
