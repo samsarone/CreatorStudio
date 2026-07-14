@@ -36,6 +36,7 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 import { drawCanvasTextItem } from '../../utils/canvasText.js';
 import { captureAssistantStageImageData } from '../../utils/assistantFrameCapture.js';
 import { getRenderableImageUrl } from '../../utils/image.jsx';
+import { resolveStudioLayerVideo } from './util/studioVideoLayers.mjs';
 
 
 
@@ -60,212 +61,6 @@ const VIDEO_SCENE_PRELOAD_LOOKAHEAD = 2;
 
 function isActiveUserVideoUploadTask(task) {
   return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
-}
-
-function isAbsoluteUrl(value) {
-  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
-}
-
-function isStaticCdnHost(hostname) {
-  if (typeof hostname !== 'string') {
-    return false;
-  }
-  const normalizedHost = hostname.toLowerCase();
-  if (normalizedHost === 'static.samsar.one') {
-    return true;
-  }
-  try {
-    return Boolean(STATIC_CDN_URL) && normalizedHost === new URL(STATIC_CDN_URL).hostname.toLowerCase();
-  } catch {
-    return false;
-  }
-}
-
-function isRemoteUserResourcePath(pathname) {
-  return pathname.startsWith('assets_v2/user_resources/') ||
-    pathname.startsWith('user_resources/');
-}
-
-function resolveProcessorAssetUrlFromStaticUrl(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  try {
-    const parsedUrl = new URL(value.trim());
-    const normalizedPath = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
-    const hasCloudFrontSignature = (
-      (parsedUrl.searchParams.has('Expires') || parsedUrl.searchParams.has('Policy')) &&
-      parsedUrl.searchParams.has('Signature') &&
-      parsedUrl.searchParams.has('Key-Pair-Id')
-    );
-    if (
-      !isStaticCdnHost(parsedUrl.hostname) ||
-      !(
-        normalizedPath.startsWith('assets_v2/') ||
-        normalizedPath.startsWith('assets/')
-      )
-    ) {
-      return null;
-    }
-    if (isRemoteUserResourcePath(normalizedPath)) {
-      return null;
-    }
-    if (hasCloudFrontSignature) {
-      return null;
-    }
-
-    const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
-      ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
-      : '';
-    return processorBaseUrl
-      ? `${processorBaseUrl}/${normalizedPath}`
-      : `/${normalizedPath}`;
-  } catch {
-    return null;
-  }
-}
-
-function looksLikeStudioVideoRoute(value) {
-  if (typeof value !== 'string') {
-    return false;
-  }
-  return /^\/?video\/[a-f0-9]{24}$/i.test(value.trim());
-}
-
-function resolveMediaUrl(value, baseUrl = '') {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmedValue = value.trim();
-  if (!trimmedValue || looksLikeStudioVideoRoute(trimmedValue)) {
-    return null;
-  }
-
-  if (isAbsoluteUrl(trimmedValue)) {
-    return resolveProcessorAssetUrlFromStaticUrl(trimmedValue) || trimmedValue;
-  }
-
-  const normalizedPath = trimmedValue.startsWith('/') ? trimmedValue : `/${trimmedValue}`;
-  if (normalizedPath.startsWith('/video_sessions/guest_media')) {
-    const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
-      ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
-      : '';
-    return processorBaseUrl ? `${processorBaseUrl}${normalizedPath}` : normalizedPath;
-  }
-
-  const trimmedBaseUrl = typeof baseUrl === 'string' ? baseUrl.trim().replace(/\/+$/, '') : '';
-  if (!trimmedBaseUrl) {
-    return normalizedPath;
-  }
-
-  return `${trimmedBaseUrl}${normalizedPath}`;
-}
-
-function getSessionIdFromDetails(sessionDetails = {}) {
-  return (
-    sessionDetails?._id?.toString?.() ||
-    sessionDetails?._id ||
-    sessionDetails?.id?.toString?.() ||
-    sessionDetails?.id ||
-    sessionDetails?.sessionId?.toString?.() ||
-    sessionDetails?.sessionId ||
-    ''
-  );
-}
-
-function getMediaAssetPath(value) {
-  if (typeof value !== 'string' || !value.trim()) {
-    return '';
-  }
-
-  const trimmedValue = value.trim();
-  if (/^(data:|blob:)/i.test(trimmedValue) || trimmedValue.startsWith('/video_sessions/guest_media')) {
-    return '';
-  }
-  if (/^https?:\/\//i.test(trimmedValue)) {
-    try {
-      const parsedUrl = new URL(trimmedValue);
-      const pathname = decodeURIComponent(parsedUrl.pathname).replace(/^\/+/, '');
-      return pathname.startsWith('assets_v2/') ? pathname : '';
-    } catch {
-      return '';
-    }
-  }
-
-  return trimmedValue.replace(/^\/+/, '').split('?')[0].split('#')[0];
-}
-
-function buildGuestSessionMediaUrl(sessionDetails, value) {
-  if (!sessionDetails?.isGuestSession) {
-    return null;
-  }
-
-  const sessionId = getSessionIdFromDetails(sessionDetails);
-  const mediaPath = getMediaAssetPath(value);
-  if (!sessionId || !mediaPath.startsWith('assets_v2/') || !mediaPath.split('/').includes(sessionId)) {
-    return null;
-  }
-
-  const processorBaseUrl = typeof PROCESSOR_API_URL === 'string'
-    ? PROCESSOR_API_URL.trim().replace(/\/+$/, '')
-    : '';
-  const routePath = `/video_sessions/guest_media?sessionId=${encodeURIComponent(sessionId)}&assetKey=${encodeURIComponent(mediaPath)}`;
-  return processorBaseUrl ? `${processorBaseUrl}${routePath}` : routePath;
-}
-
-function isGuestMediaUrl(value) {
-  return typeof value === 'string' && value.includes('/video_sessions/guest_media');
-}
-
-function resolveLayerVideoUrl(layer, assetField, remoteField, sessionDetails) {
-  if (!layer) {
-    return null;
-  }
-
-  const structuredFieldByAssetField = {
-    aiVideoLayer: 'aiVideo',
-    lipSyncVideoLayer: 'lipSyncVideo',
-    soundEffectVideoLayer: 'soundEffectVideo',
-    userVideoLayer: 'userVideo',
-  };
-  const structuredVideo = layer[structuredFieldByAssetField[assetField]];
-  const rawAssetSource = layer[assetField];
-  const rawRemoteSource = layer[remoteField];
-  const structuredSource = typeof structuredVideo === 'string'
-    ? structuredVideo
-    : [
-      structuredVideo?.url,
-      structuredVideo?.remoteURL,
-      structuredVideo?.remoteUrl,
-      structuredVideo?.remote_url,
-      structuredVideo?.assetPath,
-      structuredVideo?.src,
-    ].find((value) => typeof value === 'string' && value.trim());
-  const sources = [rawRemoteSource, structuredSource, rawAssetSource]
-    .filter((value) => typeof value === 'string' && value.trim());
-
-  for (const source of sources) {
-    if (isGuestMediaUrl(source)) {
-      return resolveMediaUrl(source, PROCESSOR_API_URL);
-    }
-
-    const guestMediaUrl = buildGuestSessionMediaUrl(sessionDetails, source);
-    if (guestMediaUrl) {
-      return resolveMediaUrl(guestMediaUrl, PROCESSOR_API_URL);
-    }
-  }
-
-  const source = sources[0];
-  if (!source) {
-    return null;
-  }
-
-  return resolveMediaUrl(
-    source,
-    source === rawAssetSource ? PROCESSOR_API_URL : STATIC_CDN_URL
-  );
 }
 
 function getLayerId(layer) {
@@ -397,40 +192,14 @@ export default function VideoEditorContainer(props) {
 
   const [aiVideoPollType, setAiVideoPollType] = useState(null);
 
-  const resolveLayerVideoState = useCallback((layer) => {
-    if (!layer) {
-      return { url: null, type: null };
+  const resolveLayerVideoState = useCallback((layer) => resolveStudioLayerVideo(
+    layer,
+    videoSessionDetails,
+    {
+      processorApiUrl: PROCESSOR_API_URL,
+      staticCdnUrl: STATIC_CDN_URL,
     }
-
-    const videoCandidates = [
-      {
-        type: 'lip_sync',
-        isPreferred: layer.hasLipSyncVideoLayer || layer.layerAiVideoType === 'lip_sync',
-        url: resolveLayerVideoUrl(layer, 'lipSyncVideoLayer', 'lipSyncRemoteLink', videoSessionDetails),
-      },
-      {
-        type: 'sound_effect',
-        isPreferred: layer.hasSoundEffectVideoLayer || layer.layerAiVideoType === 'sound_effect',
-        url: resolveLayerVideoUrl(layer, 'soundEffectVideoLayer', 'soundEffectRemoteLink', videoSessionDetails),
-      },
-      {
-        type: 'user_video',
-        isPreferred: layer.hasUserVideoLayer || layer.layerAiVideoType === 'user_video',
-        url: resolveLayerVideoUrl(layer, 'userVideoLayer', 'userVideoRemoteLink', videoSessionDetails),
-      },
-      {
-        type: 'ai_video',
-        isPreferred: layer.hasAiVideoLayer || layer.layerAiVideoType === 'ai_video',
-        url: resolveLayerVideoUrl(layer, 'aiVideoLayer', 'aiVideoRemoteLink', videoSessionDetails),
-      },
-    ];
-    const resolvedVideo = videoCandidates.find((candidate) => candidate.isPreferred && candidate.url)
-      || videoCandidates.find((candidate) => candidate.url);
-
-    return resolvedVideo
-      ? { url: resolvedVideo.url, type: resolvedVideo.type }
-      : { url: null, type: null };
-  }, [videoSessionDetails]);
+  ), [videoSessionDetails]);
 
   const layerHasPendingVideoTask = useCallback((layer) => {
     if (!layer) {

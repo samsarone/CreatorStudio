@@ -19,7 +19,6 @@ import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
-import { getRenderableImageUrl } from '../../utils/image.jsx';
 import { normalizeActiveTextItemListForCanvas } from '../../constants/TextConfig.jsx';
 import useUndoRedoState from '../../hooks/useUndoRedoState.js';
 import {
@@ -489,6 +488,14 @@ function normalizeGuestLayerForStudio(layer, sessionDetails) {
     ['soundEffectVideoLayer', 'soundEffectRemoteLink'],
     ['userVideoLayer', 'userVideoRemoteLink'],
   ].forEach(([assetField, remoteField]) => {
+    const rawRemoteField = `raw${remoteField.charAt(0).toUpperCase()}${remoteField.slice(1)}`;
+    if (
+      !nextLayer[rawRemoteField]
+      && typeof nextLayer[remoteField] === 'string'
+      && nextLayer[remoteField].trim()
+    ) {
+      nextLayer[rawRemoteField] = nextLayer[remoteField];
+    }
     const source = nextLayer[assetField] || nextLayer[remoteField];
     const displayUrl = buildGuestSessionMediaUrl(sessionDetails, source);
     if (displayUrl && displayUrl !== source) {
@@ -854,6 +861,7 @@ export default function VideoHome() {
   const debouncedUpdateSessionLayerActiveItemListRef = useRef(null);
   const assistantFrameCaptureRef = useRef(null);
   const scenePreloadRequestRef = useRef(0);
+  const showLoginDialogRef = useRef(null);
 
   const { id: routeSessionId, shareToken, editableShareToken } = useParams();
   const [sharedSessionId, setSharedSessionId] = useState(null);
@@ -1178,6 +1186,7 @@ export default function VideoHome() {
     );
     openAlertDialog(loginComponent, undefined, false, AUTH_DIALOG_OPTIONS);
   }, [getCurrentShareRedirectPath, isGuestSampleView, openAlertDialog, routeSessionId]);
+  showLoginDialogRef.current = showLoginDialog;
 
   const copySharedSessionForEditing = useCallback(async () => {
     if (!shareToken) {
@@ -1381,25 +1390,6 @@ export default function VideoHome() {
 
     updateSharedSessionDocumentMetadata(videoSessionDetails);
   }, [isSharedSessionView, videoSessionDetails]);
-
-  useEffect(() => {
-
-    if (layers && layers.length > 0) {
-      layers.forEach(layer => {
-
-
-        if (layer.imageSession && layer.imageSession.activeItemList) {
-          const imageItems = layer.imageSession.activeItemList.filter(i => i.type === 'image');
-          imageItems.forEach(item => {
-            const img = new Image();
-            img.src = getRenderableImageUrl(item, PROCESSOR_API_URL);
-            img.style.display = 'none'; // Hide the image
-            //   hiddenContainer.appendChild(img);
-          });
-        }
-      });
-    }
-  }, [layers]);
 
   useEffect(() => {
     if (layerListRequestAdded) {
@@ -1757,7 +1747,7 @@ export default function VideoHome() {
       }
       if (isEditableShareView) {
         if (err?.response?.status === 401) {
-          showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+          showLoginDialogRef.current?.({ redirectTo: getCurrentShareRedirectPath() });
           return;
         }
         toast.error(err?.response?.data?.error || 'This editable shared session link is unavailable.', {
@@ -1767,7 +1757,7 @@ export default function VideoHome() {
         return;
       }
       if (err?.response?.status === 401) {
-        showLoginDialog({ redirectTo: getCurrentShareRedirectPath() });
+        showLoginDialogRef.current?.({ redirectTo: getCurrentShareRedirectPath() });
         return;
       }
       if (routeSessionId && (err?.response?.status === 400 || err?.response?.status === 404)) {
@@ -1800,7 +1790,6 @@ export default function VideoHome() {
     navigate,
     routeSessionId,
     shareToken,
-    showLoginDialog,
   ]);
 
   useEffect(() => {
@@ -2101,7 +2090,7 @@ export default function VideoHome() {
 
         try {
           const dataRes = await axios.get(`${PROCESSOR_API_URL}/video_sessions/share/${encodeURIComponent(shareToken)}`);
-          const sessionData = dataRes.data;
+          const sessionData = normalizeGuestSessionForStudio(dataRes.data);
           if (!sessionData) {
             stopRenderPollAfterFailureLimit(
               timer,
@@ -2116,8 +2105,20 @@ export default function VideoHome() {
             setSharedSessionId(resolvedSessionId);
           }
 
+          const sessionLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
+          const currentLayerId = getSessionLayerId(currentLayerRef.current);
+          const refreshedLayerIndex = Math.max(
+            0,
+            sessionLayers.findIndex((layer) => getSessionLayerId(layer) === currentLayerId)
+          );
+          const refreshedCurrentLayer = sessionLayers[refreshedLayerIndex] || null;
+
+          layersRef.current = sessionLayers;
+          currentLayerRef.current = refreshedCurrentLayer || {};
           setVideoSessionDetails(sessionData);
-          setLayers(Array.isArray(sessionData.layers) ? sessionData.layers : []);
+          setLayers(sessionLayers);
+          setCurrentLayer(refreshedCurrentLayer);
+          setSelectedLayerIndex(refreshedLayerIndex);
           setAudioLayers(sessionData.audioLayers || []);
           setIsLayerGenerationPending(hasPendingFrameOrLayerGeneration(sessionData));
 

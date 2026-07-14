@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState, useRef, useContext } from "react";
+import { forwardRef, useCallback, useEffect, useState, useRef, useContext } from "react";
 import { createPortal } from 'react-dom';
 import { Stage, Layer, Group, Line, Image as KonvaImage, Rect } from 'react-konva';
 
@@ -26,6 +26,10 @@ import { FaTimes } from 'react-icons/fa';
 import { NavCanvasControlContext } from '../../../contexts/NavCanvasControlContext.jsx';
 import './videoCanvas.css';
 import { isItemVisibleAtDisplayFrame } from './CanvasUtils.jsx';
+import {
+  isStudioVideoSourceReady,
+  shouldSuppressStudioBaseImage,
+} from '../util/studioVideoLayers.mjs';
 
 
 const FPS = 30;
@@ -157,6 +161,17 @@ const VideoCanvas = forwardRef((props, ref) => {
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 1024, height: 1024 });
   const canvasFrameRef = useRef(null);
   const [videoLayerControlPosition, setVideoLayerControlPosition] = useState(null);
+  const [readyVideoLayerSrc, setReadyVideoLayerSrc] = useState('');
+  const normalizedVideoLayerSrc = typeof aiVideoLayer === 'string' ? aiVideoLayer.trim() : '';
+  const isCurrentVideoLayerReady = isStudioVideoSourceReady(
+    normalizedVideoLayerSrc,
+    readyVideoLayerSrc
+  );
+
+  const handleVideoReadyChange = useCallback((source, isReady) => {
+    const normalizedSource = typeof source === 'string' ? source.trim() : '';
+    setReadyVideoLayerSrc(isReady && normalizedSource ? normalizedSource : '');
+  }, []);
 
 
 
@@ -413,7 +428,12 @@ const VideoCanvas = forwardRef((props, ref) => {
   if (activeItemList && activeItemList.length > 0) {
 
     imageStackList = activeItemList.map((item, index) => {
-      if (item.isHidden) {
+      const isVideoBaseImage = shouldSuppressStudioBaseImage(
+        item,
+        normalizedVideoLayerSrc,
+        readyVideoLayerSrc
+      );
+      if (item.isHidden || isVideoBaseImage) {
         return null;
       }
 
@@ -769,7 +789,8 @@ const VideoCanvas = forwardRef((props, ref) => {
         aiVideoLayerType={aiVideoLayerType}
         nextAiVideoLayer={nextAiVideoLayer}
         nextAiVideoLayerType={nextAiVideoLayerType}
-        isVideoPreviewPlaying={isVideoPreviewPlaying} />
+        isVideoPreviewPlaying={isVideoPreviewPlaying}
+        onVideoReadyChange={handleVideoReadyChange} />
     </div>
   )
 
@@ -1040,7 +1061,7 @@ const VideoCanvas = forwardRef((props, ref) => {
             boxSizing: 'border-box',
             padding: 0,
             margin: 0,
-            backgroundColor: bgCanvasColor,
+            backgroundColor: isCurrentVideoLayerReady ? 'transparent' : bgCanvasColor,
           }}
         >
           <Layer onMouseDown={handleLayerMouseDown} onMouseMove={handleLayerMouseMove}

@@ -199,6 +199,10 @@ export default function PreviewPlaybackController(props) {
         && !audioEntry.hasRequestedLoad
       ) {
         try {
+          if (!audioEntry.hasAssignedSource) {
+            audioEntry.audio.src = audioEntry.url;
+            audioEntry.hasAssignedSource = true;
+          }
           audioEntry.hasRequestedLoad = true;
           audioEntry.audio.load();
         } catch  {
@@ -333,7 +337,7 @@ export default function PreviewPlaybackController(props) {
         const endTime = Number.isFinite(explicitEndTime) && explicitEndTime > startTime
           ? explicitEndTime
           : startTime + duration;
-        const audioEl = new Audio(resolvedAudioUrl);
+        const audioEl = new Audio();
         audioEl.preload = 'none';
         audioEl.crossOrigin = 'anonymous';
         audioEl.volume = mediaElementVolume;
@@ -359,6 +363,7 @@ export default function PreviewPlaybackController(props) {
           manualVolumeAdjustmentEnabled,
           manualVolumeAutomationPoints,
           hasPlaybackError: failedAudioSourceRef.current.has(resolvedAudioUrl),
+          hasAssignedSource: false,
           hasRequestedLoad: false,
           failedSourceSet: failedAudioSourceRef.current,
           url: resolvedAudioUrl,
@@ -424,7 +429,8 @@ export default function PreviewPlaybackController(props) {
     return () => {
       createdAudioRefs.forEach((audioEntry) => {
         audioEntry.audio.pause();
-        audioEntry.audio.src = '';
+        audioEntry.audio.removeAttribute('src');
+        audioEntry.audio.load();
 
         [
           audioEntry.duckGainNode,
