@@ -342,6 +342,20 @@ function coerceSupportedInferenceModelKey(value) {
   }
   const normalized = value.trim().toLowerCase();
   if (
+    normalized === 'qwen3.7' ||
+    normalized === 'qwen3.7-max' ||
+    normalized === 'qwen3.7-plus' ||
+    normalized === 'qwen-3.7' ||
+    normalized === 'qwen 3.7' ||
+    normalized === 'qwen37' ||
+    normalized === 'qwen37max' ||
+    normalized === 'qwen37plus' ||
+    normalized === 'alibaba qwen 3.7' ||
+    normalized === 'alibaba cloud qwen 3.7'
+  ) {
+    return 'QWEN3.7';
+  }
+  if (
     normalized === 'gemini-3.1-pro' ||
     normalized === 'gemini-3.1-pro-preview' ||
     normalized === 'gemini-3-pro' ||
