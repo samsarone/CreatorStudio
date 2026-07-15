@@ -2943,6 +2943,7 @@ export default function OneshotEditor() {
   // dependent editor state; otherwise mobile briefly paints a blank/default form.
   const [sessionDetails, setSessionDetails] = useState(null);
   const [sessionLoadFailed, setSessionLoadFailed] = useState(false);
+  const [sessionLoadError, setSessionLoadError] = useState('');
   const [promptText, setPromptText] = useState('');
   const clampPromptText = useCallback((value) => {
     if (typeof value !== 'string') return '';
@@ -4976,6 +4977,7 @@ export default function OneshotEditor() {
 
     try {
       setSessionLoadFailed(false);
+      setSessionLoadError('');
       const canUseAnonymousDockerStatus = currentEnv === 'docker';
       let headers = user?._id ? getHeaders() : null;
       if (!headers && !canUseAnonymousDockerStatus && user?._id) {
@@ -4994,23 +4996,42 @@ export default function OneshotEditor() {
             `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`,
             headers
           );
-        } catch (error) {
-          if (error?.response?.status !== 401) {
-            throw error;
+        } catch (sessionDetailsError) {
+          if (sessionDetailsError?.response?.status === 401) {
+            await getUserAPI();
+            headers = getHeaders();
+            if (headers) {
+              try {
+                sessionResponse = await axios.get(
+                  `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`,
+                  headers
+                );
+              } catch {
+                sessionResponse = null;
+              }
+            }
           }
 
-          await getUserAPI();
-          headers = getHeaders();
-          if (!headers) {
-            throw error;
+          if (!sessionResponse) {
+            try {
+              const statusData = await fetchDetailedGenerationStatus(id, headers);
+              const fallbackSession = buildDockerAnonymousSessionDetailsFromStatus(statusData);
+              if (isPlainObject(fallbackSession) && (
+                isPlainObject(fallbackSession.session) ||
+                Array.isArray(fallbackSession.layers) ||
+                isPlainObject(fallbackSession.expressGenerationStatus)
+              )) {
+                setGenerationStatusDetails(statusData);
+                data = fallbackSession;
+              } else {
+                throw sessionDetailsError;
+              }
+            } catch {
+              throw sessionDetailsError;
+            }
           }
-
-          sessionResponse = await axios.get(
-            `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`,
-            headers
-          );
         }
-        data = sessionResponse.data;
+        data = data || sessionResponse?.data;
       } else if (canUseAnonymousDockerStatus) {
         const statusData = await fetchDetailedGenerationStatus(id);
         if (statusData?.expressGenerationStatus) {
@@ -5125,7 +5146,9 @@ export default function OneshotEditor() {
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
       return data;
-    } catch {
+    } catch (error) {
+      const apiMessage = error?.response?.data?.error || error?.response?.data?.message;
+      setSessionLoadError(apiMessage || 'The project could not be loaded. Please try again.');
       setSessionLoadFailed(true);
       return null;
     }
@@ -7025,7 +7048,7 @@ export default function OneshotEditor() {
           <p className={`mt-2 text-sm ${mutedText}`}>
             {isGuestPreview
               ? 'This sample is no longer available. Log in to create in your own workspace.'
-              : 'The project could not be loaded. Please try again.'}
+              : sessionLoadError || 'The project could not be loaded. Please try again.'}
           </p>
           <button
             type="button"
