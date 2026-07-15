@@ -164,12 +164,19 @@ const TIMELINE_PREVIEW_SESSION_REFRESH_MS = 10_000;
 const VOICE_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 const VOICE_TRANSCRIPTION_WORD_LIMIT = 2000;
 const VIDGENIE_PROMPT_MAX_LENGTH = 4000;
-const VIDGENIE_IMAGE_MODEL_ORDER = ['GPTIMAGE2', 'NANOBANANA2', 'NANOBANANAPRO', 'SEEDREAM'];
+const VIDGENIE_IMAGE_MODEL_ORDER = [
+  'GPTIMAGE2',
+  'NANOBANANA2',
+  'NANOBANANAPRO',
+  'SEEDREAM',
+  'WAN2.7PRO',
+];
 const VIDGENIE_IMAGE_MODEL_LABELS = {
   GPTIMAGE2: 'GPT Image 2',
   NANOBANANA2: 'Nano Banana 2',
   NANOBANANAPRO: 'NanoBanana Pro',
   SEEDREAM: 'Seedream',
+  'WAN2.7PRO': 'Wan2.7 Pro',
 };
 const DEFAULT_VIDEO_GENERATION_MODEL = 'RUNWAYML';
 const VIDGENIE_VIDEO_MODEL_ORDER = [
@@ -201,12 +208,8 @@ const VIDGENIE_IMAGE_LIST_VIDEO_MODEL_ORDER = [
   'KLINGIMGTOVID3PRO',
   'HAPPYHORSEI2V',
 ];
-const TEXT_TO_VIDEO_IMAGE_MODEL_KEYS = [
-  'GPTIMAGE2',
-  'NANOBANANA2',
-  'NANOBANANAPRO',
-  'SEEDREAM',
-];
+const TEXT_TO_VIDEO_IMAGE_MODEL_KEYS = VIDGENIE_IMAGE_MODEL_ORDER;
+const IMAGE_LIST_TO_VIDEO_IMAGE_MODEL_KEYS = VIDGENIE_IMAGE_MODEL_ORDER;
 const TEXT_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'RUNWAYML',
   'VEO3.1I2V',
@@ -1267,6 +1270,7 @@ function buildDefaultJsonModeInput({
           project: 'launch_trailer',
         },
         prompt: 'Create a polished short video from these images.',
+        image_model: imageModel || '',
         video_model: normalizedVideoModel,
         aspect_ratio: normalizedAspectRatio,
         ...languageFields,
@@ -1961,6 +1965,38 @@ function getConfiguredModelError(fieldName, modelValues = []) {
   return `JSON input.${fieldName} must be one of the configured Docker models: ${allowedModels || 'none'}.`;
 }
 
+function validateStageImageModel(
+  input,
+  {
+    stageName,
+    allowedModelKeys,
+    deploymentModelValues,
+    isDockerInstall,
+    required = true,
+  }
+) {
+  if (typeof input.image_model !== 'string' || input.image_model.trim().length === 0) {
+    return required ? `JSON input.image_model is required for ${stageName}.` : null;
+  }
+
+  const resolvedImageModel = resolveJsonImageModelAlias(input.image_model.trim());
+  const imageModel = getJsonModelByKey(IMAGE_GENERAITON_MODEL_TYPES, resolvedImageModel);
+  if (!imageModel || !allowedModelKeys.includes(resolvedImageModel)) {
+    return `JSON input.image_model must be one of: ${formatAllowedJsonValues(allowedModelKeys)}.`;
+  }
+  if (!isModelAllowedByDeployment(resolvedImageModel, deploymentModelValues, isDockerInstall)) {
+    return getConfiguredModelError('image_model', deploymentModelValues);
+  }
+  if (imageModel.isExpressModel !== true) {
+    return 'JSON input.image_model must be an express model.';
+  }
+  if (!imageModelSupportsAspectRatio(resolvedImageModel, input.aspect_ratio || '16:9')) {
+    return `JSON input.image_model ${resolvedImageModel} does not support aspect_ratio ${input.aspect_ratio || '16:9'}.`;
+  }
+
+  return null;
+}
+
 function validateTextToVideoJsonInput(
   input,
   inferenceModelOptions = INFERENCE_MODEL_TYPES,
@@ -1980,24 +2016,13 @@ function validateTextToVideoJsonInput(
     return `JSON input.prompt must be ${VIDGENIE_PROMPT_MAX_LENGTH} characters or fewer.`;
   }
 
-  if (typeof input.image_model !== 'string' || input.image_model.trim().length === 0) {
-    return 'JSON input.image_model is required for text_to_video.';
-  }
-
-  const resolvedImageModel = resolveJsonImageModelAlias(input.image_model.trim());
-  const imageModel = getJsonModelByKey(IMAGE_GENERAITON_MODEL_TYPES, resolvedImageModel);
-  if (!imageModel || !TEXT_TO_VIDEO_IMAGE_MODEL_KEYS.includes(resolvedImageModel)) {
-    return `JSON input.image_model must be one of: ${formatAllowedJsonValues(TEXT_TO_VIDEO_IMAGE_MODEL_KEYS)}.`;
-  }
-  if (!isModelAllowedByDeployment(resolvedImageModel, textToVideoImageModelValues, isDockerInstall)) {
-    return getConfiguredModelError('image_model', textToVideoImageModelValues);
-  }
-  if (imageModel.isExpressModel !== true) {
-    return 'JSON input.image_model must be an express model.';
-  }
-  if (!imageModelSupportsAspectRatio(resolvedImageModel, input.aspect_ratio || '16:9')) {
-    return `JSON input.image_model ${resolvedImageModel} does not support aspect_ratio ${input.aspect_ratio || '16:9'}.`;
-  }
+  const imageModelError = validateStageImageModel(input, {
+    stageName: 'text_to_video',
+    allowedModelKeys: TEXT_TO_VIDEO_IMAGE_MODEL_KEYS,
+    deploymentModelValues: textToVideoImageModelValues,
+    isDockerInstall,
+  });
+  if (imageModelError) return imageModelError;
 
   if (typeof input.video_model !== 'string' || input.video_model.trim().length === 0) {
     return 'JSON input.video_model is required for text_to_video.';
@@ -2045,7 +2070,17 @@ function validateImageListToVideoJsonInput(
   const commonError = validateCommonJsonInput(input, inferenceModelOptions);
   if (commonError) return commonError;
   const isDockerInstall = deploymentModelAvailability?.isDockerInstall === true;
+  const imageListToVideoImageModelValues = deploymentModelAvailability?.imageListToVideoImageModelValues || [];
   const imageListToVideoVideoModelValues = deploymentModelAvailability?.imageListToVideoVideoModelValues || [];
+
+  const imageModelError = validateStageImageModel(input, {
+    stageName: 'image_list_to_video',
+    allowedModelKeys: IMAGE_LIST_TO_VIDEO_IMAGE_MODEL_KEYS,
+    deploymentModelValues: imageListToVideoImageModelValues,
+    isDockerInstall,
+    required: false,
+  });
+  if (imageModelError) return imageModelError;
 
   if (!Array.isArray(input.image_urls) || input.image_urls.length === 0) {
     return 'JSON input.image_urls must be a non-empty array for image_list_to_video.';
@@ -3594,14 +3629,17 @@ export default function OneshotEditor() {
     isLoading: isDeploymentModelAvailabilityLoading,
     textToVideoImageModelValues,
     textToVideoVideoModelValues,
+    imageListToVideoImageModelValues,
     imageListToVideoVideoModelValues,
   } = useDeploymentModelAvailability();
   const deploymentModelAvailability = useMemo(() => ({
     isDockerInstall: isDockerModelFilteringEnabled,
     textToVideoImageModelValues,
     textToVideoVideoModelValues,
+    imageListToVideoImageModelValues,
     imageListToVideoVideoModelValues,
   }), [
+    imageListToVideoImageModelValues,
     imageListToVideoVideoModelValues,
     isDockerModelFilteringEnabled,
     textToVideoImageModelValues,
@@ -3701,7 +3739,10 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Image-model select & styles
   // ─────────────────────────────────────────────────────────
-  const expressImageModels = useMemo(() => {
+  const stageDeploymentImageModelValues = generationMode === 'I2V'
+    ? imageListToVideoImageModelValues
+    : textToVideoImageModelValues;
+  const stageImageModels = useMemo(() => {
     const availableModelMap = new Map(
       IMAGE_GENERAITON_MODEL_TYPES
         .filter((m) => {
@@ -3728,39 +3769,37 @@ export default function OneshotEditor() {
       })
       .filter(Boolean);
     return isDockerModelFilteringEnabled
-      ? filterOptionsForDeploymentModelValues(orderedModels, textToVideoImageModelValues)
+      ? filterOptionsForDeploymentModelValues(orderedModels, stageDeploymentImageModelValues)
       : orderedModels;
   }, [
     isDockerModelFilteringEnabled,
     selectedAspectRatioOption.value,
-    textToVideoImageModelValues,
+    stageDeploymentImageModelValues,
   ]);
 
   const [selectedImageModel, setSelectedImageModel] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
-    const found = expressImageModels.find((m) => m.value === saved);
-    return found || expressImageModels[0];
+    const found = stageImageModels.find((m) => m.value === saved);
+    return found || stageImageModels[0];
   });
 
   useEffect(() => {
-    if (generationMode !== 'T2V') return;
-
     setSelectedImageModel((prev) => {
-      if (!expressImageModels.length) return null;
+      if (!stageImageModels.length) return null;
       if (prev?.value) {
-        const existing = expressImageModels.find((m) => m.value === prev.value);
+        const existing = stageImageModels.find((m) => m.value === prev.value);
         if (existing) return existing;
       }
 
       const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
-      const found = expressImageModels.find((m) => m.value === saved);
-      return found || expressImageModels[0];
+      const found = stageImageModels.find((m) => m.value === saved);
+      return found || stageImageModels[0];
     });
-  }, [expressImageModels, generationMode]);
+  }, [stageImageModels]);
 
   const [selectedImageStyle, setSelectedImageStyle] = useState(() => {
     const saved = localStorage.getItem('defaultVidGPTImageGenerationModel');
-    const foundModel = expressImageModels.find((m) => m.value === saved) || expressImageModels[0];
+    const foundModel = stageImageModels.find((m) => m.value === saved) || stageImageModels[0];
     if (foundModel?.imageStyles?.length) {
       const firstStyle = foundModel.imageStyles[0];
       return { label: firstStyle, value: firstStyle };
@@ -5473,7 +5512,10 @@ export default function OneshotEditor() {
       setErrorMessage({ error: 'Docker model availability is still loading.' });
       return;
     }
-    if (isTextToVideo && !selectedImageModel?.value) {
+    if (
+      !selectedImageModel?.value ||
+      !stageImageModels.some((model) => model.value === selectedImageModel.value)
+    ) {
       setErrorMessage({ error: 'Please select an available image model before submitting.' });
       return;
     }
@@ -5507,22 +5549,21 @@ export default function OneshotEditor() {
     activeRequestIdRef.current = null;
     activeRequestStepModeRef.current = submittedGenerationStepMode;
 
-    const requestInput = {};
+    const requestInput = {
+      image_model: selectedImageModel.value,
+      aspect_ratio: selectedAspectRatioOption.value,
+    };
     if (isTextToVideo) {
       requestInput.prompt = trimmedPromptText;
-      requestInput.image_model = selectedImageModel.value;
       requestInput.video_model = selectedVideoModel.value;
       requestInput.duration = selectedDurationOption.value;
       requestInput.tone = advancedRequestConfiguration.input.tone || 'grounded';
-      requestInput.aspect_ratio = selectedAspectRatioOption.value;
       if (selectedVideoModelSubType?.value) {
         requestInput.video_model_sub_type = selectedVideoModelSubType.value;
       }
       if (selectedImageStyle?.value) {
         requestInput.image_style = selectedImageStyle.value;
       }
-    } else {
-      requestInput.aspect_ratio = selectedAspectRatioOption.value;
     }
 
     const selectedLanguageValue =
@@ -7274,46 +7315,46 @@ export default function OneshotEditor() {
               <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.aspectRatio")}</p>
             </div>
 
+            {/* Image Model */}
+            <div className="group w-full">
+              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                <SingleSelect
+                  value={selectedImageModel}
+                  onChange={setSelectedImageModel}
+                  options={stageImageModels}
+                  isDisabled={isFormDisabled}
+                  className="w-full"
+                />
+              </div>
+              <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.imageModel")}</p>
+            </div>
+
+            {/* Image Style (conditional) */}
+            {(() => {
+              const modelCfg = IMAGE_GENERAITON_MODEL_TYPES.find(
+                (m) => m.key === selectedImageModel?.value
+              );
+              if (modelCfg?.imageStyles) {
+                return (
+                  <div className="group w-full">
+                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                      <SingleSelect
+                        value={selectedImageStyle}
+                        onChange={setSelectedImageStyle}
+                        options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
+                        isDisabled={isFormDisabled}
+                        className="w-full"
+                      />
+                    </div>
+                    <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.imageStyle")}</p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
             {generationMode === 'T2V' && (
               <>
-                {/* Image Model */}
-                <div className="group w-full">
-                  <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                    <SingleSelect
-                      value={selectedImageModel}
-                      onChange={setSelectedImageModel}
-                      options={expressImageModels}
-                      isDisabled={isFormDisabled}
-                      className="w-full"
-                    />
-                  </div>
-                  <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.imageModel")}</p>
-                </div>
-
-                {/* Image Style (conditional) */}
-                {(() => {
-                  const modelCfg = IMAGE_GENERAITON_MODEL_TYPES.find(
-                    (m) => m.key === selectedImageModel?.value
-                  );
-                  if (modelCfg?.imageStyles) {
-                    return (
-                      <div className="group w-full">
-                        <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                          <SingleSelect
-                            value={selectedImageStyle}
-                            onChange={setSelectedImageStyle}
-                            options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
-                            isDisabled={isFormDisabled}
-                            className="w-full"
-                          />
-                        </div>
-                        <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.imageStyle")}</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-
                 {/* Video Model */}
                 <div className="group w-full">
                   <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
