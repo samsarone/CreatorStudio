@@ -11,6 +11,7 @@ import {
 import TextareaAutosize from 'react-textarea-autosize';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Tooltip } from 'react-tooltip';
+import { resolveVidgenieLoadedProjectView } from './vidgenieProjectViewState.mjs';
 import {
   FaChevronCircleDown,
   FaChevronDown,
@@ -5059,6 +5060,14 @@ export default function OneshotEditor() {
         data,
         forceAdvancedEditPoll || usePostProcessingPoll
       );
+      const failureStatus = getDetailedGenerationFailureStatus(data);
+      const loadedProjectView = resolveVidgenieLoadedProjectView({
+        hasPausedGeneration,
+        hasPendingGeneration,
+        hasStartedGeneration: hasStartedGenerationSession(data),
+        latestVideoUrl,
+        failureStatus,
+      });
       const isCurrentSessionRequest =
         !activeRequestIdRef.current ||
         activeRequestIdRef.current === id;
@@ -5110,6 +5119,29 @@ export default function OneshotEditor() {
           }
           clearAdvancedVideoEditPendingSession(id);
           clearPostProcessingPendingSession(id);
+        } else if (loadedProjectView.showResultDisplay) {
+          setIsPaused(false);
+          setIsGenerationPending(false);
+          setIsGenerationWaitingForApproval(false);
+          setShowResultDisplay(true);
+          setExpressGenerationStatus(data.expressGenerationStatus);
+          if (failureStatus) {
+            setErrorMessage({
+              error: getDetailedGenerationErrorMessage(data, failureStatus),
+            });
+          }
+          if (headers && !usePostProcessingPoll) {
+            refreshDetailedGenerationStatus(id, headers)
+              .then((statusData) => {
+                const detailedFailureStatus = getDetailedGenerationFailureStatus(statusData);
+                if (detailedFailureStatus) {
+                  setErrorMessage({
+                    error: getDetailedGenerationErrorMessage(statusData, detailedFailureStatus),
+                  });
+                }
+              })
+              .catch(() => undefined);
+          }
         }
       } else if (hasPendingGeneration && activeRequestIdRef.current === id) {
         setIsPaused(false);
@@ -5142,6 +5174,29 @@ export default function OneshotEditor() {
         }
         clearAdvancedVideoEditPendingSession(id);
         clearPostProcessingPendingSession(id);
+      } else if (loadedProjectView.showResultDisplay) {
+        setIsPaused(false);
+        setIsGenerationPending(false);
+        setIsGenerationWaitingForApproval(false);
+        setShowResultDisplay(true);
+        setExpressGenerationStatus(data.expressGenerationStatus);
+        if (failureStatus) {
+          setErrorMessage({
+            error: getDetailedGenerationErrorMessage(data, failureStatus),
+          });
+        }
+        if (headers && !usePostProcessingPoll) {
+          refreshDetailedGenerationStatus(id, headers)
+            .then((statusData) => {
+              const detailedFailureStatus = getDetailedGenerationFailureStatus(statusData);
+              if (detailedFailureStatus) {
+                setErrorMessage({
+                  error: getDetailedGenerationErrorMessage(statusData, detailedFailureStatus),
+                });
+              }
+            })
+            .catch(() => undefined);
+        }
       }
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
