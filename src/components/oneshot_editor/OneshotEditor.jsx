@@ -1,13 +1,13 @@
 
 import {
+  Suspense,
+  lazy,
   useState,
   useEffect,
   useRef,
   useMemo,
   useCallback,
 } from 'react';
-import ace from 'ace-builds';
-import AceEditor from 'react-ace';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Tooltip } from 'react-tooltip';
@@ -89,14 +89,42 @@ import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 import { useDeploymentModelAvailability } from '../../hooks/useDeploymentModelAvailability.js';
 import { useInferenceModelAvailability } from '../../hooks/useInferenceModelAvailability.js';
 
-import 'ace-builds/src-noconflict/mode-json';
-import 'ace-builds/src-noconflict/theme-monokai';
-import 'ace-builds/src-noconflict/ext-language_tools';
 import 'react-tooltip/dist/react-tooltip.css';
 import 'react-toastify/dist/ReactToastify.css';
 import './mobileStyles.css';
 
-ace.config.set('useWorker', false);
+const LazyAceEditor = lazy(async () => {
+  const [aceModule, reactAceModule] = await Promise.all([
+    import('ace-builds'),
+    import('react-ace'),
+    import('ace-builds/src-noconflict/mode-json'),
+    import('ace-builds/src-noconflict/theme-monokai'),
+    import('ace-builds/src-noconflict/ext-language_tools'),
+  ]);
+
+  const ace = aceModule.default || aceModule;
+  ace.config.set('useWorker', false);
+
+  return { default: reactAceModule.default || reactAceModule };
+});
+
+function JsonAceEditor({ height = '520px', ...props }) {
+  return (
+    <Suspense
+      fallback={(
+        <div
+          className="flex items-center justify-center bg-[#272822] text-sm text-slate-300"
+          style={{ height }}
+          role="status"
+        >
+          Loading JSON editor...
+        </div>
+      )}
+    >
+      <LazyAceEditor {...props} height={height} />
+    </Suspense>
+  );
+}
 
 // ───────────────────────────────────────────────────────────
 //  Environment constants
@@ -2792,9 +2820,11 @@ export default function OneshotEditor() {
   const location = useLocation();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
   const showLoginDialog = useCallback(() => {
-    const redirectTo = `${location.pathname}${location.search || ''}`;
+    const redirectTo = user?._id
+      ? `${location.pathname}${location.search || ''}`
+      : '/vidgenie';
     openAlertDialog(<AuthContainer redirectTo={redirectTo} />, undefined, false, AUTH_DIALOG_OPTIONS);
-  }, [location.pathname, location.search, openAlertDialog]);
+  }, [location.pathname, location.search, openAlertDialog, user]);
 
   const goToPurchaseCredits = useCallback(() => {
     closeAlertDialog();
@@ -2802,6 +2832,15 @@ export default function OneshotEditor() {
   }, [closeAlertDialog, navigate]);
 
   const activeSessionIdRef = useRef(id);
+  const initialGuestSessionRef = useRef(undefined);
+  if (initialGuestSessionRef.current === undefined) {
+    const candidate = location.state?.guestSession;
+    const candidateId = candidate?._id?.$oid || candidate?._id || candidate?.id;
+    initialGuestSessionRef.current =
+      candidate?.isGuestSession === true && String(candidateId || '') === String(id || '')
+        ? candidate
+        : null;
+  }
   const currentPollRequestIdRef = useRef(null);
   const activeRequestIdRef = useRef(null);
   const postProcessingPollActionRef = useRef('');
@@ -2865,7 +2904,10 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Basic session & form state
   // ─────────────────────────────────────────────────────────
+  // Keep the stable skeleton visible until the handed-off sample has hydrated all
+  // dependent editor state; otherwise mobile briefly paints a blank/default form.
   const [sessionDetails, setSessionDetails] = useState(null);
+  const [sessionLoadFailed, setSessionLoadFailed] = useState(false);
   const [promptText, setPromptText] = useState('');
   const clampPromptText = useCallback((value) => {
     if (typeof value !== 'string') return '';
@@ -3924,14 +3966,8 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   //  Credits / disable form
   // ─────────────────────────────────────────────────────────
-  const [isDisabled, setIsDisabled] = useState(false);
-  useEffect(() => {
-    if (!user || (user.generationCredits < 300 && currentEnv !== 'docker')) {
-      setIsDisabled(true);
-    } else {
-      setIsDisabled(false);
-    }
-  }, [user]);
+  const isGuestPreview = !user?._id;
+  const isDisabled = isGuestPreview || (user.generationCredits < 300 && currentEnv !== 'docker');
 
   // ─────────────────────────────────────────────────────────
   //  CLEAN-UP ALL POLLS WHEN COMPONENT UNMOUNTS
@@ -3976,6 +4012,8 @@ export default function OneshotEditor() {
       getSessionDetails().then((data) => {
         const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);
         if (
+          user?._id &&
+          getHeaders() &&
           isSessionGenerationPending(data, shouldForceAdvancedVideoEditPolling(id) || usePostProcessingPoll) &&
           !activeRequestIdRef.current
         ) {
@@ -4898,16 +4936,19 @@ export default function OneshotEditor() {
   const getSessionDetails = async () => {
 
     try {
+      setSessionLoadFailed(false);
       const canUseAnonymousDockerStatus = currentEnv === 'docker';
-      let headers = getHeaders();
-      if (!headers && !canUseAnonymousDockerStatus) {
+      let headers = user?._id ? getHeaders() : null;
+      if (!headers && !canUseAnonymousDockerStatus && user?._id) {
         await getUserAPI();
         headers = getHeaders();
       }
-      if (!headers && !canUseAnonymousDockerStatus) return null;
 
       let data;
-      if (headers) {
+      if (!headers && initialGuestSessionRef.current) {
+        data = initialGuestSessionRef.current;
+        initialGuestSessionRef.current = null;
+      } else if (headers) {
         let sessionResponse;
         try {
           sessionResponse = await axios.get(
@@ -4931,15 +4972,24 @@ export default function OneshotEditor() {
           );
         }
         data = sessionResponse.data;
-      } else {
+      } else if (canUseAnonymousDockerStatus) {
         const statusData = await fetchDetailedGenerationStatus(id);
         if (statusData?.expressGenerationStatus) {
           setExpressGenerationStatus(statusData.expressGenerationStatus);
         }
         setGenerationStatusDetails(statusData);
         data = buildDockerAnonymousSessionDetailsFromStatus(statusData);
+      } else {
+        const sessionResponse = await axios.get(
+          `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`
+        );
+        data = sessionResponse.data;
       }
 
+      if (!data) {
+        setSessionLoadFailed(true);
+        return null;
+      }
       setSessionDetails(data);
       const forceAdvancedEditPoll = shouldForceAdvancedVideoEditPolling(id);
       const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);
@@ -4969,7 +5019,7 @@ export default function OneshotEditor() {
           setIsGenerationWaitingForApproval(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
-          if (!usePostProcessingPoll) {
+          if (headers && !usePostProcessingPoll) {
             refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
           }
         } else if (hasPendingGeneration) {
@@ -4978,12 +5028,14 @@ export default function OneshotEditor() {
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
           if (usePostProcessingPoll) {
-            if (isCurrentSessionRequest) {
+            if (headers && isCurrentSessionRequest) {
               pollPostProcessingStatus(id);
             }
           } else {
-            refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
-            if (isCurrentSessionRequest) {
+            if (headers) {
+              refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
+            }
+            if (headers && isCurrentSessionRequest) {
               pollGenerationStatus(id);
             }
           }
@@ -4993,7 +5045,7 @@ export default function OneshotEditor() {
           setIsGenerationPending(false);
           setShowResultDisplay(true);
           setExpressGenerationStatus(data.expressGenerationStatus);
-          if (!usePostProcessingPoll) {
+          if (headers && !usePostProcessingPoll) {
             refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
           }
           clearAdvancedVideoEditPendingSession(id);
@@ -5016,7 +5068,7 @@ export default function OneshotEditor() {
         setIsGenerationWaitingForApproval(false);
         setShowResultDisplay(true);
         setExpressGenerationStatus(data.expressGenerationStatus);
-        if (!usePostProcessingPoll) {
+        if (headers && !usePostProcessingPoll) {
           refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
         }
       } else if (!hasPendingGeneration && latestVideoUrl) {
@@ -5025,7 +5077,7 @@ export default function OneshotEditor() {
         setIsGenerationPending(false);
         setShowResultDisplay(true);
         setExpressGenerationStatus(data.expressGenerationStatus);
-        if (!usePostProcessingPoll) {
+        if (headers && !usePostProcessingPoll) {
           refreshDetailedGenerationStatus(id, headers).catch(() => undefined);
         }
         clearAdvancedVideoEditPendingSession(id);
@@ -5034,7 +5086,8 @@ export default function OneshotEditor() {
 
       if (data.sessionMessages) setSessionMessages(data.sessionMessages);
       return data;
-    } catch  {
+    } catch {
+      setSessionLoadFailed(true);
       return null;
     }
   };
@@ -6169,7 +6222,7 @@ export default function OneshotEditor() {
     );
 
   const isFormDisabled = renderState !== 'idle' || isDisabled;
-  const isModeToggleDisabled = renderState === 'pending' || renderState === 'paused' || isSubmitting;
+  const isModeToggleDisabled = isDisabled || renderState === 'pending' || renderState === 'paused' || isSubmitting;
   const isGenerationActionDisabled =
     isFormDisabled ||
     isSubmitting ||
@@ -6228,6 +6281,7 @@ export default function OneshotEditor() {
         <PrimaryPublicButton
           extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
           onClick={viewInStudio}
+          isDisabled={isGuestPreview}
         >
           View&nbsp;in&nbsp;Studio
         </PrimaryPublicButton>
@@ -6241,7 +6295,7 @@ export default function OneshotEditor() {
           isPending={
             isCompletedSessionPublished ? isUnpublishing : isPublishing
           }
-          isDisabled={isPublishing || isUnpublishing}
+          isDisabled={isGuestPreview || isPublishing || isUnpublishing}
         >
           {isCompletedSessionPublished
             ? isUnpublishing
@@ -6255,7 +6309,7 @@ export default function OneshotEditor() {
           extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
           onClick={handleDownloadVideo}
           isPending={isDownloadingVideo}
-          isDisabled={!videoLink}
+          isDisabled={isGuestPreview || !videoLink}
         >
           {isDownloadingVideo ? 'Downloading' : t("common.download")}
         </PrimaryPublicButton>
@@ -6263,7 +6317,7 @@ export default function OneshotEditor() {
     );
   };
   const renderCompletedPostProcessingControls = (extraClasses = '') => {
-    if (renderState !== 'complete' || !videoLink) {
+    if (isGuestPreview || renderState !== 'complete' || !videoLink) {
       return null;
     }
 
@@ -6899,10 +6953,12 @@ export default function OneshotEditor() {
           <button
             type="button"
             onClick={() => setIsAdvancedOpen((open) => !open)}
+            disabled={isFormDisabled}
             aria-expanded={isAdvancedOpen}
             className={`
               inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium ring-1 transition sm:w-auto
               ${secondaryActionClasses}
+              ${isFormDisabled ? 'cursor-not-allowed opacity-60' : ''}
             `}
           >
             <span>Advanced</span>
@@ -6917,6 +6973,29 @@ export default function OneshotEditor() {
     </div>
   );
   if (!sessionDetails) {
+    if (sessionLoadFailed) {
+      return (
+        <div className={`mx-auto mt-6 w-full max-w-lg rounded-2xl border p-6 text-center ${
+          colorMode === 'dark'
+            ? 'border-white/10 bg-[#0f1629] text-slate-100'
+            : 'border-slate-200 bg-white text-slate-900'
+        }`}>
+          <h1 className="text-xl font-semibold">Unable to open this VidGenie project</h1>
+          <p className={`mt-2 text-sm ${mutedText}`}>
+            {isGuestPreview
+              ? 'This sample is no longer available. Log in to create in your own workspace.'
+              : 'The project could not be loaded. Please try again.'}
+          </p>
+          <button
+            type="button"
+            onClick={isGuestPreview ? showLoginDialog : () => void getSessionDetails()}
+            className="mt-5 inline-flex min-h-10 items-center justify-center rounded-xl bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+          >
+            {isGuestPreview ? 'Log in to create' : 'Try again'}
+          </button>
+        </div>
+      );
+    }
     return <VidgenieSkeletonLoader />;
   }
 
@@ -6925,6 +7004,34 @@ export default function OneshotEditor() {
   // ─────────────────────────────────────────────────────────
   return (
     <div className="vidgenie-editor-shell relative mx-auto mt-2 w-full max-w-6xl overflow-x-hidden px-2 sm:mt-5 sm:px-6">
+      {isGuestPreview && (
+        <div
+          className={`mt-2 flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:mt-6 sm:flex-row sm:items-center sm:justify-between ${
+            colorMode === 'dark'
+              ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-50'
+              : 'border-blue-200 bg-blue-50 text-blue-950'
+          }`}
+          role="status"
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">Sample VidGenie project</div>
+            <p className={`mt-0.5 text-xs ${colorMode === 'dark' ? 'text-cyan-100/75' : 'text-blue-800'}`}>
+              You can preview this project. Log in to create videos in your own workspace.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={showLoginDialog}
+            className={`inline-flex min-h-10 w-full shrink-0 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition sm:w-auto ${
+              colorMode === 'dark'
+                ? 'bg-cyan-200 text-slate-950 hover:bg-cyan-100'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            Log in to create
+          </button>
+        </div>
+      )}
       {/* ───────── HEADER ───────── */}
       <div
         className={`
@@ -7026,6 +7133,7 @@ export default function OneshotEditor() {
                 <button
                   type="button"
                   onClick={openAdvancedVideoEditDialog}
+                  disabled={isGuestPreview}
                   title="Advanced video edits"
                   aria-label="Advanced video edits"
                   className={`
@@ -7034,6 +7142,7 @@ export default function OneshotEditor() {
                       ? 'border border-white/10 text-slate-100 hover:border-white/20 hover:bg-white/5'
                       : 'border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
                     }
+                    ${isGuestPreview ? 'cursor-not-allowed opacity-50' : ''}
                   `}
                 >
                   <FaCog />
@@ -7158,6 +7267,7 @@ export default function OneshotEditor() {
                   value={selectedAspectRatioOption}
                   onChange={setSelectedAspectRatioOption}
                   options={aspectRatioOptions}
+                  isDisabled={isFormDisabled}
                   className="w-full"
                 />
               </div>
@@ -7173,6 +7283,7 @@ export default function OneshotEditor() {
                       value={selectedImageModel}
                       onChange={setSelectedImageModel}
                       options={expressImageModels}
+                      isDisabled={isFormDisabled}
                       className="w-full"
                     />
                   </div>
@@ -7192,6 +7303,7 @@ export default function OneshotEditor() {
                             value={selectedImageStyle}
                             onChange={setSelectedImageStyle}
                             options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
+                            isDisabled={isFormDisabled}
                             className="w-full"
                           />
                         </div>
@@ -7209,6 +7321,7 @@ export default function OneshotEditor() {
                       value={selectedVideoModel}
                       onChange={setSelectedVideoModel}
                       options={expressVideoModels}
+                      isDisabled={isFormDisabled}
                       className="w-full"
                     />
                   </div>
@@ -7222,9 +7335,10 @@ export default function OneshotEditor() {
                       <SingleSelect
                         value={selectedVideoModelSubType}
                         onChange={setSelectedVideoModelSubType}
-                      options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
-                      className="w-full"
-                    />
+                        options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
+                        isDisabled={isFormDisabled}
+                        className="w-full"
+                      />
                   </div>
                     <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.pixverseStyle")}</p>
                   </div>
@@ -7237,9 +7351,10 @@ export default function OneshotEditor() {
                       <SingleSelect
                         value={selectedVideoModelSubType}
                         onChange={setSelectedVideoModelSubType}
-                      options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
-                      className="w-full"
-                    />
+                        options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
+                        isDisabled={isFormDisabled}
+                        className="w-full"
+                      />
                   </div>
                     <p className={`text-[11px] mt-1 ${mutedText}`}>{t("vidgenie.videoSubType")}</p>
                   </div>
@@ -7254,6 +7369,7 @@ export default function OneshotEditor() {
                     value={selectedVideoModel}
                     onChange={setSelectedVideoModel}
                     options={imageListVideoModels}
+                    isDisabled={isFormDisabled}
                     truncateLabels
                     className="w-full"
                   />
@@ -7270,6 +7386,7 @@ export default function OneshotEditor() {
                     value={selectedDurationOption}
                     onChange={setSelectedDurationOption}
                     options={durationOptions}
+                    isDisabled={isFormDisabled}
                     className="w-full"
                   />
                 </div>
@@ -7766,7 +7883,7 @@ export default function OneshotEditor() {
 
             {isJsonRequestExpanded && (
               <div className="mt-4 max-w-full overflow-hidden rounded-xl ring-1 ring-white/10">
-                <AceEditor
+                <JsonAceEditor
                   mode="json"
                   theme="monokai"
                   name="vidgenieJsonSubmittedInput"
@@ -7802,7 +7919,7 @@ export default function OneshotEditor() {
                   ? 'ring-white/10'
                   : 'ring-slate-200'
             }`}>
-              <AceEditor
+              <JsonAceEditor
                 mode="json"
                 theme="monokai"
                 name="vidgenieJsonInput"
@@ -7886,7 +8003,7 @@ export default function OneshotEditor() {
               <button
                 type="button"
                 onClick={handleToggleVoiceRecording}
-                disabled={!isVoiceSupported && !isBrowserSpeechSupported}
+                disabled={isFormDisabled || (!isVoiceSupported && !isBrowserSpeechSupported)}
                 aria-pressed={isVoiceBusy}
                 className={`
                   absolute bottom-3 right-3 h-11 w-11 rounded-full flex items-center justify-center
