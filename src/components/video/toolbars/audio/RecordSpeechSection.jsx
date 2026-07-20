@@ -961,8 +961,8 @@ export default function RecordSpeechSection({
         : '';
   const avatarVideoActionLabel = !runwayAvatarReady
     ? avatarGenerationStarted
-      ? 'Preparing avatar'
-      : 'Prepare avatar'
+      ? 'Preparing avatar and video'
+      : 'Generate avatar video'
     : 'Generate avatar video';
   const avatarVideoReady = Boolean(selectedAvatarVideoUrl)
     || ['VIDEO_COMPLETED', 'SAVED', 'ACCEPTED'].includes(selectedAvatarStatus);
@@ -1342,7 +1342,7 @@ export default function RecordSpeechSection({
     }
   };
 
-  const handleCreateRunwayAvatar = async ({ silent = false } = {}) => {
+  const handleCreateRunwayAvatar = async ({ silent = false, autoGenerateVideo = false } = {}) => {
     if (!selectedAvatarTaskIdValue || !avatarImageReady) {
       setAvatarError('Generate or select an avatar image first.');
       return null;
@@ -1360,6 +1360,8 @@ export default function RecordSpeechSection({
       const response = await axios.post(`${PROCESSOR_API_URL}/video_sessions/avatar_voiceover/create_avatar`, {
         taskId: selectedAvatarTaskIdValue,
         voicePresetId: selectedAvatarVoiceId,
+        autoGenerateVideo,
+        audioSource: avatarVideoAudioSource,
       }, headers);
       applyAvatarVoices(response?.data?.voices);
       mergeAvatarTask(response?.data?.task);
@@ -1492,19 +1494,38 @@ export default function RecordSpeechSection({
         return;
       }
 
-      const preparedTask = await handleCreateRunwayAvatar({ silent: true });
-      const preparedAvatarReady = Boolean(preparedTask?.runwayAvatarId)
-        && (
-          normalizeAvatarTaskStatus(preparedTask?.runwayAvatarStatus) === 'READY'
-          || normalizeAvatarTaskStatus(preparedTask?.status) === 'AVATAR_READY'
-        );
-      if (!preparedAvatarReady) {
-        toast.success('Avatar is being prepared. Generate the video when it is ready.', {
-          position: 'bottom-center',
-          className: 'custom-toast',
-        });
+      const preparedTask = await handleCreateRunwayAvatar({
+        silent: true,
+        autoGenerateVideo: true,
+      });
+      if (!preparedTask) {
         return;
       }
+
+      const preparedStatus = normalizeAvatarTaskStatus(preparedTask?.status);
+      const preparedVideoStatus = normalizeAvatarTaskStatus(preparedTask?.avatarVideoStatus);
+      if (preparedStatus === 'FAILED' || preparedVideoStatus === 'FAILED') {
+        setAvatarError(
+          preparedTask?.avatarVideoError
+          || preparedTask?.errorMessage
+          || 'Unable to start avatar video generation.'
+        );
+        return;
+      }
+
+      const preparedVideoStarted = Boolean(preparedTask?.avatarVideoTaskId)
+        || preparedStatus === 'VIDEO_PROCESSING'
+        || ['PENDING', 'PROCESSING', 'RUNNING'].includes(preparedVideoStatus);
+      toast.success(
+        preparedVideoStarted
+          ? 'Avatar video generation started.'
+          : 'Avatar is being prepared. Lip sync will start automatically when it is ready.',
+        {
+          position: 'bottom-center',
+          className: 'custom-toast',
+        }
+      );
+      return;
     }
 
     const headers = getHeaders();
