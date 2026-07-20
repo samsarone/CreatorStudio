@@ -1,5 +1,5 @@
 export const DEFAULT_INFERENCE_MODEL_VALUE = "gpt-5.6-sol";
-export const QWEN_INFERENCE_MODEL_VALUE = "QWEN3.8";
+export const QWEN_INFERENCE_MODEL_VALUE = "QWEN3.7";
 
 const DEPLOYMENT_INFERENCE_MODELS_BY_PROVIDER = Object.freeze({
   openai: ["gpt-5.6-sol"],
@@ -226,8 +226,13 @@ export function filterOptionsForDeploymentInferenceModels(options = [], modelVal
   return options.filter((option) => allowedModels.has(normalizeDeploymentInferenceModelValue(option?.value)));
 }
 
-export function labelOptionsForDeploymentInferenceProviders(options = [], _modelProviders = {}) {
-  const qwenLabel = "Qwen 3.8 Max Preview";
+export function labelOptionsForDeploymentInferenceProviders(options = [], modelProviders = {}) {
+  const qwenProvider = normalizeDeploymentProviderKey(
+    modelProviders?.[QWEN_INFERENCE_MODEL_VALUE],
+  );
+  const qwenLabel = qwenProvider === "alibabaCloud"
+    ? "Qwen 3.7 Max / Plus Vision"
+    : "Qwen 3.7 Plus";
 
   return options.map((option) => (
     normalizeDeploymentInferenceModelValue(option?.value) === QWEN_INFERENCE_MODEL_VALUE

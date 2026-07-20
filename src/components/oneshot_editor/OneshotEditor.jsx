@@ -445,7 +445,7 @@ function coerceSupportedInferenceModelKey(value) {
     normalized === 'alibaba qwen 3.7' ||
     normalized === 'alibaba cloud qwen 3.7'
   ) {
-    return 'QWEN3.8';
+    return 'QWEN3.7';
   }
   if (
     normalized === 'gemini-3.1-pro' ||
