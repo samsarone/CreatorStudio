@@ -433,7 +433,10 @@ function coerceSupportedInferenceModelKey(value) {
     normalized === 'qwen3.7' ||
     normalized === 'qwen3.7-max' ||
     normalized === 'qwen3.7-plus' ||
+    normalized === 'qwen3.8' ||
     normalized === 'qwen3.8-max-preview' ||
+    normalized === 'qwen-3.8' ||
+    normalized === 'qwen 3.8' ||
     normalized === 'qwen-3.7' ||
     normalized === 'qwen 3.7' ||
     normalized === 'qwen37' ||
@@ -442,7 +445,7 @@ function coerceSupportedInferenceModelKey(value) {
     normalized === 'alibaba qwen 3.7' ||
     normalized === 'alibaba cloud qwen 3.7'
   ) {
-    return 'QWEN3.7';
+    return 'QWEN3.8';
   }
   if (
     normalized === 'gemini-3.1-pro' ||
