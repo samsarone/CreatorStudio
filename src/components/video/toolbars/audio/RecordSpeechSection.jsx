@@ -158,6 +158,36 @@ function normalizeProcessorAssetUrl(value = '') {
   return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath;
 }
 
+function AvatarImage({
+  src,
+  className,
+  fallbackClassName,
+  fallbackIconClassName = '',
+}) {
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [src]);
+
+  if (!src || loadFailed) {
+    return (
+      <div className={fallbackClassName} title="Avatar image unavailable">
+        <FaUserCircle className={fallbackIconClassName} aria-hidden="true" />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      className={className}
+      onError={() => setLoadFailed(true)}
+    />
+  );
+}
+
 function normalizeAvatarTaskStatus(value = '') {
   return typeof value === 'string' ? value.trim().toUpperCase() : '';
 }
@@ -2736,17 +2766,11 @@ export default function RecordSpeechSection({
                         title={getAvatarTaskStatusLabel(task)}
                         aria-label={`Select avatar image: ${getAvatarTaskStatusLabel(task)}`}
                       >
-                        {imageUrl ? (
-                          <img
-                            src={imageUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
-                            <FaUserCircle aria-hidden="true" />
-                          </div>
-                        )}
+                        <AvatarImage
+                          src={imageUrl}
+                          className="h-full w-full object-cover"
+                          fallbackClassName={`flex h-full w-full items-center justify-center ${mutedText}`}
+                        />
                       </button>
                     );
                   })}
@@ -2764,10 +2788,11 @@ export default function RecordSpeechSection({
                   <span className="shrink-0">{selectedAvatarStatusLabel}</span>
                 </div>
                 {selectedAvatarImageUrl ? (
-                  <img
+                  <AvatarImage
                     src={selectedAvatarImageUrl}
-                    alt=""
                     className="aspect-square w-full bg-black object-cover"
+                    fallbackClassName={`flex aspect-square w-full items-center justify-center bg-black ${mutedText}`}
+                    fallbackIconClassName="text-4xl"
                   />
                 ) : (
                   <div className={`flex aspect-square w-full flex-col items-center justify-center gap-3 ${bgColor} ${mutedText}`}>
@@ -2954,17 +2979,11 @@ export default function RecordSpeechSection({
                           title={`Use ${label}`}
                           aria-label={`Use previously generated avatar: ${label}`}
                         >
-                          {imageUrl ? (
-                            <img
-                              src={imageUrl}
-                              alt=""
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
-                              <FaUserCircle aria-hidden="true" />
-                            </div>
-                          )}
+                          <AvatarImage
+                            src={imageUrl}
+                            className="h-full w-full object-cover"
+                            fallbackClassName={`flex h-full w-full items-center justify-center ${mutedText}`}
+                          />
                         </button>
                       );
                     })}
