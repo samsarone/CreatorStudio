@@ -22,8 +22,8 @@ import { getCanvasDimensionsForAspectRatio } from '../../utils/canvas.jsx';
 import { normalizeActiveTextItemListForCanvas } from '../../constants/TextConfig.jsx';
 import useUndoRedoState from '../../hooks/useUndoRedoState.js';
 import {
-  findLayerIndexAtDisplayFrame,
   getLayerDisplayFrameRanges,
+  resolveLayerSelectionAtDisplayFrame,
   resolveTimelineDuration,
 } from './util/studioPreviewTimeline.mjs';
 import {
@@ -1522,33 +1522,6 @@ export default function VideoHome() {
   }
 
   useEffect(() => {
-    if (isLayerSeeking || isVideoPreviewPlaying || !currentLayer) {
-      return;
-    }
-
-    const currentLayerIndex = layers.findIndex(
-      (layer) => getSessionLayerId(layer) === getSessionLayerId(currentLayer)
-    );
-    if (currentLayerIndex < 0) {
-      return;
-    }
-    const {
-      startFrame: newLayerSeek,
-      endFrame: currentLayerEndFrame,
-    } = getLayerDisplayFrameRanges(layers)[currentLayerIndex];
-    const resolvedCurrentLayerSeek = Number(currentLayerSeek);
-    const isSeekWithinCurrentLayer = Number.isFinite(resolvedCurrentLayerSeek)
-      && resolvedCurrentLayerSeek >= newLayerSeek
-      && resolvedCurrentLayerSeek < currentLayerEndFrame;
-
-    if (!isSeekWithinCurrentLayer) {
-      setCurrentLayerSeek(newLayerSeek);
-    }
-  }, [currentLayer, currentLayerSeek, isLayerSeeking, isVideoPreviewPlaying, layers]);
-
-
-
-  useEffect(() => {
     if (videoSessionDetails) {
       const defaultApplyAudioDucking = localStorage.getItem("applyAudioDucking") !== 'false';
       const resolvedApplyAudioDucking = typeof videoSessionDetails.applyAudioDucking === 'boolean'
@@ -1791,17 +1764,18 @@ export default function VideoHome() {
       return;
     }
 
-    const activeLayerIndex = findLayerIndexAtDisplayFrame(layers, currentLayerSeek);
-    const activeLayer = layers[activeLayerIndex];
-    const activeLayerId = getSessionLayerId(activeLayer);
-    const currentLayerId = getSessionLayerId(currentLayer);
-    if (!activeLayer || activeLayerId === currentLayerId) {
+    const selection = resolveLayerSelectionAtDisplayFrame(
+      layers,
+      currentLayerSeek,
+      getSessionLayerId(currentLayer)
+    );
+    if (!selection.shouldUpdate) {
       return;
     }
 
-    currentLayerRef.current = activeLayer;
-    setCurrentLayer(activeLayer);
-    setSelectedLayerIndex(activeLayerIndex);
+    currentLayerRef.current = selection.activeLayer;
+    setCurrentLayer(selection.activeLayer);
+    setSelectedLayerIndex(selection.activeLayerIndex);
   }, [currentLayer, currentLayerSeek, layers]);
 
 
@@ -2317,16 +2291,6 @@ export default function VideoHome() {
       setAudioLayers(audioLayerMap);
     }
   }, [videoSessionDetails]);
-
-  useEffect(() => {
-
-
-
-    if (selectedLayerIndex && selectedLayerIndex === layers.length - 1) {
-
-      setSelectedLayer(layers[selectedLayerIndex]);
-    }
-  }, [layers, selectedLayerIndex]);
 
   const requestVideoLayerEdit = async ({ layerId, operations }) => {
     if (!requireEditableStudioAction()) {
