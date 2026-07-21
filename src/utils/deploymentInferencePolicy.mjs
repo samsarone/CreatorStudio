@@ -1,5 +1,7 @@
 export const DEFAULT_INFERENCE_MODEL_VALUE = "gpt-5.6-sol";
 export const QWEN_INFERENCE_MODEL_VALUE = "QWEN3.7";
+export const HOSTED_QWEN_INFERENCE_MODEL_VALUE = "QWEN3.8";
+export const HOSTED_QWEN_INFERENCE_MODEL_LABEL = "Qwen 3.8 Max Preview";
 
 const DEPLOYMENT_INFERENCE_MODELS_BY_PROVIDER = Object.freeze({
   openai: ["gpt-5.6-sol"],
@@ -236,13 +238,21 @@ export function labelOptionsForDeploymentInferenceProviders(options = [], modelP
 
   return options.map((option) => (
     normalizeDeploymentInferenceModelValue(option?.value) === QWEN_INFERENCE_MODEL_VALUE
-      ? { ...option, label: qwenLabel }
+      ? { ...option, label: qwenLabel, value: QWEN_INFERENCE_MODEL_VALUE }
       : option
   ));
 }
 
 export function filterHostedInferenceModelOptions(options = []) {
-  return [...options];
+  return options.map((option) => (
+    normalizeDeploymentInferenceModelValue(option?.value) === QWEN_INFERENCE_MODEL_VALUE
+      ? {
+          ...option,
+          label: HOSTED_QWEN_INFERENCE_MODEL_LABEL,
+          value: HOSTED_QWEN_INFERENCE_MODEL_VALUE,
+        }
+      : option
+  ));
 }
 
 export function resolveAllowedInferenceModelOption(
