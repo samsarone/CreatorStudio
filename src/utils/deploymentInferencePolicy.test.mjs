@@ -12,14 +12,16 @@ import {
 const MODEL_OPTIONS = [
   { label: 'GPT 5.6 Sol', value: 'gpt-5.6-sol' },
   { label: 'Gemini 3.1 Pro', value: 'gemini-3.1-pro' },
-  { label: 'Qwen 3.7 Plus', value: 'QWEN3.7' },
+  { label: 'Qwen 3.8 Max Preview', value: 'QWEN3.7' },
 ];
 
-test('hosted inference exposes Qwen through the production OpenRouter route', () => {
+test('hosted inference exposes the production Qwen 3.8 label', () => {
+  const hostedOptions = filterHostedInferenceModelOptions(MODEL_OPTIONS);
   assert.deepEqual(
-    filterHostedInferenceModelOptions(MODEL_OPTIONS).map((option) => option.value),
+    hostedOptions.map((option) => option.value),
     ['gpt-5.6-sol', 'gemini-3.1-pro', 'QWEN3.7'],
   );
+  assert.equal(hostedOptions[2].label, 'Qwen 3.8 Max Preview');
 });
 
 test('Docker exposes Qwen only with an explicit model and validated Alibaba provenance', () => {
