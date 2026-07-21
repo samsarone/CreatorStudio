@@ -388,7 +388,7 @@ In Docker deployments, the processor-provided availability response filters the 
 
 VidGenie intentionally exposes a smaller express-first subset:
 
-- Image models: `GPTIMAGE2`, `NANOBANANA2`, `NANOBANANAPRO`, `SEEDREAM`.
+- Image models: `GPTIMAGE2`, `NANOBANANAPRO`, `SEEDREAM`.
 - Text/video and image/video models: `RUNWAYML`, `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`.
 - JSON mode validates the supported image/video model keys for the selected workflow.
 - Aspect ratios: `16:9` and `9:16`.
