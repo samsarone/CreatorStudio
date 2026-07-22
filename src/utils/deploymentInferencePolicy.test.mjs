@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  extractDeploymentProviderEndpointTypes,
   extractDeploymentInferenceModelValues,
   filterHostedInferenceModelOptions,
   hasValidatedAlibabaQwenInference,
@@ -46,6 +47,20 @@ test('Docker exposes Qwen only with an explicit model and validated Alibaba prov
       'QWEN3.7': 'alibabaCloud',
     })[2].value,
     'QWEN3.7',
+  );
+  assert.deepEqual(
+    extractDeploymentProviderEndpointTypes({
+      deployment: { providerEndpointTypes: { alibabaCloud: 'token_plan' } },
+    }),
+    { alibabaCloud: 'token_plan' },
+  );
+  assert.equal(
+    labelOptionsForDeploymentInferenceProviders(
+      MODEL_OPTIONS,
+      { 'QWEN3.7': 'alibabaCloud' },
+      { alibabaCloud: 'token_plan' },
+    )[2].label,
+    'Qwen 3.8 Max Preview / Qwen 3.7 Plus Vision',
   );
 
   const incompletePayloads = [

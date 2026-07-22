@@ -170,6 +170,22 @@ function extractModelProviderMap(payload = {}) {
   return modelProviders || {};
 }
 
+function extractProviderMetadataMap(payload = {}, field) {
+  const candidates = [
+    payload?.deployment?.[field],
+    payload?.available?.[field],
+    payload?.[field],
+  ];
+
+  return candidates.find(
+    (candidate) => candidate && typeof candidate === "object" && !Array.isArray(candidate),
+  ) || {};
+}
+
+export function extractDeploymentProviderEndpointTypes(payload = {}) {
+  return extractProviderMetadataMap(payload, "providerEndpointTypes");
+}
+
 export function extractDeploymentInferenceModelProviders(payload = {}) {
   const result = {};
 
@@ -228,12 +244,18 @@ export function filterOptionsForDeploymentInferenceModels(options = [], modelVal
   return options.filter((option) => allowedModels.has(normalizeDeploymentInferenceModelValue(option?.value)));
 }
 
-export function labelOptionsForDeploymentInferenceProviders(options = [], modelProviders = {}) {
+export function labelOptionsForDeploymentInferenceProviders(
+  options = [],
+  modelProviders = {},
+  providerEndpointTypes = {},
+) {
   const qwenProvider = normalizeDeploymentProviderKey(
     modelProviders?.[QWEN_INFERENCE_MODEL_VALUE],
   );
   const qwenLabel = qwenProvider === "alibabaCloud"
-    ? "Qwen 3.7 Max / Plus Vision"
+    ? providerEndpointTypes?.alibabaCloud === "token_plan"
+      ? "Qwen 3.8 Max Preview / Qwen 3.7 Plus Vision"
+      : "Qwen 3.7 Max / Plus Vision"
     : "Qwen 3.7 Plus";
 
   return options.map((option) => (
