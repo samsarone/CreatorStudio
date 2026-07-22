@@ -1,7 +1,7 @@
 export const DEFAULT_INFERENCE_MODEL_VALUE = "gpt-5.6-sol";
 export const QWEN_INFERENCE_MODEL_VALUE = "QWEN3.7";
-export const HOSTED_QWEN_INFERENCE_MODEL_VALUE = "QWEN3.8";
-export const HOSTED_QWEN_INFERENCE_MODEL_LABEL = "Qwen 3.8 Max Preview";
+export const HOSTED_QWEN_INFERENCE_MODEL_VALUE = QWEN_INFERENCE_MODEL_VALUE;
+export const HOSTED_QWEN_INFERENCE_MODEL_LABEL = "Qwen 3.7 Plus";
 
 const DEPLOYMENT_INFERENCE_MODELS_BY_PROVIDER = Object.freeze({
   openai: ["gpt-5.6-sol"],

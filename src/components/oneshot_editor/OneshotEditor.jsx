@@ -434,7 +434,7 @@ function coerceSupportedInferenceModelKey(value) {
     normalized === 'qwen-3.8' ||
     normalized === 'qwen 3.8'
   ) {
-    return 'QWEN3.8';
+    return 'QWEN3.7';
   }
   if (
     normalized === 'qwen3.7' ||
@@ -483,9 +483,6 @@ function coerceSupportedInferenceModelKey(value) {
 function normalizeInferenceModelKey(value) {
   const supportedKey = coerceSupportedInferenceModelKey(value);
   if (supportedKey) {
-    if (IS_DOCKER_INSTALL && supportedKey === 'QWEN3.8') {
-      return 'QWEN3.7';
-    }
     return supportedKey;
   }
   return DEFAULT_INFERENCE_MODEL;
@@ -518,9 +515,6 @@ function isSupportedInferenceModelKey(value, options = INFERENCE_MODEL_TYPES) {
 
 function getInferenceModelDisplayLabel(value) {
   const normalizedValue = normalizeInferenceModelKey(value);
-  if (normalizedValue === 'QWEN3.8') {
-    return 'Qwen 3.8 Max Preview';
-  }
   return INFERENCE_MODEL_LABEL_BY_VALUE[normalizedValue] || normalizedValue;
 }
 
