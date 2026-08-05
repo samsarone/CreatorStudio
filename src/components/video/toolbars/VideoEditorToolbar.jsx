@@ -49,6 +49,7 @@ import PromptViewer from './PromptViewer.jsx';
 import VideoEditorDefaultsViewer from './VideoEditorDefaultsViewer.jsx';
 import VideoPromptGenerator from './VideoPromptGenerator.jsx';
 import SingleSelect from '../../common/SingleSelect.jsx';
+import ModelAdapterSelect from '../../common/ModelAdapterSelect.jsx';
 
 import { useAlertDialog } from '../../../contexts/AlertDialogContext.jsx';
 import VideoLipSyncOptionsViewer from './ai_video/VideoLipSyncOptionsViewer.jsx';
@@ -59,11 +60,14 @@ import {
   getGoogleTTSVoiceDetails,
 } from '../../../hooks/useGoogleTTSSpeakers.js';
 import { useAudioProviderAvailability } from '../../../hooks/useAudioProviderAvailability.js';
+import { useDeploymentModelAvailability } from '../../../hooks/useDeploymentModelAvailability.js';
 import { filterMusicProvidersForAudioAvailability } from '../../../constants/audioProviderAvailability.js';
+import { resolveStudioVideoToolbarMode } from '../util/studioVideoLayers.mjs';
+import { hasActionableStudioLayer } from '../util/studioSceneLifecycle.mjs';
 
 const SOUND_EFFECT_MODEL_OPTIONS = [
   { value: 'SDAUDIO', label: 'Stable Audio' },
-  { value: 'CUSTOM_TEXT_TO_SOUND_EFFECT', label: 'Custom Sound Effect' },
+  { value: 'CUSTOM_TEXT_TO_SOUND_EFFECT', label: 'Custom Sound Effect', adapterKey: 'custom' },
 ];
 
 function resolveSpeakerProvider(speaker = {}) {
@@ -128,6 +132,30 @@ function resolveSessionSubtitlesEnabled(sessionDetails = {}) {
   }
 
   return true;
+}
+
+function StudioLayerUnavailableState({ colorMode, isLoading }) {
+  const surfaceClassName = colorMode === 'dark'
+    ? 'border-[#4a5265] bg-[#151720] text-slate-200'
+    : 'border-slate-300 bg-slate-50 text-slate-700';
+  const detailClassName = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
+
+  return (
+    <div
+      className={`rounded-xl border border-dashed px-3 py-4 text-center ${surfaceClassName}`}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="text-sm font-semibold">
+        {isLoading ? 'Loading scene…' : 'No scene selected'}
+      </div>
+      <div className={`mt-1 text-xs leading-5 ${detailClassName}`}>
+        {isLoading
+          ? 'Generation tools will be available when the scene finishes loading.'
+          : 'Add or select a scene before using generation tools.'}
+      </div>
+    </div>
+  );
 }
 
 export default function VideoEditorToolbar(props) {
@@ -244,6 +272,10 @@ export default function VideoEditorToolbar(props) {
 
   const [speakerType, setSpeakerType] = useState(null);
   const { audioAvailability } = useAudioProviderAvailability();
+  const {
+    isStandaloneDeployment,
+    primaryAdapterByModel,
+  } = useDeploymentModelAvailability();
   const availableMusicProviders = useMemo(
     () => filterMusicProvidersForAudioAvailability(MUSIC_PROVIDERS, audioAvailability),
     [audioAvailability]
@@ -294,6 +326,16 @@ export default function VideoEditorToolbar(props) {
   }, [isExpandedView, onExpandedChange]);
 
   const { colorMode } = useColorMode();
+  const hasActionableCurrentLayer = hasActionableStudioLayer(currentLayer);
+  const isCurrentLayerLoading = Boolean(
+    Array.isArray(sessionDetails?.layers) && sessionDetails.layers.length > 0
+  );
+  const studioLayerUnavailableDisplay = (
+    <StudioLayerUnavailableState
+      colorMode={colorMode}
+      isLoading={isCurrentLayerLoading}
+    />
+  );
   const disabledShellClass = isRenderPending ? 'pending-disabled-shell' : '';
   const defaultMusicProvider = availableMusicProviders[0] || null;
   const currentMusicProvider =
@@ -728,7 +770,9 @@ export default function VideoEditorToolbar(props) {
 
   let generateDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_DISPLAY) {
-    if (currentDefaultPrompt && !showCreateNewPromptDisplay) {
+    if (!hasActionableCurrentLayer) {
+      generateDisplay = studioLayerUnavailableDisplay;
+    } else if (currentDefaultPrompt && !showCreateNewPromptDisplay) {
       generateDisplay = (
         <PromptViewer
           {...props}
@@ -743,17 +787,12 @@ export default function VideoEditorToolbar(props) {
 
   let generateVideoDisplay = <span />;
   if (currentViewDisplay === CURRENT_TOOLBAR_VIEW.SHOW_GENERATE_VIDEO_DISPLAY) {
-    if (currentLayer.hasLipSyncVideoLayer) {
+    const toolbarMode = resolveStudioVideoToolbarMode(currentLayer);
+    if (toolbarMode === 'unavailable') {
+      generateVideoDisplay = studioLayerUnavailableDisplay;
+    } else if (toolbarMode === 'lip_sync') {
       generateVideoDisplay = <VideoLipSyncOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
-    } else if (
-      currentLayer.userVideoGenerationPending
-      || currentLayer?.userVideoUploadTask?.status === 'UPLOADING'
-      || currentLayer?.userVideoUploadTask?.status === 'PROCESSING'
-    ) {
-      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
-    } else if (currentLayer.hasUserVideoLayer && currentLayer.userVideoGenerationStatus === "COMPLETED") {
-      generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
-    } else if (currentLayer.hasAiVideoLayer && currentLayer.aiVideoGenerationStatus === "COMPLETED") {
+    } else if (toolbarMode === 'video_options') {
       generateVideoDisplay = <VideoAiVideoOptionsViewer {...props} sizeVariant={sidebarSizeVariant} />;
     } else {
       generateVideoDisplay = <VideoPromptGenerator {...props} sizeVariant={sidebarSizeVariant} />;
@@ -866,30 +905,26 @@ export default function VideoEditorToolbar(props) {
 
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-[#0f1629] border border-[#1f2a3d] text-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)]'
+      ? 'bg-[#181b24] border border-[#3a4050] text-slate-100 shadow-[0_12px_30px_rgba(0,0,0,0.35)]'
       : 'bg-white border border-slate-200 text-slate-900';
   const inputSurface =
     colorMode === 'dark'
-      ? 'bg-[#111a2f] border border-[#1f2a3d]'
+      ? 'bg-[#20232e] border border-[#667188]'
       : 'bg-white border border-slate-200';
   const interactiveTile =
     colorMode === 'dark'
-      ? 'bg-rose-500/10 border border-rose-400/30 text-rose-100'
+      ? 'bg-[#f6c453]/14 border border-[#f6c453]/45 text-[#fff1c8]'
       : 'bg-rose-50 border border-rose-200 text-rose-700';
-  const buttonBgcolor =
-    colorMode === 'dark'
-      ? 'bg-[#131c33] border border-[#24314d] text-white'
-      : 'bg-slate-100 border border-slate-200 text-slate-900';
   const textInnerColor = colorMode === 'dark' ? 'text-slate-100' : 'text-slate-900';
   const text2Color = colorMode === 'dark' ? 'text-slate-100' : 'text-neutral-900';
-  const formSelectBgColor = colorMode === 'dark' ? '#0f1629' : '#f8fafc';
+  const formSelectBgColor = colorMode === 'dark' ? '#181b24' : '#f8fafc';
   const formSelectTextColor = colorMode === 'dark' ? '#e2e8f0' : '#0f172a';
   const formSelectSelectedTextColor = formSelectTextColor;
-  const formSelectHoverColor = colorMode === 'dark' ? '#1b2438' : '#2563EB';
-  const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
-  const sliderTrack = colorMode === 'dark' ? '#1f2a3d' : '#e2e8f0';
+  const formSelectHoverColor = colorMode === 'dark' ? '#292d3a' : '#2563EB';
+  const sliderAccent = colorMode === 'dark' ? '#ff4655' : '#2563eb';
+  const sliderTrack = colorMode === 'dark' ? '#3a4050' : '#e2e8f0';
   const compactFieldLabelClass = `block mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${text2Color}`;
-  const compactInputClass = `w-full rounded-lg ${inputSurface} ${text2Color} px-3 py-2.5 text-sm leading-5 ${colorMode === 'dark' ? 'shadow-sm' : ''} transition-colors duration-200 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20`;
+  const compactInputClass = `w-full rounded-lg ${inputSurface} ${text2Color} px-3 py-2 text-sm leading-5 ${colorMode === 'dark' ? 'shadow-sm focus:border-[#f6c453] focus:ring-[#f6c453]/20' : 'focus:border-blue-400 focus:ring-blue-400/20'} transition-colors duration-200 placeholder:text-slate-400 focus:outline-none focus:ring-2`;
   const compactNumericInputClass = `${compactInputClass} min-w-0 text-center text-base font-semibold tabular-nums`;
   const compactTextareaClass = `${compactInputClass} min-h-[96px]`;
   const compactActionGridClass = 'grid w-full gap-2';
@@ -1015,15 +1050,17 @@ export default function VideoEditorToolbar(props) {
                 control: (provided, state) => ({
                   ...provided,
                   backgroundColor: formSelectBgColor,
-                  borderColor: state.isFocused ? '#007BFF' : '#ced4da',
+                  borderColor: state.isFocused ? (colorMode === 'dark' ? '#f6c453' : '#007BFF') : (colorMode === 'dark' ? '#667188' : '#ced4da'),
                   '&:hover': {
-                    borderColor: state.isFocused ? '#007BFF' : '#ced4da'
+                    borderColor: state.isFocused ? (colorMode === 'dark' ? '#f6c453' : '#007BFF') : (colorMode === 'dark' ? '#667188' : '#ced4da')
                   },
                   boxShadow: state.isFocused
-                    ? '0 0 0 0.2rem rgba(0, 123, 255, 0.25)'
+                    ? colorMode === 'dark'
+                      ? '0 0 16px rgba(246, 196, 83, 0.18)'
+                      : '0 0 12px rgba(0, 123, 255, 0.16)'
                     : null,
-                  minHeight: '38px',
-                  height: '38px'
+                  minHeight: '36px',
+                  height: '36px'
                 }),
                 option: (provided, state) => ({
                   ...provided,
@@ -1235,19 +1272,37 @@ export default function VideoEditorToolbar(props) {
                 <label className={compactFieldLabelClass} htmlFor="musicProvider">
                   Provider
                 </label>
-                <SingleSelect
+                <ModelAdapterSelect
                   name="musicProvider"
                   options={availableMusicProviders.map(provider => ({
                     value: provider.key,
-                    label: provider.name
+                    label: provider.name,
+                    adapterModelKey: provider.key,
+                    adapterKey: provider.key === 'CUSTOM_TEXT_TO_MUSIC'
+                      ? 'custom'
+                      : undefined,
+                    fallbackAdapterKey: provider.key === 'AUDIOCRAFT' ? 'native' : undefined,
+                    fallbackAdapterLabel: provider.key === 'AUDIOCRAFT'
+                      ? 'AudioCraft native adapter'
+                      : undefined,
                   }))}
                   value={currentMusicProvider
                     ? {
                       value: currentMusicProvider.key,
-                      label: currentMusicProvider.name
+                      label: currentMusicProvider.name,
+                      adapterModelKey: currentMusicProvider.key,
+                      adapterKey: currentMusicProvider.key === 'CUSTOM_TEXT_TO_MUSIC'
+                        ? 'custom'
+                        : undefined,
+                      fallbackAdapterKey: currentMusicProvider.key === 'AUDIOCRAFT' ? 'native' : undefined,
+                      fallbackAdapterLabel: currentMusicProvider.key === 'AUDIOCRAFT'
+                        ? 'AudioCraft native adapter'
+                        : undefined,
                     }
                     : null}
                   onChange={handleMusicProviderChange}
+                  primaryAdapterByModel={primaryAdapterByModel}
+                  isStandaloneDeployment={isStandaloneDeployment}
                   truncateLabels={isCollapsedSidebarView}
                 />
               </div>
@@ -1413,13 +1468,15 @@ export default function VideoEditorToolbar(props) {
               <label className={`text-xs ${text2Color}`} htmlFor="soundEffectModel">
                 Provider
               </label>
-              <SingleSelect
+              <ModelAdapterSelect
                 name="soundEffectModel"
                 options={SOUND_EFFECT_MODEL_OPTIONS}
                 value={selectedSoundEffectModel}
                 onChange={(selectedOption) =>
                   setSelectedSoundEffectModel(selectedOption || SOUND_EFFECT_MODEL_OPTIONS[0])
                 }
+                primaryAdapterByModel={primaryAdapterByModel}
+                isStandaloneDeployment={isStandaloneDeployment}
                 isSearchable={false}
                 truncateLabels={isCollapsedSidebarView}
               />
@@ -1690,9 +1747,9 @@ export default function VideoEditorToolbar(props) {
     );
   }
 
-  const bgPillSelected = colorMode === 'dark' ? 'bg-rose-500/25 border border-rose-400/30' : 'bg-rose-100 border border-rose-200';
-  const bgPillUnselected = colorMode === 'dark' ? 'bg-[#111a2f] border border-[#1f2a3d]' : 'bg-gray-200 border border-transparent';
-  const textPillSelected = colorMode === 'dark' ? 'text-rose-100' : 'text-rose-700';
+  const bgPillSelected = colorMode === 'dark' ? 'bg-[#f6c453]/16 border border-[#f6c453]/45' : 'bg-rose-100 border border-rose-200';
+  const bgPillUnselected = colorMode === 'dark' ? 'bg-[#20232e] border border-[#3a4050]' : 'bg-gray-200 border border-transparent';
+  const textPillSelected = colorMode === 'dark' ? 'text-[#fff1c8]' : 'text-rose-700';
   const textPillUnselected = colorMode === 'dark' ? 'text-slate-200' : 'text-gray-600';
 
   const recordingFacecamDisplay = (
@@ -1892,7 +1949,7 @@ export default function VideoEditorToolbar(props) {
       <div>
         <div
             className={`sticky top-0 z-10 rounded-xl transition-colors duration-200 ${stickyHeaderPaddingClass} ${colorMode === 'dark'
-              ? 'bg-[#111a2f] border border-[#1f2a3d] shadow-[0_12px_32px_rgba(0,0,0,0.35)]'
+              ? 'bg-[#20232e] border border-[#3a4050] shadow-[0_12px_32px_rgba(0,0,0,0.35)]'
             : 'bg-white/95 border border-slate-200'}`}
         >
           {collapseButton}
@@ -1914,16 +1971,13 @@ export default function VideoEditorToolbar(props) {
                     ? 'mb-4'
                     : 'mb-1'
                   : 'mb-0';
-                const toolbarItemContainerSurfaceClass = isSelected
-                  ? 'bg-transparent border border-transparent'
-                  : buttonBgcolor;
                 const toolbarItemBodyOverflowClass =
                   isSelected && item.showOverflow ? 'overflow-visible' : 'overflow-hidden';
                 const toolbarItemBodyPointerClass = isSelected ? 'pointer-events-auto' : 'pointer-events-none';
 
                 return (
               <div
-                className={`${toolbarItemContainerSurfaceClass} rounded-sm text-left ${isSelected ? 'mt-1' : 'mt-4'
+                className={`text-left ${isSelected ? 'mt-1' : 'mt-4'
                   } transition-colors duration-300`}
               >
                 <div

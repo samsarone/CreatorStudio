@@ -39,6 +39,8 @@ import {
   filterSpeakersForAudioAvailability,
   filterTtsProviderOptionsForAudioAvailability,
 } from '../../../../constants/audioProviderAvailability.js';
+import { useDeploymentModelAvailability } from '../../../../hooks/useDeploymentModelAvailability.js';
+import ModelAdapterSelect from '../../../common/ModelAdapterSelect.jsx';
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 const DISPLAY_FRAMES_PER_SECOND = 30;
@@ -68,11 +70,11 @@ const AVATAR_VIDEO_AUDIO_SOURCE_OPTIONS = [
   { value: AVATAR_VIDEO_AUDIO_SOURCE_HINT_SPEECH, label: 'Text hints avatar speech' },
 ];
 const AVATAR_TTS_PROVIDER_OPTIONS = [
-  { value: 'OPENAI', label: 'OpenAI' },
-  { value: 'ELEVENLABS', label: 'ElevenLabs' },
-  { value: 'PLAYAI', label: 'Play.ht' },
-  { value: 'GOOGLE', label: 'Google TTS' },
-  { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS' },
+  { value: 'OPENAI', label: 'OpenAI', adapterModelKey: 'OPENAI_TTS' },
+  { value: 'ELEVENLABS', label: 'ElevenLabs', adapterModelKey: 'ELEVENLABS' },
+  { value: 'PLAYAI', label: 'Play.ht', adapterModelKey: 'PLAYAI' },
+  { value: 'GOOGLE', label: 'Google TTS', adapterModelKey: 'GOOGLE_TTS' },
+  { value: 'CUSTOM_TEXT_TO_SPEECH', label: 'Custom TTS', adapterKey: 'custom' },
 ];
 
 const RECORDER_MIME_TYPES = [
@@ -727,6 +729,10 @@ export default function RecordSpeechSection({
     [googleSpeakers]
   );
   const { audioAvailability } = useAudioProviderAvailability();
+  const {
+    isStandaloneDeployment,
+    primaryAdapterByModel,
+  } = useDeploymentModelAvailability();
   const availableTtsSpeakerTypes = useMemo(
     () => filterSpeakersForAudioAvailability(combinedTtsSpeakerTypes, audioAvailability),
     [audioAvailability, combinedTtsSpeakerTypes]
@@ -776,8 +782,8 @@ export default function RecordSpeechSection({
   const lastTranscriptDebugBucketRef = useRef(null);
   const lastTranscriptDebugCueRef = useRef('');
 
-  const borderColor = colorMode === 'dark' ? 'border-[#1f2a3d]' : 'border-slate-200';
-  const panelBg = colorMode === 'dark' ? 'bg-[#0b1224]' : 'bg-slate-50';
+  const borderColor = colorMode === 'dark' ? 'border-[#3a4050]' : 'border-slate-200';
+  const panelBg = colorMode === 'dark' ? 'bg-[#151720]' : 'bg-slate-50';
   const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-600';
   const sliderAccent = colorMode === 'dark' ? '#f87171' : '#2563eb';
   const currentLayerStartTime = resolveLayerStartTime(currentLayer);
@@ -2642,16 +2648,16 @@ export default function RecordSpeechSection({
     hintsEnabled
       ? 'border-amber-400 bg-amber-500 text-slate-950 hover:bg-amber-400'
       : colorMode === 'dark'
-        ? 'border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]'
+        ? 'border-[#273956] bg-[#20232e] text-slate-100 hover:bg-[#172642]'
         : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
   }`;
   const secondaryIconButtonClass = colorMode === 'dark'
-    ? `${iconButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
+    ? `${iconButtonBaseClass} border-[#273956] bg-[#20232e] text-slate-100 hover:bg-[#172642]`
     : `${iconButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
   const resultIconButtonBaseClass = 'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[11px] shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50';
   const resultPrimaryIconButtonClass = `${resultIconButtonBaseClass} border-blue-500 bg-blue-600 text-white hover:bg-blue-500`;
   const resultSecondaryIconButtonClass = colorMode === 'dark'
-    ? `${resultIconButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
+    ? `${resultIconButtonBaseClass} border-[#273956] bg-[#20232e] text-slate-100 hover:bg-[#172642]`
     : `${resultIconButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
   const resultDangerIconButtonClass = `${resultIconButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
   const modeButtonBaseClass = 'inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60';
@@ -2659,20 +2665,20 @@ export default function RecordSpeechSection({
     ? `${modeButtonBaseClass} border-blue-400/50 bg-blue-500/20 text-blue-100`
     : `${modeButtonBaseClass} border-blue-500 bg-blue-50 text-blue-700`;
   const unselectedModeButtonClass = colorMode === 'dark'
-    ? `${modeButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-200 hover:bg-[#172642]`
+    ? `${modeButtonBaseClass} border-[#273956] bg-[#20232e] text-slate-200 hover:bg-[#172642]`
     : `${modeButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
   const avatarTextButtonBaseClass = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50';
   const avatarPrimaryButtonClass = `${avatarTextButtonBaseClass} border-blue-500 bg-blue-600 text-white hover:bg-blue-500`;
   const avatarSecondaryButtonClass = colorMode === 'dark'
-    ? `${avatarTextButtonBaseClass} border-[#273956] bg-[#111a2f] text-slate-100 hover:bg-[#172642]`
+    ? `${avatarTextButtonBaseClass} border-[#273956] bg-[#20232e] text-slate-100 hover:bg-[#172642]`
     : `${avatarTextButtonBaseClass} border-slate-200 bg-white text-slate-700 hover:bg-slate-50`;
   const avatarDangerButtonClass = `${avatarTextButtonBaseClass} border-red-500/60 bg-red-600 text-white hover:bg-red-500`;
   const avatarThumbnailButtonClass = colorMode === 'dark'
-    ? 'relative aspect-square overflow-hidden rounded-lg border border-[#273956] bg-[#111a2f] transition disabled:cursor-not-allowed disabled:opacity-50'
+    ? 'relative aspect-square overflow-hidden rounded-lg border border-[#273956] bg-[#20232e] transition disabled:cursor-not-allowed disabled:opacity-50'
     : 'relative aspect-square overflow-hidden rounded-lg border border-slate-200 bg-white transition disabled:cursor-not-allowed disabled:opacity-50';
   const avatarThumbnailSelectedClass = colorMode === 'dark'
-    ? 'ring-2 ring-blue-300 ring-offset-2 ring-offset-[#0b1224]'
-    : 'ring-2 ring-blue-500 ring-offset-2 ring-offset-slate-50';
+    ? '!border-[#ff4655] bg-[#ff4655]/10'
+    : '!border-blue-500 bg-blue-50';
   const recordButtonLabel = shouldRecordFacecam ? 'Record audio and video' : 'Record audio';
   const stopButtonLabel = 'Stop recording';
   const teleprompterCue = activeTranscriptCue;
@@ -2808,16 +2814,19 @@ export default function RecordSpeechSection({
               </label>
               <label className="block">
                 <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Avatar image model</span>
-                <select
+                <ModelAdapterSelect
+                  options={AVATAR_IMAGE_MODEL_OPTIONS}
                   value={selectedAvatarImageModel}
-                  onChange={(event) => setSelectedAvatarImageModel(event.target.value)}
-                  disabled={isAvatarImageGenerating || avatarAnyActionPending}
-                  className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
-                >
-                  {AVATAR_IMAGE_MODEL_OPTIONS.map((model) => (
-                    <option key={model.value} value={model.value}>{model.label}</option>
-                  ))}
-                </select>
+                  onChange={setSelectedAvatarImageModel}
+                  primaryAdapterByModel={primaryAdapterByModel}
+                  isStandaloneDeployment={isStandaloneDeployment}
+                  valueMode="value"
+                  hostedControl="native"
+                  nativeClassName={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+                  isDisabled={isAvatarImageGenerating || avatarAnyActionPending}
+                  isSearchable={false}
+                  truncateLabels={isCollapsedSidebarView}
+                />
               </label>
               <button
                 type="button"
@@ -2949,18 +2958,19 @@ export default function RecordSpeechSection({
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <label className="block">
                           <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speech provider</span>
-                          <select
+                          <ModelAdapterSelect
+                            options={avatarSpeechProviderOptions}
                             value={selectedAvatarSpeechProvider}
-                            onChange={(event) => handleAvatarSpeechProviderChange(event.target.value)}
-                            disabled={avatarAnyActionPending || avatarTaskBusy || avatarSpeechProviderOptions.length === 0}
-                            className={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
-                          >
-                            {avatarSpeechProviderOptions.map((providerOption) => (
-                              <option key={providerOption.value} value={providerOption.value}>
-                                {providerOption.label}
-                              </option>
-                            ))}
-                          </select>
+                            onChange={handleAvatarSpeechProviderChange}
+                            primaryAdapterByModel={primaryAdapterByModel}
+                            isStandaloneDeployment={isStandaloneDeployment}
+                            valueMode="value"
+                            hostedControl="native"
+                            nativeClassName={`w-full rounded-lg ${bgColor} ${text2Color} px-3 py-2 text-sm`}
+                            isDisabled={avatarAnyActionPending || avatarTaskBusy || avatarSpeechProviderOptions.length === 0}
+                            isSearchable={false}
+                            truncateLabels={isCollapsedSidebarView}
+                          />
                         </label>
                         <label className="block">
                           <span className={`mb-1 block text-xs font-semibold ${mutedText}`}>Speaker</span>
@@ -3293,7 +3303,7 @@ export default function RecordSpeechSection({
               <div className="grid gap-2">
                 <div className={`flex h-8 items-center justify-between gap-2 rounded-lg border px-3 text-xs ${
                   colorMode === 'dark'
-                    ? 'border-[#273956] bg-[#111a2f] text-slate-100'
+                    ? 'border-[#273956] bg-[#20232e] text-slate-100'
                     : 'border-slate-200 bg-white text-slate-700'
                 }`}>
                   <span className="inline-flex min-w-0 items-center gap-2 truncate">

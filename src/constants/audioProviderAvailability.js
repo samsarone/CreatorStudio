@@ -1,3 +1,5 @@
+import { IS_STANDALONE_DEPLOYMENT } from "../utils/environment.jsx";
+
 export const DEFAULT_AUDIO_AVAILABILITY = Object.freeze({
   providers: [],
   ttsProviders: [],
@@ -7,7 +9,7 @@ export const DEFAULT_AUDIO_AVAILABILITY = Object.freeze({
   allowAllMusicProviders: false,
 });
 
-export const DOCKER_AUDIO_PROVIDER_LABELS = Object.freeze({
+export const STANDALONE_AUDIO_PROVIDER_LABELS = Object.freeze({
   OPENAI: "OpenAI",
   ELEVENLABS: "ElevenLabs",
   GOOGLE: "Google TTS",
@@ -15,7 +17,7 @@ export const DOCKER_AUDIO_PROVIDER_LABELS = Object.freeze({
   CUSTOM_TEXT_TO_SPEECH: "Custom TTS",
 });
 
-export const DOCKER_MUSIC_PROVIDER_LABELS = Object.freeze({
+export const STANDALONE_MUSIC_PROVIDER_LABELS = Object.freeze({
   AUDIOCRAFT: "AudioCraft",
   CASSETTEAI: "CassetteAI",
   LYRIA2: "Lyria 2",
@@ -23,8 +25,6 @@ export const DOCKER_MUSIC_PROVIDER_LABELS = Object.freeze({
   ELEVENLABS_MUSIC: "ElevenLabs Music",
   CUSTOM_TEXT_TO_MUSIC: "Custom Text to Music",
 });
-
-const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === "true";
 
 function normalizeProvider(value) {
   return typeof value === "string" ? value.trim().toUpperCase() : "";
@@ -63,18 +63,16 @@ export function extractAudioAvailability(payload = {}) {
   );
 }
 
-export function hasAudioAvailabilityRules(audioAvailability = DEFAULT_AUDIO_AVAILABILITY) {
-  if (!IS_DOCKER_INSTALL) {
+export function hasAudioAvailabilityRules() {
+  if (!IS_STANDALONE_DEPLOYMENT) {
     return false;
   }
 
-  return (
-    audioAvailability.source === "docker-audio-provider-config" ||
-    audioAvailability.allowAllTtsSpeakers ||
-    audioAvailability.allowAllMusicProviders ||
-    audioAvailability.ttsProviders.length > 0 ||
-    audioAvailability.musicProviders.length > 0
-  );
+  // Standalone availability is an allow-list. While it is loading, when the
+  // processor cannot be reached, or when an older response omits `source`, an
+  // empty list must therefore mean "nothing configured" instead of disabling
+  // filtering and exposing every hosted provider.
+  return true;
 }
 
 export function filterSpeakersForAudioAvailability(

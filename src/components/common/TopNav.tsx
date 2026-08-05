@@ -15,7 +15,7 @@ import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 import { hasInsufficientGenerationCredits } from '../../utils/defaultRoutes.js';
 
 import CanvasControlBar from '../video/toolbars/CanvasControlBar.jsx';
-import { getSessionType } from '../../utils/environment.jsx';
+import { IS_STANDALONE_DEPLOYMENT } from '../../utils/environment.jsx';
 
 import { NavCanvasControlContext } from '../../contexts/NavCanvasControlContext.jsx';
 import { FaCog, FaTimes } from 'react-icons/fa';
@@ -27,12 +27,12 @@ import { buildSubtitleRegenerationLanguageFields } from '../../utils/subtitleReg
 
 
 const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
-const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 const AddSessionDropdown = lazy(() => import('./AddSessionDropdown.jsx'));
 const AuthContainer = lazy(() => import('../auth/AuthContainer.jsx'));
 const UpgradePlan = lazy(() => import('../payments/UpgradePlan.tsx'));
 const AUTH_DIALOG_OPTIONS = {
   surface: 'auth',
+  transparentShell: true,
   fullBleed: true,
   centerContent: true,
   hideBorder: true,
@@ -118,15 +118,15 @@ export default function TopNav(props) {
   const location = useLocation();
   const { openAlertDialog, closeAlertDialog } = useAlertDialog();
 
-  const sessionType = getSessionType();
-
   const isImageEditor =
     location.pathname.includes('/image/') ||
     location.pathname.includes('/iamge/') ||
     location.pathname.includes('/image_sessions');
+  const isAudioEditor = location.pathname.startsWith('/audio/studio');
   const isVideoEditor = location.pathname.includes('/video/') || location.pathname.includes('/vidgenie/') || location.pathname.includes('/vidgpt/') || location.pathname.includes('/adcreator/');
   const isGenerationWorkspace =
     isImageEditor ||
+    isAudioEditor ||
     isVideoEditor ||
     location.pathname === '/vidgenie' ||
     location.pathname.startsWith('/vidgenie/');
@@ -148,11 +148,14 @@ export default function TopNav(props) {
 
   const navShell =
     colorMode === 'dark'
-      ? 'bg-gradient-to-r from-[#071223] via-[#0d1d35] to-[#0a1b2d] text-slate-100 border-b border-[#2a4e70] shadow-[0_16px_48px_rgba(0,0,0,0.45)]'
+      ? 'border-b border-[#3a4050] bg-[#12141c]/92 text-slate-100 shadow-[0_12px_36px_rgba(0,0,0,0.34)] backdrop-blur-xl'
       : 'bg-gradient-to-r from-[#e9edf7] via-[#dfe7f5] to-[#eef3fb] text-slate-900 border-b border-[#d7deef]';
 
   const resetSession = () => {
     closeAlertDialog();
+    if (isAudioEditor) {
+      return;
+    }
     if (isImageEditor) {
       createNewImageSession();
       return;
@@ -169,7 +172,7 @@ export default function TopNav(props) {
     if (!user || !user._id) {
 
       if (register === 'true') {
-        if (IS_DOCKER_INSTALL) {
+        if (IS_STANDALONE_DEPLOYMENT) {
           showLoginDialog();
         } else {
           showRegisterDialog();
@@ -295,7 +298,7 @@ export default function TopNav(props) {
   };
 
   const showRegisterDialog = () => {
-    if (IS_DOCKER_INSTALL) {
+    if (IS_STANDALONE_DEPLOYMENT) {
       showLoginDialog();
       return;
     }
@@ -362,7 +365,7 @@ export default function TopNav(props) {
   const openShareOptionsDialog = useCallback(() => {
     const optionButtonClassName =
       colorMode === 'dark'
-        ? 'w-full rounded-lg border border-white/10 bg-[#111a2f] px-4 py-3 text-left transition hover:border-cyan-300/35 hover:bg-[#162744]'
+        ? 'w-full rounded-lg border border-[#667188] bg-[#20232e] px-3 py-2 text-left transition hover:border-[#f6c453]/60 hover:bg-[#292d3a]'
         : 'w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50';
     const secondaryTextClassName = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
 
@@ -554,6 +557,10 @@ export default function TopNav(props) {
     createNewSession(defaultAspectRatio);
   };
 
+  const openAudioEditor = () => {
+    navigate('/audio/studio');
+  };
+
   const openStudioWorkspace = () => {
     const storedSessionId = localStorage.getItem('videoSessionId') || localStorage.getItem('sessionId');
     if (storedSessionId) {
@@ -614,15 +621,15 @@ export default function TopNav(props) {
   let userCredits;
 
   if (user && user._id && !isReadOnlyShareView) {
-    if (sessionType !== 'docker') {
+    if (!IS_STANDALONE_DEPLOYMENT) {
       if (user.isPremiumUser) {
         let premiumUserType = 'Premium';
         if (user.premiumUserType) {
           premiumUserType = user.premiumUserType;
         }
         userTierDisplay = (
-          <div className='text-xs text-[#d7ffeb]'>
-            <FaStar className="inline-flex text-[#39d881]" /> {premiumUserType}
+          <div className='text-xs text-[#ffe5e8]'>
+            <FaStar className="inline-flex text-[#f6c453]" /> {premiumUserType}
           </div>
         );
       } else {
@@ -648,7 +655,7 @@ export default function TopNav(props) {
             </div>
           )}
         </div>
-        <FaCog className="text-lg cursor-pointer hover:text-[#89dcff]" onClick={gotoUserAccount} />
+        <FaCog className="text-lg cursor-pointer hover:text-[#ffe0a3]" onClick={gotoUserAccount} />
       </div>
     );
 
@@ -659,7 +666,7 @@ export default function TopNav(props) {
         className={`
           inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] active:translate-y-0
           ${colorMode === 'dark'
-            ? 'text-slate-100 bg-[#111a2f] hover:bg-[#162744] hover:text-[#d7ffeb] shadow-[0_8px_20px_rgba(0,0,0,0.3)] hover:shadow-[0_12px_24px_rgba(70,191,255,0.2)]'
+            ? 'border border-[#667188] bg-[#20232e] text-slate-100 shadow-[0_8px_20px_rgba(0,0,0,0.28)] hover:border-[#ff4655]/60 hover:bg-[#292d3a] hover:text-[#ffe5e8] hover:shadow-[0_12px_26px_rgba(255,70,85,0.16)]'
             : 'border border-slate-200 text-slate-900 bg-white/80 hover:bg-white hover:text-slate-900'}
         `}
         type="button"
@@ -672,7 +679,7 @@ export default function TopNav(props) {
   }
 
   const gotoHome = () => {
-    if (user && user._id && !isImageEditor && !isVideoEditor) {
+    if (user && user._id && !isImageEditor && !isAudioEditor && !isVideoEditor) {
       navigate('/generations');
       return;
     }
@@ -712,7 +719,7 @@ export default function TopNav(props) {
     betaOptionVisible = true;
   }
 
-  if (user && user._id) {
+  if (user && user._id && !isAudioEditor) {
     addSessionButton = (
       <div className="inline-flex items-center">
         <Suspense fallback={<div className="h-11 w-[118px]" />}>
@@ -729,6 +736,7 @@ export default function TopNav(props) {
             useImageProjectModal={isImageEditor}
             switchEditorLabel={isImageEditor ? 'Video Editor' : (isVideoEditor ? 'Image Editor' : null)}
             onSwitchEditor={isImageEditor ? openVideoEditor : (isVideoEditor ? openImageEditor : null)}
+            additionalEditorActions={[{ label: 'Audio Studio', onSelect: openAudioEditor }]}
             showVideoOptions={!isImageEditor}
           />
         </Suspense>
@@ -737,18 +745,18 @@ export default function TopNav(props) {
   }
 
   let userCreditsDisplay = <span />;
-  if (user && user._id && sessionType !== 'docker') {
+  if (user && user._id && !IS_STANDALONE_DEPLOYMENT) {
     const creditsButtonClass = colorMode === 'dark'
-      ? 'border border-white/10 bg-black/15 text-slate-100 hover:border-cyan-300/35 hover:bg-[#13233d]'
+      ? 'border border-[#667188] bg-black/15 text-slate-100 hover:border-[#f6c453]/60 hover:bg-[#20232e]'
       : 'border border-slate-200 bg-white/75 text-slate-900 hover:border-slate-300 hover:bg-white';
     const creditsLabelClass = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
     const formattedCredits = formatCredits(userCredits);
     const showLowCreditCue = isGenerationWorkspace && hasInsufficientGenerationCredits(user);
     const cueClasses = colorMode === 'dark'
-      ? 'border-cyan-300/20 bg-[#eef6ff] text-slate-950 shadow-[0_14px_30px_rgba(0,0,0,0.28)]'
+      ? 'border-[#f6c453]/25 bg-[#fff4d6] text-slate-950 shadow-[0_14px_30px_rgba(0,0,0,0.28)]'
       : 'border-slate-200 bg-slate-950 text-white shadow-[0_14px_30px_rgba(15,23,42,0.18)]';
     const cuePointerClasses = colorMode === 'dark'
-      ? 'border-l-cyan-300/20 border-t-cyan-300/20 bg-[#eef6ff]'
+      ? 'border-l-[#f6c453]/25 border-t-[#f6c453]/25 bg-[#fff4d6]'
       : 'border-l-slate-200 border-t-slate-200 bg-slate-950';
 
     userCreditsDisplay = (
@@ -810,7 +818,24 @@ export default function TopNav(props) {
   }
 
   let controlbarView: React.ReactNode = null;
-  if (location.pathname.includes('/video/') || isImageEditor) {
+  if (isAudioEditor) {
+    const editorShortcutClass = colorMode === 'dark'
+      ? 'border border-[#4a5265] bg-[#20232e] text-slate-100 hover:border-[#f6c453]/60 hover:bg-[#292d3a]'
+      : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
+    controlbarView = (
+      <div className="flex items-center gap-2">
+        <button type="button" className={`hidden min-h-9 rounded-full px-3 text-xs font-semibold sm:inline-flex sm:items-center ${editorShortcutClass}`} onClick={openVideoEditor}>
+          Video Editor
+        </button>
+        <button type="button" className={`hidden min-h-9 rounded-full px-3 text-xs font-semibold md:inline-flex md:items-center ${editorShortcutClass}`} onClick={openImageEditor}>
+          Image Editor
+        </button>
+        <div className="inline-flex min-h-9 items-center rounded-full border border-[#f6c453]/60 bg-[#f6c453]/15 px-3 text-xs font-semibold text-[#f6c453]">
+          Audio Studio
+        </div>
+      </div>
+    );
+  } else if (location.pathname.includes('/video/') || isImageEditor) {
     controlbarView = (
       <CanvasControlBar
         downloadCurrentFrame={downloadCurrentFrame}
@@ -852,30 +877,37 @@ export default function TopNav(props) {
     );
   } else if (isGenerationsView) {
     const galleryShortcutActive = colorMode === 'dark'
-      ? 'border border-cyan-400/25 bg-[#13233d] text-slate-100 hover:bg-[#1a2f4d] hover:border-cyan-300/40'
+      ? 'border border-[#667188] bg-[#20232e] text-slate-100 hover:bg-[#292d3a] hover:border-[#f6c453]/60'
       : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 hover:border-slate-300';
     const galleryShortcutGroup = colorMode === 'dark'
-      ? 'rounded-full border border-white/10 bg-black/10 px-2 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.22)]'
-      : 'rounded-full border border-white/70 bg-white/80 px-2 py-2 backdrop-blur';
+      ? 'rounded-full bg-black/10 px-1.5 py-1.5 shadow-[0_12px_24px_rgba(0,0,0,0.22)]'
+      : 'rounded-full bg-white/80 px-1.5 py-1.5 backdrop-blur';
     controlbarView = (
       <div className={`flex flex-wrap items-center justify-center gap-2 ${galleryShortcutGroup}`}>
         <button
           type="button"
-          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
+          className={`inline-flex min-h-10 items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition lg:min-h-[38px] lg:px-4 lg:py-2 lg:text-sm ${galleryShortcutActive}`}
           onClick={openVideoEditor}
         >
           Video Editor
         </button>
         <button
           type="button"
-          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
+          className={`inline-flex min-h-10 items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition lg:min-h-[38px] lg:px-4 lg:py-2 lg:text-sm ${galleryShortcutActive}`}
           onClick={openImageEditor}
         >
           Image Editor
         </button>
         <button
           type="button"
-          className={`inline-flex min-h-[40px] items-center justify-center rounded-full px-3 py-2 text-xs font-semibold transition lg:min-h-[46px] lg:px-5 lg:py-3 lg:text-sm ${galleryShortcutActive}`}
+          className={`inline-flex min-h-10 items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition lg:min-h-[38px] lg:px-4 lg:py-2 lg:text-sm ${galleryShortcutActive}`}
+          onClick={openAudioEditor}
+        >
+          Audio Studio
+        </button>
+        <button
+          type="button"
+          className={`inline-flex min-h-10 items-center justify-center rounded-full px-3 py-1.5 text-xs font-semibold transition lg:min-h-[38px] lg:px-4 lg:py-2 lg:text-sm ${galleryShortcutActive}`}
           onClick={openStudioWorkspace}
         >
           VidGenie

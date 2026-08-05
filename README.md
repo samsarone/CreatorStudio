@@ -345,7 +345,7 @@ The client also includes supporting surfaces:
 
 The client-side model inventory lives primarily in `src/constants/Types.ts` and `src/constants/ModelPrices.jsx`.
 
-In Docker deployments, the processor-provided availability response filters the inference selectors. One configured `OPENROUTER_API_KEY` exposes `gpt-5.6-sol`, `gemini-3.1-pro`, and `QWEN3.7` for chat, assistant, and their corresponding vision-input workflows. Provider priority is the model's direct native credential, then OpenRouter, then the Samsar deployed fallback; the client preserves the selected provider provenance when deciding whether a saved model remains authorized. In hosted production, the client exposes Qwen as `QWEN3.7` with the label `Qwen 3.7 Plus`; text and vision inference use OpenRouter model `qwen/qwen3.7-plus`. Native Alibaba Cloud routing also uses Qwen 3.7 Plus for text and vision.
+In Docker deployments, the processor-provided availability response filters the inference selectors. One configured `OPENROUTER_API_KEY` exposes `gpt-5.6-sol`, `gemini-3.1-pro`, and `QWEN3.8` for chat, assistant, and their corresponding vision-input workflows. Provider priority is the model's direct native credential, then OpenRouter, then the Samsar deployed fallback; the client preserves the selected provider provenance when deciding whether a saved model remains authorized. In hosted production, the client exposes Qwen as `QWEN3.8` with the label `Qwen 3.8 Max`; text and vision inference use OpenRouter model `qwen/qwen3.8-max`. Native Alibaba Cloud routing also uses Qwen 3.8 Max for text and vision.
 
 ### Image Generation
 
@@ -376,8 +376,6 @@ In Docker deployments, the processor-provided availability response filters the 
 | Hailuo O2 Standard | `HAILUO` | No | Yes | Yes | `16:9` |
 | Hailuo O2 Pro | `HAILUOPRO` | No | Yes | Yes | `16:9` |
 | Seedance 1.5 | `SEEDANCEI2V` | Yes | No | Yes | `16:9`, `9:16` |
-| Seedance 2.0 I2V | `SEEDANCE2.0I2V` | No | No | Yes | `16:9`, `9:16` |
-| Seedance 2.0 T2V | `SEEDANCE2.0T2V` | No | Yes | No | `16:9`, `9:16` |
 | Veo 3.1 Text2Vid | `VEO3.1` | No | Yes | No | `16:9`, `9:16` |
 | Veo 3.1 Fast Text2Vid | `VEO3.1FAST` | No | Yes | No | `16:9`, `9:16` |
 | Veo 3.1 Img2Vid | `VEO3.1I2V` | Yes | No | Yes | `16:9`, `9:16` |
@@ -389,7 +387,8 @@ In Docker deployments, the processor-provided availability response filters the 
 VidGenie intentionally exposes a smaller express-first subset:
 
 - Image models: `GPTIMAGE2`, `NANOBANANAPRO`, `SEEDREAM`.
-- Text/video and image/video models: `RUNWAYML`, `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`.
+- Text-to-video video models: `RUNWAYML`, `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`.
+- Image-list-to-video models: `RUNWAYML`, `VEO3.1I2V`, `VEO3.1I2VFAST`, `SEEDANCEI2V`, `KLINGIMGTOVID3PRO`.
 - JSON mode validates the supported image/video model keys for the selected workflow.
 - Aspect ratios: `16:9` and `9:16`.
 - Wizard durations: `10`, `30`, `60`, `90`, `120`, and `180` seconds.

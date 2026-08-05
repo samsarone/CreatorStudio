@@ -1,15 +1,15 @@
 import { useEffect } from 'react';
 import axios from 'axios';
-import { FaSpinner } from 'react-icons/fa6';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMediaQuery } from 'react-responsive';
-import Loader from '../common/Loader';
 import { persistAuthToken } from '../../utils/web';
 import { useUser } from '../../contexts/UserContext.jsx';
+import VidgenieSkeletonLoader from '../oneshot_editor/VidgenieSkeletonLoader.jsx';
 import {
   buildLoginPathForRedirect,
   consumeResolvedAuthRedirect,
   resolvePostAuthDestination,
+  resolvePostSignupDestination,
   sanitizeAuthRedirect,
 } from '../../utils/authRedirect.js';
 
@@ -26,6 +26,7 @@ export default function VerificationHome() {
   const loginToken = query.get('loginToken');
   const redirectParam = query.get('redirect');
   const safeRedirect = sanitizeAuthRedirect(redirectParam);
+  const isNewUser = query.get('newUser') === 'true';
 
   useEffect(() => {
     const finalizeAuth = async (resolvedAuthToken: string) => {
@@ -38,24 +39,31 @@ export default function VerificationHome() {
       const isPopup = typeof window !== 'undefined' && window.opener && window.opener !== window;
       if (isPopup) {
         const channel = new BroadcastChannel('oauth_channel');
-        channel.postMessage('oauth_complete');
+        channel.postMessage({ type: 'oauth_complete', isNewUser });
         window.close();
         return;
       }
 
       const resolvedUser = await getUserAPI();
-      const redirectTarget = consumeResolvedAuthRedirect(safeRedirect);
+      const redirectTarget = isNewUser
+        ? null
+        : consumeResolvedAuthRedirect(safeRedirect);
       if (!resolvedUser?._id && !redirectTarget) {
         navigate(buildLoginPathForRedirect(safeRedirect), { replace: true });
         return;
       }
 
-      const destination = await resolvePostAuthDestination({
-        user: resolvedUser,
-        isMobile,
-        apiServer: PROCESSOR_SERVER,
-        redirect: redirectTarget,
-      });
+      const destination = isNewUser
+        ? await resolvePostSignupDestination({
+            isMobile,
+            apiServer: PROCESSOR_SERVER,
+          })
+        : await resolvePostAuthDestination({
+            user: resolvedUser,
+            isMobile,
+            apiServer: PROCESSOR_SERVER,
+            redirect: redirectTarget,
+          });
       navigate(destination, { replace: true });
     };
 
@@ -84,25 +92,7 @@ export default function VerificationHome() {
 
       void exchangeLoginToken();
     }
-  }, [authToken, getUserAPI, isMobile, location.search, loginToken, navigate, safeRedirect]);
+  }, [authToken, getUserAPI, isMobile, isNewUser, location.search, loginToken, navigate, safeRedirect]);
 
-  if (!authToken && !loginToken) {
-    return <FaSpinner className="animate-spin" />;
-  }
-
-  return (
-    <div className='bg-gray-800 h-full absolute w-full'>
-      <div className='m-auto text-center min-w-16 h-full mt-8 text-neutral-100'>
-
-        <div>
-          Verification Completed.
-        </div>
-        <div className='m-auto'>
-          Redirecting to Home 
-          <Loader />
-        </div>
-
-      </div>
-    </div>
-  );
+  return <VidgenieSkeletonLoader />;
 }

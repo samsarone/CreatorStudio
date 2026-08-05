@@ -12,6 +12,11 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Tooltip } from 'react-tooltip';
 import { resolveVidgenieLoadedProjectView } from './vidgenieProjectViewState.mjs';
+import { createVidgenieDownloadFilename } from './vidgenieDownloadFilename.mjs';
+import {
+  VIDGENIE_POLL_ACTION,
+  resolveVidgeniePollAction,
+} from './vidgenieGenerationPolling.mjs';
 import {
   FaChevronCircleDown,
   FaChevronDown,
@@ -45,6 +50,7 @@ import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 import AuthContainer, { AUTH_DIALOG_OPTIONS } from '../auth/AuthContainer.jsx';
+import ModelAdapterSelect from '../common/ModelAdapterSelect.jsx';
 import SingleSelect from '../common/SingleSelect.jsx';
 import ProgressIndicator from './ProgressIndicator.jsx';
 import AssistantHome from '../assistant/AssistantHome.jsx';
@@ -60,14 +66,14 @@ import {
   PIXVERRSE_VIDEO_STYLES,
   VIDEO_GENERATION_MODEL_TYPES,
 } from '../../constants/Types.ts';
-import { IMAGE_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
+import { IMAGE_MODEL_PRICES, VIDEO_MODEL_PRICES } from '../../constants/ModelPrices.jsx';
 import {
   getExpressVideoCreditsPerSecond,
   getExpressVideoPricingDistributionPerSecond,
 } from '../../constants/pricing/ExpressVideoPricingDistribution.js';
 import { SUPPORTED_LANGUAGES, resolveLanguageCode } from '../../constants/supportedLanguages.js';
 import { getHeaders } from '../../utils/web.jsx';
-import { getSessionType } from '../../utils/environment.jsx';
+import { IS_STANDALONE_DEPLOYMENT } from '../../utils/environment.jsx';
 import {
   DEFAULT_VIDGENIE_SUBTITLES_ENABLED,
   VIDGENIE_SUBTITLE_PREFERENCE_VERSION,
@@ -94,6 +100,14 @@ import {
   normalizeDeploymentInferenceModelValue,
   normalizeDeploymentModelValue,
 } from '../../utils/deploymentProviders.js';
+import {
+  isProviderBilledVideoPricing,
+  isVideoModelAllowedForDeploymentScope,
+} from '../../utils/videoModelAvailability.mjs';
+import {
+  getCustomTextToImageModelDefinitions,
+  isCustomTextToImageModelKey,
+} from '../../utils/customTextToImageAdapters.mjs';
 import useRealtimeTranscription from '../../hooks/useRealtimeTranscription.js';
 import { useDeploymentModelAvailability } from '../../hooks/useDeploymentModelAvailability.js';
 import { useInferenceModelAvailability } from '../../hooks/useInferenceModelAvailability.js';
@@ -101,8 +115,6 @@ import { useInferenceModelAvailability } from '../../hooks/useInferenceModelAvai
 import 'react-tooltip/dist/react-tooltip.css';
 import 'react-toastify/dist/ReactToastify.css';
 import './mobileStyles.css';
-
-const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 
 const LazyAceEditor = lazy(async () => {
   const [aceModule, reactAceModule] = await Promise.all([
@@ -240,10 +252,6 @@ const IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS = [
   'CUSTOM_IMAGE_TO_VIDEO',
 ];
 const DEFAULT_INFERENCE_MODEL = 'gpt-5.6-sol';
-const INFERENCE_MODEL_LABEL_BY_VALUE = INFERENCE_MODEL_TYPES.reduce((result, option) => {
-  result[option.value] = option.label;
-  return result;
-}, {});
 const JSON_MODE_ASPECT_RATIOS = ['16:9', '9:16'];
 const JSON_MODE_VIDEO_MODEL_SUB_TYPES = ['anime', '3d_animation', 'clay', 'comic', 'cyberpunk'];
 const GENERATION_STEP_MODE_ONE_STEP = 'one_step';
@@ -258,7 +266,6 @@ const OUTRO_CTA_TYPE_OPTIONS = [
   { value: OUTRO_CTA_TYPE_IMAGE, label: 'CTA image' },
 ];
 const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
-  tone: 'grounded',
   generate_outro_image: false,
   outro_cta_type: OUTRO_CTA_TYPE_QR,
   cta_url: '',
@@ -266,7 +273,6 @@ const DEFAULT_ADVANCED_OPTIONS = Object.freeze({
   cta_text_bottom: '',
   cta_logo: '',
   outro_cta_image_url: '',
-  footer_metadata: '',
   limit_single_narrator: false,
   add_narrator_avatar: false,
 });
@@ -340,11 +346,6 @@ const INITIAL_EXPRESS_GENERATION_STATUS = Object.freeze({
   music_generation: 'INIT',
   delete_reflow: 'INIT',
 });
-
-const VIDGENIE_TONE_OPTIONS = [
-  { value: 'grounded', label: 'Grounded' },
-  { value: 'cinematic', label: 'Cinematic' },
-];
 
 const VIDGENIE_STEP_MODE_OPTIONS = [
   {
@@ -424,60 +425,7 @@ function findDefaultVideoModelOption(options = [], savedValue = '') {
 }
 
 function coerceSupportedInferenceModelKey(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  const normalized = value.trim().toLowerCase();
-  if (
-    normalized === 'qwen3.8' ||
-    normalized === 'qwen3.8-max-preview' ||
-    normalized === 'qwen-3.8' ||
-    normalized === 'qwen 3.8'
-  ) {
-    return 'QWEN3.7';
-  }
-  if (
-    normalized === 'qwen3.7' ||
-    normalized === 'qwen3.7-max' ||
-    normalized === 'qwen3.7-plus' ||
-    normalized === 'qwen-3.7' ||
-    normalized === 'qwen 3.7' ||
-    normalized === 'qwen37' ||
-    normalized === 'qwen37max' ||
-    normalized === 'qwen37plus' ||
-    normalized === 'alibaba qwen 3.7' ||
-    normalized === 'alibaba cloud qwen 3.7'
-  ) {
-    return 'QWEN3.7';
-  }
-  if (
-    normalized === 'gemini-3.1-pro' ||
-    normalized === 'gemini-3.1-pro-preview' ||
-    normalized === 'gemini-3-pro' ||
-    normalized === 'gemini-3-pro-preview' ||
-    normalized === 'gemini 3.1 pro' ||
-    normalized === 'gemini 3.1 pro preview' ||
-    normalized === 'gemini 3 pro' ||
-    normalized === 'gemini 3 pro preview' ||
-    normalized === 'gemini31pro' ||
-    normalized === 'gemini31propreview' ||
-    normalized === 'gemini3pro' ||
-    normalized === 'gemini3propreview'
-  ) {
-    return 'gemini-3.1-pro';
-  }
-  if (normalized === DEFAULT_INFERENCE_MODEL || normalized.startsWith(`${DEFAULT_INFERENCE_MODEL}-`)) {
-    return DEFAULT_INFERENCE_MODEL;
-  }
-  if (
-    normalized === 'gpt-5.6' ||
-    normalized === 'gpt 5.6 sol' ||
-    normalized === 'gpt56' ||
-    normalized === 'gpt56sol'
-  ) {
-    return DEFAULT_INFERENCE_MODEL;
-  }
-  return '';
+  return normalizeDeploymentInferenceModelValue(value);
 }
 
 function normalizeInferenceModelKey(value) {
@@ -513,9 +461,10 @@ function isSupportedInferenceModelKey(value, options = INFERENCE_MODEL_TYPES) {
   ));
 }
 
-function getInferenceModelDisplayLabel(value) {
+function getInferenceModelDisplayLabel(value, options = INFERENCE_MODEL_TYPES) {
   const normalizedValue = normalizeInferenceModelKey(value);
-  return INFERENCE_MODEL_LABEL_BY_VALUE[normalizedValue] || normalizedValue;
+  return getInferenceModelOption(normalizedValue, DEFAULT_INFERENCE_MODEL, options)?.label ||
+    normalizedValue;
 }
 
 function normalizeModeToken(value) {
@@ -1095,6 +1044,14 @@ function RerollScenePreviewTile({
     setCurrentVisualUrl('');
   };
 
+  const handleVideoLoadedMetadata = () => {
+    const video = videoRef.current;
+    if (!video || isPlaying || !Number.isFinite(video.duration) || video.duration <= 0) return;
+
+    // Fetch a real frame without eagerly downloading every scene video in full.
+    video.currentTime = Math.min(0.1, video.duration / 2);
+  };
+
   const handlePlaybackClick = (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1125,7 +1082,6 @@ function RerollScenePreviewTile({
   };
 
   const canAttemptPlayback = Boolean(currentVideoUrl) && !videoLoadFailed;
-  const shouldShowVideo = isPlaying && canAttemptPlayback;
 
   return (
     <div
@@ -1144,30 +1100,32 @@ function RerollScenePreviewTile({
       <div className={`relative aspect-video w-full overflow-hidden rounded-md ${
         colorMode === 'dark' ? 'bg-slate-900' : 'bg-slate-100'
       }`}>
-        {currentVisualUrl ? (
-          <img
-            src={currentVisualUrl}
-            alt={`Scene ${item.layerIndex}`}
-            loading="lazy"
-            onError={handleImageError}
-            className="h-full w-full object-cover"
-          />
-        ) : (
+        {!currentVisualUrl && !canAttemptPlayback ? (
           <div className={`flex h-full w-full items-center justify-center ${mutedText}`}>
             <FaImage className="h-5 w-5" aria-hidden="true" />
           </div>
-        )}
-        {shouldShowVideo ? (
+        ) : null}
+        {canAttemptPlayback ? (
           <video
             ref={videoRef}
             src={currentVideoUrl}
-            preload="auto"
-            autoPlay
+            preload="metadata"
             playsInline
             loop
             muted
+            aria-label={`Scene ${item.layerIndex} video preview`}
             onError={handleVideoError}
+            onLoadedMetadata={handleVideoLoadedMetadata}
             onLoadedData={() => setVideoLoadFailed(false)}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ) : null}
+        {currentVisualUrl && !isPlaying ? (
+          <img
+            src={currentVisualUrl}
+            alt={`Scene ${item.layerIndex}`}
+            loading="eager"
+            onError={handleImageError}
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : null}
@@ -1195,7 +1153,11 @@ function RerollScenePreviewTile({
           </button>
         ) : null}
         {isSelected ? (
-          <span className="absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-cyan-300 text-slate-950 shadow">
+          <span className={`absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full shadow ${
+            colorMode === 'dark'
+              ? 'bg-[#f6c453] text-[#111318] shadow-[0_0_0_2px_rgba(246,196,83,0.18)]'
+              : 'bg-cyan-300 text-slate-950'
+          }`}>
             <FaCheck className="h-3 w-3" aria-hidden="true" />
           </span>
         ) : null}
@@ -2011,15 +1973,15 @@ function validateCommonJsonInput(input, inferenceModelOptions = INFERENCE_MODEL_
   return null;
 }
 
-function isModelAllowedByDeployment(modelKey, modelValues = [], isDockerInstall = false) {
-  if (!isDockerInstall) return true;
+function isModelAllowedByDeployment(modelKey, modelValues = [], isStandaloneDeployment = false) {
+  if (!isStandaloneDeployment) return true;
   const allowedModels = new Set(modelValues.map(normalizeDeploymentModelValue).filter(Boolean));
   return allowedModels.has(normalizeDeploymentModelValue(modelKey));
 }
 
 function getConfiguredModelError(fieldName, modelValues = []) {
   const allowedModels = formatAllowedJsonValues(modelValues);
-  return `JSON input.${fieldName} must be one of the configured Docker models: ${allowedModels || 'none'}.`;
+  return `JSON input.${fieldName} must be one of the configured standalone models: ${allowedModels || 'none'}.`;
 }
 
 function validateStageImageModel(
@@ -2028,7 +1990,7 @@ function validateStageImageModel(
     stageName,
     allowedModelKeys,
     deploymentModelValues,
-    isDockerInstall,
+    isStandaloneDeployment,
     required = true,
   }
 ) {
@@ -2041,7 +2003,7 @@ function validateStageImageModel(
   if (!imageModel || !allowedModelKeys.includes(resolvedImageModel)) {
     return `JSON input.image_model must be one of: ${formatAllowedJsonValues(allowedModelKeys)}.`;
   }
-  if (!isModelAllowedByDeployment(resolvedImageModel, deploymentModelValues, isDockerInstall)) {
+  if (!isModelAllowedByDeployment(resolvedImageModel, deploymentModelValues, isStandaloneDeployment)) {
     return getConfiguredModelError('image_model', deploymentModelValues);
   }
   if (imageModel.isExpressModel !== true) {
@@ -2061,7 +2023,7 @@ function validateTextToVideoJsonInput(
 ) {
   const commonError = validateCommonJsonInput(input, inferenceModelOptions);
   if (commonError) return commonError;
-  const isDockerInstall = deploymentModelAvailability?.isDockerInstall === true;
+  const isStandaloneDeployment = deploymentModelAvailability?.isStandaloneDeployment === true;
   const textToVideoImageModelValues = deploymentModelAvailability?.textToVideoImageModelValues || [];
   const textToVideoVideoModelValues = deploymentModelAvailability?.textToVideoVideoModelValues || [];
 
@@ -2077,7 +2039,7 @@ function validateTextToVideoJsonInput(
     stageName: 'text_to_video',
     allowedModelKeys: TEXT_TO_VIDEO_IMAGE_MODEL_KEYS,
     deploymentModelValues: textToVideoImageModelValues,
-    isDockerInstall,
+    isStandaloneDeployment,
   });
   if (imageModelError) return imageModelError;
 
@@ -2090,7 +2052,10 @@ function validateTextToVideoJsonInput(
   if (!videoModel || !TEXT_TO_VIDEO_VIDEO_MODEL_KEYS.includes(videoModelKey)) {
     return `JSON input.video_model must be one of: ${formatAllowedJsonValues(TEXT_TO_VIDEO_VIDEO_MODEL_KEYS)}.`;
   }
-  if (!isModelAllowedByDeployment(videoModelKey, textToVideoVideoModelValues, isDockerInstall)) {
+  if (!isVideoModelAllowedForDeploymentScope(videoModel, isStandaloneDeployment)) {
+    return `JSON input.video_model ${videoModelKey} is only available in standalone deployments.`;
+  }
+  if (!isModelAllowedByDeployment(videoModelKey, textToVideoVideoModelValues, isStandaloneDeployment)) {
     return getConfiguredModelError('video_model', textToVideoVideoModelValues);
   }
   if (videoModel.isExpressModel !== true) {
@@ -2126,7 +2091,7 @@ function validateImageListToVideoJsonInput(
 ) {
   const commonError = validateCommonJsonInput(input, inferenceModelOptions);
   if (commonError) return commonError;
-  const isDockerInstall = deploymentModelAvailability?.isDockerInstall === true;
+  const isStandaloneDeployment = deploymentModelAvailability?.isStandaloneDeployment === true;
   const imageListToVideoImageModelValues = deploymentModelAvailability?.imageListToVideoImageModelValues || [];
   const imageListToVideoVideoModelValues = deploymentModelAvailability?.imageListToVideoVideoModelValues || [];
 
@@ -2134,7 +2099,7 @@ function validateImageListToVideoJsonInput(
     stageName: 'image_list_to_video',
     allowedModelKeys: IMAGE_LIST_TO_VIDEO_IMAGE_MODEL_KEYS,
     deploymentModelValues: imageListToVideoImageModelValues,
-    isDockerInstall,
+    isStandaloneDeployment,
     required: false,
   });
   if (imageModelError) return imageModelError;
@@ -2165,7 +2130,7 @@ function validateImageListToVideoJsonInput(
     if (!videoModel || !IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS.includes(videoModelKey)) {
       return `JSON input.video_model must be one of: ${formatAllowedJsonValues(IMAGE_LIST_TO_VIDEO_VIDEO_MODEL_KEYS)}.`;
     }
-    if (!isModelAllowedByDeployment(videoModelKey, imageListToVideoVideoModelValues, isDockerInstall)) {
+    if (!isModelAllowedByDeployment(videoModelKey, imageListToVideoVideoModelValues, isStandaloneDeployment)) {
       return getConfiguredModelError('video_model', imageListToVideoVideoModelValues);
     }
     if (!videoModelSupportsAspectRatio(videoModelKey, input.aspect_ratio || '16:9')) {
@@ -2264,26 +2229,6 @@ function buildJsonModeRequest(
       ? { normalizedJson: parsedInput.normalizedJson }
       : {}),
   };
-}
-
-function parseOptionalJsonValue(rawValue, label, validator) {
-  if (!hasTextValue(rawValue)) {
-    return { value: null };
-  }
-
-  const parsedValue = parseJsonOrRepair(rawValue);
-  if (parsedValue.error) {
-    return { error: `${label} must be valid JSON.` };
-  }
-
-  try {
-    if (validator && !validator(parsedValue.value)) {
-      return { error: `${label} must be valid JSON in the expected shape.` };
-    }
-    return { value: parsedValue.value, normalizedJson: parsedValue.normalizedJson };
-  } catch {
-    return { error: `${label} must be valid JSON.` };
-  }
 }
 
 function normalizeSavedCustomAdapters(customAdapters) {
@@ -2415,8 +2360,8 @@ function buildAdvancedRequestConfiguration({
   input.inference_model = normalizeInferenceModelKey(inferenceModelValue);
   input.inferenceModel = input.inference_model;
 
-  if (isTextToVideo && hasTextValue(advancedOptions.tone)) {
-    input.tone = advancedOptions.tone.trim();
+  if (isTextToVideo) {
+    input.tone = 'grounded';
   }
 
   const shouldGenerateOutro = advancedOptions.generate_outro_image === true;
@@ -2461,21 +2406,6 @@ function buildAdvancedRequestConfiguration({
         input.cta_logo = advancedOptions.cta_logo.trim();
       }
     }
-  }
-
-  if (hasTextValue(advancedOptions.footer_metadata)) {
-    const parsedFooterMetadata = parseOptionalJsonValue(
-      advancedOptions.footer_metadata,
-      'Footer metadata',
-      Array.isArray,
-    );
-    if (parsedFooterMetadata.error) {
-      return { error: parsedFooterMetadata.error };
-    }
-    if (!parsedFooterMetadata.value || parsedFooterMetadata.value.length === 0) {
-      return { error: 'Footer metadata must include at least one item.' };
-    }
-    input.footer_metadata = parsedFooterMetadata.value;
   }
 
   if (!isTextToVideo) {
@@ -2786,7 +2716,7 @@ function isSessionGenerationPending(data, forcePending = false) {
   return Boolean(forcePending || backendPending);
 }
 
-function buildDockerAnonymousSessionDetailsFromStatus(data) {
+function buildStandaloneAnonymousSessionDetailsFromStatus(data) {
   if (!isPlainObject(data)) {
     return data;
   }
@@ -2939,7 +2869,7 @@ export default function OneshotEditor() {
 
   const lastWakePoll = useRef(Date.now());
 
-  const currentEnv = getSessionType();
+  const isStandaloneDeployment = IS_STANDALONE_DEPLOYMENT;
 
   const voiceSessionStartRef = useRef(null);
   const voiceSessionTimeoutRef = useRef(null);
@@ -2978,13 +2908,17 @@ export default function OneshotEditor() {
   // ✨ UI tokens for light/dark surfaces
   const surfaceCard =
     colorMode === 'dark'
-      ? 'bg-[#0f1629] text-slate-100 border border-[#1f2a3d] shadow-[0_16px_40px_rgba(0,0,0,0.38)]'
+      ? 'bg-[#181b24]/96 text-slate-100 border border-[#3a4050] shadow-[0_20px_56px_rgba(0,0,0,0.32)] backdrop-blur-xl'
       : 'bg-white text-slate-900 border border-slate-200 shadow-sm';
 
   const controlShell =
     colorMode === 'dark'
-      ? 'bg-[#111a2f] ring-1 ring-[#1f2a3d] hover:ring-rose-400/40'
-      : 'bg-white ring-1 ring-slate-200 hover:ring-slate-300 shadow-sm';
+      ? 'bg-[#20232e]'
+      : 'bg-white';
+  const borderedControlShell =
+    colorMode === 'dark'
+      ? `${controlShell} ring-1 ring-[#667188] hover:ring-[#ff4655]/60`
+      : `${controlShell} ring-1 ring-slate-200 hover:ring-slate-300 shadow-sm`;
 
   const mutedText = colorMode === 'dark' ? 'text-slate-400' : 'text-slate-500';
 
@@ -3692,22 +3626,23 @@ export default function OneshotEditor() {
     )
   );
   const {
-    isDockerInstall: isDockerInferenceModelFilteringEnabled,
+    isStandaloneDeployment: isStandaloneInferenceModelFilteringEnabled,
     isLoading: isInferenceModelAvailabilityLoading,
     inferenceModelOptions,
     hasConfiguredInferenceModels,
   } = useInferenceModelAvailability();
   const {
-    isDockerInstall: isDockerModelFilteringEnabled,
+    isStandaloneDeployment: isStandaloneModelFilteringEnabled,
     isLoading: isDeploymentModelAvailabilityLoading,
     hasSubtitleGenerationCredentials,
     textToVideoImageModelValues,
     textToVideoVideoModelValues,
     imageListToVideoImageModelValues,
     imageListToVideoVideoModelValues,
+    primaryAdapterByModel,
   } = useDeploymentModelAvailability();
   const canGenerateSubtitles =
-    !isDockerModelFilteringEnabled || hasSubtitleGenerationCredentials;
+    !isStandaloneModelFilteringEnabled || hasSubtitleGenerationCredentials;
   const subtitleGenerationEnabled = canGenerateSubtitles && enableSubtitles;
 
   useEffect(() => {
@@ -3720,7 +3655,7 @@ export default function OneshotEditor() {
     }
   }, [canGenerateSubtitles, isDeploymentModelAvailabilityLoading]);
   const deploymentModelAvailability = useMemo(() => ({
-    isDockerInstall: isDockerModelFilteringEnabled,
+    isStandaloneDeployment: isStandaloneModelFilteringEnabled,
     textToVideoImageModelValues,
     textToVideoVideoModelValues,
     imageListToVideoImageModelValues,
@@ -3728,12 +3663,12 @@ export default function OneshotEditor() {
   }), [
     imageListToVideoImageModelValues,
     imageListToVideoVideoModelValues,
-    isDockerModelFilteringEnabled,
+    isStandaloneModelFilteringEnabled,
     textToVideoImageModelValues,
     textToVideoVideoModelValues,
   ]);
-  const isDockerInferenceUnavailable =
-    isDockerInferenceModelFilteringEnabled &&
+  const isStandaloneInferenceUnavailable =
+    isStandaloneInferenceModelFilteringEnabled &&
     (isInferenceModelAvailabilityLoading || !hasConfiguredInferenceModels);
   const [selectedCustomAdapterEndpointId, setSelectedCustomAdapterEndpointId] = useState(
     () => readVidgeniePreferences().customAdapterEndpointId || ''
@@ -3858,13 +3793,26 @@ export default function OneshotEditor() {
         };
       })
       .filter(Boolean);
-    return isDockerModelFilteringEnabled
+    const configuredModels = isStandaloneModelFilteringEnabled
       ? filterOptionsForDeploymentModelValues(orderedModels, stageDeploymentImageModelValues)
       : orderedModels;
+    if (!isStandaloneModelFilteringEnabled || generationMode !== 'T2V') {
+      return configuredModels;
+    }
+    const customModels = getCustomTextToImageModelDefinitions(user?.custom_adapters)
+      .filter((model) => model.supportedAspectRatios.includes(selectedAspectRatioOption.value))
+      .map((model) => ({
+        label: model.name,
+        value: model.key,
+        imageStyles: model.imageStyles,
+      }));
+    return [...configuredModels, ...customModels];
   }, [
-    isDockerModelFilteringEnabled,
+    generationMode,
+    isStandaloneModelFilteringEnabled,
     selectedAspectRatioOption.value,
     stageDeploymentImageModelValues,
+    user?.custom_adapters,
   ]);
 
   const [selectedImageModel, setSelectedImageModel] = useState(() => {
@@ -3903,8 +3851,8 @@ export default function OneshotEditor() {
   // When image-model changes, verify / reset style
   useEffect(() => {
     if (!selectedImageModel) return;
-    const modelCfg = IMAGE_GENERAITON_MODEL_TYPES.find(
-      (m) => m.key === selectedImageModel.value
+    const modelCfg = stageImageModels.find(
+      (m) => (m.key || m.value) === selectedImageModel.value
     );
     if (modelCfg?.imageStyles?.length) {
       const styleExists = modelCfg.imageStyles.includes(selectedImageStyle?.value);
@@ -3915,7 +3863,7 @@ export default function OneshotEditor() {
     } else {
       setSelectedImageStyle(null);
     }
-  }, [selectedImageModel]);
+  }, [selectedImageModel, selectedImageStyle, stageImageModels]);
 
   // ─────────────────────────────────────────────────────────
   //  Video-model select
@@ -3926,6 +3874,7 @@ export default function OneshotEditor() {
         .filter(
           (m) =>
             m.isExpressModel &&
+            isVideoModelAllowedForDeploymentScope(m, isStandaloneModelFilteringEnabled) &&
             m.supportedAspectRatios?.includes(selectedAspectRatioOption.value)
         )
         .map((model) => [model.key, model])
@@ -3942,11 +3891,11 @@ export default function OneshotEditor() {
         };
       })
       .filter(Boolean);
-    return isDockerModelFilteringEnabled
+    return isStandaloneModelFilteringEnabled
       ? filterOptionsForDeploymentModelValues(orderedModels, textToVideoVideoModelValues)
       : orderedModels;
   }, [
-    isDockerModelFilteringEnabled,
+    isStandaloneModelFilteringEnabled,
     selectedAspectRatioOption.value,
     textToVideoVideoModelValues,
   ]);
@@ -3973,12 +3922,12 @@ export default function OneshotEditor() {
         };
       })
       .filter(Boolean);
-    return isDockerModelFilteringEnabled
+    return isStandaloneModelFilteringEnabled
       ? filterOptionsForDeploymentModelValues(orderedModels, imageListToVideoVideoModelValues)
       : orderedModels;
   }, [
     imageListToVideoVideoModelValues,
-    isDockerModelFilteringEnabled,
+    isStandaloneModelFilteringEnabled,
     selectedAspectRatioOption.value,
   ]);
 
@@ -4135,7 +4084,7 @@ export default function OneshotEditor() {
   //  Credits / disable form
   // ─────────────────────────────────────────────────────────
   const isGuestPreview = !user?._id;
-  const isDisabled = isGuestPreview || (user.generationCredits < 300 && currentEnv !== 'docker');
+  const isDisabled = isGuestPreview || (user.generationCredits < 300 && !isStandaloneDeployment);
 
   // ─────────────────────────────────────────────────────────
   //  CLEAN-UP ALL POLLS WHEN COMPONENT UNMOUNTS
@@ -4176,24 +4125,36 @@ export default function OneshotEditor() {
     if (currentPollRequestIdRef.current === id) return;
 
     if (id && userInitiated && !userFetching) {
-      // Fetch session, and ONLY trigger polling if still pending
+      // getSessionDetails may start polling itself. Preserve that timer instead
+      // of clearing it when this route-load continuation observes the active id.
       getSessionDetails().then((data) => {
         const usePostProcessingPoll = shouldUsePostProcessingStatusPolling(id);
-        if (
+        const shouldPoll = Boolean(
           user?._id &&
           getHeaders() &&
-          isSessionGenerationPending(data, shouldForceAdvancedVideoEditPolling(id) || usePostProcessingPoll) &&
-          !activeRequestIdRef.current
-        ) {
+          isSessionGenerationPending(
+            data,
+            shouldForceAdvancedVideoEditPolling(id) || usePostProcessingPoll,
+          )
+        );
+        const pollAction = resolveVidgeniePollAction({
+          requestId: id,
+          currentPollRequestId: currentPollRequestIdRef.current,
+          isPending: shouldPoll,
+        });
+
+        if (pollAction === VIDGENIE_POLL_ACTION.START) {
           if (usePostProcessingPoll) {
             pollPostProcessingStatus(id);
           } else {
             pollGenerationStatus(id);
           }
-        } else {
-          // clear any existing pending polls
+        } else if (pollAction === VIDGENIE_POLL_ACTION.STOP) {
           if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current);
           if (assistantPollRef.current) clearInterval(assistantPollRef.current);
+          pollIntervalRef.current = null;
+          assistantPollRef.current = null;
+          currentPollRequestIdRef.current = null;
         }
       });
     }
@@ -4205,6 +4166,7 @@ export default function OneshotEditor() {
   async function handleDownloadVideo() {
     const fallbackUrl = normalizeVideoUrl(videoLink);
     let downloadUrl = fallbackUrl;
+    const downloadFilename = createVidgenieDownloadFilename();
 
     try {
       setIsDownloadingVideo(true);
@@ -4222,7 +4184,7 @@ export default function OneshotEditor() {
       }));
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.setAttribute('download', `Rendition_${dateNowStr}.mp4`);
+      link.setAttribute('download', downloadFilename);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -4231,7 +4193,7 @@ export default function OneshotEditor() {
       if (downloadUrl) {
         const link = document.createElement('a');
         link.href = downloadUrl;
-        link.setAttribute('download', `Rendition_${dateNowStr}.mp4`);
+        link.setAttribute('download', downloadFilename);
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -5069,9 +5031,9 @@ export default function OneshotEditor() {
     try {
       setSessionLoadFailed(false);
       setSessionLoadError('');
-      const canUseAnonymousDockerStatus = currentEnv === 'docker';
+      const canUseAnonymousStandaloneStatus = isStandaloneDeployment;
       let headers = user?._id ? getHeaders() : null;
-      if (!headers && !canUseAnonymousDockerStatus && user?._id) {
+      if (!headers && !canUseAnonymousStandaloneStatus && user?._id) {
         await getUserAPI();
         headers = getHeaders();
       }
@@ -5106,7 +5068,7 @@ export default function OneshotEditor() {
           if (!sessionResponse) {
             try {
               const statusData = await fetchDetailedGenerationStatus(id, headers);
-              const fallbackSession = buildDockerAnonymousSessionDetailsFromStatus(statusData);
+              const fallbackSession = buildStandaloneAnonymousSessionDetailsFromStatus(statusData);
               if (isPlainObject(fallbackSession) && (
                 isPlainObject(fallbackSession.session) ||
                 Array.isArray(fallbackSession.layers) ||
@@ -5123,13 +5085,13 @@ export default function OneshotEditor() {
           }
         }
         data = data || sessionResponse?.data;
-      } else if (canUseAnonymousDockerStatus) {
+      } else if (canUseAnonymousStandaloneStatus) {
         const statusData = await fetchDetailedGenerationStatus(id);
         if (statusData?.expressGenerationStatus) {
           setExpressGenerationStatus(statusData.expressGenerationStatus);
         }
         setGenerationStatusDetails(statusData);
-        data = buildDockerAnonymousSessionDetailsFromStatus(statusData);
+        data = buildStandaloneAnonymousSessionDetailsFromStatus(statusData);
       } else {
         const sessionResponse = await axios.get(
           `${API_SERVER}/video_sessions/session_details?id=${encodeURIComponent(id)}&cacheBust=${Date.now()}`
@@ -5300,13 +5262,13 @@ export default function OneshotEditor() {
   };
 
   useEffect(() => {
-    if (currentEnv !== 'docker' || !id) {
+    if (!isStandaloneDeployment || !id) {
       return undefined;
     }
 
     let didCancel = false;
 
-    const hydrateDockerAnonymousPreview = async () => {
+    const hydrateStandaloneAnonymousPreview = async () => {
       try {
         const statusData = await fetchDetailedGenerationStatus(id);
         if (didCancel) {
@@ -5318,7 +5280,7 @@ export default function OneshotEditor() {
         }
         setGenerationStatusDetails(statusData);
 
-        const data = buildDockerAnonymousSessionDetailsFromStatus(statusData);
+        const data = buildStandaloneAnonymousSessionDetailsFromStatus(statusData);
         setSessionDetails(data);
 
         const latestVideoUrl = getNormalizedLatestVideoUrl(data);
@@ -5351,16 +5313,16 @@ export default function OneshotEditor() {
           setShowResultDisplay(true);
         }
       } catch {
-        // Docker anonymous preview is best-effort; the basic status poll still drives progress text.
+        // Standalone anonymous preview is best-effort; the basic status poll still drives progress text.
       }
     };
 
-    hydrateDockerAnonymousPreview();
+    hydrateStandaloneAnonymousPreview();
 
     return () => {
       didCancel = true;
     };
-  }, [currentEnv, id]);
+  }, [id, isStandaloneDeployment]);
 
   async function refreshLatestVideoLink() {
     const latestSessionDetails = await getSessionDetails();
@@ -5579,8 +5541,8 @@ export default function OneshotEditor() {
     }
 
     if (isJsonMode) {
-      if (isDockerModelFilteringEnabled && isDeploymentModelAvailabilityLoading) {
-        setJsonValidationMessage('Docker model availability is still loading.');
+      if (isStandaloneModelFilteringEnabled && isDeploymentModelAvailabilityLoading) {
+        setJsonValidationMessage('Standalone model availability is still loading.');
         setErrorMessage(null);
         setShowResultDisplay(false);
         return;
@@ -5676,8 +5638,8 @@ export default function OneshotEditor() {
       setErrorMessage({ error: 'Image URLs must be valid http(s) URLs.' });
       return;
     }
-    if (isDockerModelFilteringEnabled && isDeploymentModelAvailabilityLoading) {
-      setErrorMessage({ error: 'Docker model availability is still loading.' });
+    if (isStandaloneModelFilteringEnabled && isDeploymentModelAvailabilityLoading) {
+      setErrorMessage({ error: 'Standalone model availability is still loading.' });
       return;
     }
     if (
@@ -5695,7 +5657,9 @@ export default function OneshotEditor() {
       isTextToVideo,
       advancedOptions,
       customAdapters: user?.custom_adapters,
-      selectedCustomAdapterEndpointId,
+      selectedCustomAdapterEndpointId: isCustomTextToImageModelKey(selectedImageModel.value)
+        ? ''
+        : selectedCustomAdapterEndpointId,
       selectedInferenceModel,
       inferenceModelOptions,
     });
@@ -6230,14 +6194,22 @@ export default function OneshotEditor() {
 
   const selectedVideoModelKey = selectedVideoModel?.value || '';
   const hasSelectedCustomAdapters = hasTextValue(selectedCustomAdapterEndpointId);
+  const selectedVideoModelPricing = useMemo(
+    () => VIDEO_MODEL_PRICES.find((model) => model.key === selectedVideoModelKey),
+    [selectedVideoModelKey],
+  );
+  const isProviderBilledVideo = isProviderBilledVideoPricing(selectedVideoModelPricing);
   const creditsPerSecondVideo = useMemo(() => {
+    if (isProviderBilledVideo) return null;
     return getExpressVideoCreditsPerSecond(selectedVideoModelKey) ?? (generationMode === 'I2V' ? 60 : 30);
-  }, [generationMode, selectedVideoModelKey]);
+  }, [generationMode, isProviderBilledVideo, selectedVideoModelKey]);
 
 
   const expectedCreditsPerSecond = useMemo(() => {
     return creditsPerSecondVideo;
   }, [creditsPerSecondVideo]);
+  const usesProviderBilling =
+    isJsonMode || isStandaloneDeployment || hasSelectedCustomAdapters || isProviderBilledVideo;
 
   const pricingInfoDisplay = (
     <div className="relative">
@@ -6245,7 +6217,7 @@ export default function OneshotEditor() {
         className={`flex items-center gap-1 font-medium text-sm cursor-pointer select-none ${colorMode === 'dark' ? 'text-neutral-100' : 'text-slate-700'}`}
         onClick={togglePricingDetailsDisplay}
       >
-        {isJsonMode || currentEnv === 'docker' || hasSelectedCustomAdapters ? (
+        {usesProviderBilling ? (
           <div>{t("vidgenie.pricingApiCharge")}</div>
         ) : (
           <div className="inline-flex items-center">
@@ -6258,7 +6230,7 @@ export default function OneshotEditor() {
       </div>
       {pricingDetailsDisplay && (
         <div className={`mt-2 text-sm text-left ${mutedText} transition-opacity duration-300`}>
-          {isJsonMode || currentEnv === 'docker' || hasSelectedCustomAdapters ? (
+          {usesProviderBilling ? (
             <div>{t("vidgenie.pricingApiCharge")}</div>
           ) : (
             <>
@@ -6410,7 +6382,7 @@ export default function OneshotEditor() {
     [sessionDetails],
   );
   const sessionInferenceModelLabel = sessionInferenceModelKey
-    ? getInferenceModelDisplayLabel(sessionInferenceModelKey)
+    ? getInferenceModelDisplayLabel(sessionInferenceModelKey, inferenceModelOptions)
     : '';
   const shouldCollapseOriginalRequest = renderState === 'complete' && Boolean(videoLink);
   const shouldShowOriginalRequestInputs =
@@ -6441,8 +6413,8 @@ export default function OneshotEditor() {
     isFormDisabled ||
     isSubmitting ||
     Boolean(jsonEditorErrorMessage) ||
-    isDockerInferenceUnavailable;
-  const dockerInferenceUnavailableMessage = isDockerInferenceModelFilteringEnabled
+    isStandaloneInferenceUnavailable;
+  const standaloneInferenceUnavailableMessage = isStandaloneInferenceModelFilteringEnabled
     ? isInferenceModelAvailabilityLoading
       ? 'Loading configured inference models...'
       : hasConfiguredInferenceModels
@@ -6493,17 +6465,19 @@ export default function OneshotEditor() {
     }
 
     return (
-      <div className={`flex flex-col justify-center gap-2 sm:flex-row ${extraClasses}`}>
+      <div className={`grid ${IS_STANDALONE_DEPLOYMENT ? 'grid-cols-2' : 'grid-cols-3'} gap-2 sm:flex sm:flex-row sm:justify-center ${extraClasses}`}>
         <PrimaryPublicButton
-          extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          tone="amber"
+          extraClasses="w-full min-w-0 px-1.5 py-2 text-[11px] sm:w-auto sm:px-4 sm:text-sm rounded-xl shadow-sm transition active:scale-[0.98]"
           onClick={viewInStudio}
           isDisabled={isGuestPreview}
         >
           View&nbsp;in&nbsp;Studio
         </PrimaryPublicButton>
-        {!IS_DOCKER_INSTALL && (
+        {!IS_STANDALONE_DEPLOYMENT && (
           <PrimaryPublicButton
-            extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+            tone="mint"
+            extraClasses="w-full min-w-0 px-1.5 py-2 text-[11px] sm:w-auto sm:px-4 sm:text-sm rounded-xl shadow-sm transition active:scale-[0.98]"
             onClick={
               isCompletedSessionPublished
                 ? handleUnpublishClick
@@ -6524,7 +6498,8 @@ export default function OneshotEditor() {
           </PrimaryPublicButton>
         )}
         <PrimaryPublicButton
-          extraClasses="w-full sm:w-auto px-4 py-2 rounded-xl shadow-sm hover:shadow-md transition active:scale-[0.98]"
+          tone="neutral"
+          extraClasses="w-full min-w-0 px-1.5 py-2 text-[11px] sm:w-auto sm:px-4 sm:text-sm rounded-xl shadow-sm transition active:scale-[0.98]"
           onClick={handleDownloadVideo}
           isPending={isDownloadingVideo}
           isDisabled={isGuestPreview || !videoLink}
@@ -6543,11 +6518,11 @@ export default function OneshotEditor() {
     const isAnyPostProcessingPending = Boolean(postProcessingPendingAction);
     const panelClass =
       colorMode === 'dark'
-        ? 'bg-[#0b1224] text-slate-100 ring-white/10'
+        ? 'bg-[#151720] text-slate-100 ring-white/10'
         : 'bg-white text-slate-900 ring-slate-200';
     const inputClass =
       colorMode === 'dark'
-        ? 'border-white/10 bg-[#111a2f] text-slate-100 placeholder:text-slate-500 focus:border-cyan-300'
+        ? 'border-[#667188] bg-[#20232e] text-slate-100 placeholder:text-[#8b96aa] focus:border-[#f6c453] focus:ring-[#f6c453]/24'
         : 'border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-blue-400';
     const subtleButtonClass =
       colorMode === 'dark'
@@ -6555,7 +6530,7 @@ export default function OneshotEditor() {
         : 'border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50';
     const activeActionClass =
       colorMode === 'dark'
-        ? 'bg-cyan-400/15 text-cyan-100 ring-cyan-300/25'
+        ? 'bg-[#ff4655]/16 text-[#ffd4d8] ring-[#ff4655]/35'
         : 'bg-blue-50 text-blue-700 ring-blue-200';
     const inactiveActionClass =
       colorMode === 'dark'
@@ -6565,7 +6540,7 @@ export default function OneshotEditor() {
       'inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60';
     const primarySubmitClass =
       colorMode === 'dark'
-        ? `${submitButtonClass} bg-cyan-300 text-slate-950 hover:bg-cyan-200`
+        ? `${submitButtonClass} bg-[#ff4655] text-[#080a10] hover:bg-[#ff6572] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffe0a3]/75`
         : `${submitButtonClass} bg-blue-600 text-white hover:bg-blue-700`;
     const secondarySubmitClass = `${submitButtonClass} border ${subtleButtonClass}`;
     const dangerSubmitClass =
@@ -6573,7 +6548,9 @@ export default function OneshotEditor() {
         ? `${submitButtonClass} border border-rose-300/30 text-rose-100 hover:bg-rose-400/10`
         : `${submitButtonClass} border border-rose-200 text-rose-700 hover:bg-rose-50`;
     const fieldClass = `min-h-[40px] w-full rounded-lg border px-3 py-2 text-sm outline-none transition ${inputClass}`;
-    const checkboxClass = 'mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+    const checkboxClass = colorMode === 'dark'
+      ? 'mt-0.5 h-4 w-4 rounded border-[#6f6450] bg-[#20232e] text-[#f6c453] focus:ring-[#f6c453]/45 focus:ring-offset-[#151720]'
+      : 'mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
     const isGeneratedOutroPending = postProcessingPendingAction === 'generated_outro';
     const isFooterPending = postProcessingPendingAction === 'footer_cta';
     const isRemoveFooterPending = postProcessingPendingAction === 'remove_footer';
@@ -7035,14 +7012,13 @@ export default function OneshotEditor() {
   const jsonModeButtonLabel = isJsonMode
     ? t("vidgenie.wizardMode", {}, "Wizard mode")
     : t("vidgenie.jsonMode", {}, "JSON mode");
-  const dateNowStr = new Date().toISOString().replace(/[:.]/g, '-');
   const toggleShell =
     colorMode === 'dark'
-      ? 'bg-[#0b1226] ring-1 ring-white/10'
+      ? 'bg-[#12141c] ring-1 ring-[#4a5265]'
       : 'bg-white ring-1 ring-slate-200';
   const toggleActive =
     colorMode === 'dark'
-      ? 'bg-indigo-500 text-white shadow'
+      ? 'bg-[#f6c453] text-[#101117] shadow-[0_6px_18px_rgba(246,196,83,0.18)]'
       : 'bg-indigo-600 text-white shadow';
   const toggleInactive =
     colorMode === 'dark'
@@ -7070,35 +7046,38 @@ export default function OneshotEditor() {
   const advancedInputClasses = `
     w-full rounded-lg px-3 py-2 text-sm outline-none ring-1 transition
     ${colorMode === 'dark'
-      ? 'bg-[#0b1224] text-slate-100 ring-white/10 focus:ring-indigo-400/60 placeholder:text-slate-500'
+      ? 'bg-[#151720] text-slate-100 ring-[#667188] focus:ring-[#f6c453]/55 placeholder:text-[#8b96aa]'
       : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50 placeholder:text-slate-400'
     }
   `;
   const advancedCompactSelectClasses = `
     h-8 w-36 shrink-0 rounded-lg px-2 text-xs outline-none ring-1 transition sm:w-48
     ${colorMode === 'dark'
-      ? 'bg-[#0b1224] text-slate-100 ring-white/10 focus:ring-indigo-400/60'
+      ? 'bg-[#151720] text-slate-100 ring-[#667188] focus:ring-[#f6c453]/55'
       : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
     }
   `;
   const advancedLabelClasses = `block text-[11px] font-medium mb-1 ${mutedText}`;
   const advancedSectionBorder = colorMode === 'dark' ? 'border-white/10' : 'border-slate-200';
   const advancedRowBg = colorMode === 'dark' ? 'bg-white/[0.03]' : 'bg-slate-50';
+  const choiceInputClasses = colorMode === 'dark'
+    ? 'mt-0.5 h-4 w-4 rounded border-[#6f6450] bg-[#20232e] text-[#f6c453] focus:ring-[#f6c453]/45 focus:ring-offset-[#151720]'
+    : 'mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
   const stepModeShell =
     colorMode === 'dark'
       ? 'bg-white/[0.03] ring-white/10'
       : 'bg-slate-50 ring-slate-200';
   const stepModeSelectedClasses =
     colorMode === 'dark'
-      ? 'bg-white/10 text-slate-100 ring-white/10'
-      : 'bg-white text-slate-900 ring-slate-200 shadow-sm';
+      ? 'bg-[#ff4655]/14 text-[#ffe5e8]'
+      : 'bg-white text-slate-900 shadow-sm';
   const stepModeInactiveClasses =
     colorMode === 'dark'
       ? 'text-slate-400 hover:bg-white/[0.06] hover:text-slate-200'
       : 'text-slate-500 hover:bg-white hover:text-slate-800';
   const secondaryActionClasses =
     colorMode === 'dark'
-      ? 'bg-white/[0.03] text-slate-200 ring-white/10 hover:bg-white/[0.06]'
+      ? 'bg-white/[0.03] text-slate-200 ring-[#667188] hover:bg-white/[0.06] hover:ring-[#f6c453]/55'
       : 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-white';
   const headerTitle = isJsonMode
     ? generationMode === 'I2V'
@@ -7123,13 +7102,13 @@ export default function OneshotEditor() {
             {isSubmitting ? t("vidgenie.submitting") : t("vidgenie.submit")}
           </PrimaryPublicButton>
         </div>
-        {dockerInferenceUnavailableMessage ? (
+        {standaloneInferenceUnavailableMessage ? (
           <div className={`mt-3 rounded-lg border px-3 py-2 text-sm font-medium ${
             colorMode === 'dark'
               ? 'border-amber-300/20 bg-amber-300/10 text-amber-100'
               : 'border-amber-300 bg-amber-50 text-amber-800'
           }`}>
-            {dockerInferenceUnavailableMessage}
+            {standaloneInferenceUnavailableMessage}
           </div>
         ) : null}
       </>
@@ -7150,7 +7129,7 @@ export default function OneshotEditor() {
                 key={option.value}
                 title={option.description}
                 className={`
-                  inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-center font-medium ring-1 ring-transparent transition sm:px-3
+                  inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-center font-medium transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#f6c453]/70 sm:px-3
                   ${isSelected ? stepModeSelectedClasses : stepModeInactiveClasses}
                   ${isFormDisabled ? 'cursor-not-allowed opacity-60' : ''}
                 `}
@@ -7198,7 +7177,7 @@ export default function OneshotEditor() {
       return (
         <div className={`mx-auto mt-6 w-full max-w-lg rounded-2xl border p-6 text-center ${
           colorMode === 'dark'
-            ? 'border-white/10 bg-[#0f1629] text-slate-100'
+            ? 'border-white/10 bg-[#181b24] text-slate-100'
             : 'border-slate-200 bg-white text-slate-900'
         }`}>
           <h1 className="text-xl font-semibold">Unable to open this VidGenie project</h1>
@@ -7229,23 +7208,23 @@ export default function OneshotEditor() {
         <div
           className={`mt-2 flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:mt-6 sm:flex-row sm:items-center sm:justify-between ${
             colorMode === 'dark'
-              ? 'border-cyan-300/20 bg-cyan-300/10 text-cyan-50'
+              ? 'border-[#f6c453]/25 bg-[#f6c453]/[0.08] text-[#fff1c8]'
               : 'border-blue-200 bg-blue-50 text-blue-950'
           }`}
           role="status"
         >
           <div className="min-w-0">
             <div className="text-sm font-semibold">Sample VidGenie project</div>
-            <p className={`mt-0.5 text-xs ${colorMode === 'dark' ? 'text-cyan-100/75' : 'text-blue-800'}`}>
+            <p className={`mt-0.5 text-xs ${colorMode === 'dark' ? 'text-[#ffe0a3]' : 'text-blue-800'}`}>
               You can preview this project. Log in to create videos in your own workspace.
             </p>
           </div>
           <button
             type="button"
             onClick={showLoginDialog}
-            className={`inline-flex min-h-10 w-full shrink-0 items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition sm:w-auto ${
+            className={`inline-flex min-h-10 w-auto shrink-0 self-center items-center justify-center rounded-xl px-5 py-2 text-sm font-semibold transition sm:self-auto ${
               colorMode === 'dark'
-                ? 'bg-cyan-200 text-slate-950 hover:bg-cyan-100'
+                ? 'bg-[#ff4655] text-[#080a10] hover:bg-[#ff6572]'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
             }`}
           >
@@ -7257,7 +7236,7 @@ export default function OneshotEditor() {
       <div
         className={`
           ${surfaceCard}
-          vidgenie-editor-card relative mt-2 flex flex-col rounded-2xl p-3 transition-shadow duration-300 hover:shadow-xl sm:mt-6 sm:p-8
+          vidgenie-editor-card relative mt-2 flex flex-col rounded-2xl p-3 transition-shadow duration-300 hover:shadow-xl sm:mt-6 sm:px-8 sm:py-5
         `}
       >
         {/* 1️⃣ Heading */}
@@ -7317,7 +7296,7 @@ export default function OneshotEditor() {
               className={`
                 vidgenie-pricing-pill px-3 py-1.5 rounded-full text-center transition
                 ${colorMode === 'dark'
-                  ? 'bg-[#111a2f] text-slate-100 ring-1 ring-[#1f2a3d]'
+                  ? 'bg-[#20232e] text-slate-100 ring-1 ring-[#3a4050]'
                   : 'bg-white text-slate-900 ring-1 ring-slate-200'
                 }
               `}
@@ -7466,7 +7445,7 @@ export default function OneshotEditor() {
         {shouldCollapseOriginalRequest && (
           <div className={`mt-4 rounded-xl p-3 ring-1 ${
             colorMode === 'dark'
-              ? 'bg-[#0b1224] ring-white/10'
+              ? 'bg-[#151720] ring-white/10'
               : 'bg-slate-50 ring-slate-200'
           }`}>
             <button
@@ -7497,12 +7476,13 @@ export default function OneshotEditor() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {/* Aspect Ratio */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+              <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
                 <SingleSelect
                   value={selectedAspectRatioOption}
                   onChange={setSelectedAspectRatioOption}
                   options={aspectRatioOptions}
                   isDisabled={isFormDisabled}
+                  compactLayout
                   className="w-full"
                 />
               </div>
@@ -7511,12 +7491,15 @@ export default function OneshotEditor() {
 
             {/* Image Model */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                <SingleSelect
+              <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
+                <ModelAdapterSelect
                   value={selectedImageModel}
                   onChange={setSelectedImageModel}
                   options={stageImageModels}
+                  primaryAdapterByModel={primaryAdapterByModel}
+                  isStandaloneDeployment={isStandaloneModelFilteringEnabled}
                   isDisabled={isFormDisabled}
+                  compactLayout
                   className="w-full"
                 />
               </div>
@@ -7531,12 +7514,13 @@ export default function OneshotEditor() {
               if (modelCfg?.imageStyles) {
                 return (
                   <div className="group w-full">
-                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                    <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
                       <SingleSelect
                         value={selectedImageStyle}
                         onChange={setSelectedImageStyle}
                         options={modelCfg.imageStyles.map((s) => ({ label: s, value: s }))}
                         isDisabled={isFormDisabled}
+                        compactLayout
                         className="w-full"
                       />
                     </div>
@@ -7551,12 +7535,15 @@ export default function OneshotEditor() {
               <>
                 {/* Video Model */}
                 <div className="group w-full">
-                  <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                    <SingleSelect
+                  <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
+                    <ModelAdapterSelect
                       value={selectedVideoModel}
                       onChange={setSelectedVideoModel}
                       options={expressVideoModels}
+                      primaryAdapterByModel={primaryAdapterByModel}
+                      isStandaloneDeployment={isStandaloneModelFilteringEnabled}
                       isDisabled={isFormDisabled}
+                      compactLayout
                       className="w-full"
                     />
                   </div>
@@ -7566,12 +7553,13 @@ export default function OneshotEditor() {
                 {/* Pixverse Style */}
                 {selectedVideoModel?.value?.startsWith('PIXVERSE') && selectedVideoModelSubType && (
                   <div className="group w-full">
-                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                    <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
                       <SingleSelect
                         value={selectedVideoModelSubType}
                         onChange={setSelectedVideoModelSubType}
                         options={PIXVERRSE_VIDEO_STYLES.map((s) => ({ label: s, value: s }))}
                         isDisabled={isFormDisabled}
+                        compactLayout
                         className="w-full"
                       />
                   </div>
@@ -7582,12 +7570,13 @@ export default function OneshotEditor() {
                 {/* Generic Sub-type */}
                 {selectedVideoModel?.modelSubTypes?.length && selectedVideoModelSubType && (
                   <div className="group w-full">
-                    <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                    <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
                       <SingleSelect
                         value={selectedVideoModelSubType}
                         onChange={setSelectedVideoModelSubType}
                         options={selectedVideoModel.modelSubTypes.map((s) => ({ label: s, value: s }))}
                         isDisabled={isFormDisabled}
+                        compactLayout
                         className="w-full"
                       />
                   </div>
@@ -7599,12 +7588,15 @@ export default function OneshotEditor() {
 
             {generationMode === 'I2V' && (
               <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
-                  <SingleSelect
+                <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
+                  <ModelAdapterSelect
                     value={selectedVideoModel}
                     onChange={setSelectedVideoModel}
                     options={imageListVideoModels}
+                    primaryAdapterByModel={primaryAdapterByModel}
+                    isStandaloneDeployment={isStandaloneModelFilteringEnabled}
                     isDisabled={isFormDisabled}
+                    compactLayout
                     truncateLabels
                     className="w-full"
                   />
@@ -7616,12 +7608,13 @@ export default function OneshotEditor() {
             {/* Duration */}
             {generationMode === 'T2V' && (
               <div className="group w-full">
-                <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+                <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
                   <SingleSelect
                     value={selectedDurationOption}
                     onChange={setSelectedDurationOption}
                     options={durationOptions}
                     isDisabled={isFormDisabled}
+                    compactLayout
                     className="w-full"
                   />
                 </div>
@@ -7631,12 +7624,13 @@ export default function OneshotEditor() {
 
             {/* Audio language */}
             <div className="group w-full">
-              <div className={`w-full md:w-full ${controlShell} rounded-xl p-2 transition-transform duration-200 group-hover:translate-y-[-1px] relative z-10 focus-within:z-50 group-hover:z-50`}>
+              <div className={`relative z-10 w-full rounded-lg p-0 transition-transform duration-200 group-hover:translate-y-[-1px] group-hover:z-50 focus-within:z-50 ${controlShell}`}>
                 <SingleSelect
                   value={selectedLanguageOption}
                   onChange={setSelectedLanguageOption}
                   options={languageOptions}
                   isDisabled={isFormDisabled}
+                  compactLayout
                   className="w-full"
                 />
               </div>
@@ -7648,23 +7642,20 @@ export default function OneshotEditor() {
             {canGenerateSubtitles && (
               <div className="group w-full">
                 <label
-                  className={`flex items-start gap-3 ${controlShell} rounded-xl p-3 transition-transform duration-200 group-hover:translate-y-[-1px] cursor-pointer`}
+                  htmlFor="vidgenie-enable-subtitles"
+                  className={`relative z-10 flex h-[34px] w-full items-center justify-between gap-3 rounded-lg px-3 transition-transform duration-200 group-hover:translate-y-[-1px] focus-within:z-50 ${borderedControlShell} ${
+                    isFormDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                  }`}
                 >
+                  <span className="text-sm">{t("vidgenie.enableSubtitles")}</span>
                   <input
+                    id="vidgenie-enable-subtitles"
                     type="checkbox"
                     checked={enableSubtitles}
                     onChange={(e) => setEnableSubtitles(e.target.checked)}
                     disabled={isFormDisabled}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className={`${choiceInputClasses} !mt-0`}
                   />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium">
-                      {t("vidgenie.enableSubtitles")}
-                    </div>
-                    <p className={`mt-1 text-[11px] ${mutedText}`}>
-                      {t("vidgenie.enableSubtitlesHelp")}
-                    </p>
-                  </div>
                 </label>
               </div>
             )}
@@ -7717,48 +7708,28 @@ export default function OneshotEditor() {
 
               <div>
                 <label className={advancedLabelClasses}>Inference model</label>
-                <select
-                  value={selectedInferenceModel?.value || inferenceModelOptions[0]?.value || ''}
-                  onChange={(event) =>
-                    setSelectedInferenceModel(getInferenceModelOption(event.target.value, DEFAULT_INFERENCE_MODEL, inferenceModelOptions))
-                  }
-                  disabled={isFormDisabled || isDockerInferenceUnavailable}
-                  className={advancedInputClasses}
-                >
-                  {inferenceModelOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {isDockerInferenceModelFilteringEnabled ? (
+                <ModelAdapterSelect
+                  value={selectedInferenceModel || inferenceModelOptions[0] || null}
+                  onChange={setSelectedInferenceModel}
+                  options={inferenceModelOptions}
+                  primaryAdapterByModel={primaryAdapterByModel}
+                  isStandaloneDeployment={isStandaloneInferenceModelFilteringEnabled}
+                  isDisabled={isFormDisabled || isStandaloneInferenceUnavailable}
+                  hostedControl="native"
+                  nativeClassName={advancedInputClasses}
+                  compactLayout
+                  className="w-full"
+                />
+                {isStandaloneInferenceModelFilteringEnabled ? (
                   <p className={`mt-1 text-[11px] ${mutedText}`}>
                     {isInferenceModelAvailabilityLoading
                       ? 'Loading configured model options...'
                       : hasConfiguredInferenceModels
-                        ? 'Only models supported by your configured Docker providers are shown.'
-                        : 'No inference model is configured for this Docker installation.'}
+                        ? 'Only models supported by your configured standalone providers are shown.'
+                        : 'No inference model is configured for this standalone installation.'}
                   </p>
                 ) : null}
               </div>
-
-              {generationMode === 'T2V' && (
-                <div>
-                  <label className={advancedLabelClasses}>Tone</label>
-                  <select
-                    value={advancedOptions.tone}
-                    onChange={(event) => updateAdvancedOption('tone', event.target.value)}
-                    disabled={isFormDisabled}
-                    className={advancedInputClasses}
-                  >
-                    {VIDGENIE_TONE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {generationMode === 'I2V' && (
                 <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
@@ -7771,7 +7742,7 @@ export default function OneshotEditor() {
                           updateAdvancedOption('add_narrator_avatar', event.target.checked)
                         }
                         disabled={isFormDisabled}
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        className={choiceInputClasses}
                       />
                       <span className="text-sm font-medium">Add narrator avatar</span>
                     </label>
@@ -7792,7 +7763,7 @@ export default function OneshotEditor() {
                       updateAdvancedOption('generate_outro_image', event.target.checked)
                     }
                     disabled={isFormDisabled}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    className={choiceInputClasses}
                   />
                   <span className="text-sm font-medium">Generate CTA outro</span>
                 </label>
@@ -7948,26 +7919,6 @@ export default function OneshotEditor() {
                 )}
               </div>
 
-              <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Footer
-                </div>
-                <div>
-                  <label className={advancedLabelClasses}>Footer metadata JSON</label>
-                  <TextareaAutosize
-                    minRows={3}
-                    maxRows={8}
-                    value={advancedOptions.footer_metadata}
-                    onChange={(event) =>
-                      updateAdvancedOption('footer_metadata', event.target.value)
-                    }
-                    disabled={isFormDisabled}
-                    className={advancedInputClasses}
-                    placeholder='[{"url":"https://example.com/book","title":"Book now"}]'
-                  />
-                </div>
-              </div>
-
               {availableCustomAdapterEndpoints.length > 0 && (
                 <div className={`border-t ${advancedSectionBorder} pt-4 space-y-3`}>
                   <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -7985,7 +7936,7 @@ export default function OneshotEditor() {
                           checked={selectedCustomAdapterEndpointId === endpoint.id}
                           onChange={() => toggleSelectedCustomAdapterEndpoint(endpoint.id)}
                           disabled={isFormDisabled}
-                          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                          className={choiceInputClasses}
                         />
                         <span className="min-w-0">
                           <span className="block text-sm font-medium">{endpoint.name}</span>
@@ -8082,7 +8033,7 @@ export default function OneshotEditor() {
         {isJsonMode && shouldCollapseJsonEditorForProgress ? (
           <div className={`mt-4 rounded-2xl p-4 ring-1 transition ${
             colorMode === 'dark'
-              ? 'bg-[#0b1224] text-slate-100 ring-white/10'
+              ? 'bg-[#151720] text-slate-100 ring-white/10'
               : 'bg-white text-slate-900 ring-slate-200'
           }`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -8224,9 +8175,9 @@ export default function OneshotEditor() {
                 className={`
                   vidgenie-prompt-textarea
                   w-full pl-4 pt-4 pr-16 p-2 rounded-2xl resize-none placeholder:opacity-60
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+                  focus:outline-none focus:ring-2 ring-1 transition
                   ${colorMode === 'dark'
-                    ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                    ? 'bg-[#151720] text-white ring-[#4a5265] focus:ring-[#f6c453]/55'
                     : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
                   }
                   ${isVoiceBusy ? 'opacity-95' : ''}
@@ -8246,11 +8197,11 @@ export default function OneshotEditor() {
                   absolute bottom-3 right-3 h-11 w-11 rounded-full flex items-center justify-center
                   transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
                   ${colorMode === 'dark'
-                    ? 'bg-indigo-500/80 hover:bg-indigo-500 text-white focus:ring-indigo-400/70 focus:ring-offset-slate-900'
+                    ? 'bg-[#f6c453] text-[#111318] hover:bg-[#ffe0a3] focus:ring-[#fff1c8]/70 focus:ring-offset-[#151720]'
                     : 'bg-indigo-500 hover:bg-indigo-600 text-white focus:ring-indigo-500/40 focus:ring-offset-white'}
                   ${isVoiceBusy ? 'animate-pulse scale-105' : ''}
                   ${isVoiceInitializing && !isBrowserRecognitionActive ? 'opacity-70 cursor-wait' : 'cursor-pointer'}
-                  ${(!isVoiceSupported && !isBrowserSpeechSupported) ? 'opacity-40 cursor-not-allowed hover:bg-indigo-500' : ''}
+                  ${(!isVoiceSupported && !isBrowserSpeechSupported) ? 'opacity-40 cursor-not-allowed' : ''}
                 `}
                 title={
                   (!isVoiceSupported && !isBrowserSpeechSupported)
@@ -8441,7 +8392,7 @@ export default function OneshotEditor() {
                                 mt-auto inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs font-semibold transition
                                 ${isFormDisabled || uploadingImageIndex !== null ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}
                                 ${colorMode === 'dark'
-                                  ? 'border-indigo-300/30 bg-indigo-400/10 text-indigo-100 hover:bg-indigo-400/15'
+                                  ? 'border-[#f6c453]/35 bg-[#f6c453]/10 text-[#fff1c8] hover:bg-[#f6c453]/16'
                                   : 'border-indigo-300 bg-indigo-50 text-indigo-800 hover:bg-indigo-100'
                                 }
                               `}
@@ -8505,9 +8456,9 @@ export default function OneshotEditor() {
                 className={`
                   vidgenie-prompt-textarea
                   w-full pl-4 pt-4 pr-4 p-2 rounded-2xl resize-none placeholder:opacity-60
-                  focus:outline-none focus:ring-2 focus:ring-indigo-500/60 ring-1 transition
+                  focus:outline-none focus:ring-2 ring-1 transition
                   ${colorMode === 'dark'
-                    ? 'bg-gray-950/90 text-white ring-white/10 focus:ring-indigo-500/50'
+                    ? 'bg-[#151720] text-white ring-[#4a5265] focus:ring-[#f6c453]/55'
                     : 'bg-white text-slate-900 ring-slate-200 focus:ring-indigo-500/50'
                   }
                 `}
@@ -8535,7 +8486,7 @@ export default function OneshotEditor() {
       {shouldShowOriginalRequestInputs && (
       <div className={`vidgenie-assistant-anchor mt-6 rounded-2xl p-3 sm:p-4 ring-1 transition-shadow hover:shadow-sm ${
         colorMode === 'dark'
-          ? 'bg-[#0f1629] text-slate-100 ring-[#1f2a3d]'
+          ? 'bg-[#181b24] text-slate-100 ring-[#3a4050]'
           : 'bg-white text-slate-900 ring-slate-200'
       }`}>
         <AssistantHome

@@ -6,9 +6,10 @@ import {
   fetchDeploymentProviderConfig,
   hasSubtitleGenerationProvider,
 } from "../utils/deploymentProviders.js";
+import { IS_STANDALONE_DEPLOYMENT } from "../utils/environment.jsx";
+import { subscribeToModelAvailabilityRefresh } from "../utils/modelAvailabilityRefresh.mjs";
 
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API || "";
-const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === "true";
 
 const EMPTY_AVAILABILITY = Object.freeze({
   textToVideoImageModelValues: [],
@@ -18,6 +19,7 @@ const EMPTY_AVAILABILITY = Object.freeze({
   imageModelValues: [],
   imageEditModelValues: [],
   videoModelValues: [],
+  primaryAdapterByModel: {},
   hasSubtitleGenerationCredentials: false,
   error: null,
 });
@@ -25,10 +27,11 @@ const EMPTY_AVAILABILITY = Object.freeze({
 const availabilityCache = {
   availability: null,
   promise: null,
+  revision: 0,
 };
 
 async function loadDeploymentModelAvailability() {
-  if (!IS_DOCKER_INSTALL) {
+  if (!IS_STANDALONE_DEPLOYMENT) {
     return EMPTY_AVAILABILITY;
   }
 
@@ -37,14 +40,17 @@ async function loadDeploymentModelAvailability() {
   }
 
   if (!availabilityCache.promise) {
-    availabilityCache.promise = fetchDeploymentProviderConfig(PROCESSOR_API_URL, getHeaders())
+    const revision = availabilityCache.revision;
+    const request = fetchDeploymentProviderConfig(PROCESSOR_API_URL, getHeaders())
       .then((payload) => {
         const availability = {
           ...extractDeploymentModelAvailability(payload),
           hasSubtitleGenerationCredentials: hasSubtitleGenerationProvider(payload),
           error: null,
         };
-        availabilityCache.availability = availability;
+        if (availabilityCache.revision === revision) {
+          availabilityCache.availability = availability;
+        }
         return availability;
       })
       .catch((error) => {
@@ -52,51 +58,77 @@ async function loadDeploymentModelAvailability() {
           ...EMPTY_AVAILABILITY,
           error,
         };
-        availabilityCache.availability = availability;
+        if (availabilityCache.revision === revision) {
+          availabilityCache.availability = availability;
+        }
         return availability;
       })
       .finally(() => {
-        availabilityCache.promise = null;
+        if (availabilityCache.promise === request) {
+          availabilityCache.promise = null;
+        }
       });
+    availabilityCache.promise = request;
   }
 
   return availabilityCache.promise;
 }
 
+function refreshDeploymentModelAvailability() {
+  availabilityCache.revision += 1;
+  availabilityCache.availability = null;
+  availabilityCache.promise = null;
+  return loadDeploymentModelAvailability();
+}
+
+if (IS_STANDALONE_DEPLOYMENT) {
+  subscribeToModelAvailabilityRefresh(refreshDeploymentModelAvailability);
+}
+
 export function useDeploymentModelAvailability() {
   const [availability, setAvailability] = useState(
-    IS_DOCKER_INSTALL
+    IS_STANDALONE_DEPLOYMENT
       ? availabilityCache.availability || EMPTY_AVAILABILITY
       : EMPTY_AVAILABILITY
   );
-  const [isLoading, setIsLoading] = useState(IS_DOCKER_INSTALL && !availabilityCache.availability);
+  const [isLoading, setIsLoading] = useState(IS_STANDALONE_DEPLOYMENT && !availabilityCache.availability);
 
   useEffect(() => {
     let isMounted = true;
+    let requestRevision = 0;
 
-    setIsLoading(IS_DOCKER_INSTALL && !availabilityCache.availability);
-    loadDeploymentModelAvailability()
-      .then((nextAvailability) => {
-        if (isMounted) {
-          setAvailability(nextAvailability || EMPTY_AVAILABILITY);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
+    const updateAvailability = () => {
+      const currentRequestRevision = ++requestRevision;
+      setIsLoading(IS_STANDALONE_DEPLOYMENT && !availabilityCache.availability);
+      return loadDeploymentModelAvailability()
+        .then((nextAvailability) => {
+          if (isMounted && requestRevision === currentRequestRevision) {
+            setAvailability(nextAvailability || EMPTY_AVAILABILITY);
+          }
+        })
+        .finally(() => {
+          if (isMounted && requestRevision === currentRequestRevision) {
+            setIsLoading(false);
+          }
+        });
+    };
+
+    const unsubscribe = IS_STANDALONE_DEPLOYMENT
+      ? subscribeToModelAvailabilityRefresh(updateAvailability)
+      : () => {};
+    updateAvailability();
 
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 
   return {
-    isDockerInstall: IS_DOCKER_INSTALL,
+    isStandaloneDeployment: IS_STANDALONE_DEPLOYMENT,
     isLoading,
     ...availability,
-    hasSubtitleGenerationCredentials: !IS_DOCKER_INSTALL ||
+    hasSubtitleGenerationCredentials: !IS_STANDALONE_DEPLOYMENT ||
       availability.hasSubtitleGenerationCredentials === true,
   };
 }

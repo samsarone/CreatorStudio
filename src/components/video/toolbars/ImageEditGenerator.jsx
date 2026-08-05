@@ -4,6 +4,7 @@ import { IMAGE_EDIT_MODEL_TYPES } from "../../../constants/Types.ts";
 import { useColorMode } from "../../../contexts/ColorMode.jsx";
 import RangeSlider from '../../editor/utils/RangeSlider.jsx';
 import AutoExpandableTextarea from "../../common/AutoExpandableTextarea.jsx";
+import ModelAdapterSelect from "../../common/ModelAdapterSelect.jsx";
 import ImagePayloadAspectRatioSelector from "../../image/ImagePayloadAspectRatioSelector.jsx";
 import { imageAspectRatioOptions } from "../../../constants/ImageAspectRatios.js";
 import { useDeploymentModelAvailability } from "../../../hooks/useDeploymentModelAvailability.js";
@@ -26,16 +27,17 @@ export default function ImageEditGenerator(props) {
   const isSidebarCollapsed = sizeVariant === "sidebarCollapsed";
   const isSidebarExpanded = sizeVariant === "sidebarExpanded";
   const {
-    isDockerInstall: isDockerModelFilteringEnabled,
+    isStandaloneDeployment: isStandaloneModelFilteringEnabled,
     imageEditModelValues,
+    primaryAdapterByModel,
   } = useDeploymentModelAvailability();
   const availableEditModels = useMemo(
     () => (
-      isDockerModelFilteringEnabled
+      isStandaloneModelFilteringEnabled
         ? filterOptionsForDeploymentModelValues(IMAGE_EDIT_MODEL_TYPES, imageEditModelValues, (model) => model.key)
         : IMAGE_EDIT_MODEL_TYPES
     ),
-    [imageEditModelValues, isDockerModelFilteringEnabled]
+    [imageEditModelValues, isStandaloneModelFilteringEnabled]
   );
 
   useEffect(() => {
@@ -45,25 +47,15 @@ export default function ImageEditGenerator(props) {
   }, [availableEditModels, selectedEditModel, setSelectedEditModel]);
   const hasAvailableSelectedEditModel = availableEditModels.some((model) => model.key === selectedEditModel);
 
-  const modelOptionMap = availableEditModels.map((model) => {
-    return (
-      <option key={model.key} value={model.key}>
-        {model.name}
-      </option>
-    )
-  })
-
-
-
-  const setSelectedModelDisplay = (evt) => {
-    setSelectedEditModel(evt.target.value);
+  const setSelectedModelDisplay = (modelValue) => {
+    setSelectedEditModel(modelValue);
   }
 
   let editOptionsDisplay = <span />;
 
   const inputShell =
     colorMode === "dark"
-      ? "bg-slate-900/60 text-slate-100 border border-white/10"
+      ? "bg-[#151720] text-slate-100 border border-[#667188] focus:border-[#f6c453] focus:outline-none focus:ring-2 focus:ring-[#f6c453]/20"
       : "bg-white text-slate-900 border border-slate-200 shadow-sm";
   const modelLabelClass = isImageStudio ? "text-sm font-semibold" : "text-xs font-bold";
   const selectClass = isImageStudio
@@ -174,9 +166,24 @@ export default function ImageEditGenerator(props) {
               <div className={modelLabelClass}>
                 Model
               </div>
-              <select onChange={setSelectedModelDisplay} className={selectClass} value={selectedEditModel}>
-                {modelOptionMap}
-              </select>
+              <ModelAdapterSelect
+                options={availableEditModels}
+                value={selectedEditModel}
+                onChange={setSelectedModelDisplay}
+                primaryAdapterByModel={primaryAdapterByModel}
+                isStandaloneDeployment={isStandaloneModelFilteringEnabled}
+                valueMode="value"
+                hostedControl="native"
+                nativeClassName={selectClass}
+                styles={{
+                  container: (provided) => ({
+                    ...provided,
+                    width: isImageStudio || isSidebarExpanded || isSidebarCollapsed
+                      ? "100%"
+                      : "75%",
+                  }),
+                }}
+              />
             </div>
           )}
           <div>

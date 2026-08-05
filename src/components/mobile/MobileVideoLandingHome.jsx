@@ -3,11 +3,11 @@ import { useUser } from '../../contexts/UserContext';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getHeaders, getAuthToken } from '../../utils/web';
-import RouteLoadingScreen from '../common/RouteLoadingScreen.jsx';
+import VidgenieSkeletonLoader from '../oneshot_editor/VidgenieSkeletonLoader.jsx';
+import { IS_STANDALONE_DEPLOYMENT } from '../../utils/environment.jsx';
 
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
-const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 
 export default function MobileVideoLandingHome() {
 
@@ -30,7 +30,7 @@ export default function MobileVideoLandingHome() {
       const isGuest = !userToken || !user || !user._id;
 
       if (isGuest) {
-        if (IS_DOCKER_INSTALL) {
+        if (IS_STANDALONE_DEPLOYMENT) {
           navigate('/login', { replace: true });
           return;
         }
@@ -79,6 +79,6 @@ export default function MobileVideoLandingHome() {
   }, [userInitiated, userFetching, user, navigate]);
 
   return (
-    <RouteLoadingScreen label="Opening VidGenie..." />
+    <VidgenieSkeletonLoader />
   );
 }

@@ -1,16 +1,39 @@
 export const DEFAULT_INFERENCE_MODEL_VALUE = "gpt-5.6-sol";
-export const QWEN_INFERENCE_MODEL_VALUE = "QWEN3.7";
+export const QWEN_INFERENCE_MODEL_VALUE = "QWEN3.8";
+export const KIMI_K3_INFERENCE_MODEL_VALUE = "kimi-k3";
 export const HOSTED_QWEN_INFERENCE_MODEL_VALUE = QWEN_INFERENCE_MODEL_VALUE;
-export const HOSTED_QWEN_INFERENCE_MODEL_LABEL = "Qwen 3.7 Plus";
+export const OPENROUTER_QWEN_INFERENCE_MODEL_LABEL =
+  "Qwen 3.8 Max";
+export const HOSTED_QWEN_INFERENCE_MODEL_LABEL =
+  OPENROUTER_QWEN_INFERENCE_MODEL_LABEL;
+
+const DEPLOYMENT_PROVIDER_LABELS = Object.freeze({
+  samsar: "Samsar API Key",
+  openai: "OpenAI",
+  openrouter: "OpenRouter",
+  gmicloud: "GMICloud via GenBlaze",
+  googleCloud: "Google Cloud",
+  alibabaCloud: "Alibaba Cloud",
+  kimi: "Kimi",
+  fal: "FAL",
+  runway: "RunwayML",
+});
 
 const DEPLOYMENT_INFERENCE_MODELS_BY_PROVIDER = Object.freeze({
   openai: ["gpt-5.6-sol"],
   googleCloud: ["gemini-3.1-pro"],
+  kimi: [KIMI_K3_INFERENCE_MODEL_VALUE],
   openrouter: ["gpt-5.6-sol", "gemini-3.1-pro", QWEN_INFERENCE_MODEL_VALUE],
+  gmicloud: [QWEN_INFERENCE_MODEL_VALUE],
   // Alibaba/Qwen requires explicit, validated model provenance below. A
   // provider name by itself is not enough to make Qwen selectable.
   alibabaCloud: [],
-  samsar: ["gpt-5.6-sol", "gemini-3.1-pro", QWEN_INFERENCE_MODEL_VALUE],
+  samsar: [
+    "gpt-5.6-sol",
+    "gemini-3.1-pro",
+    QWEN_INFERENCE_MODEL_VALUE,
+    KIMI_K3_INFERENCE_MODEL_VALUE,
+  ],
 });
 
 export function normalizeDeploymentProviderKey(value) {
@@ -41,6 +64,17 @@ export function normalizeDeploymentProviderKey(value) {
   if (compact === "openrouter" || compact === "openrouterai") {
     return "openrouter";
   }
+  if (compact === "gmi" || compact === "gmicloud" || compact === "genblaze") {
+    return "gmicloud";
+  }
+  if (
+    compact === "kimi" ||
+    compact === "kimiapi" ||
+    compact === "moonshot" ||
+    compact === "moonshotai"
+  ) {
+    return "kimi";
+  }
   if (compact === "fal") {
     return "fal";
   }
@@ -49,6 +83,19 @@ export function normalizeDeploymentProviderKey(value) {
   }
 
   return trimmed;
+}
+
+export function formatDeploymentProviderLabel(value) {
+  const key = normalizeDeploymentProviderKey(value);
+  if (DEPLOYMENT_PROVIDER_LABELS[key]) {
+    return DEPLOYMENT_PROVIDER_LABELS[key];
+  }
+
+  return String(value || "")
+    .trim()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Unknown provider";
 }
 
 export function extractDeploymentProviders(payload = {}) {
@@ -84,24 +131,29 @@ export function normalizeDeploymentInferenceModelValue(value) {
 
   const normalized = value.trim().toLowerCase();
   if (
-    normalized === "qwen3.7" ||
-    normalized === "qwen3.7-max" ||
-    normalized === "qwen3.7-plus" ||
-    normalized === "qwen-3.7" ||
-    normalized === "qwen 3.7" ||
-    normalized === "qwen37" ||
-    normalized === "qwen37max" ||
-    normalized === "qwen37plus" ||
-    normalized === "alibaba qwen 3.7" ||
-    normalized === "alibaba cloud qwen 3.7" ||
+    normalized === KIMI_K3_INFERENCE_MODEL_VALUE ||
+    normalized === "kimi k3" ||
+    normalized === "kimik3" ||
+    normalized === "moonshot k3" ||
+    normalized === "moonshot kimi k3" ||
+    normalized === "moonshotai kimi k3"
+  ) {
+    return KIMI_K3_INFERENCE_MODEL_VALUE;
+  }
+  if (
     normalized === "qwen3.8" ||
-    normalized === "qwen3.8-max-preview" ||
+    normalized === "qwen3.8-max" ||
+    normalized === "qwen/qwen3.8-max" ||
     normalized === "qwen-3.8" ||
+    normalized === "qwen-3.8-max" ||
     normalized === "qwen 3.8" ||
+    normalized === "qwen 3.8 max" ||
     normalized === "qwen38" ||
-    normalized === "qwen38maxpreview" ||
+    normalized === "qwen38max" ||
     normalized === "alibaba qwen 3.8" ||
-    normalized === "alibaba cloud qwen 3.8"
+    normalized === "alibaba qwen 3.8 max" ||
+    normalized === "alibaba cloud qwen 3.8" ||
+    normalized === "alibaba cloud qwen 3.8 max"
   ) {
     return QWEN_INFERENCE_MODEL_VALUE;
   }
@@ -209,7 +261,7 @@ export function hasValidatedAlibabaQwenInference(payload = {}) {
   const availableProviders = new Set(
     extractDeploymentProviders(payload).map(normalizeDeploymentProviderKey),
   );
-  const qwenProviders = new Set(["alibabaCloud", "openrouter", "samsar"]);
+  const qwenProviders = new Set(["alibabaCloud", "samsar", "gmicloud", "openrouter"]);
   const selectedProvider = extractDeploymentInferenceModelProviders(payload)[QWEN_INFERENCE_MODEL_VALUE];
   if (!qwenProviders.has(selectedProvider) || !availableProviders.has(selectedProvider)) {
     return false;
@@ -244,19 +296,8 @@ export function filterOptionsForDeploymentInferenceModels(options = [], modelVal
   return options.filter((option) => allowedModels.has(normalizeDeploymentInferenceModelValue(option?.value)));
 }
 
-export function labelOptionsForDeploymentInferenceProviders(
-  options = [],
-  modelProviders = {},
-  providerEndpointTypes = {},
-) {
-  const qwenProvider = normalizeDeploymentProviderKey(
-    modelProviders?.[QWEN_INFERENCE_MODEL_VALUE],
-  );
-  const qwenLabel = qwenProvider === "alibabaCloud"
-    ? providerEndpointTypes?.alibabaCloud === "token_plan"
-      ? "Qwen 3.8 Max Preview / Qwen 3.7 Plus Vision"
-      : "Qwen 3.7 Plus"
-    : "Qwen 3.7 Plus";
+export function labelOptionsForDeploymentInferenceProviders(options = []) {
+  const qwenLabel = OPENROUTER_QWEN_INFERENCE_MODEL_LABEL;
 
   return options.map((option) => (
     normalizeDeploymentInferenceModelValue(option?.value) === QWEN_INFERENCE_MODEL_VALUE

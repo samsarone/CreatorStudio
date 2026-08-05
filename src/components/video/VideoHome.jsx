@@ -35,11 +35,15 @@ import {
   fetchDetailedVideoGenerationStatus,
 } from '../../utils/videoGenerationStatus.mjs';
 import {
+  hasBlockingLayerGenerationForRender,
+} from '../../utils/studioRenderEligibility.mjs';
+import {
   isInteractiveVideoSession,
   isVideoSessionPublished,
   mergePublishedVideoSessionState,
 } from '../../utils/videoSessionPresentation.mjs';
 import { resolveStudioSessionRefresh } from './util/studioSessionRefresh.mjs';
+import { canRemoveStudioScene } from './util/studioSceneLifecycle.mjs';
 
 
 import FrameToolbarHorizontal from './toolbars/frame_toolbar/FrameToolbarHorizontal.jsx';
@@ -590,10 +594,6 @@ function normalizeSceneTransitionPreset(value) {
     : DEFAULT_SCENE_TRANSITION_PRESET;
 }
 
-function isActiveUserVideoUploadTask(task) {
-  return task?.status === 'UPLOADING' || task?.status === 'PROCESSING';
-}
-
 function getLayerActiveItemListForCanvas(layer, sessionDetails, previousActiveItemList = [], options = {}) {
   const layerActiveItemList = Array.isArray(layer?.imageSession?.activeItemList)
     ? layer.imageSession.activeItemList
@@ -953,23 +953,6 @@ export default function VideoHome() {
     return sessionLayers.some((layer) => (
       layer?.imageSession?.generationStatus === 'PENDING'
       || layer?.videoEditPending
-    ));
-  };
-
-  const hasBlockingLayerGenerationForRender = (sessionData) => {
-    if (!sessionData) {
-      return false;
-    }
-
-    const sessionLayers = Array.isArray(sessionData.layers) ? sessionData.layers : [];
-    return sessionLayers.some((layer) => (
-      layer?.imageSession?.generationStatus === 'PENDING'
-      || layer?.aiVideoGenerationPending
-      || layer?.lipSyncGenerationPending
-      || layer?.soundEffectGenerationPending
-      || layer?.userVideoGenerationPending
-      || layer?.videoEditPending
-      || isActiveUserVideoUploadTask(layer?.userVideoUploadTask)
     ));
   };
 
@@ -2009,15 +1992,9 @@ export default function VideoHome() {
               setTotalDuration(frameResponse.totalDuration);
             }
 
-            if (currentLayerRef.current?._id) {
-              const refreshedCurrentLayer = newLayers.find(
-                (layer) => layer._id === currentLayerRef.current._id
-              );
-              if (refreshedCurrentLayer) {
-                currentLayerRef.current = refreshedCurrentLayer;
-                setCurrentLayer(refreshedCurrentLayer);
-              }
-            }
+            currentLayerRef.current = refreshedSession.currentLayer;
+            setCurrentLayer(refreshedSession.currentLayer);
+            setSelectedLayerIndex(refreshedSession.currentLayerIndex);
           }
 
           setIsLayerGenerationPending(isGenerationPending);
@@ -2386,7 +2363,11 @@ export default function VideoHome() {
       });
       return false;
     }
-    if (hasBlockingLayerGenerationForRender(videoSessionDetails)) {
+    if (hasBlockingLayerGenerationForRender({
+      ...videoSessionDetails,
+      layers,
+      audioLayers,
+    })) {
       toast.error('Wait for the current layer processing to finish before rendering.', {
         position: "bottom-center",
         className: "custom-toast",
@@ -2507,9 +2488,31 @@ export default function VideoHome() {
         headers
       );
 
-      const { audioLayers: returnedLayers } = response.data;
+      const {
+        audioLayers: returnedLayers,
+        layers: returnedSessionLayers,
+      } = response.data;
       // Update local state with the “official” audioLayers from the server
       setAudioLayers(returnedLayers);
+      if (Array.isArray(returnedSessionLayers)) {
+        setLayers(returnedSessionLayers);
+        setCurrentLayer((previousLayer) => (
+          returnedSessionLayers.find((layer) => (
+            layer?._id?.toString?.() === previousLayer?._id?.toString?.()
+          )) || previousLayer
+        ));
+      }
+      setVideoSessionDetails((previousSessionDetails) => (
+        previousSessionDetails
+          ? {
+            ...previousSessionDetails,
+            audioLayers: returnedLayers,
+            ...(Array.isArray(returnedSessionLayers)
+              ? { layers: returnedSessionLayers }
+              : {}),
+          }
+          : previousSessionDetails
+      ));
       setIsCanvasDirty(true);
 
       // Let FrameToolbar know the server accepted changes
@@ -3183,8 +3186,30 @@ export default function VideoHome() {
       const resData = response.data;
 
 
-      const { audioLayers } = resData;
-      setAudioLayers(audioLayers);
+      const {
+        audioLayers: returnedAudioLayers,
+        layers: returnedSessionLayers,
+      } = resData;
+      setAudioLayers(returnedAudioLayers);
+      if (Array.isArray(returnedSessionLayers)) {
+        setLayers(returnedSessionLayers);
+        setCurrentLayer((previousLayer) => (
+          returnedSessionLayers.find((layer) => (
+            layer?._id?.toString?.() === previousLayer?._id?.toString?.()
+          )) || previousLayer
+        ));
+      }
+      setVideoSessionDetails((previousSessionDetails) => (
+        previousSessionDetails
+          ? {
+            ...previousSessionDetails,
+            audioLayers: returnedAudioLayers,
+            ...(Array.isArray(returnedSessionLayers)
+              ? { layers: returnedSessionLayers }
+              : {}),
+          }
+          : previousSessionDetails
+      ));
 
 
       toast.success(<div>{t("studio.notifications.audioLayerRemoved")}</div>, {
@@ -3465,12 +3490,20 @@ export default function VideoHome() {
   } // Adjust the delay as needed
 
   const removeSessionLayer = (layerIndex) => {
+    if (!Array.isArray(layers) || !layers[layerIndex]) {
+      return;
+    }
+    if (!canRemoveStudioScene(layers)) {
+      toast.info('A project must keep at least one scene.', {
+        position: 'bottom-center',
+        className: 'custom-toast',
+      });
+      return;
+    }
+
     const headers = getHeaders();
     if (!headers) {
       showLoginDialog();
-      return;
-    }
-    if (!Array.isArray(layers) || !layers[layerIndex]) {
       return;
     }
     setCanvasProcessLoading(true);

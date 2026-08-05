@@ -56,7 +56,7 @@ export default function CanvasControlBar(props) {
     canZoomOutCanvas,
   } = useContext(NavCanvasControlContext);
 
-  useNavigate();
+  const navigate = useNavigate();
   const { t } = useLocalization();
   const { colorMode } = useColorMode();
   const isImageStudio = editorVariant === 'imageStudio';
@@ -78,10 +78,10 @@ export default function CanvasControlBar(props) {
   }
 
   const sectionSurfaceClassName = colorMode === 'dark'
-    ? 'inline-flex items-center gap-1.5 rounded-2xl border border-[#23324a] bg-[#0a1526]/82 px-2 py-1.5 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md'
+    ? 'inline-flex items-center gap-1.5 rounded-2xl border border-[#3a4050] bg-[#181b24]/86 px-2 py-1.5 shadow-[0_10px_24px_rgba(0,0,0,0.26)] backdrop-blur-xl'
     : 'inline-flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-white/82 px-2 py-1.5 backdrop-blur-md';
   const metricSurfaceClassName = colorMode === 'dark'
-    ? 'inline-flex items-stretch divide-x divide-[#22314a] overflow-hidden rounded-2xl border border-[#23324a] bg-[#0a1526]/82 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-md'
+    ? 'inline-flex items-stretch divide-x divide-[#3a4050] overflow-hidden rounded-2xl border border-[#3a4050] bg-[#181b24]/86 shadow-[0_10px_24px_rgba(0,0,0,0.26)] backdrop-blur-xl'
     : 'inline-flex items-stretch divide-x divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/82 backdrop-blur-md';
   const metricValueClassName = colorMode === 'dark'
     ? 'text-xs font-semibold text-slate-100'
@@ -90,13 +90,13 @@ export default function CanvasControlBar(props) {
     ? 'text-[10px] uppercase tracking-[0.16em] text-slate-400'
     : 'text-[10px] uppercase tracking-[0.16em] text-slate-500';
   const zoomReadoutClassName = colorMode === 'dark'
-    ? 'inline-flex items-center gap-1 rounded-xl bg-[#101d34] px-2 py-1 text-[11px] font-semibold text-slate-200'
+    ? 'inline-flex items-center gap-1 rounded-xl bg-[#20232e] px-2 py-1 text-[11px] font-semibold text-slate-200'
     : 'inline-flex items-center gap-1 rounded-xl bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700';
   const iconButtonClassName = colorMode === 'dark'
-    ? 'inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-200 transition hover:bg-[#14213a] hover:text-white disabled:cursor-not-allowed disabled:opacity-40'
+    ? 'inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-200 transition hover:bg-[#292d3a] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f6c453]/65 disabled:cursor-not-allowed disabled:opacity-40'
     : 'inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40';
   const activeIconButtonClassName = colorMode === 'dark'
-    ? 'bg-[#132341] text-cyan-100'
+    ? 'bg-[#ff4655]/18 text-[#ffd4d8]'
     : 'bg-sky-50 text-sky-700';
   const expressBadgeClassName = colorMode === 'dark'
     ? 'inline-flex items-center rounded-xl bg-cyan-400/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-cyan-200 ring-1 ring-cyan-300/25'
@@ -113,6 +113,17 @@ export default function CanvasControlBar(props) {
   const publishedBadgeClassName = colorMode === 'dark'
     ? 'inline-flex items-center rounded-xl bg-violet-300/12 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-100 ring-1 ring-violet-200/25'
     : 'inline-flex items-center rounded-xl bg-violet-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-violet-700 ring-1 ring-violet-200';
+  const viewInVidgenieButtonClassName = colorMode === 'dark'
+    ? 'inline-flex h-8 items-center rounded-xl px-2.5 text-[11px] font-semibold text-slate-200 transition hover:bg-[#292d3a] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f6c453]/65'
+    : 'inline-flex h-8 items-center rounded-xl px-2.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50';
+
+  const viewSessionInVidgenie = () => {
+    if (!sessionId) {
+      return;
+    }
+
+    navigate(`/vidgenie/${encodeURIComponent(sessionId)}`);
+  };
 
   const IconActionButton = ({
     title,
@@ -189,6 +200,15 @@ export default function CanvasControlBar(props) {
           <span className={interactiveVideoBadgeClassName}>Interactive video</span>
         ) : (
           isExpressGeneration && <span className={expressBadgeClassName}>Express</span>
+        )}
+        {isExpressGeneration && sessionId && (
+          <button
+            type="button"
+            className={`${viewInVidgenieButtonClassName} pending-allow-action`}
+            onClick={viewSessionInVidgenie}
+          >
+            View in Vidgenie
+          </button>
         )}
         {typeof openAdvancedVideoEditDialog === 'function' && (
           <IconActionButton title="Advanced options" onClick={openAdvancedVideoEditDialog}>

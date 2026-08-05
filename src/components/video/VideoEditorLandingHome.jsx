@@ -4,10 +4,10 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getHeaders, getAuthToken } from '../../utils/web';
 import './home.css';
-import RouteLoadingScreen from '../common/RouteLoadingScreen.jsx';
+import StudioSkeletonLoader from './util/StudioSkeletonLoader.jsx';
+import { IS_STANDALONE_DEPLOYMENT } from '../../utils/environment.jsx';
 
 const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
-const IS_DOCKER_INSTALL = import.meta.env.VITE_DOCKER_INSTALL === 'true';
 const preloadVideoEditor = () => import('./VideoHome.jsx');
 
 export default function VideoEditorLandingHome() {
@@ -50,7 +50,7 @@ export default function VideoEditorLandingHome() {
       };
 
       if (isGuest) {
-        if (IS_DOCKER_INSTALL) {
+        if (IS_STANDALONE_DEPLOYMENT) {
           navigate('/login', { replace: true });
           return;
         }
@@ -90,23 +90,23 @@ export default function VideoEditorLandingHome() {
       }
 
       const headers = getHeaders();
-      let shouldCreateDockerSession = false;
+      let shouldCreateStandaloneSession = false;
       try {
         const res = await axios.get(`${API_SERVER}/video_sessions/get_session`, headers);
         const sessionData = res.data;
         if (sessionData?._id) {
           localStorage.setItem('videoSessionId', sessionData._id);
           navigate(`/video/${sessionData._id}`, { replace: true });
-        } else if (IS_DOCKER_INSTALL) {
-          shouldCreateDockerSession = true;
+        } else if (IS_STANDALONE_DEPLOYMENT) {
+          shouldCreateStandaloneSession = true;
         } else {
           navigate('/my_sessions', { replace: true });
         }
       } catch {
-        shouldCreateDockerSession = IS_DOCKER_INSTALL;
+        shouldCreateStandaloneSession = IS_STANDALONE_DEPLOYMENT;
       }
 
-      if (shouldCreateDockerSession) {
+      if (shouldCreateStandaloneSession) {
         await createNewSession();
       }
     };
@@ -118,7 +118,7 @@ export default function VideoEditorLandingHome() {
 
   if (routeError) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0b1021] px-6 text-slate-100">
+      <div className="flex min-h-screen items-center justify-center bg-[#0c0d12] px-6 text-slate-100">
         <div className="max-w-md text-center">
           <h1 className="text-xl font-semibold">Studio is unavailable</h1>
           <p className="mt-2 text-sm text-slate-300">{routeError}</p>
@@ -135,6 +135,6 @@ export default function VideoEditorLandingHome() {
   }
 
   return (
-    <RouteLoadingScreen />
+    <StudioSkeletonLoader />
   );
 }

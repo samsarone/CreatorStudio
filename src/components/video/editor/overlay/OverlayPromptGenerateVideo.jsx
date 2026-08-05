@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import CommonButton from "../../../common/CommonButton.tsx";
+import ModelAdapterSelect from "../../../common/ModelAdapterSelect.jsx";
 import { useColorMode } from "../../../../contexts/ColorMode.jsx";
 import TextareaAutosize from "react-textarea-autosize";
 import { Tooltip } from "react-tooltip";
@@ -15,14 +16,12 @@ import {
 } from "../../../../constants/ModelPrices.jsx";
 import { useDeploymentModelAvailability } from "../../../../hooks/useDeploymentModelAvailability.js";
 import { filterOptionsForDeploymentModelValues } from "../../../../utils/deploymentProviders.js";
+import { isProviderBilledVideoPricing } from "../../../../utils/videoModelAvailability.mjs";
 import "react-tooltip/dist/react-tooltip.css";
 
 const NATIVE_AUDIO_VIDEO_MODELS = new Set([
   "KLINGIMGTOVID3PRO",
   "KLINGTXTTOVID3PRO",
-  "SEEDANCE2.0I2V",
-  "SEEDANCE2.0T2V",
-  "SEEDANCET2V",
   "VEO3.1",
   "VEO3.1FAST",
   "VEO3.1I2V",
@@ -51,16 +50,20 @@ export default function OverlayPromptGenerateVideo(props) {
   const isLandscapeLayout = layoutMode === "landscape";
   const selectShell =
     colorMode === "dark"
-      ? "bg-slate-950 text-slate-100 border border-slate-700"
+      ? "bg-[#151720] text-slate-100 border border-[#667188] focus:border-[#f6c453] focus:outline-none focus:ring-2 focus:ring-[#f6c453]/20"
       : "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
   const textareaShell =
     colorMode === "dark"
-      ? "bg-slate-950 text-slate-100 border border-slate-700"
+      ? "bg-[#151720] text-slate-100 border border-[#667188] focus:border-[#f6c453] focus:outline-none focus:ring-2 focus:ring-[#f6c453]/20"
       : "bg-slate-50 text-slate-900 border border-slate-200 shadow-sm";
   const chipShell =
     colorMode === "dark"
-      ? "bg-slate-950 border border-slate-700 text-slate-300 hover:bg-slate-900"
+      ? "bg-[#20232e] border border-[#4a5265] text-slate-300 hover:bg-[#292d3a]"
       : "bg-slate-50 border border-slate-200 text-slate-600 hover:bg-white";
+  const activeChipShell =
+    colorMode === "dark"
+      ? "bg-[#f6c453]/14 border-[#f6c453]/55 text-[#fff1c8]"
+      : "bg-indigo-50 border-indigo-200 text-indigo-700";
   const fieldLabelClassName =
     colorMode === "dark"
       ? "text-xs font-semibold text-slate-200"
@@ -69,8 +72,13 @@ export default function OverlayPromptGenerateVideo(props) {
     ? "grid w-full grid-cols-3 gap-3"
     : "flex w-full flex-col gap-3";
   const controlGroupClassName = "flex w-full flex-col gap-1.5";
-  const promptTextareaMaxRows = isPortraitLayout ? 5 : 4;
+  const promptTextareaMaxRows = 4;
 
+  const {
+    isStandaloneDeployment: isStandaloneModelFilteringEnabled,
+    videoModelValues,
+    primaryAdapterByModel,
+  } = useDeploymentModelAvailability();
   const {
     hasImageItem,
     availableModels: locallyAvailableModels,
@@ -78,18 +86,15 @@ export default function OverlayPromptGenerateVideo(props) {
     activeItemList,
     currentLayer,
     sessionDetails,
+    isStandaloneDeployment: isStandaloneModelFilteringEnabled,
   });
-  const {
-    isDockerInstall: isDockerModelFilteringEnabled,
-    videoModelValues,
-  } = useDeploymentModelAvailability();
   const availableModels = useMemo(
     () => (
-      isDockerModelFilteringEnabled
+      isStandaloneModelFilteringEnabled
         ? filterOptionsForDeploymentModelValues(locallyAvailableModels, videoModelValues, (model) => model.key)
         : locallyAvailableModels
     ),
-    [isDockerModelFilteringEnabled, locallyAvailableModels, videoModelValues]
+    [isStandaloneModelFilteringEnabled, locallyAvailableModels, videoModelValues]
   );
   const availableModelKeys = useMemo(
     () => availableModels.map((model) => model.key),
@@ -97,11 +102,7 @@ export default function OverlayPromptGenerateVideo(props) {
   );
   const availableModelKeysSignature = availableModelKeys.join("|");
 
-  const modelOptions = availableModels.map((model) => (
-    <option key={model.key} value={model.key}>
-      {model.name}
-    </option>
-  ));
+  const hasAvailableModels = availableModelKeys.length > 0;
 
   const {
     modelDef: selectedModelDef,
@@ -224,8 +225,7 @@ export default function OverlayPromptGenerateVideo(props) {
     }
   }, [selectedVideoGenerationModel, selectedModelPricing, selectedModelDef, selectedModelDurationUnits]);
 
-  const handleModelChange = (event) => {
-    const newModel = event.target.value;
+  const handleModelChange = (newModel) => {
     setSelectedVideoGenerationModel(newModel);
     localStorage.setItem("defaultVideoModel", newModel);
   };
@@ -282,7 +282,7 @@ export default function OverlayPromptGenerateVideo(props) {
   };
 
   const handleSubmit = () => {
-    if (modelOptions.length === 0) return;
+    if (!hasAvailableModels) return;
 
     const payload = {
       useStartFrame:
@@ -335,6 +335,7 @@ export default function OverlayPromptGenerateVideo(props) {
     : selectedModelPricing;
   const priceObj = getModelPriceForAspect(pricingForSelectedModel, aspectRatio);
   let modelPrice = priceObj ? priceObj.price : 0;
+  const isProviderBilled = isProviderBilledVideoPricing(pricingForSelectedModel);
 
   if (pricingForSelectedModel?.isPerSecondPricing && selectedDuration !== null) {
     modelPrice *= selectedDuration;
@@ -352,27 +353,34 @@ export default function OverlayPromptGenerateVideo(props) {
   ) : null;
 
   return (
-    <div className="flex min-h-0 w-full flex-col gap-3">
+    <div className="flex h-full min-h-full w-full flex-col gap-2 pb-0.5">
       <div className={`shrink-0 ${fieldLayoutClassName}`}>
         <div className={controlGroupClassName}>
           <div className={`${fieldLabelClassName} flex items-center gap-1`}>
             <span>Model</span>
             <a
               data-tooltip-id="videoModelCostTooltip"
-              data-tooltip-content={`Currently selected model cost: ${modelPrice} Credits`}
+              data-tooltip-content={
+                isProviderBilled
+                  ? "Provider billed by configured adapter"
+                  : `Currently selected model cost: ${modelPrice} Credits`
+              }
             >
               <FaQuestionCircle className="text-[11px]" />
             </a>
             <Tooltip id="videoModelCostTooltip" place="right" effect="solid" />
           </div>
-          <select
-            onChange={handleModelChange}
-            className={`${selectShell} w-full rounded-md px-2.5 py-2`}
+          <ModelAdapterSelect
+            options={availableModels}
             value={selectedVideoGenerationModel}
-            disabled={modelOptions.length === 0}
-          >
-            {modelOptions}
-          </select>
+            onChange={handleModelChange}
+            primaryAdapterByModel={primaryAdapterByModel}
+            isStandaloneDeployment={isStandaloneModelFilteringEnabled}
+            valueMode="value"
+            hostedControl="native"
+            nativeClassName={`${selectShell} w-full rounded-md px-2.5 py-2`}
+            isDisabled={!hasAvailableModels}
+          />
         </div>
 
         {selectedModelDef?.modelSubTypes?.length > 0 ? (
@@ -419,9 +427,7 @@ export default function OverlayPromptGenerateVideo(props) {
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               useStartFrame
-                ? colorMode === "dark"
-                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                ? activeChipShell
                 : chipShell
             }`}
           >
@@ -439,9 +445,7 @@ export default function OverlayPromptGenerateVideo(props) {
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               useEndFrame
-                ? colorMode === "dark"
-                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                ? activeChipShell
                 : chipShell
             }`}
           >
@@ -459,9 +463,7 @@ export default function OverlayPromptGenerateVideo(props) {
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               combineLayers
-                ? colorMode === "dark"
-                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                ? activeChipShell
                 : chipShell
             }`}
           >
@@ -479,9 +481,7 @@ export default function OverlayPromptGenerateVideo(props) {
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               clipLayerToAiVideo
-                ? colorMode === "dark"
-                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                ? activeChipShell
                 : chipShell
             }`}
           >
@@ -500,9 +500,7 @@ export default function OverlayPromptGenerateVideo(props) {
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               optimizePrompt
-                ? colorMode === "dark"
-                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                ? activeChipShell
                 : chipShell
             }`}
           >
@@ -522,9 +520,7 @@ export default function OverlayPromptGenerateVideo(props) {
           <label
             className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 transition-colors duration-150 cursor-pointer ${
               generateAudio
-                ? colorMode === "dark"
-                  ? "bg-indigo-500/20 border-indigo-400/40 text-white"
-                  : "bg-indigo-50 border-indigo-200 text-indigo-700"
+                ? activeChipShell
                 : chipShell
             }`}
           >
@@ -543,8 +539,8 @@ export default function OverlayPromptGenerateVideo(props) {
         <TextareaAutosize
           onChange={(event) => setVideoPromptText(event.target.value)}
           placeholder="Describe the motion, pacing, and cinematic details you want..."
-          className={`${textareaShell} min-h-0 w-full resize-none overflow-y-auto rounded-lg px-3 py-2`}
-          minRows={isPortraitLayout ? 3 : 2}
+          className={`${textareaShell} min-h-[5rem] w-full flex-1 resize-none overflow-y-auto rounded-lg px-3 py-2`}
+          minRows={isPortraitLayout ? 2 : 2}
           maxRows={promptTextareaMaxRows}
           value={videoPromptText}
         />
@@ -558,7 +554,7 @@ export default function OverlayPromptGenerateVideo(props) {
         <CommonButton
           onClick={handleSubmit}
           isPending={aiVideoGenerationPending}
-          isDisabled={modelOptions.length === 0}
+          isDisabled={!hasAvailableModels}
           extraClasses={isPortraitLayout ? "w-full" : "min-w-[140px]"}
         >
           Submit

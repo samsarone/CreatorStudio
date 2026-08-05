@@ -48,7 +48,6 @@ const SETTINGS_TABS = [
   { key: "danger", label: "Danger" },
 ];
 
-const SETTINGS_TAB_KEYS = SETTINGS_TABS.map((tab) => tab.key);
 const CUSTOM_ADAPTER_FIELDS = [
   "api_key",
   "base_url",
@@ -79,10 +78,11 @@ const CUSTOM_ENDPOINT_OPERATION_KEYS = new Set(
 const DEFAULT_CUSTOM_ENDPOINT_BASE_URL = "https://queue.fal.run";
 const DEFAULT_HAPPY_HORSE_ENDPOINT = "alibaba/happy-horse/v1.1/image-to-video";
 
-function resolveSettingsTabFromPath(pathname) {
+function resolveSettingsTabFromPath(pathname, settingsTabs = SETTINGS_TABS) {
   const segments = pathname.split("/").filter(Boolean);
   const requestedTab = segments[2];
-  return SETTINGS_TAB_KEYS.includes(requestedTab) ? requestedTab : "general";
+  const allowedTabKeys = settingsTabs.map((tab) => tab.key);
+  return allowedTabKeys.includes(requestedTab) ? requestedTab : "general";
 }
 
 function getSettingsTabPath(tabKey) {
@@ -297,14 +297,16 @@ export default function SettingsPanelContent(props) {
   const location = useLocation();
 
   const textColor = colorMode === "dark" ? "text-slate-100" : "text-slate-900";
-  const cardBgColor = colorMode === "dark" ? "bg-[#0f1629]" : "bg-white";
+  const cardBgColor = colorMode === "dark" ? "bg-[#181b24]" : "bg-white";
   const secondaryTextColor = colorMode === "dark" ? "text-slate-400" : "text-slate-600";
-  const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
-  const inputBgColor = colorMode === "dark" ? "bg-[#0b1224]" : "bg-white";
-  const mutedBg = colorMode === "dark" ? "bg-[#111a2f]" : "bg-slate-50";
+  const borderColor = colorMode === "dark" ? "border-[#3a4050]" : "border-slate-200";
+  const inputBgColor = colorMode === "dark" ? "bg-[#151720]" : "bg-white";
+  const mutedBg = colorMode === "dark" ? "bg-[#20232e]" : "bg-slate-50";
   const PROCESSOR_SERVER = import.meta.env.VITE_PROCESSOR_API;
 
-  const [activeTab, setActiveTab] = useState(() => resolveSettingsTabFromPath(location.pathname));
+  const [activeTab, setActiveTab] = useState(() =>
+    resolveSettingsTabFromPath(location.pathname)
+  );
   const [username, setUsername] = useState(user.username || "");
   const [preferredLanguage, setPreferredLanguage] = useState(user.preferredLanguage || "en");
   const [backingTrackModel, setBackingTrackModel] = useState(
@@ -370,7 +372,8 @@ export default function SettingsPanelContent(props) {
   }, [user]);
 
   useEffect(() => {
-    setActiveTab(resolveSettingsTabFromPath(location.pathname));
+    const nextTab = resolveSettingsTabFromPath(location.pathname);
+    setActiveTab(nextTab);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -1038,11 +1041,11 @@ export default function SettingsPanelContent(props) {
 function SettingsTabButton({ label, isActive, onClick, colorMode }) {
   const activeClasses =
     colorMode === "dark"
-      ? "bg-[#16213a] text-rose-200 border border-rose-400/40"
+      ? "bg-[#292d3a] text-rose-200 border border-rose-400/40"
       : "bg-rose-50 text-rose-700 border border-rose-100";
   const idleClasses =
     colorMode === "dark"
-      ? "bg-[#0b1224] text-slate-300 border border-[#1f2a3d] hover:bg-[#16213a]"
+      ? "bg-[#151720] text-slate-300 border border-[#3a4050] hover:bg-[#292d3a]"
       : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50";
 
   return (
@@ -1112,7 +1115,7 @@ function SpeakerProviderCard({
           type="button"
           onClick={onToggleExpand}
           className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm border ${borderColor} ${
-            colorMode === "dark" ? "bg-[#0b1224] hover:bg-[#16213a]" : "bg-white hover:bg-slate-50"
+            colorMode === "dark" ? "bg-[#151720] hover:bg-[#292d3a]" : "bg-white hover:bg-slate-50"
           }`}
         >
           {isExpanded ? <FaChevronDown /> : <FaChevronRight />}
@@ -1125,7 +1128,7 @@ function SpeakerProviderCard({
           {speakers.length === 0 && (
             <div
               className={`rounded-lg border ${borderColor} px-3 py-3 text-sm ${secondaryTextColor} ${
-                colorMode === "dark" ? "bg-[#0b1224]" : "bg-white"
+                colorMode === "dark" ? "bg-[#151720]" : "bg-white"
               }`}
             >
               {emptyStateText}
@@ -1141,7 +1144,7 @@ function SpeakerProviderCard({
               <div
                 key={`${speaker.provider}:${speaker.value}`}
                 className={`rounded-lg border ${borderColor} px-3 py-3 ${
-                  colorMode === "dark" ? "bg-[#0b1224]" : "bg-white"
+                  colorMode === "dark" ? "bg-[#151720]" : "bg-white"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -1164,7 +1167,7 @@ function SpeakerProviderCard({
                     type="button"
                     onClick={() => onTogglePreview(speaker)}
                     className={`inline-flex h-9 w-9 items-center justify-center rounded-full border ${borderColor} ${
-                      colorMode === "dark" ? "bg-[#16213a] hover:bg-[#1d2b49]" : "bg-slate-50 hover:bg-slate-100"
+                      colorMode === "dark" ? "bg-[#292d3a] hover:bg-[#1d2b49]" : "bg-slate-50 hover:bg-slate-100"
                     }`}
                     aria-label={isPlaying ? `Pause ${speaker.label}` : `Play ${speaker.label}`}
                   >
@@ -1200,7 +1203,7 @@ function DangerConfirmDialog({
 
   const surfaceClasses =
     colorMode === "dark"
-      ? "bg-[#0f1629] text-slate-100 border border-[#1f2a3d]"
+      ? "bg-[#181b24] text-slate-100 border border-[#3a4050]"
       : "bg-white text-slate-900 border border-slate-200";
   const mutedText = colorMode === "dark" ? "text-slate-400" : "text-slate-600";
   const iconBg =
@@ -1242,7 +1245,7 @@ function DangerConfirmDialog({
         <button
           className={`px-4 py-2 rounded-lg border ${mutedText} ${
             colorMode === "dark"
-              ? "border-[#1f2a3d] hover:bg-[#0b1224]"
+              ? "border-[#3a4050] hover:bg-[#151720]"
               : "border-slate-200 hover:bg-slate-50"
           }`}
           onClick={onCancel}

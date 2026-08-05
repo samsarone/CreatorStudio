@@ -4,6 +4,10 @@ import { getHeaders } from '../../utils/web';
 import { useAlertDialog } from '../../contexts/AlertDialogContext';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import SecondaryButton from '../common/SecondaryButton.tsx';
+import {
+  getUniqueVisibleImagePanelItems,
+  resolveImagePanelAssetSource,
+} from './imagePanelAssets.mjs';
 
 const PROCESSOR_API = import.meta.env.VITE_PROCESSOR_API;
 const DEFAULT_PAGE_SIZE = 20;
@@ -16,19 +20,8 @@ function isAbsoluteAssetUrl(value) {
   return typeof value === 'string' && /^(https?:|data:|blob:)/i.test(value.trim());
 }
 
-function firstNonEmptyString(values = []) {
-  return values.find((value) => typeof value === 'string' && value.trim()) || '';
-}
-
 function resolveImageAssetUrl(image = {}) {
-  const rawPath = firstNonEmptyString([
-    image.displayUrl,
-    image.imageUrl,
-    image.assetPath,
-    image.thumbnailPath,
-    image.thumbnail,
-    image.url,
-  ]);
+  const rawPath = resolveImagePanelAssetSource(image);
 
   if (!rawPath) {
     return null;
@@ -68,9 +61,9 @@ export default function ImagePanelContent() {
 
   const textColor = colorMode === "dark" ? "text-slate-100" : "text-slate-900";
   const secondaryTextColor = colorMode === "dark" ? "text-slate-400" : "text-slate-600";
-  const cardBgColor = colorMode === "dark" ? "bg-[#0f1629]" : "bg-white";
-  const borderColor = colorMode === "dark" ? "border-[#1f2a3d]" : "border-slate-200";
-  const mutedBg = colorMode === "dark" ? "bg-[#0b1224]" : "bg-slate-50";
+  const cardBgColor = colorMode === "dark" ? "bg-[#181b24]" : "bg-white";
+  const borderColor = colorMode === "dark" ? "border-[#3a4050]" : "border-slate-200";
+  const mutedBg = colorMode === "dark" ? "bg-[#151720]" : "bg-slate-50";
 
   const fetchImages = useCallback(
     async (pageToLoad = 1) => {
@@ -80,6 +73,7 @@ export default function ImagePanelContent() {
         params: {
           page: pageToLoad,
           pageSize: DEFAULT_PAGE_SIZE,
+          finalOnly: true,
         },
       };
 
@@ -98,7 +92,7 @@ export default function ImagePanelContent() {
             ? data
             : [];
 
-        setImages(items);
+        setImages(getUniqueVisibleImagePanelItems(items));
         const paginationData = data.pagination || {};
         setPagination({
           page: paginationData.page ?? pageToLoad,

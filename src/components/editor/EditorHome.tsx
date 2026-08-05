@@ -6,6 +6,7 @@ import { useUser } from '../../contexts/UserContext.jsx';
 import { useAlertDialog } from '../../contexts/AlertDialogContext.jsx';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { getHeaders } from '../../utils/web.jsx';
+import { resolvePublisherUrl } from '../../utils/publicUrl.mjs';
 import { CURRENT_TOOLBAR_VIEW, CANVAS_ACTION } from '../../constants/Types.ts';
 import { STAGE_DIMENSIONS } from '../../constants/Image.jsx';
 import SMSCanvas from './SMSCanvas.tsx';
@@ -18,7 +19,7 @@ import UploadImageDialog from './utils/UploadImageDialog.jsx';
 
 import './editor.css';
 
-const PUBLISHER_URL = import.meta.env.VITE_PUBLISHER_URL;
+const PUBLISHER_URL = resolvePublisherUrl(import.meta.env.VITE_PUBLISHER_URL);
 const PROCESSOR_API_URL = import.meta.env.VITE_PROCESSOR_API;
 
 
@@ -734,7 +735,7 @@ export default function EditorHome(props) {
     <CommonContainer resetSession={resetSession}>
       <div className='m-auto'>
         <div className='block'>
-          <div className='w-[5%] bg-[#0f1629] inline-block'>
+          <div className='w-[5%] bg-[#181b24] inline-block'>
             <ActionToolbar
               setCurrentAction={setCurrentAction}
               setCurrentViewDisplay={setCurrentViewDisplay}
@@ -759,7 +760,7 @@ export default function EditorHome(props) {
           <div className='text-center w-[78%] inline-block h-[100vh] overflow-scroll m-auto  mb-8 '>
             {viewDisplay}
           </div>
-          <div className='w-[17%] inline-block bg-[#0f1629] '>
+          <div className='w-[17%] inline-block bg-[#181b24] '>
             <EditorToolbar promptText={promptText} setPromptText={setPromptText}
               submitGenerateRequest={submitGenerateRequest}
               submitOutpaintRequest={submitOutpaintRequest}

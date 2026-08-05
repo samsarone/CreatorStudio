@@ -9,7 +9,7 @@ import { useLocation } from "react-router-dom";
 import { useColorMode } from "../../contexts/ColorMode.jsx";
 import { useUser } from "../../contexts/UserContext.jsx";
 import { getHeaders } from "../../utils/web.jsx";
-import { getSessionType } from "../../utils/environment.jsx";
+import { IS_STANDALONE_DEPLOYMENT } from "../../utils/environment.jsx";
 import {
   extractDeploymentProviders,
   fetchDeploymentProviderConfig,
@@ -44,15 +44,15 @@ export default function BillingPanelContent() {
   const { colorMode } = useColorMode();
   const { user, getUserAPI } = useUser();
   const location = useLocation();
-  const isDockerInstall = getSessionType() === "docker";
+  const isStandaloneDeployment = IS_STANDALONE_DEPLOYMENT;
 
   const isDark = colorMode === "dark";
   const textColor = isDark ? "text-slate-100" : "text-slate-900";
   const subtleText = isDark ? "text-slate-400" : "text-slate-600";
   const mutedText = isDark ? "text-slate-500" : "text-slate-500";
-  const cardBgColor = isDark ? "bg-[#0f1629]" : "bg-white";
-  const mutedBg = isDark ? "bg-[#0b1224]" : "bg-slate-50";
-  const borderColor = isDark ? "border-[#1f2a3d]" : "border-slate-200";
+  const cardBgColor = isDark ? "bg-[#181b24]" : "bg-white";
+  const mutedBg = isDark ? "bg-[#151720]" : "bg-slate-50";
+  const borderColor = isDark ? "border-[#3a4050]" : "border-slate-200";
   const inputBg = isDark ? "bg-[#080f1f] text-slate-100" : "bg-white text-slate-900";
   const primaryButton = isDark
     ? "border-indigo-400/40 bg-indigo-400/15 text-indigo-100 hover:bg-indigo-400/25"
@@ -64,7 +64,7 @@ export default function BillingPanelContent() {
     ? "border border-emerald-300/25 bg-emerald-400/12 text-emerald-50 hover:border-emerald-200/40 hover:bg-emerald-400/20"
     : "border border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100";
   const secondaryButton = isDark
-    ? "border-[#273651] bg-[#0b1224] text-slate-200 hover:border-indigo-300/60"
+    ? "border-[#273651] bg-[#151720] text-slate-200 hover:border-indigo-300/60"
     : "border-slate-200 bg-white text-slate-700 hover:border-indigo-300";
 
   const [creditPurchaseUsd, setCreditPurchaseUsd] = useState(String(DEFAULT_PURCHASE_USD));
@@ -87,7 +87,7 @@ export default function BillingPanelContent() {
   }, [location.search, getUserAPI]);
 
   useEffect(() => {
-    if (!isDockerInstall) return;
+    if (!isStandaloneDeployment) return;
 
     let isCancelled = false;
     setIsLoadingDeploymentProviders(true);
@@ -111,7 +111,7 @@ export default function BillingPanelContent() {
     return () => {
       isCancelled = true;
     };
-  }, [isDockerInstall]);
+  }, [isStandaloneDeployment]);
 
   const purchaseAmountUsd = useMemo(
     () => normalizeWholeDollarAmount(creditPurchaseUsd),
@@ -140,7 +140,7 @@ export default function BillingPanelContent() {
     return !(isMobileUA || isIPadOS);
   }, []);
 
-  if (isDockerInstall) {
+  if (isStandaloneDeployment) {
     return (
       <div className={`mx-auto flex w-full min-w-0 max-w-4xl flex-col gap-4 overflow-x-hidden sm:gap-5 ${textColor}`}>
         <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -158,7 +158,7 @@ export default function BillingPanelContent() {
             <div className="min-w-0">
               <h3 className="text-xl font-semibold">Credits are charged provider side</h3>
               <p className={`mt-2 text-sm ${subtleText}`}>
-                Samsar does not manage a total credit balance for this Docker installation.
+                Samsar does not manage a total credit balance for this standalone installation.
                 Charges are handled by the configured provider instances.
               </p>
             </div>

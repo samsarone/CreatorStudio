@@ -48,6 +48,14 @@ import {
   filterSpeakersForAudioAvailability,
 } from '../../constants/audioProviderAvailability.js';
 import { filterOptionsForDeploymentModelValues } from '../../utils/deploymentProviders.js';
+import {
+  isProviderBilledVideoPricing,
+  isVideoModelAllowedForDeploymentScope,
+} from '../../utils/videoModelAvailability.mjs';
+import {
+  isCustomTextToImageModelKey,
+  mergeCustomTextToImageModelDefinitions,
+} from '../../utils/customTextToImageAdapters.mjs';
 
 import {
   COSMOS3_SUPER_MODEL_KEY,
@@ -124,8 +132,9 @@ export default function QuickEditor() {
   );
   const { audioAvailability } = useAudioProviderAvailability();
   const {
-    isDockerInstall: isDockerModelFilteringEnabled,
+    isStandaloneDeployment: isStandaloneModelFilteringEnabled,
     textToVideoImageModelValues,
+    textToVideoVideoModelValues,
   } = useDeploymentModelAvailability();
   const deploymentSpeakerTypes = useMemo(
     () => filterSpeakersForAudioAvailability(combinedSpeakerTypes, audioAvailability),
@@ -329,15 +338,18 @@ export default function QuickEditor() {
 
   // For infinite-zoom we only want certain models in the Image dropdown:
   const imageModelOptions = useMemo(() => {
-    const deploymentModels = isDockerModelFilteringEnabled
+    const deploymentModels = isStandaloneModelFilteringEnabled
       ? filterOptionsForDeploymentModelValues(
           IMAGE_GENERAITON_MODEL_TYPES,
           textToVideoImageModelValues,
           (model) => model.key
         )
       : IMAGE_GENERAITON_MODEL_TYPES;
+    const modelsWithCustomAdapters = isStandaloneModelFilteringEnabled
+      ? mergeCustomTextToImageModelDefinitions(deploymentModels, user?.custom_adapters)
+      : deploymentModels;
     if (videoType.value === 'Infinitezoom') {
-      return deploymentModels.filter(
+      return modelsWithCustomAdapters.filter(
         (model) =>
           model.key === 'FLUX1PRO'
       ).map((model) => ({
@@ -345,14 +357,14 @@ export default function QuickEditor() {
         label: model.name,
       }));
     } else {
-      return deploymentModels
+      return modelsWithCustomAdapters
         .filter((model) => model.isExpressModel === true)
         .map((model) => ({
           value: model.key,
           label: model.name,
         }));
     }
-  }, [isDockerModelFilteringEnabled, textToVideoImageModelValues, videoType]);
+  }, [isStandaloneModelFilteringEnabled, textToVideoImageModelValues, user?.custom_adapters, videoType]);
 
   const [selectedImageModel, setSelectedImageModel] = useState(() => {
     const defaultModel = localStorage.getItem('defaultModel');
@@ -424,6 +436,16 @@ export default function QuickEditor() {
     return storedModel ? JSON.parse(storedModel) : null;
   });
 
+  const selectedVideoUsesProviderBilling =
+    generativeVideoRequired &&
+    isProviderBilledVideoPricing(
+      VIDEO_MODEL_PRICES.find(
+        (model) => model.key === selectedVideoGenerationModel?.value
+      )
+    );
+  const bypassesSamsarCreditPricing =
+    isStandaloneModelFilteringEnabled || selectedVideoUsesProviderBilling;
+
   const [useEndFrame, setUseEndFrame] = useState(() => {
     const storedUseEndFrame = localStorage.getItem('defaultUseEndFrame');
     return storedUseEndFrame ? JSON.parse(storedUseEndFrame) : true; // default true
@@ -463,11 +485,52 @@ export default function QuickEditor() {
       return VIDEO_GENERATION_MODEL_TYPES.filter((m) => m.isTransitionModel);
     } else {
       // Default to Slideshow => show isExpressModel
-      return sortByExpressPriority(
-        VIDEO_GENERATION_MODEL_TYPES.filter((m) => m.isExpressModel)
+      const deploymentScopedModels = sortByExpressPriority(
+        VIDEO_GENERATION_MODEL_TYPES.filter(
+          (m) =>
+            m.isExpressModel &&
+            isVideoModelAllowedForDeploymentScope(m, isStandaloneModelFilteringEnabled)
+        )
       );
+      return isStandaloneModelFilteringEnabled
+        ? filterOptionsForDeploymentModelValues(
+          deploymentScopedModels,
+          textToVideoVideoModelValues,
+          (model) => model.key,
+        )
+        : deploymentScopedModels;
     }
-  }, [videoType]);
+  }, [
+    isStandaloneModelFilteringEnabled,
+    textToVideoVideoModelValues,
+    videoType,
+  ]);
+
+  useEffect(() => {
+    setSelectedVideoGenerationModel((current) => {
+      if (!current) return current;
+      const currentModel = videoGenerationModelOptions.find(
+        (model) => model.key === current.value
+      );
+      if (currentModel) return current;
+
+      const fallbackModel = videoGenerationModelOptions[0];
+      if (!fallbackModel) {
+        localStorage.removeItem('defaultSelectedGenerativeModel');
+        return null;
+      }
+
+      const fallbackOption = {
+        value: fallbackModel.key,
+        label: fallbackModel.name,
+      };
+      localStorage.setItem(
+        'defaultSelectedGenerativeModel',
+        JSON.stringify(fallbackOption)
+      );
+      return fallbackOption;
+    });
+  }, [videoGenerationModelOptions]);
 
   const durationOptionsForSelectedVideoModel = useMemo(() => {
     const defaultDurationOptions = [
@@ -1109,7 +1172,11 @@ export default function QuickEditor() {
     const imagePriceObj = imageModelPricing
       ? imageModelPricing.prices.find((price) => price.aspectRatio === aspectRatioValue)
       : null;
-    const imageCreditCostPerImage = imagePriceObj ? imagePriceObj.price : 8;
+    const imageCreditCostPerImage = isCustomTextToImageModelKey(imageModelKey)
+      ? 0
+      : imagePriceObj
+        ? imagePriceObj.price
+        : 8;
     const totalImageCredits = numImages * imageCreditCostPerImage;
     credits += totalImageCredits;
 
@@ -1161,21 +1228,22 @@ export default function QuickEditor() {
       const videoModelKey = selectedVideoGenerationModel.value;
       const aspectRatioValue = aspectRatio ? aspectRatio.value : '1:1';
       const videoModelPricing = VIDEO_MODEL_PRICES.find((model) => model.key === videoModelKey);
-      const videoPriceObj = videoModelPricing
-        ? videoModelPricing.prices.find((price) => price.aspectRatio === aspectRatioValue)
-        : null;
-      const videoPricePerUnit = videoPriceObj ? videoPriceObj.price : 90;
+      if (!isProviderBilledVideoPricing(videoModelPricing)) {
+        const videoPriceObj = videoModelPricing
+          ? videoModelPricing.prices.find((price) => price.aspectRatio === aspectRatioValue)
+          : null;
+        const videoPricePerUnit = videoPriceObj ? videoPriceObj.price : 90;
 
-      videoCredits = 0;
-      lineItems.forEach((line) => {
-        const lineLength = line.length;
-        let lineCost = videoPricePerUnit;
-        if (lineLength > 60) {
-          lineCost *= 2;
-        }
-        videoCredits += lineCost;
-      });
-      credits += videoCredits;
+        lineItems.forEach((line) => {
+          const lineLength = line.length;
+          let lineCost = videoPricePerUnit;
+          if (lineLength > 60) {
+            lineCost *= 2;
+          }
+          videoCredits += lineCost;
+        });
+        credits += videoCredits;
+      }
     }
 
     // Prompt Enhancement credits
@@ -1365,15 +1433,22 @@ export default function QuickEditor() {
         <div className="flex items-center space-x-2 mr-2">
           {/* Credits summary & toggle */}
           <div className="relative">
-            <div className="text-center items-center cursor-pointer" onClick={toggleCreditsBreakdown}>
+            <div
+              className={`text-center items-center ${bypassesSamsarCreditPricing ? '' : 'cursor-pointer'}`}
+              onClick={bypassesSamsarCreditPricing ? undefined : toggleCreditsBreakdown}
+            >
               <span className="font-bold text-sm text-neutral-100">
-                Incurs {creditsPreview} credits
+                {bypassesSamsarCreditPricing
+                  ? 'Uses configured provider APIs'
+                  : `Incurs ${creditsPreview} credits`}
               </span>
-              <FaChevronDown
-                className={`transform ${showCreditsBreakdown ? 'rotate-180' : ''} inline-flex text-sm mb-[2px] ml-1`}
-              />
+              {!bypassesSamsarCreditPricing && (
+                <FaChevronDown
+                  className={`transform ${showCreditsBreakdown ? 'rotate-180' : ''} inline-flex text-sm mb-[2px] ml-1`}
+                />
+              )}
             </div>
-            {showCreditsBreakdown && (
+            {showCreditsBreakdown && !bypassesSamsarCreditPricing && (
               <div
                 className={`absolute top-full right-0 ${textColor} ${bgGray2Color} p-2 rounded shadow-md mt-2 z-10`}
                 ref={creditsDropdownRef}

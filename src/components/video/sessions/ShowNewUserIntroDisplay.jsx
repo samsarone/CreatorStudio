@@ -1,8 +1,4 @@
-import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { useColorMode } from '../../../contexts/ColorMode.jsx';
-import { getHeaders } from '../../../utils/web';
-import { useNavigate } from 'react-router-dom';
 
 import { FaVideo, FaStar, FaQuestionCircle } from "react-icons/fa";
 
@@ -10,40 +6,19 @@ import { FaVideo, FaStar, FaQuestionCircle } from "react-icons/fa";
 import 'react-tooltip/dist/react-tooltip.css';
 import { Tooltip } from 'react-tooltip';
 
-const API_SERVER = import.meta.env.VITE_PROCESSOR_API;
-
 export default function ShowNewUserIntroDisplay(props) {
   const { createNewStudioSession, createNewVidGPTSession } = props;
-
-  const [, setIntroSessionList] = useState([]);
-  useState(null);
-  useNavigate();
-
-  useEffect(() => {
-    const headers = getHeaders();
-    axios.get(`${API_SERVER}/video_sessions/intro_sessions`, headers).then((dataRes) => {
-      const introSessionList = dataRes.data;
-      if (introSessionList.length > 0) {
-        setIntroSessionList(introSessionList);
-      }
-    });
-  }, []);
 
   const { colorMode } = useColorMode();
   const panelSurface =
     colorMode === 'dark'
-      ? 'bg-[#0b1021] text-slate-100 border border-[#1f2a3d]'
+      ? 'bg-[#0c0d12] text-slate-100 border border-[#3a4050]'
       : 'bg-slate-50 text-slate-900 border border-slate-200';
   const cardSurface =
     colorMode === 'dark'
-      ? 'bg-[#0f1629] border border-[#1f2a3d] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
+      ? 'bg-[#181b24] border border-[#3a4050] shadow-[0_14px_36px_rgba(0,0,0,0.35)]'
       : 'bg-white border border-slate-200 shadow-sm';
-  const iconStyle = colorMode === 'dark' ? 'text-rose-200' : 'text-indigo-500';
-
-
-
-  let introSessionsListDisplay = <span />;
-
+  const iconStyle = colorMode === 'dark' ? 'text-indigo-300' : 'text-indigo-500';
 
   return (
     <div>
@@ -91,7 +66,6 @@ export default function ShowNewUserIntroDisplay(props) {
 
           </div>
         </div>
-        {introSessionsListDisplay}
       </div>
 
       {/* 3) Render the Tooltip components, each with its matching ID */}

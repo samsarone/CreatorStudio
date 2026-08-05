@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FaPlus, FaStar } from 'react-icons/fa';
+import { createPortal } from 'react-dom';
+import { FaPlus, FaStar, FaTimes } from 'react-icons/fa';
 import { useColorMode } from '../../contexts/ColorMode.jsx';
 import { MdExplore, MdCreateNewFolder } from 'react-icons/md';
 import SingleSelect from './SingleSelect.jsx';
@@ -14,6 +15,7 @@ import {
 import { useLocalization } from '../../contexts/LocalizationContext.jsx';
 
 const CUSTOM_CANVAS_OPTION_VALUE = '__custom_canvas__';
+const NEXT_VIDEO_SESSION_INDEX_STORAGE_KEY = 'nextVideoSessionIndex';
 const FRIENDLY_PROJECT_PREFIXES = [
   'Sunlit',
   'Velvet',
@@ -45,6 +47,18 @@ const getRandomFriendlyProjectName = () => {
   return `${prefix} ${suffix}`;
 };
 
+const getStoredVideoSessionIndex = () => {
+  if (typeof window === 'undefined') {
+    return 1;
+  }
+
+  const storedIndex = Number.parseInt(
+    window.localStorage.getItem(NEXT_VIDEO_SESSION_INDEX_STORAGE_KEY) || '',
+    10
+  );
+  return Number.isFinite(storedIndex) && storedIndex > 0 ? storedIndex : 1;
+};
+
 function AddSessionDropdown(props) {
   const {
     createNewSession,
@@ -54,6 +68,7 @@ function AddSessionDropdown(props) {
     aspectRatioStorageKey = 'defaultAspectRatio',
     switchEditorLabel,
     onSwitchEditor,
+    additionalEditorActions = [],
     showStudioOption = true,
     showVideoOptions = true,
     useImageProjectModal = false,
@@ -80,6 +95,7 @@ function AddSessionDropdown(props) {
   const { t } = useLocalization();
   const [isOpen, setIsOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [sessionIndex, setSessionIndex] = useState(getStoredVideoSessionIndex);
   const [sessionName, setSessionName] = useState('');
   const [sessionDescription, setSessionDescription] = useState('');
   const [addBackgroundLayer, setAddBackgroundLayer] = useState(false);
@@ -88,22 +104,27 @@ function AddSessionDropdown(props) {
   const [customCanvasWidth, setCustomCanvasWidth] = useState('');
   const [customCanvasHeight, setCustomCanvasHeight] = useState('');
 
-  const bgColor = colorMode === 'dark' ? 'bg-[#15263f] hover:bg-[#1b3254]' : 'bg-neutral-200 hover:bg-neutral-300';
+  const bgColor = colorMode === 'dark'
+    ? 'border border-[#667188] bg-[#20232e] hover:border-[#ff4655]/60 hover:bg-[#292d3a] focus-visible:ring-2 focus-visible:ring-[#ffe0a3]/70'
+    : 'bg-neutral-200 hover:bg-neutral-300 focus-visible:ring-2 focus-visible:ring-blue-400/50';
   const textColor = colorMode === 'dark' ? 'text-neutral-100' : 'text-neutral-700';
+  const menuItemSurface = colorMode === 'dark'
+    ? 'text-slate-200 hover:bg-[#292d3a] focus-visible:bg-[#292d3a]'
+    : 'text-slate-700 hover:bg-slate-100 focus-visible:bg-slate-100';
   const menuSurface = colorMode === 'dark'
-    ? 'bg-[#0f172a]/98 ring-1 ring-white/10 shadow-[0_18px_38px_rgba(0,0,0,0.45)]'
+    ? 'bg-[#181b24]/98 ring-1 ring-[#3a4050] shadow-[0_18px_42px_rgba(0,0,0,0.38)] backdrop-blur-xl'
     : 'bg-white ring-1 ring-slate-200';
   const modalSurface = colorMode === 'dark'
-    ? 'bg-[#0f172a] text-slate-100'
+    ? 'bg-[#181b24] text-slate-100'
     : 'bg-white text-slate-900';
   const modalInputSurface = colorMode === 'dark'
-    ? 'bg-slate-900 border-slate-700 text-slate-100 placeholder-slate-400'
-    : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500';
+    ? 'bg-[#151720] border-[#667188] text-slate-100 placeholder-slate-400 focus:border-[#f6c453] focus:ring-[#f6c453]/24'
+    : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500 focus:border-blue-500 focus:ring-blue-500/30';
   const modalSecondaryButton = colorMode === 'dark'
-    ? 'bg-[#17253f] text-slate-100 hover:bg-[#1c3153] hover:shadow-[0_8px_18px_rgba(70,191,255,0.16)]'
+    ? 'border border-[#667188] bg-[#20232e] text-slate-100 hover:border-[#ff4655]/60 hover:bg-[#292d3a] hover:shadow-[0_8px_20px_rgba(255,70,85,0.14)]'
     : 'bg-slate-100 text-slate-800 hover:bg-white';
   const modalPrimaryButton = colorMode === 'dark'
-    ? 'bg-gradient-to-r from-[#46bfff] to-[#39d881] text-[#041420] hover:from-[#60cbff] hover:to-[#55e8a2] hover:shadow-[0_10px_24px_rgba(70,191,255,0.24)]'
+    ? 'bg-gradient-to-r from-[#ff4655] to-[#ff6b4a] text-[#080a10] hover:from-[#ff6572] hover:to-[#ff8066] hover:shadow-[0_10px_26px_rgba(255,70,85,0.22)]'
     : 'bg-rose-500 text-white hover:bg-rose-600';
   const triggerShadow = colorMode === 'dark' ? 'shadow-[0_8px_18px_rgba(3,12,28,0.18)]' : '';
 
@@ -237,13 +258,19 @@ function AddSessionDropdown(props) {
 
   const openVideoProjectModal = () => {
     setIsOpen(false);
-    setSessionName('');
+    setSessionName(`Session ${sessionIndex}`);
     setSessionDescription('');
     setIsProjectModalOpen(true);
   };
 
   const closeProjectModal = () => {
     setIsProjectModalOpen(false);
+  };
+
+  const handleDialogBackdropMouseDown = (event) => {
+    if (event.target === event.currentTarget) {
+      closeProjectModal();
+    }
   };
 
   useEffect(() => {
@@ -283,6 +310,12 @@ function AddSessionDropdown(props) {
         ...(resolvedSessionName ? { sessionName: resolvedSessionName } : {}),
         ...(resolvedSessionDescription ? { sessionDescription: resolvedSessionDescription } : {}),
       });
+      const nextSessionIndex = sessionIndex + 1;
+      setSessionIndex(nextSessionIndex);
+      window.localStorage.setItem(
+        NEXT_VIDEO_SESSION_INDEX_STORAGE_KEY,
+        String(nextSessionIndex)
+      );
       closeProjectModal();
       return;
     }
@@ -336,6 +369,14 @@ function AddSessionDropdown(props) {
     }
   };
 
+  const handleAdditionalEditorAction = (action) => {
+    if (typeof action?.onSelect === 'function') {
+      action.onSelect();
+      setIsOpen(false);
+      closeProjectModal();
+    }
+  };
+
   const handleMainButtonClick = () => {
     if (useImageProjectModal) {
       openProjectModal();
@@ -352,9 +393,12 @@ function AddSessionDropdown(props) {
   return (
     <div className="relative inline-block max-w-full text-left">
       <button
+        type="button"
         onClick={handleMainButtonClick}
         title={t("common.newProject")}
-        className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg py-2 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] focus:outline-none ${compact ? 'w-11 min-w-11 max-w-11 px-0' : 'w-full min-w-[118px] max-w-[152px] px-3'} ${textColor} ${bgColor} ${triggerShadow}`}
+        aria-haspopup="dialog"
+        aria-expanded={useImageProjectModal ? isProjectModalOpen : isOpen}
+        className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg py-1.5 text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] focus:outline-none sm:min-h-[38px] ${compact ? 'w-11 min-w-11 max-w-11 px-0 sm:w-[38px] sm:min-w-[38px] sm:max-w-[38px]' : 'w-full min-w-[110px] max-w-[144px] px-3'} ${textColor} ${bgColor} ${triggerShadow}`}
       >
         <FaPlus className="shrink-0" />
         <span className={compact ? 'sr-only' : 'truncate text-xs'}>{t("common.newProject")}</span>
@@ -363,30 +407,12 @@ function AddSessionDropdown(props) {
       {!useImageProjectModal && isOpen && (
         <div className={`absolute right-0 z-[1220] mt-2 min-w-[13rem] max-w-[calc(100vw-1rem)] origin-top-right overflow-hidden rounded-lg
          ${menuSurface}`} >
-          <div role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
-            <button
-
-              className={`block w-full px-3 py-2 text-left text-sm text-gray-700 ${textColor} ${bgColor}`}
-              role="menuitem"
-            >
-
-              <div>
-                <SingleSelect
-                  options={aspectRatioOptions}
-                  onChange={handleAspectRatioChange}
-                  value={aspectRatio}
-                />
-              </div>
-
-
-
-
-            </button>
+          <div className="p-1" role="dialog" aria-label={t("common.newProject")}>
             {showStudioOption && (
               <button
+                type="button"
                 onClick={openVideoProjectModal}
-                className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
-                role="menuitem"
+                className={`block w-full rounded-md px-3 py-1.5 text-left text-xs outline-none ${menuItemSurface}`}
               >
                 <MdCreateNewFolder className='inline-flex mb-1' /> {t("common.studio")}
               </button>
@@ -394,9 +420,9 @@ function AddSessionDropdown(props) {
 
             {showVideoOptions && (
               <button
+                type="button"
                 onClick={showAddNewVidGPTSession}
-                className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
-                role="menuitem"
+                className={`block w-full rounded-md px-3 py-1.5 text-left text-xs outline-none ${menuItemSurface}`}
               >
                 <FaStar className='inline-flex mb-1' /> {t("common.vidgenie")}
               </button>
@@ -404,18 +430,29 @@ function AddSessionDropdown(props) {
 
             {switchEditorLabel && onSwitchEditor && (
               <button
+                type="button"
                 onClick={handleSwitchEditor}
-                className={`block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
-                role="menuitem"
+                className={`block w-full rounded-md px-3 py-1.5 text-left text-xs outline-none ${menuItemSurface}`}
               >
                 <MdCreateNewFolder className='inline-flex mb-1' /> {switchEditorLabel}
               </button>
             )}
 
+            {additionalEditorActions.map((action) => (
+              <button
+                key={action.label}
+                type="button"
+                onClick={() => handleAdditionalEditorAction(action)}
+                className={`block w-full rounded-md px-3 py-1.5 text-left text-xs outline-none ${menuItemSurface}`}
+              >
+                <MdCreateNewFolder className='inline-flex mb-1' /> {action.label}
+              </button>
+            ))}
+
             <button
+              type="button"
               onClick={viewSessions}
-              className={`flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-600 ${textColor} ${bgColor}`}
-              role="menuitem"
+              className={`flex w-full items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-left text-xs outline-none ${menuItemSurface}`}
             >
               <MdExplore className="shrink-0" />
               <span className="whitespace-nowrap">{t("common.viewProjects")}</span>
@@ -426,19 +463,53 @@ function AddSessionDropdown(props) {
         </div>
       )}
 
-      {isProjectModalOpen && (
-        <div className="fixed inset-0 z-[11060] flex items-center justify-center p-3 sm:p-4">
+      {isProjectModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[11060] overflow-y-auto overscroll-contain">
           <button
             type="button"
             aria-label="Close create project dialog"
-            className="absolute inset-0 bg-black/60"
+            className="fixed inset-0 bg-black/60"
             onClick={closeProjectModal}
           />
-          <div className={`relative z-10 max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-xl p-4 shadow-[0_20px_46px_rgba(0,0,0,0.5)] sm:p-6 ${modalSurface}`}>
-            <form onSubmit={handleCreateSessionSubmit}>
-              <div className="text-lg font-semibold">
-                {useImageProjectModal ? 'Create new Image session' : 'Create new session'}
-              </div>
+          <div
+            className="relative z-10 flex min-h-full items-start justify-center p-3 sm:items-center sm:p-4"
+            onMouseDown={handleDialogBackdropMouseDown}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="create-project-dialog-title"
+              className={`max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-xl p-4 shadow-[0_20px_46px_rgba(0,0,0,0.5)] sm:max-h-[calc(100dvh-2rem)] sm:p-6 ${modalSurface}`}
+            >
+              <form onSubmit={handleCreateSessionSubmit}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div id="create-project-dialog-title" className="min-w-0 flex-1 text-lg font-semibold">
+                    {useImageProjectModal ? 'Create new Image session' : 'Create new session'}
+                  </div>
+                  {!useImageProjectModal && (
+                    <div className="w-[112px] shrink-0" aria-label="Session aspect ratio">
+                      <SingleSelect
+                        options={aspectRatioOptions}
+                        onChange={handleAspectRatioChange}
+                        value={aspectRatio}
+                        compactLayout
+                        isSearchable={false}
+                        name="new-session-aspect-ratio"
+                        styles={{
+                          menuPortal: (provided) => ({ ...provided, zIndex: 11080 }),
+                        }}
+                      />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={closeProjectModal}
+                    aria-label="Close create project dialog"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md opacity-75 transition hover:bg-black/10 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-current dark:hover:bg-white/10"
+                  >
+                    <FaTimes aria-hidden="true" />
+                  </button>
+                </div>
               {useImageProjectModal && (
                 <div className="mt-1 text-sm opacity-80">
                   Start a new image editing session with your preferred canvas setup.
@@ -457,7 +528,7 @@ function AddSessionDropdown(props) {
                     value={sessionName}
                     onChange={(event) => setSessionName(event.target.value)}
                     placeholder="Untitled project"
-                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                    className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${modalInputSurface}`}
                   />
                 </div>
 
@@ -473,7 +544,7 @@ function AddSessionDropdown(props) {
                       value={sessionDescription}
                       onChange={(event) => setSessionDescription(event.target.value)}
                       placeholder="Add a short description"
-                      className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                      className={`w-full resize-none rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${modalInputSurface}`}
                     />
                   </div>
                 )}
@@ -506,7 +577,7 @@ function AddSessionDropdown(props) {
                             step="1"
                             value={customCanvasWidth}
                             onChange={(event) => setCustomCanvasWidth(event.target.value)}
-                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${modalInputSurface}`}
                           />
                         </div>
 
@@ -522,7 +593,7 @@ function AddSessionDropdown(props) {
                             step="1"
                             value={customCanvasHeight}
                             onChange={(event) => setCustomCanvasHeight(event.target.value)}
-                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${modalInputSurface}`}
+                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 ${modalInputSurface}`}
                           />
                         </div>
                       </div>
@@ -579,37 +650,48 @@ function AddSessionDropdown(props) {
                   <button
                     type="button"
                     onClick={handleSwitchEditor}
-                    className={`min-h-[40px] px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                    className={`min-h-9 px-3 py-1.5 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
                   >
                     {switchEditorLabel}
                   </button>
                 )}
+                {additionalEditorActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => handleAdditionalEditorAction(action)}
+                    className={`min-h-9 px-3 py-1.5 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                  >
+                    {action.label}
+                  </button>
+                ))}
                 <button
                   type="button"
                   onClick={viewSessions}
-                  className={`inline-flex min-h-[40px] items-center justify-center whitespace-nowrap px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                  className={`inline-flex min-h-9 items-center justify-center whitespace-nowrap px-3 py-1.5 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
                 >
                   {t("common.viewProjects")}
                 </button>
                 <button
                   type="button"
                   onClick={closeProjectModal}
-                  className={`min-h-[40px] px-3 py-2 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
+                  className={`min-h-9 px-3 py-1.5 rounded-md text-sm transition-all duration-200 ease-out hover:-translate-y-[1px] ${modalSecondaryButton}`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={Boolean(useImageProjectModal && customCanvasValidationMessage)}
-                  className={`min-h-[40px] px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${modalPrimaryButton}`}
+                  className={`min-h-9 px-4 py-1.5 rounded-md text-sm font-semibold transition-all duration-200 ease-out hover:-translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-60 ${modalPrimaryButton}`}
                 >
                   Create session
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   );
 }
